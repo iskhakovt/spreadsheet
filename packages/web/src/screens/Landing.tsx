@@ -44,7 +44,7 @@ export function Landing() {
 function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
   const [encrypted, setEncrypted] = useState(false);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
-  const [showTiming, setShowTiming] = useState(true);
+  const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
   const [anatomyPicker, setAnatomyPicker] = useState<AnatomyPicker>("admin");
   const [loading, setLoading] = useState(false);
