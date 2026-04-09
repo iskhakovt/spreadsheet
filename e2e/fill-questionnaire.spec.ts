@@ -39,7 +39,7 @@ test.describe("questionnaire flow", () => {
     await expect(page.getByRole("radio", { name: "No" })).toBeVisible();
 
     // Answer with "Yes" → should show timing
-    await page.getByRole("radio", { name: "Yes" }).click();
+    await page.getByRole("radio", { name: "Yes" }).check();
     await expect(page.getByText("When?")).toBeVisible();
     await page.getByRole("button", { name: "Now" }).click();
 

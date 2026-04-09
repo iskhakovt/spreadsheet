@@ -82,52 +82,55 @@ export async function setTier(page: Page, tier: number) {
   await scopedSet(page, "selectedTier", String(tier));
 }
 
-/** Answer all visible questions until "All done!" appears. Handles welcome screens automatically. */
+/** Check if we've reached the end of questions. */
+function doneLocator(page: Page) {
+  return page.getByText("All done!").or(page.getByText("That's the last one"));
+}
+
+/** Answer all visible questions until done. Handles welcome screens automatically. */
 export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "maybe" = "yes") {
   for (let i = 0; i < 200; i++) {
     if (
-      await page
-        .getByText("All done!")
+      await doneLocator(page)
         .isVisible()
         .catch(() => false)
     )
       break;
 
-    // Wait for either a welcome screen "Start" or a question rating button
+    // Wait for either a welcome screen "Start" or a question rating label
     const startBtn = page.getByRole("button", { name: "Start" });
-    const ratingBtn = page.getByRole("radio", { name: "Yes" });
-    await expect(startBtn.or(ratingBtn).or(page.getByText("All done!"))).toBeVisible();
+    const ratingLabel = page.getByText("Yes", { exact: true });
+    await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
 
     if (
-      await page
-        .getByText("All done!")
+      await doneLocator(page)
         .isVisible()
         .catch(() => false)
     )
       break;
 
-    // Dismiss welcome screen if showing (has "Start" but no "Yes" button)
+    // Dismiss welcome screen if showing (has "Start" but no rating labels)
     if (await startBtn.isVisible().catch(() => false)) {
-      if (!(await ratingBtn.isVisible().catch(() => false))) {
+      if (!(await ratingLabel.isVisible().catch(() => false))) {
         await startBtn.click();
         continue;
       }
     }
 
     if (rating === "yes") {
-      await page.getByRole("radio", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes" }).check();
       // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
       const nowBtn = page.getByRole("button", { name: "Now" });
       if (await nowBtn.isVisible().catch(() => false)) {
         await nowBtn.click();
       }
     } else if (rating === "no") {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No" }).check();
     } else {
-      await page.getByRole("radio", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe" }).check();
     }
   }
-  await expect(page.getByText("All done!")).toBeVisible();
+  await expect(doneLocator(page)).toBeVisible();
 }
 
 /**
