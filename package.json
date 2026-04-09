@@ -13,12 +13,14 @@
     "test": "vitest run",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.0",
     "@playwright/test": "^1.59.1",
     "@testcontainers/postgresql": "^11.13.0",
+    "husky": "^9.1.7",
     "testcontainers": "^11.13.0",
     "typescript": "^6.0.0",
     "vitest": "^4.1.0"

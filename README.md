@@ -11,11 +11,8 @@ TypeScript full stack — Hono, tRPC, Drizzle, React, Vite, Tailwind, shadcn/ui.
 ```bash
 # Prerequisites: Node 24, pnpm, Docker
 
-# Install dependencies
+# Install dependencies (also sets up pre-commit hooks via Husky)
 pnpm install
-
-# Set up pre-commit hooks
-git config core.hooksPath scripts/hooks
 
 # Start everything (Postgres + schema + server + web)
 pnpm dev
