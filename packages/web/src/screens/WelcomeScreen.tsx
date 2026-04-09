@@ -35,7 +35,7 @@ export function WelcomeScreen({
   const cat = categoryMap[screen.categoryId];
   return (
     <Card>
-      <div className="animate-in space-y-6 pt-12 text-center">
+      <div className="animate-in space-y-6 text-center">
         <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
           {cat?.label}
         </h2>

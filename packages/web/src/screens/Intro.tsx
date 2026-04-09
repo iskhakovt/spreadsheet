@@ -11,7 +11,7 @@ export function Intro({ showTiming, onDone }: { showTiming: boolean; onDone: () 
 
   return (
     <Card>
-      <div className="space-y-8 pt-6">
+      <div className="space-y-8">
         <h1 className="text-2xl font-bold">{UI.intro.title}</h1>
         <ol className="space-y-4">
           {UI.intro.steps.map((step, i) => (

@@ -93,7 +93,7 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
   if (done && generatedLinks.length > 0) {
     return (
       <Card>
-        <div className="animate-in space-y-6 pt-8">
+        <div className="animate-in space-y-6">
           <div>
             <h1 className="text-2xl font-bold">You're all set</h1>
             <p className="text-sm text-text-muted mt-1">Share these links with your partners</p>
@@ -135,7 +135,7 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
 
   return (
     <Card>
-      <div className="animate-in space-y-6 pt-8">
+      <div className="animate-in space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Set up your group</h1>
           <p className="text-sm text-text-muted mt-1">Add yourself and your partners</p>

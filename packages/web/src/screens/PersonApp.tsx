@@ -346,7 +346,7 @@ function PickAnatomyScreen({
 
   return (
     <Card>
-      <div className="space-y-6 pt-12">
+      <div className="space-y-6">
         <h1 className="text-2xl font-bold">One quick thing</h1>
         <p className="text-text-muted">Pick your body type so we can show you relevant questions.</p>
         <AnatomyPicker selected={selected} onSelect={setSelected} labels={labels} />
@@ -382,7 +382,7 @@ function OnboardingForm({
 
   return (
     <Card>
-      <div className="animate-in space-y-6 pt-8">
+      <div className="animate-in space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Welcome</h1>
           <p className="text-sm text-text-muted mt-1">Tell us a bit about yourself</p>
