@@ -1,7 +1,8 @@
 import type { Answer } from "@spreadsheet/shared";
 import { useEffect, useState } from "react";
 import { Card } from "../components/Card.js";
-import { classifyMatch, type MatchType } from "../lib/classify-match.js";
+import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
+import type { MatchType } from "../lib/classify-match.js";
 import { unwrapSensitive } from "../lib/crypto.js";
 import { replayJournal } from "../lib/journal.js";
 import { trpc } from "../lib/trpc.js";
@@ -24,9 +25,7 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
 
 export function Comparison() {
   const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
-  const [questions, setQuestions] = useState<
-    Record<string, { text: string; categoryId: string; giveText: string | null; receiveText: string | null }>
-  >({});
+  const [questions, setQuestions] = useState<Record<string, QuestionInfo>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -113,49 +112,21 @@ function PairComparison({
 }: {
   a: MemberAnswers;
   b: MemberAnswers;
-  questions: Record<string, { text: string; categoryId: string; giveText: string | null; receiveText: string | null }>;
+  questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
 }) {
-  // Collect all keys from both members
-  const allKeys = new Set([...Object.keys(a.answers), ...Object.keys(b.answers)]);
+  const pairMatches = buildPairMatches(a.answers, b.answers, questions, a.name);
 
   // Group matches by category
-  const grouped: Record<
-    string,
-    {
-      label: string;
-      matches: { key: string; displayText: string; matchType: MatchType; aRating: Answer; bRating: Answer }[];
-    }
-  > = {};
-
-  for (const key of allKeys) {
-    const answerA = a.answers[key];
-    const answerB = b.answers[key];
-    if (!answerA || !answerB) continue;
-
-    const [questionId, role] = key.split(":");
-    const q = questions[questionId];
+  const grouped: Record<string, { label: string; matches: typeof pairMatches }> = {};
+  for (const match of pairMatches) {
+    const q = questions[match.questionId];
     if (!q) continue;
-
-    const matchType = classifyMatch(answerA, answerB);
-    if (matchType === "hidden") continue;
-
     const categoryId = q.categoryId;
     if (!grouped[categoryId]) {
       grouped[categoryId] = { label: categories[categoryId] ?? categoryId, matches: [] };
     }
-
-    let displayText = q.text;
-    if (role === "give" && q.giveText) displayText = `${q.text} (${a.name} giving)`;
-    if (role === "receive" && q.receiveText) displayText = `${q.text} (${a.name} receiving)`;
-
-    grouped[categoryId].matches.push({
-      key,
-      displayText,
-      matchType,
-      aRating: answerA,
-      bRating: answerB,
-    });
+    grouped[categoryId].matches.push(match);
   }
 
   // Sort matches: green-light first, then match, then maybe, then possible, then fantasy
@@ -179,7 +150,10 @@ function PairComparison({
                 .map((match) => {
                   const style = MATCH_STYLES[match.matchType];
                   return (
-                    <div key={match.key} className={`px-4 py-3 rounded-lg ${style.bg}`}>
+                    <div
+                      key={`${match.questionId}-${match.displayText}`}
+                      className={`px-4 py-3 rounded-lg ${style.bg}`}
+                    >
                       <div className="flex items-center justify-between">
                         <span className={`font-medium ${match.matchType === "fantasy" ? "italic" : ""}`}>
                           {match.displayText}
