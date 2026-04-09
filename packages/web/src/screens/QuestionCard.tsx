@@ -66,20 +66,18 @@ export function QuestionCard({
         )}
       </div>
 
-      {/* Question text */}
-      <div className="min-h-[3.5rem] mb-2">
+      {/* Question text + description — fixed height zone so buttons don't jump */}
+      <div className="min-h-[6rem] mb-2">
         <h2 className="text-2xl font-bold leading-tight">{screen.displayText}</h2>
+        {screen.question.description && (
+          <button type="button" onClick={onToggleDescription} className="text-sm text-text-muted mt-3 block">
+            {UI.question.whatsThis} {showDescription ? "\u25B4" : "\u25BE"}
+          </button>
+        )}
+        {showDescription && screen.question.description && (
+          <p className="text-sm text-text-muted mt-2 leading-relaxed">{screen.question.description}</p>
+        )}
       </div>
-
-      {/* What's this? */}
-      {screen.question.description && (
-        <button type="button" onClick={onToggleDescription} className="text-sm text-text-muted mb-4 block">
-          {UI.question.whatsThis} {showDescription ? "\u25B4" : "\u25BE"}
-        </button>
-      )}
-      {showDescription && screen.question.description && (
-        <p className="text-sm text-text-muted mb-6 leading-relaxed">{screen.question.description}</p>
-      )}
 
       {/* Timing sub-question */}
       {showTiming ? (

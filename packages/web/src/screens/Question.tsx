@@ -175,17 +175,35 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     );
   }
 
-  // --- All done ---
+  // --- End of screens ---
   const allAnswered = qScreens.every((s) => answers[s.key]);
-  if (allAnswered && index >= screens.length) {
+  if (index >= screens.length) {
+    const answeredCount = Object.keys(answers).length;
     return (
       <Card>
         <div className="pt-16 text-center space-y-6">
-          <h1 className="text-2xl font-bold">All done!</h1>
-          <p className="text-text-muted">{UI.review.answered(Object.keys(answers).length, qScreens.length)}</p>
-          <Button fullWidth onClick={handleMarkComplete}>
-            {UI.review.done}
-          </Button>
+          <h1 className="text-2xl font-bold">{allAnswered ? "All done!" : "That's the last one"}</h1>
+          <p className="text-text-muted">{UI.review.answered(answeredCount, qScreens.length)}</p>
+          {allAnswered ? (
+            <Button fullWidth onClick={handleMarkComplete}>
+              {UI.review.done}
+            </Button>
+          ) : (
+            <>
+              <Button
+                fullWidth
+                onClick={() => {
+                  const first = screens.findIndex((s) => s.type === "question" && !answers[s.key]);
+                  setIndex(first !== -1 ? first : 0);
+                }}
+              >
+                Answer remaining questions
+              </Button>
+              <Button variant="ghost" fullWidth onClick={handleMarkComplete}>
+                {UI.review.done}
+              </Button>
+            </>
+          )}
         </div>
       </Card>
     );
