@@ -48,6 +48,8 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const syncIndicatorTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSyncRef = useRef<() => Promise<void>>(undefined);
+  const handleRatingRef = useRef<(rating: Rating) => void>(undefined);
+  const handleTimingRef = useRef<(timing: Timing) => void>(undefined);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const answers = getAnswers();
   const pendingOps = getPendingOps();
@@ -146,11 +148,11 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         setShowTiming(false);
         setShowDescription(false);
       } else if (showTiming && (e.key === "1" || e.key === "n")) {
-        handleTiming("now");
+        handleTimingRef.current?.("now");
       } else if (showTiming && (e.key === "2" || e.key === "l")) {
-        handleTiming("later");
+        handleTimingRef.current?.("later");
       } else if (!showTiming && keyRatingMap[e.key]) {
-        handleRating(keyRatingMap[e.key]);
+        handleRatingRef.current?.(keyRatingMap[e.key]);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -289,6 +291,9 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     setShowTiming(false);
     setPendingRating(null);
   }
+
+  handleRatingRef.current = handleRating;
+  handleTimingRef.current = handleTiming;
 
   async function saveAnswer(rating: Rating, timing: Timing | null) {
     const current = screens[Math.min(index, screens.length - 1)];

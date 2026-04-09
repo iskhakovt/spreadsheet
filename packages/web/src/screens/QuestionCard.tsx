@@ -129,6 +129,13 @@ export function QuestionCard({
           {RATING_OPTIONS.map((opt) => (
             <label
               key={opt.rating}
+              onClick={() => onRating(opt.rating)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onRating(opt.rating);
+                }
+              }}
               className={cn(
                 "flex items-center justify-center w-full",
                 "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
@@ -145,7 +152,7 @@ export function QuestionCard({
                 name="rating"
                 value={opt.rating}
                 checked={existingAnswer?.rating === opt.rating}
-                onChange={() => onRating(opt.rating)}
+                readOnly
                 className="sr-only"
               />
               {opt.label}

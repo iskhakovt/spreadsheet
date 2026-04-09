@@ -106,7 +106,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
 
   return (
-    <main className="min-h-screen px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center">Your results</h1>
 
@@ -169,7 +169,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 

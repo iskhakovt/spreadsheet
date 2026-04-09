@@ -124,121 +124,123 @@ export function PersonApp() {
       >
         Skip to content
       </a>
-      <Switch>
-        {shouldRedirect && <Redirect to={defaultRoute} replace />}
+      <main id="main-content">
+        <Switch>
+          {shouldRedirect && <Redirect to={defaultRoute} replace />}
 
-        <Route path="/setup">
-          <NonAdminOnboarding status={status} onDone={refreshStatus} />
-        </Route>
+          <Route path="/setup">
+            <NonAdminOnboarding status={status} onDone={refreshStatus} />
+          </Route>
 
-        <Route path="/pending">
-          <PendingScreen status={status} />
-        </Route>
+          <Route path="/pending">
+            <PendingScreen status={status} />
+          </Route>
 
-        <Route path="/invite">
-          <Invite
-            members={status.members}
-            group={status.group}
-            onGroupReady={async () => {
-              await trpc.groups.markReady.mutate();
-              await refreshStatus();
-            }}
-            onStartFilling={() => {
-              if (!getHasSeenIntro()) navigate("/intro");
-              else navigate("/questions");
-            }}
-          />
-        </Route>
-
-        <Route path="/anatomy">
-          <PickAnatomyScreen status={status} onDone={refreshStatus} />
-        </Route>
-
-        <Route path="/intro">
-          <Intro showTiming={status.group.showTiming} onDone={() => navigate("/questions")} />
-        </Route>
-
-        <Route path="/questions">
-          <Question
-            person={status.person}
-            group={status.group}
-            members={status.members}
-            onDone={refreshStatus}
-            onSummary={() => navigate("/summary")}
-            startKey={startKey}
-            onStartKeyConsumed={() => setStartKey(undefined)}
-          />
-        </Route>
-
-        <Route path="/summary">
-          {questionsData ? (
-            <Summary
-              questions={questionsData.questions as QuestionData[]}
-              categories={questionsData.categories as CategoryData[]}
-              isAdmin={status.person.isAdmin}
-              onNavigateToCategory={(catId) => {
-                setStartKey(`welcome:${catId}`);
-                navigate("/questions");
-              }}
-              onBack={() => navigate("/questions")}
-              onReview={() => navigate("/review")}
-              onViewGroup={() => navigate("/invite")}
-            />
-          ) : (
-            <Card>
-              <div className="pt-32 text-center text-text-muted">Loading...</div>
-            </Card>
-          )}
-        </Route>
-
-        <Route path="/review">
-          {questionsData ? (
-            <Review
-              questions={questionsData.questions as QuestionData[]}
-              categories={questionsData.categories as CategoryData[]}
-              onMarkComplete={async () => {
-                await trpc.sync.markComplete.mutate();
+          <Route path="/invite">
+            <Invite
+              members={status.members}
+              group={status.group}
+              onGroupReady={async () => {
+                await trpc.groups.markReady.mutate();
                 await refreshStatus();
-                navigate("/waiting");
               }}
-              onViewProgress={() => navigate("/summary")}
-              onEditQuestion={(key) => {
-                setStartKey(key);
-                navigate("/questions");
+              onStartFilling={() => {
+                if (!getHasSeenIntro()) navigate("/intro");
+                else navigate("/questions");
               }}
             />
-          ) : (
-            <Card>
-              <div className="pt-32 text-center text-text-muted">Loading...</div>
-            </Card>
-          )}
-        </Route>
+          </Route>
 
-        <Route path="/waiting">
-          <WaitingScreen status={status} allComplete={allComplete} navigate={navigate} />
-        </Route>
+          <Route path="/anatomy">
+            <PickAnatomyScreen status={status} onDone={refreshStatus} />
+          </Route>
 
-        <Route path="/results">
-          <Suspense
-            fallback={
+          <Route path="/intro">
+            <Intro showTiming={status.group.showTiming} onDone={() => navigate("/questions")} />
+          </Route>
+
+          <Route path="/questions">
+            <Question
+              person={status.person}
+              group={status.group}
+              members={status.members}
+              onDone={refreshStatus}
+              onSummary={() => navigate("/summary")}
+              startKey={startKey}
+              onStartKeyConsumed={() => setStartKey(undefined)}
+            />
+          </Route>
+
+          <Route path="/summary">
+            {questionsData ? (
+              <Summary
+                questions={questionsData.questions as QuestionData[]}
+                categories={questionsData.categories as CategoryData[]}
+                isAdmin={status.person.isAdmin}
+                onNavigateToCategory={(catId) => {
+                  setStartKey(`welcome:${catId}`);
+                  navigate("/questions");
+                }}
+                onBack={() => navigate("/questions")}
+                onReview={() => navigate("/review")}
+                onViewGroup={() => navigate("/invite")}
+              />
+            ) : (
               <Card>
-                <div className="pt-32 text-center text-text-muted">Loading results...</div>
+                <div className="pt-32 text-center text-text-muted">Loading...</div>
               </Card>
-            }
-          >
-            <Comparison
-              onBack={async () => {
-                await trpc.sync.unmarkComplete.mutate();
-                await refreshStatus();
-              }}
-            />
-          </Suspense>
-        </Route>
+            )}
+          </Route>
 
-        <Route>
-          <Redirect to={defaultRoute} replace />
-        </Route>
-      </Switch>
+          <Route path="/review">
+            {questionsData ? (
+              <Review
+                questions={questionsData.questions as QuestionData[]}
+                categories={questionsData.categories as CategoryData[]}
+                onMarkComplete={async () => {
+                  await trpc.sync.markComplete.mutate();
+                  await refreshStatus();
+                  navigate("/waiting");
+                }}
+                onViewProgress={() => navigate("/summary")}
+                onEditQuestion={(key) => {
+                  setStartKey(key);
+                  navigate("/questions");
+                }}
+              />
+            ) : (
+              <Card>
+                <div className="pt-32 text-center text-text-muted">Loading...</div>
+              </Card>
+            )}
+          </Route>
+
+          <Route path="/waiting">
+            <WaitingScreen status={status} allComplete={allComplete} navigate={navigate} />
+          </Route>
+
+          <Route path="/results">
+            <Suspense
+              fallback={
+                <Card>
+                  <div className="pt-32 text-center text-text-muted">Loading results...</div>
+                </Card>
+              }
+            >
+              <Comparison
+                onBack={async () => {
+                  await trpc.sync.unmarkComplete.mutate();
+                  await refreshStatus();
+                }}
+              />
+            </Suspense>
+          </Route>
+
+          <Route>
+            <Redirect to={defaultRoute} replace />
+          </Route>
+        </Switch>
+      </main>
     </ErrorBoundary>
   );
 }
