@@ -23,8 +23,8 @@ export default async function globalSetup() {
 
   // Start the server on a random port
   const staticRoot = resolve(import.meta.dirname, "../packages/web/dist");
-  serverProcess = spawn("pnpm", ["exec", "tsx", "packages/server/src/main.ts", "serve"], {
-    cwd: resolve(import.meta.dirname, ".."),
+  serverProcess = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
+    cwd: serverDir,
     env: {
       ...process.env,
       DATABASE_URL: url,
@@ -50,6 +50,10 @@ export default async function globalSetup() {
       console.error("[Server]", data.toString());
     });
     serverProcess.on("error", reject);
+    serverProcess.on("close", (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`Server exited with code ${code} before printing port`));
+    });
   });
 
   // Write port for Playwright fixtures to read
