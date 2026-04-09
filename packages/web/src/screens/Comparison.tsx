@@ -189,7 +189,6 @@ function PairComparison({
 
   // Sort categories and questions in the same order as the question flow
   const sortedCategories = categoryOrder.filter((id) => grouped[id]);
-  const matchOrder: MatchType[] = ["green-light", "match", "both-maybe", "possible", "fantasy"];
 
   return (
     <div className="space-y-6">
