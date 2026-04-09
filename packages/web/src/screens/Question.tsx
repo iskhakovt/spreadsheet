@@ -145,6 +145,10 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         setIndex((i) => Math.min(screens.length, i + 1));
         setShowTiming(false);
         setShowDescription(false);
+      } else if (showTiming && (e.key === "1" || e.key === "n")) {
+        handleTiming("now");
+      } else if (showTiming && (e.key === "2" || e.key === "l")) {
+        handleTiming("later");
       } else if (!showTiming && keyRatingMap[e.key]) {
         handleRating(keyRatingMap[e.key]);
       }

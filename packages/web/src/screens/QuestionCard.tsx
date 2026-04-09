@@ -122,6 +122,7 @@ export function QuestionCard({
               {UI.question.later}
             </Button>
           </div>
+          <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1 or 2</p>
         </div>
       ) : (
         <fieldset aria-label="Rate this activity" className="space-y-3 mb-6 mt-6">
