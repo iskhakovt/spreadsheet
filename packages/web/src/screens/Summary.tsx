@@ -82,7 +82,13 @@ export function Summary({
         </div>
 
         {/* Overall progress bar */}
-        <div className="h-2 bg-surface rounded-full overflow-hidden">
+        <div
+          className="h-2 bg-surface rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={totalAnswered}
+          aria-valuemax={totalQuestions}
+          aria-label="Overall progress"
+        >
           <div
             className="h-full bg-accent rounded-full transition-all duration-300"
             style={{ width: `${totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0}%` }}
@@ -125,26 +131,12 @@ export function Summary({
               }`}
             >
               {/* Toggle */}
-              <button
-                type="button"
-                onClick={() => toggleCategory(category.id)}
-                className={`w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-colors ${
-                  enabled ? "bg-accent border-accent" : "border-border"
-                }`}
-              >
-                {enabled && (
-                  <svg
-                    aria-hidden="true"
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={() => toggleCategory(category.id)}
+                aria-label={`Include ${category.label}`}
+              />
 
               {/* Category info + jump */}
               <button
@@ -160,7 +152,13 @@ export function Summary({
                   </span>
                 </div>
                 {enabled && total > 0 && (
-                  <div className="mt-1.5 h-1 bg-bg rounded-full overflow-hidden">
+                  <div
+                    className="mt-1.5 h-1 bg-bg rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={answered}
+                    aria-valuemax={total}
+                    aria-label={`${category.label} progress`}
+                  >
                     <div
                       className="h-full bg-accent/60 rounded-full transition-all duration-300"
                       style={{ width: `${(answered / total) * 100}%` }}

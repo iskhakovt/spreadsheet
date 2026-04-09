@@ -1,9 +1,26 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
+import type { RefObject } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
 import type { QuestionScreen } from "../lib/build-screens.js";
+import { cn } from "../lib/cn.js";
 import { UI } from "../lib/strings.js";
+
+const RATING_OPTIONS: readonly { rating: Rating; label: string; variant: string; italic?: boolean }[] = [
+  { rating: "yes", label: UI.question.yes, variant: "accent" },
+  { rating: "if-partner-wants", label: UI.question.willing, variant: "accent-light" },
+  { rating: "maybe", label: UI.question.maybe, variant: "neutral" },
+  { rating: "fantasy", label: UI.question.fantasy, variant: "neutral", italic: true },
+  { rating: "no", label: UI.question.no, variant: "outline" },
+];
+
+const variantStyles: Record<string, string> = {
+  accent: "bg-accent text-accent-fg shadow-sm hover:shadow-md hover:brightness-105",
+  "accent-light": "bg-accent-light text-accent-fg shadow-sm hover:shadow-md hover:brightness-105",
+  neutral: "bg-neutral text-neutral-fg shadow-sm hover:brightness-105",
+  outline: "bg-transparent text-neutral border-2 border-neutral/60 hover:border-neutral hover:bg-neutral/5",
+};
 
 interface QuestionCardProps {
   screen: QuestionScreen;
@@ -18,6 +35,7 @@ interface QuestionCardProps {
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   onRating: (rating: Rating) => void;
   onTiming: (timing: Timing) => void;
   onBack: () => void;
@@ -40,6 +58,7 @@ export function QuestionCard({
   syncing,
   showSyncIndicator,
   pendingCount,
+  headingRef,
   onRating,
   onTiming,
   onBack,
@@ -66,11 +85,23 @@ export function QuestionCard({
         )}
       </div>
 
+      {/* Screen reader announcement */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        Question {posInCategory} of {catQuestionScreens.length}, {category?.label}
+      </div>
+
       {/* Question text + description — fixed height zone so buttons don't jump */}
       <div className="min-h-[6rem] mb-2">
-        <h2 className="text-2xl font-bold leading-tight">{screen.displayText}</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold leading-tight outline-none">
+          {screen.displayText}
+        </h2>
         {screen.question.description && (
-          <button type="button" onClick={onToggleDescription} className="text-sm text-text-muted mt-3 block">
+          <button
+            type="button"
+            onClick={onToggleDescription}
+            aria-expanded={showDescription}
+            className="text-sm text-text-muted mt-3 block"
+          >
             {UI.question.whatsThis} {showDescription ? "\u25B4" : "\u25BE"}
           </button>
         )}
@@ -93,32 +124,34 @@ export function QuestionCard({
           </div>
         </div>
       ) : (
-        <div className="space-y-3 mb-6 mt-6">
-          {(
-            [
-              { rating: "yes" as const, label: UI.question.yes, variant: "accent" as const },
-              { rating: "if-partner-wants" as const, label: UI.question.willing, variant: "accent-light" as const },
-              { rating: "maybe" as const, label: UI.question.maybe, variant: "neutral" as const },
-              {
-                rating: "fantasy" as const,
-                label: UI.question.fantasy,
-                variant: "neutral" as const,
-                className: "italic",
-              },
-              { rating: "no" as const, label: UI.question.no, variant: "outline" as const },
-            ] as const
-          ).map((btn) => (
-            <Button
-              key={btn.rating}
-              variant={btn.variant}
-              fullWidth
-              className={`${"className" in btn ? btn.className : ""} ${existingAnswer?.rating === btn.rating ? "ring-2 ring-accent ring-offset-2 ring-offset-bg" : ""}`}
-              onClick={() => onRating(btn.rating)}
+        <fieldset aria-label="Rate this activity" className="space-y-3 mb-6 mt-6">
+          {RATING_OPTIONS.map((opt) => (
+            <label
+              key={opt.rating}
+              className={cn(
+                "flex items-center justify-center w-full",
+                "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
+                "transition-all duration-200 ease-out",
+                "active:scale-[0.97] active:shadow-none",
+                "cursor-pointer select-none",
+                variantStyles[opt.variant],
+                opt.italic && "italic",
+                existingAnswer?.rating === opt.rating && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
+              )}
             >
-              {btn.label}
-            </Button>
+              <input
+                type="radio"
+                name="rating"
+                value={opt.rating}
+                checked={existingAnswer?.rating === opt.rating}
+                onChange={() => onRating(opt.rating)}
+                className="sr-only"
+              />
+              {opt.label}
+            </label>
           ))}
-        </div>
+          <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
+        </fieldset>
       )}
 
       {/* Navigation */}
@@ -127,14 +160,20 @@ export function QuestionCard({
           type="button"
           onClick={onBack}
           disabled={index === 0}
-          className="flex items-center gap-1 text-text-muted disabled:opacity-30"
+          aria-label="Previous question"
+          className="flex items-center gap-1 text-text-muted disabled:opacity-50"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           {UI.question.back}
         </button>
-        <button type="button" onClick={onSkip} className="flex items-center gap-1 text-text-muted">
+        <button
+          type="button"
+          onClick={onSkip}
+          aria-label="Skip question"
+          className="flex items-center gap-1 text-text-muted"
+        >
           {UI.question.skip}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
             <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -143,7 +182,13 @@ export function QuestionCard({
       </div>
 
       {/* Progress bar + sync */}
-      <div className="mt-6 h-1.5 bg-surface rounded-full overflow-hidden">
+      <div
+        className="mt-6 h-1.5 bg-surface rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={totalAnswered}
+        aria-valuemax={totalQuestions}
+        aria-label="Overall progress"
+      >
         <div
           className="h-full bg-accent rounded-full transition-all duration-300"
           style={{ width: `${totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0}%` }}

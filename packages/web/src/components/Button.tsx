@@ -25,7 +25,7 @@ export function Button({ variant = "accent", fullWidth = false, className, child
         "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
         "transition-all duration-200 ease-out",
         "active:scale-[0.97] active:shadow-none",
-        "disabled:opacity-40 disabled:pointer-events-none",
+        "disabled:opacity-50 disabled:pointer-events-none",
         "cursor-pointer select-none",
         variantStyles[variant],
         fullWidth && "w-full",

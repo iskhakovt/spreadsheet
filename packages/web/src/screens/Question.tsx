@@ -48,6 +48,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const syncIndicatorTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSyncRef = useRef<() => Promise<void>>(undefined);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const answers = getAnswers();
   const pendingOps = getPendingOps();
 
@@ -121,7 +122,19 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     if (current) setCurrentScreenKey(current.key);
   }, [index, screens]);
 
-  // Arrow key navigation
+  // Focus heading on question transition
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [index]);
+
+  // Keyboard navigation: arrows + number keys for ratings
+  const keyRatingMap: Record<string, Rating> = {
+    "1": "yes",
+    "2": "if-partner-wants",
+    "3": "maybe",
+    "4": "fantasy",
+    "5": "no",
+  };
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") {
@@ -132,11 +145,13 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         setIndex((i) => Math.min(screens.length, i + 1));
         setShowTiming(false);
         setShowDescription(false);
+      } else if (!showTiming && keyRatingMap[e.key]) {
+        handleRating(keyRatingMap[e.key]);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [screens.length]);
+  }, [screens.length, showTiming]);
 
   // Auto-sync 3s after last answer, show indicator after 5s
   useEffect(() => {
@@ -293,6 +308,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         screens={screens}
         index={index}
         setIndex={setIndex}
+        headingRef={headingRef}
         syncing={syncing}
         showSyncIndicator={showSyncIndicator}
         pendingCount={pendingOps.length}
@@ -331,6 +347,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
       onToggleDescription={() => setShowDescription((v) => !v)}
       onSync={handleSync}
       onSummary={onSummary}
+      headingRef={headingRef}
     />
   );
 }

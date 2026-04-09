@@ -12,7 +12,7 @@ for (const encrypted of [false, true]) {
       await expect(page.getByText(/\d+ questions/)).toBeVisible();
       await page.getByRole("button", { name: "Start" }).click();
 
-      await expect(page.getByRole("button", { name: "Yes" })).toBeVisible();
+      await expect(page.getByRole("radio", { name: "Yes" })).toBeVisible();
       expect(page.url()).toMatch(/\/questions/);
 
       await page.reload();
@@ -21,7 +21,7 @@ for (const encrypted of [false, true]) {
       // But the URL stays on /questions
       expect(page.url()).toMatch(/\/questions/);
       // Wait for content to load — either welcome or question screen
-      await expect(page.getByText(/\d+ questions/).or(page.getByRole("button", { name: "Yes" }))).toBeVisible({
+      await expect(page.getByText(/\d+ questions/).or(page.getByRole("radio", { name: "Yes" }))).toBeVisible({
         timeout: 10000,
       });
     });

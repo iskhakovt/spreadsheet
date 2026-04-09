@@ -106,12 +106,12 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
 
   return (
-    <div className="min-h-screen px-4 py-8">
+    <main className="min-h-screen px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center">Your results</h1>
 
         {showTabs && (
-          <div className="flex gap-2 justify-center flex-wrap">
+          <div className="flex gap-2 justify-center flex-wrap" role="tablist" aria-label="Pair results">
             {pairs.map(({ a, b }) => {
               const pk = pairKey(a, b);
               const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
@@ -119,6 +119,10 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
                 <button
                   key={pk}
                   type="button"
+                  role="tab"
+                  aria-selected={isActive ?? false}
+                  aria-controls="pair-tabpanel"
+                  id={`tab-${pk}`}
                   onClick={() => setActivePairKey(pk)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                     isActive ? "bg-accent text-white" : "bg-surface text-text-muted hover:text-text"
@@ -131,16 +135,29 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
           </div>
         )}
 
-        {visiblePair && (
+        {visiblePair && showTabs && (
+          <div role="tabpanel" id="pair-tabpanel" aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}>
+            <PairComparison
+              key={`${visiblePair.a.id}-${visiblePair.b.id}`}
+              a={visiblePair.a}
+              b={visiblePair.b}
+              questions={questions}
+              categories={categories}
+              categoryOrder={categoryOrder}
+              questionOrder={questionOrder}
+              showHeading={false}
+            />
+          </div>
+        )}
+        {visiblePair && !showTabs && (
           <PairComparison
-            key={`${visiblePair.a.id}-${visiblePair.b.id}`}
             a={visiblePair.a}
             b={visiblePair.b}
             questions={questions}
             categories={categories}
             categoryOrder={categoryOrder}
             questionOrder={questionOrder}
-            showHeading={!showTabs}
+            showHeading
           />
         )}
 
@@ -152,7 +169,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -1,4 +1,5 @@
 import type { CategoryData } from "@spreadsheet/shared";
+import type { RefObject } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
@@ -10,6 +11,7 @@ interface WelcomeScreenProps {
   screens: Screen[];
   index: number;
   setIndex: (fn: (i: number) => number) => void;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
@@ -23,6 +25,7 @@ export function WelcomeScreen({
   screens,
   index,
   setIndex,
+  headingRef,
   syncing,
   showSyncIndicator,
   pendingCount,
@@ -33,7 +36,9 @@ export function WelcomeScreen({
   return (
     <Card>
       <div className="animate-in space-y-6 pt-12 text-center">
-        <h2 className="text-2xl font-bold">{cat?.label}</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+          {cat?.label}
+        </h2>
         {cat?.description && <p className="text-text-muted">{cat.description}</p>}
         <p className="text-sm text-text-muted">{screen.questionCount} questions</p>
         <div className="space-y-3 pt-4">

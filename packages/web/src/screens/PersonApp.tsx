@@ -118,6 +118,12 @@ export function PersonApp() {
 
   return (
     <ErrorBoundary FallbackComponent={ScreenErrorFallback} onError={handleError} resetKeys={[location]}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-accent focus:text-accent-fg focus:rounded-lg"
+      >
+        Skip to content
+      </a>
       <Switch>
         {shouldRedirect && <Redirect to={defaultRoute} replace />}
 

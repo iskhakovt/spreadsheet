@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className }: CardProps) {
   return (
-    <div className="min-h-screen flex items-start justify-center px-4 py-8 sm:py-12">
+    <main id="main-content" className="min-h-screen flex items-start justify-center px-4 py-8 sm:py-12">
       <div
         className={cn(
           "w-full max-w-[480px] bg-bg/80 backdrop-blur-sm",
@@ -19,6 +19,6 @@ export function Card({ children, className }: CardProps) {
       >
         {children}
       </div>
-    </div>
+    </main>
   );
 }

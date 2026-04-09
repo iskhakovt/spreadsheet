@@ -12,26 +12,26 @@ test.describe("answer variety", () => {
     await page.getByRole("button", { name: "Start" }).click();
 
     // Q1: Yes + Now
-    await page.getByRole("button", { name: "Yes" }).click();
+    await page.getByRole("radio", { name: "Yes" }).click();
     await expect(page.getByText("When?")).toBeVisible();
     await page.getByRole("button", { name: "Now" }).click();
 
     // Q2: Yes + Later
-    await page.getByRole("button", { name: "Yes" }).click();
+    await page.getByRole("radio", { name: "Yes" }).click();
     await expect(page.getByText("When?")).toBeVisible();
     await page.getByRole("button", { name: "Later" }).click();
 
     // Q3: If partner wants + Now (also triggers timing)
-    await page.getByRole("button", { name: "If partner wants" }).click();
+    await page.getByRole("radio", { name: "If partner wants" }).click();
     await expect(page.getByText("When?")).toBeVisible();
     await page.getByRole("button", { name: "Now" }).click();
 
     // Q4: Maybe (no timing, advances immediately)
-    await page.getByRole("button", { name: "Maybe" }).click();
-    await expect(page.getByRole("button", { name: "Yes" })).toBeVisible();
+    await page.getByRole("radio", { name: "Maybe" }).click();
+    await expect(page.getByRole("radio", { name: "Yes" })).toBeVisible();
 
     // Q5: Fantasy only (no timing)
-    await page.getByRole("button", { name: "Fantasy only" }).click();
+    await page.getByRole("radio", { name: "Fantasy only" }).click();
 
     // Finish any remaining questions with No
     await answerAllQuestions(page, "no");
@@ -46,16 +46,16 @@ test.describe("answer variety", () => {
     await page.getByRole("button", { name: "Start" }).click();
 
     // Answer Q1
-    await page.getByRole("button", { name: "No" }).click();
+    await page.getByRole("radio", { name: "No" }).click();
 
     // Skip Q2
     await page.getByText("Skip").click();
 
     // Answer Q3
-    await page.getByRole("button", { name: "No" }).click();
+    await page.getByRole("radio", { name: "No" }).click();
 
     // Back should go to previous question (which was answered with No)
     await page.getByText("Back").click();
-    await expect(page.getByRole("button", { name: "No" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "No" })).toBeVisible();
   });
 });

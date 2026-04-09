@@ -86,7 +86,7 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
 
     // Wait for either a welcome screen "Start" or a question rating button
     const startBtn = page.getByRole("button", { name: "Start" });
-    const ratingBtn = page.getByRole("button", { name: "Yes" });
+    const ratingBtn = page.getByRole("radio", { name: "Yes" });
     await expect(startBtn.or(ratingBtn).or(page.getByText("All done!"))).toBeVisible();
 
     if (
@@ -106,12 +106,12 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     }
 
     if (rating === "yes") {
-      await page.getByRole("button", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes" }).click();
       await page.getByRole("button", { name: "Now" }).click();
     } else if (rating === "no") {
-      await page.getByRole("button", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No" }).click();
     } else {
-      await page.getByRole("button", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe" }).click();
     }
   }
   await expect(page.getByText("All done!")).toBeVisible();

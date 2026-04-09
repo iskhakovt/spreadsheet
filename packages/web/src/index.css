@@ -12,7 +12,7 @@
   --color-surface: #f0ebe4;
   --color-border: #e0d6cc;
   --color-text: #3a3028;
-  --color-text-muted: #9a8a78;
+  --color-text-muted: #7d6e5e;
 
   --color-accent: #d08058;
   --color-accent-light: #e4b898;
@@ -139,4 +139,17 @@ input[type="checkbox"]:focus-visible {
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
