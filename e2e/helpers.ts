@@ -28,9 +28,15 @@ export async function scopedSet(page: Page, key: string, value: string): Promise
 /** Create a group (all-questions mode by default), set up admin + one partner. Returns Bob's link. */
 export async function createGroupAndSetup(
   page: Page,
-  opts: { mode?: "all" | "filtered"; encrypted?: boolean; adminName?: string; partnerName?: string } = {},
+  opts: {
+    mode?: "all" | "filtered";
+    encrypted?: boolean;
+    showTiming?: boolean;
+    adminName?: string;
+    partnerName?: string;
+  } = {},
 ) {
-  const { mode = "all", encrypted = false, adminName = "Alice", partnerName = "Bob" } = opts;
+  const { mode = "all", encrypted = false, showTiming = false, adminName = "Alice", partnerName = "Bob" } = opts;
 
   await page.goto("/");
   await page.getByText("Get started").click();
@@ -40,6 +46,9 @@ export async function createGroupAndSetup(
   }
   if (encrypted) {
     await page.getByLabel("End-to-end encryption").check();
+  }
+  if (showTiming) {
+    await page.getByLabel('Ask "now or later?"').check();
   }
 
   await page.getByText("Create group").click();
@@ -107,7 +116,11 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
 
     if (rating === "yes") {
       await page.getByRole("radio", { name: "Yes" }).click();
-      await page.getByRole("button", { name: "Now" }).click();
+      // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
+      const nowBtn = page.getByRole("button", { name: "Now" });
+      if (await nowBtn.isVisible().catch(() => false)) {
+        await nowBtn.click();
+      }
     } else if (rating === "no") {
       await page.getByRole("radio", { name: "No" }).click();
     } else {

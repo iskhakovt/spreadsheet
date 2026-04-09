@@ -3,7 +3,7 @@ import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories 
 
 test.describe("answer variety", () => {
   test("all rating types and timing options work", async ({ page }) => {
-    await createGroupAndSetup(page);
+    await createGroupAndSetup(page, { showTiming: true });
     await setCategories(page, ["group"]);
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);

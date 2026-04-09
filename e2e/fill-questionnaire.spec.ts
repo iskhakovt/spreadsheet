@@ -7,6 +7,7 @@ test.describe("questionnaire flow", () => {
     await page.goto("/");
     await page.getByText("Get started").click();
     await page.getByText("All questions").click();
+    await page.getByLabel('Ask "now or later?"').check();
     await page.getByText("Create group").click();
     await expect(page).toHaveURL(/\/p\/.+/);
 

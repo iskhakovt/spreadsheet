@@ -41,7 +41,6 @@ test.describe("multi-tab isolation", () => {
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
     await bob.getByRole("button", { name: "Start" }).click();
     await bob.getByRole("radio", { name: "Yes" }).click();
-    await bob.getByRole("button", { name: "Now" }).click();
 
     // Bob has separate scoped answers
     const bobAnswers = await scopedGet(bob, "answers");

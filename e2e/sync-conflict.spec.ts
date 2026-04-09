@@ -11,9 +11,8 @@ for (const encrypted of [false, true]) {
       await expect(page.getByText(/\d+ questions/)).toBeVisible();
       await page.getByRole("button", { name: "Start" }).click();
 
-      // Q1: answer Yes + Now
+      // Q1: answer Yes
       await page.getByRole("radio", { name: "Yes" }).click();
-      await page.getByRole("button", { name: "Now" }).click();
 
       // Wait for auto-sync to complete
       await expect(async () => {

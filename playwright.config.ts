@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   retries: 0,
+  workers: process.env.CI ? 2 : "50%",
+  fullyParallel: true,
   use: {
     headless: true,
     actionTimeout: 10_000,

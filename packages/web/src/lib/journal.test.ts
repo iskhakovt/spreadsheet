@@ -1,5 +1,5 @@
 import type { Answer } from "@spreadsheet/shared";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { encodeValue, generateGroupKey } from "./crypto.js";
 import { mergeAfterRejection, replayJournal } from "./journal.js";
 
@@ -37,9 +37,12 @@ describe("replayJournal", () => {
   });
 
   it("skips malformed entries", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const entries = [{ operation: "garbage" }, { operation: plainOp("oral:give", { rating: "yes", timing: "now" }) }];
     const state = await replayJournal(entries, null);
     expect(Object.keys(state)).toHaveLength(1);
+    expect(spy).toHaveBeenCalledOnce();
+    spy.mockRestore();
   });
 
   it("works with encrypted entries", async () => {
