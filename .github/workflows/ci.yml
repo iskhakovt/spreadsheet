@@ -70,7 +70,17 @@ jobs:
       - run: pnpm --filter @spreadsheet/server run typecheck
       - run: pnpm --filter @spreadsheet/web run build
       - run: pnpm --filter @spreadsheet/server run build
-      - run: npx playwright install chromium --with-deps
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Install Chromium OS deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64
       - run: pnpm test:e2e
         env:
           CI: true
