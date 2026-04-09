@@ -53,14 +53,17 @@ export function Intro({ showTiming, onDone }: { showTiming: boolean; onDone: () 
         {/* Tier picker */}
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{UI.intro.tierTitle}</h2>
-          <div className="space-y-2">
+          <div role="radiogroup" aria-label="Question depth" className="space-y-2">
             {([1, 2, 3] as const).map((t) => {
               const info = UI.intro.tiers[t];
               const selected = tier === t;
               return (
+                // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
                 <button
                   key={t}
                   type="button"
+                  role="radio"
+                  aria-checked={selected}
                   onClick={() => setTier(t)}
                   className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
                     selected ? "border-accent bg-accent/10" : "border-border bg-surface hover:border-border/80"

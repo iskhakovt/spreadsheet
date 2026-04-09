@@ -10,15 +10,25 @@ interface ToggleGroupProps<T extends string> {
   value: T;
   onChange: (v: T) => void;
   size?: "md" | "sm";
+  "aria-label"?: string;
 }
 
-export function ToggleGroup<T extends string>({ options, value, onChange, size = "md" }: ToggleGroupProps<T>) {
+export function ToggleGroup<T extends string>({
+  options,
+  value,
+  onChange,
+  size = "md",
+  "aria-label": ariaLabel,
+}: ToggleGroupProps<T>) {
   return (
-    <div className="flex gap-2">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex gap-2">
       {options.map((opt) => (
+        // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
         <button
           key={opt.value}
           type="button"
+          role="radio"
+          aria-checked={opt.value === value}
           onClick={() => onChange(opt.value)}
           className={cn(
             "flex-1 border text-sm font-medium transition-all duration-200",

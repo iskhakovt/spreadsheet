@@ -107,15 +107,20 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
                   type="text"
                   readOnly
                   value={generatedLinks[i]}
+                  aria-label={`${partner.name}'s invite link`}
                   className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
                 />
                 <button
                   type="button"
                   onClick={() => handleCopy(generatedLinks[i], i)}
+                  aria-label={`Copy ${partner.name}'s link`}
                   className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
                 >
                   {copied === i ? "Copied!" : "Copy"}
                 </button>
+                <span className="sr-only" aria-live="polite">
+                  {copied === i ? "Copied to clipboard" : ""}
+                </span>
               </div>
             </div>
           ))}
@@ -181,6 +186,7 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
                 <button
                   type="button"
                   onClick={() => removePartner(i)}
+                  aria-label={`Remove partner ${i + 1}`}
                   className="text-xs text-text-muted hover:text-accent"
                 >
                   Remove

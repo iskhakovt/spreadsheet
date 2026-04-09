@@ -83,9 +83,9 @@ function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Question mode */}
           <div>
-            <label htmlFor="create-question-mode" className="block text-sm font-medium mb-2 text-text-muted">
+            <p id="question-mode-label" className="text-sm font-medium mb-2 text-text-muted">
               Questions
-            </label>
+            </p>
             <ToggleGroup
               options={[
                 { value: "filtered" as const, label: "Filter by body" },
@@ -93,6 +93,7 @@ function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
               ]}
               value={questionMode}
               onChange={setQuestionMode}
+              aria-label="Question mode"
             />
           </div>
 
@@ -101,17 +102,15 @@ function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
             <div className="space-y-5 pl-3 border-l-2 border-accent/20">
               {/* Label style */}
               <div>
-                <label
-                  htmlFor="create-label-style"
-                  className="block text-xs font-medium mb-2 text-text-muted uppercase tracking-wide"
-                >
-                  Label style
-                </label>
-                <div className="flex gap-2 flex-wrap">
+                <p className="text-xs font-medium mb-2 text-text-muted uppercase tracking-wide">Label style</p>
+                <div role="radiogroup" aria-label="Label style" className="flex gap-2 flex-wrap">
                   {(["anatomical", "gendered", "amab", "short"] as const).map((style) => (
+                    // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
                     <button
                       key={style}
                       type="button"
+                      role="radio"
+                      aria-checked={anatomyLabels === style}
                       onClick={() => setAnatomyLabels(style)}
                       className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
                         anatomyLabels === style
@@ -127,12 +126,7 @@ function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
 
               {/* Who picks */}
               <div>
-                <label
-                  htmlFor="create-anatomy-picker"
-                  className="block text-xs font-medium mb-2 text-text-muted uppercase tracking-wide"
-                >
-                  Who picks?
-                </label>
+                <p className="text-xs font-medium mb-2 text-text-muted uppercase tracking-wide">Who picks?</p>
                 <ToggleGroup
                   options={[
                     { value: "admin" as const, label: "I'll set it" },
@@ -141,6 +135,7 @@ function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
                   value={anatomyPicker}
                   onChange={setAnatomyPicker}
                   size="sm"
+                  aria-label="Who picks body type"
                 />
               </div>
             </div>

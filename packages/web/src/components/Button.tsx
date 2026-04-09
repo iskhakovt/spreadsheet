@@ -17,10 +17,17 @@ const variantStyles: Record<Variant, string> = {
   ghost: "bg-transparent text-text-muted hover:text-accent hover:bg-accent/5",
 };
 
-export function Button({ variant = "accent", fullWidth = false, className, children, ...props }: ButtonProps) {
+export function Button({
+  variant = "accent",
+  fullWidth = false,
+  type = "button",
+  className,
+  children,
+  ...props
+}: ButtonProps) {
   return (
     <button
-      type="button"
+      type={type}
       className={cn(
         "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
         "transition-all duration-200 ease-out",
