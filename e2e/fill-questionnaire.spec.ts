@@ -44,7 +44,7 @@ test.describe("questionnaire flow", () => {
     await page.getByRole("button", { name: "Now" }).click();
 
     // Should advance to next question
-    await expect(page.getByText("Skip")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skip question" })).toBeVisible();
 
     // Finish any remaining questions with No
     await answerAllQuestions(page, "no");

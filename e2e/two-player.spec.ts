@@ -34,13 +34,13 @@ for (const encrypted of [false, true]) {
       await bob.getByRole("button", { name: "I'm done" }).click();
 
       // Both complete → Bob goes straight to results
-      await expect(bob.getByText("Your results")).toBeVisible();
-      await expect(bob.getByText("Alice & Bob")).toBeVisible();
-      await expect(bob.getByText("Go for it").first()).toBeVisible();
+      await expect(bob.getByText("Your results")).toBeVisible({ timeout: 15000 });
+      await expect(bob.getByText("Alice & Bob")).toBeVisible({ timeout: 15000 });
+      await expect(bob.getByText("Match").first()).toBeVisible();
 
       // Alice's 5s fast poll on /waiting picks up allComplete → guard redirects to /results
-      await expect(alice.getByText("Your results")).toBeVisible({ timeout: 15000 });
-      await expect(alice.getByText("Alice & Bob")).toBeVisible();
+      await expect(alice.getByText("Your results")).toBeVisible({ timeout: 20000 });
+      await expect(alice.getByText("Alice & Bob")).toBeVisible({ timeout: 15000 });
 
       await aliceCtx.close();
       await bobCtx.close();

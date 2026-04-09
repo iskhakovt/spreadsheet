@@ -6,14 +6,14 @@ test.describe("results display", () => {
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
 
-    const { partnerLink } = await createGroupAndSetup(alice);
+    const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
     // Use "group" category (small) — answer with a specific pattern
     await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
 
-    // Alice: answer all questions as Yes + Now
+    // Alice: answer all questions as Yes + Now (showTiming enabled)
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();

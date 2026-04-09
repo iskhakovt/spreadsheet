@@ -31,7 +31,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(alice.getByText("Pick your body type")).toBeVisible();
 
     // Alice picks anatomy
-    await alice.getByRole("button", { name: "Vulva" }).click();
+    await alice.getByRole("radio", { name: "Vulva" }).click();
     await alice.getByRole("button", { name: "Continue" }).click();
 
     // Alice should land on pending screen — waiting for Bob to pick anatomy
@@ -46,7 +46,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
 
     // Bob should see anatomy picker (self-pick, his anatomy is null)
     await expect(bob.getByText("One quick thing")).toBeVisible();
-    await bob.getByRole("button", { name: "Penis" }).click();
+    await bob.getByRole("radio", { name: "Penis" }).click();
     await bob.getByRole("button", { name: "Continue" }).click();
 
     // Bob should advance past pending (Alice already picked) → intro

@@ -49,7 +49,7 @@ test.describe("answer variety", () => {
     await page.getByRole("radio", { name: "No" }).click();
 
     // Skip Q2
-    await page.getByText("Skip").click();
+    await page.getByRole("button", { name: "Skip question" }).click();
 
     // Answer Q3
     await page.getByRole("radio", { name: "No" }).click();

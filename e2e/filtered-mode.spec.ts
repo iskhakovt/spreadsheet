@@ -19,13 +19,13 @@ for (const encrypted of [false, true]) {
       // Admin's body type picker
       await expect(page.getByText("Your body type")).toBeVisible();
       const adminSection = page.locator("text=Your body type").locator("..").locator("..");
-      await adminSection.getByRole("button", { name: "Vulva" }).click();
+      await adminSection.getByRole("radio", { name: "Vulva" }).click();
 
       // Partner
       await page.getByPlaceholder("Partner's name").fill("Bob");
       await expect(page.getByText("Their body type")).toBeVisible();
       const partnerSection = page.locator("text=Their body type").locator("..").locator("..");
-      await partnerSection.getByRole("button", { name: "Penis" }).click();
+      await partnerSection.getByRole("radio", { name: "Penis" }).click();
 
       await page.getByText("Create & get links").click();
       await expect(page.getByText("You're all set")).toBeVisible();
