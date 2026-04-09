@@ -50,7 +50,7 @@ export async function createGroupAndSetup(
   await page.getByPlaceholder("Partner's name").fill(partnerName);
   await page.getByText("Create & get links").click();
 
-  await expect(page.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("You're all set")).toBeVisible();
 
   const partnerLink = await page.locator("input[readonly]").inputValue();
 
@@ -59,10 +59,9 @@ export async function createGroupAndSetup(
 
 /** Navigate through intro screen. */
 export async function goThroughIntro(page: Page) {
-  await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Here's how it works")).toBeVisible();
   await page.getByText("Let's go").click();
 }
-
 
 /** Set selected categories via scoped localStorage. */
 export async function setCategories(page: Page, categoryIds: string[]) {
@@ -77,14 +76,26 @@ export async function setTier(page: Page, tier: number) {
 /** Answer all visible questions until "All done!" appears. Handles welcome screens automatically. */
 export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "maybe" = "yes") {
   for (let i = 0; i < 200; i++) {
-    if (await page.getByText("All done!").isVisible().catch(() => false)) break;
+    if (
+      await page
+        .getByText("All done!")
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
 
     // Wait for either a welcome screen "Start" or a question rating button
     const startBtn = page.getByRole("button", { name: "Start" });
     const ratingBtn = page.getByRole("button", { name: "Yes" });
-    await expect(startBtn.or(ratingBtn).or(page.getByText("All done!"))).toBeVisible({ timeout: 10000 });
+    await expect(startBtn.or(ratingBtn).or(page.getByText("All done!"))).toBeVisible();
 
-    if (await page.getByText("All done!").isVisible().catch(() => false)) break;
+    if (
+      await page
+        .getByText("All done!")
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
 
     // Dismiss welcome screen if showing (has "Start" but no "Yes" button)
     if (await startBtn.isVisible().catch(() => false)) {

@@ -80,7 +80,15 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     if (person.anatomy === null && group.questionMode === "filtered") {
       console.error("Question screen reached with null anatomy in filtered mode");
     }
-    return buildScreens(questions, selectedCategories, person.anatomy ?? "both", otherAnatomies, group.questionMode, categoryMap, maxTier);
+    return buildScreens(
+      questions,
+      selectedCategories,
+      person.anatomy ?? "both",
+      otherAnatomies,
+      group.questionMode,
+      categoryMap,
+      maxTier,
+    );
   }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
@@ -117,14 +125,20 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
 
   // --- Loading / empty states ---
   if (questions.length === 0) {
-    return <Card><div className="pt-32 text-center text-text-muted">Loading questions...</div></Card>;
+    return (
+      <Card>
+        <div className="pt-32 text-center text-text-muted">Loading questions...</div>
+      </Card>
+    );
   }
   if (qScreens.length === 0) {
     return (
       <Card>
         <div className="pt-16 text-center space-y-4">
           <p className="text-text-muted">No questions for your selected categories.</p>
-          <Button variant="ghost" onClick={onDone}>Go back</Button>
+          <Button variant="ghost" onClick={onDone}>
+            Go back
+          </Button>
         </div>
       </Card>
     );
@@ -138,7 +152,9 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         <div className="pt-16 text-center space-y-6">
           <h1 className="text-2xl font-bold">All done!</h1>
           <p className="text-text-muted">{UI.review.answered(Object.keys(answers).length, qScreens.length)}</p>
-          <Button fullWidth onClick={handleMarkComplete}>{UI.review.done}</Button>
+          <Button fullWidth onClick={handleMarkComplete}>
+            {UI.review.done}
+          </Button>
         </div>
       </Card>
     );
@@ -253,8 +269,16 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
       pendingCount={pendingOps.length}
       onRating={handleRating}
       onTiming={handleTiming}
-      onBack={() => { setIndex((i) => Math.max(0, i - 1)); setShowTiming(false); setShowDescription(false); }}
-      onSkip={() => { setIndex((i) => i + 1); setShowTiming(false); setShowDescription(false); }}
+      onBack={() => {
+        setIndex((i) => Math.max(0, i - 1));
+        setShowTiming(false);
+        setShowDescription(false);
+      }}
+      onSkip={() => {
+        setIndex((i) => i + 1);
+        setShowTiming(false);
+        setShowDescription(false);
+      }}
       onToggleDescription={() => setShowDescription((v) => !v)}
       onSync={handleSync}
       onSummary={onSummary}

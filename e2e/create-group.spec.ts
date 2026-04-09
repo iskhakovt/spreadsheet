@@ -29,7 +29,7 @@ test.describe("landing and group creation", () => {
     await page.getByText("Create & get links").click();
 
     // Should see links screen
-    await expect(page.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("You're all set")).toBeVisible();
     await expect(page.getByText("Partner's link")).toBeVisible();
   });
 });

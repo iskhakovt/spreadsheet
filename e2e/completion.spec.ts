@@ -14,13 +14,13 @@ for (const encrypted of [false, true]) {
       await expect(page.getByText("All done!")).toBeVisible();
       const url = page.url().replace(/\/questions$/, "/review");
       await page.goto(url);
-      await expect(page.getByText("Review your answers")).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText("Review your answers")).toBeVisible();
 
       // Mark complete from Review
       await page.getByRole("button", { name: "I'm done" }).click();
 
       // Should land on waiting screen
-      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Waiting for everyone")).toBeVisible();
     });
 
     test("mark complete from All Done screen", async ({ page }) => {
@@ -34,7 +34,7 @@ for (const encrypted of [false, true]) {
       await page.getByRole("button", { name: "I'm done" }).click();
 
       // Should land on waiting screen
-      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Waiting for everyone")).toBeVisible();
     });
 
     test("complete → refresh → stays on waiting", async ({ page }) => {
@@ -44,11 +44,11 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(page);
       await answerAllQuestions(page, "no");
       await page.getByRole("button", { name: "I'm done" }).click();
-      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Waiting for everyone")).toBeVisible();
 
       // Refresh — should stay on waiting, not bounce back to questions
       await page.reload();
-      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Waiting for everyone")).toBeVisible();
     });
   });
 }

@@ -1,4 +1,10 @@
-import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels, type CategoryData, type QuestionData } from "@spreadsheet/shared";
+import {
+  ANATOMY_LABEL_PRESETS,
+  type Anatomy,
+  type AnatomyLabels,
+  type CategoryData,
+  type QuestionData,
+} from "@spreadsheet/shared";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
@@ -6,8 +12,8 @@ import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
-import { getHasSeenIntro } from "../lib/storage.js";
 import { setSession } from "../lib/session.js";
+import { getHasSeenIntro } from "../lib/storage.js";
 import { trpc } from "../lib/trpc.js";
 import { useGroupStatus } from "../lib/use-group-status.js";
 import { GroupSetup } from "./GroupSetup.js";
@@ -316,7 +322,13 @@ function WaitingScreen({
   );
 }
 
-function PickAnatomyScreen({ status, onDone }: { status: GroupStatus & { person: Person }; onDone: () => void | Promise<void> }) {
+function PickAnatomyScreen({
+  status,
+  onDone,
+}: {
+  status: GroupStatus & { person: Person };
+  onDone: () => void | Promise<void>;
+}) {
   const anatomyLabelKey = (status.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
   const [selected, setSelected] = useState<Anatomy | "">("");

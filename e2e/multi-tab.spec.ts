@@ -17,14 +17,14 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
-    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
     // Admin answers one question
     await setCategories(admin, ["group"]);
     await admin.getByText("Start filling out").click();
     await goThroughIntro(admin);
-    await expect(admin.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText(/\d+ questions/)).toBeVisible();
     await admin.getByRole("button", { name: "Start" }).click();
     await admin.getByRole("button", { name: "No" }).click();
 
@@ -38,7 +38,7 @@ test.describe("multi-tab isolation", () => {
     await bob.goto(bobLink);
     await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
-    await expect(bob.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+    await expect(bob.getByText(/\d+ questions/)).toBeVisible();
     await bob.getByRole("button", { name: "Start" }).click();
     await bob.getByRole("button", { name: "Yes" }).click();
     await bob.getByRole("button", { name: "Now" }).click();
@@ -69,7 +69,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
-    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
     // Set categories, THEN open Bob's link (the risky action order)
@@ -86,7 +86,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("button", { name: "I'm done" }).click();
 
     // Correct person (Alice) marked complete
-    await expect(admin.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText("Waiting for everyone")).toBeVisible();
     await expect(admin.getByText("Done")).toBeVisible();
     await expect(admin.getByText("In progress")).toBeVisible();
 
@@ -107,7 +107,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
-    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
     // Alice answers and completes
@@ -116,8 +116,8 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(admin);
     await answerAllQuestions(admin, "yes");
     await admin.getByRole("button", { name: "I'm done" }).click();
-    await expect(admin.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
-    await expect(admin.getByText("Done")).toBeVisible({ timeout: 10000 });
+    await expect(admin.getByText("Waiting for everyone")).toBeVisible();
+    await expect(admin.getByText("Done")).toBeVisible();
 
     // Bob answers and completes in same browser
     const bob = await ctx.newPage();
@@ -128,9 +128,9 @@ test.describe("multi-tab isolation", () => {
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     // Bob should reach waiting or results
-    await expect(
-      bob.getByText("Your results").or(bob.getByText("Waiting for everyone")),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(bob.getByText("Your results").or(bob.getByText("Waiting for everyone"))).toBeVisible({
+      timeout: 10000,
+    });
 
     await ctx.close();
   });

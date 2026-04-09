@@ -89,10 +89,7 @@ export class GroupStore {
         partnerTokens.push(token);
       }
 
-      await tx
-        .update(groups)
-        .set({ isReady: true, adminToken: null })
-        .where(eq(groups.id, group.id));
+      await tx.update(groups).set({ isReady: true, adminToken: null }).where(eq(groups.id, group.id));
 
       return { partnerTokens };
     });
@@ -206,7 +203,14 @@ export class GroupStore {
             anatomyLabels: group.anatomyLabels,
             anatomyPicker: group.anatomyPicker,
           },
-          members: [] as { id: string; name: string; anatomy: string | null; isCompleted: boolean; isAdmin: boolean; progress: string | null }[],
+          members: [] as {
+            id: string;
+            name: string;
+            anatomy: string | null;
+            isCompleted: boolean;
+            isAdmin: boolean;
+            progress: string | null;
+          }[],
         };
       }
 

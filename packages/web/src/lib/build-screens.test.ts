@@ -33,7 +33,14 @@ describe("buildScreens", () => {
 
   it("creates give + receive screens for role-based questions", () => {
     const questions = [
-      q({ id: "cunnilingus", categoryId: "oral", giveText: "Going down", receiveText: "Receiving oral", targetGive: "all", targetReceive: "afab" }),
+      q({
+        id: "cunnilingus",
+        categoryId: "oral",
+        giveText: "Going down",
+        receiveText: "Receiving oral",
+        targetGive: "all",
+        targetReceive: "afab",
+      }),
     ];
     const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories);
     const qScreens = filterQuestionScreens(screens);
@@ -45,7 +52,14 @@ describe("buildScreens", () => {
 
   it("filters by anatomy in filtered mode — give side", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", giveText: "Give", receiveText: "Receive", targetGive: "afab", targetReceive: "all" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "afab",
+        targetReceive: "all",
+      }),
     ];
     // User is amab → can't give (targetGive=afab), but can receive (targetReceive=all)
     const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "filtered", categories);
@@ -57,7 +71,14 @@ describe("buildScreens", () => {
 
   it("filters by anatomy in filtered mode — no matching partner", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", giveText: "Give", receiveText: "Receive", targetGive: "all", targetReceive: "afab" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "all",
+        targetReceive: "afab",
+      }),
     ];
     // User is amab, all partners are also amab → no one can receive (targetReceive=afab)
     const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "filtered", categories);
@@ -69,7 +90,14 @@ describe("buildScreens", () => {
 
   it("shows all questions in 'all' mode regardless of anatomy", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", giveText: "Give", receiveText: "Receive", targetGive: "afab", targetReceive: "amab" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "afab",
+        targetReceive: "amab",
+      }),
     ];
     const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "all", categories);
     const qScreens = filterQuestionScreens(screens);
@@ -78,10 +106,7 @@ describe("buildScreens", () => {
   });
 
   it("skips categories not in selectedCategories", () => {
-    const questions = [
-      q({ id: "q1", categoryId: "oral" }),
-      q({ id: "q2", categoryId: "touch" }),
-    ];
+    const questions = [q({ id: "q1", categoryId: "oral" }), q({ id: "q2", categoryId: "touch" })];
     const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories);
 
     expect(screens.some((s) => s.type === "welcome" && s.categoryId === "touch")).toBe(false);
@@ -90,7 +115,14 @@ describe("buildScreens", () => {
 
   it("handles 'both' anatomy — matches own side, still needs partner match", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", giveText: "Give", receiveText: "Receive", targetGive: "afab", targetReceive: "amab" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "afab",
+        targetReceive: "amab",
+      }),
     ];
     // User "both" + partner "amab": give shows (user matches afab, partner matches amab)
     // Receive hidden (user matches amab, but no partner matches afab to give)
@@ -105,7 +137,14 @@ describe("buildScreens", () => {
 
   it("handles 'none' anatomy — matches nothing in filtered mode", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", giveText: "Give", receiveText: "Receive", targetGive: "afab", targetReceive: "amab" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "afab",
+        targetReceive: "amab",
+      }),
     ];
     const screens = buildScreens(questions, ["oral"], "none", ["amab"], "filtered", categories);
     const qScreens = filterQuestionScreens(screens);
@@ -167,10 +206,7 @@ describe("tier filtering", () => {
   });
 
   it("defaults to showing all tiers when maxTier omitted", () => {
-    const questions = [
-      q({ id: "q1", categoryId: "oral", tier: 1 }),
-      q({ id: "q2", categoryId: "oral", tier: 3 }),
-    ];
+    const questions = [q({ id: "q1", categoryId: "oral", tier: 1 }), q({ id: "q2", categoryId: "oral", tier: 3 })];
     const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories);
     const qScreens = filterQuestionScreens(screens);
 
@@ -190,10 +226,7 @@ describe("tier filtering", () => {
   });
 
   it("skips welcome screen when tier filters remove all questions in a category", () => {
-    const questions = [
-      q({ id: "q1", categoryId: "oral", tier: 3 }),
-      q({ id: "q2", categoryId: "touch", tier: 1 }),
-    ];
+    const questions = [q({ id: "q1", categoryId: "oral", tier: 3 }), q({ id: "q2", categoryId: "touch", tier: 1 })];
     const screens = buildScreens(questions, ["oral", "touch"], "amab", [], "all", categories, 1);
 
     // oral should be skipped entirely (only tier 3), touch should appear
@@ -204,8 +237,24 @@ describe("tier filtering", () => {
 
   it("tier + category + anatomy filters compose", () => {
     const questions = [
-      q({ id: "q1", categoryId: "oral", tier: 1, giveText: "Give", receiveText: "Receive", targetGive: "afab", targetReceive: "amab" }),
-      q({ id: "q2", categoryId: "oral", tier: 2, giveText: "Give", receiveText: "Receive", targetGive: "all", targetReceive: "all" }),
+      q({
+        id: "q1",
+        categoryId: "oral",
+        tier: 1,
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "afab",
+        targetReceive: "amab",
+      }),
+      q({
+        id: "q2",
+        categoryId: "oral",
+        tier: 2,
+        giveText: "Give",
+        receiveText: "Receive",
+        targetGive: "all",
+        targetReceive: "all",
+      }),
       q({ id: "q3", categoryId: "touch", tier: 1 }),
     ];
     // amab user, afab partner, maxTier=1: q1 receive only (user is amab=targetReceive), q3 mutual, q2 excluded by tier

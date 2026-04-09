@@ -2,7 +2,13 @@ import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { getAnswers, getSelectedCategories, getSelectedTier, setSelectedCategories, setSelectedTier } from "../lib/storage.js";
+import {
+  getAnswers,
+  getSelectedCategories,
+  getSelectedTier,
+  setSelectedCategories,
+  setSelectedTier,
+} from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
 interface SummaryProps {
@@ -15,7 +21,15 @@ interface SummaryProps {
   onViewGroup?: () => void;
 }
 
-export function Summary({ questions, categories, isAdmin, onNavigateToCategory, onBack, onReview, onViewGroup }: SummaryProps) {
+export function Summary({
+  questions,
+  categories,
+  isAdmin,
+  onNavigateToCategory,
+  onBack,
+  onReview,
+  onViewGroup,
+}: SummaryProps) {
   const answers = getAnswers();
   const [selected, setSelected] = useState(() => new Set(getSelectedCategories() ?? []));
   const [tier, setTier] = useState(getSelectedTier);
@@ -76,25 +90,30 @@ export function Summary({ questions, categories, isAdmin, onNavigateToCategory, 
         </div>
 
         {/* Tier selector */}
-        <div className="flex gap-1 p-1 bg-surface rounded-lg" role="radiogroup" aria-label="Question depth">
+        <fieldset className="flex gap-1 p-1 bg-surface rounded-lg">
+          <legend className="sr-only">Question depth</legend>
           {([1, 2, 3] as const).map((t) => {
             const info = UI.intro.tiers[t];
             return (
-              <button
+              <label
                 key={t}
-                type="button"
-                role="radio"
-                aria-checked={tier === t}
-                onClick={() => handleTierChange(t)}
-                className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium text-center cursor-pointer transition-colors ${
                   tier === t ? "bg-accent text-white" : "text-text-muted hover:text-text"
                 }`}
               >
+                <input
+                  type="radio"
+                  name="tier"
+                  value={t}
+                  checked={tier === t}
+                  onChange={() => handleTierChange(t)}
+                  className="sr-only"
+                />
                 {info.label}
-              </button>
+              </label>
             );
           })}
-        </div>
+        </fieldset>
 
         {/* Category list */}
         <div className="space-y-2">
@@ -161,7 +180,11 @@ export function Summary({ questions, categories, isAdmin, onNavigateToCategory, 
             Review answers
           </Button>
           {isAdmin && onViewGroup && (
-            <button type="button" onClick={onViewGroup} className="w-full text-sm text-text-muted hover:text-accent py-2">
+            <button
+              type="button"
+              onClick={onViewGroup}
+              className="w-full text-sm text-text-muted hover:text-accent py-2"
+            >
               Group members
             </button>
           )}

@@ -1,5 +1,4 @@
-import { unwrapSensitive } from "./crypto.js";
-import { decodeValue, getGroupKeyFromUrl } from "./crypto.js";
+import { decodeValue, getGroupKeyFromUrl, unwrapSensitive } from "./crypto.js";
 
 /**
  * Decode sensitive fields (names, anatomy) in a group status response.

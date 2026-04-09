@@ -32,7 +32,14 @@ async function createTestPerson() {
     .returning();
   const [person] = await db
     .insert(persons)
-    .values({ groupId: group.id, name: "Alice", anatomy: "afab", token: `t-${Math.random()}`, isAdmin: true, isCompleted: false })
+    .values({
+      groupId: group.id,
+      name: "Alice",
+      anatomy: "afab",
+      token: `t-${Math.random()}`,
+      isAdmin: true,
+      isCompleted: false,
+    })
     .returning();
   return { groupId: group.id, personId: person.id };
 }
@@ -88,7 +95,7 @@ describe("SyncStore.push", () => {
   });
 
   it("updates progress", async () => {
-    const { personId, groupId } = await createTestPerson();
+    const { personId } = await createTestPerson();
     await store.push(personId, {
       stoken: null,
       operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
@@ -121,15 +128,37 @@ describe("SyncStore.compare", () => {
       .returning();
     const [alice] = await db
       .insert(persons)
-      .values({ groupId: group.id, name: "Alice", anatomy: "afab", token: `a-${Math.random()}`, isAdmin: true, isCompleted: true })
+      .values({
+        groupId: group.id,
+        name: "Alice",
+        anatomy: "afab",
+        token: `a-${Math.random()}`,
+        isAdmin: true,
+        isCompleted: true,
+      })
       .returning();
     const [bob] = await db
       .insert(persons)
-      .values({ groupId: group.id, name: "Bob", anatomy: "amab", token: `b-${Math.random()}`, isAdmin: false, isCompleted: true })
+      .values({
+        groupId: group.id,
+        name: "Bob",
+        anatomy: "amab",
+        token: `b-${Math.random()}`,
+        isAdmin: false,
+        isCompleted: true,
+      })
       .returning();
 
-    await store.push(alice.id, { stoken: null, operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'], progress: null });
-    await store.push(bob.id, { stoken: null, operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'], progress: null });
+    await store.push(alice.id, {
+      stoken: null,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    await store.push(bob.id, {
+      stoken: null,
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
 
     const result = await store.compare(group.id);
     expect("members" in result && result.members).toHaveLength(2);
@@ -141,8 +170,22 @@ describe("SyncStore.compare", () => {
       .insert(groups)
       .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
       .returning();
-    await db.insert(persons).values({ groupId: group.id, name: "Alice", anatomy: "afab", token: `a-${Math.random()}`, isAdmin: true, isCompleted: true });
-    await db.insert(persons).values({ groupId: group.id, name: "Bob", anatomy: "amab", token: `b-${Math.random()}`, isAdmin: false, isCompleted: false });
+    await db.insert(persons).values({
+      groupId: group.id,
+      name: "Alice",
+      anatomy: "afab",
+      token: `a-${Math.random()}`,
+      isAdmin: true,
+      isCompleted: true,
+    });
+    await db.insert(persons).values({
+      groupId: group.id,
+      name: "Bob",
+      anatomy: "amab",
+      token: `b-${Math.random()}`,
+      isAdmin: false,
+      isCompleted: false,
+    });
 
     const result = await store.compare(group.id);
     expect(result).toEqual({ error: "not_all_complete" });

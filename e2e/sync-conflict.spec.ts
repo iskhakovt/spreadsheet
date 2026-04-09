@@ -8,7 +8,7 @@ for (const encrypted of [false, true]) {
       await setCategories(page, ["group"]);
       await page.getByText("Start filling out").click();
       await goThroughIntro(page);
-      await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/\d+ questions/)).toBeVisible();
       await page.getByRole("button", { name: "Start" }).click();
 
       // Q1: answer Yes + Now
@@ -19,7 +19,7 @@ for (const encrypted of [false, true]) {
       await expect(async () => {
         const raw = await scopedGet(page, "pendingOps");
         expect(JSON.parse(raw || "[]").length).toBe(0);
-      }).toPass({ timeout: 10000 });
+      }).toPass({ timeout: 10_000 });
 
       // Save the current stoken
       const stokenAfterQ1 = await scopedGet(page, "stoken");
@@ -32,7 +32,7 @@ for (const encrypted of [false, true]) {
       await expect(async () => {
         const raw = await scopedGet(page, "pendingOps");
         expect(JSON.parse(raw || "[]").length).toBe(0);
-      }).toPass({ timeout: 10000 });
+      }).toPass({ timeout: 10_000 });
 
       // Roll back stoken to stale value
       await scopedSet(page, "stoken", stokenAfterQ1!);
@@ -44,14 +44,14 @@ for (const encrypted of [false, true]) {
       await expect(async () => {
         const raw = await scopedGet(page, "pendingOps");
         expect(JSON.parse(raw || "[]").length).toBe(0);
-      }).toPass({ timeout: 10000 });
+      }).toPass({ timeout: 10_000 });
 
       // Verify all 3 answers survived the merge
       const answersRaw = await scopedGet(page, "answers");
       const answers = JSON.parse(answersRaw || "{}");
       expect(Object.keys(answers).length).toBe(3);
 
-      const ratings = Object.values(answers).map((a: any) => a.rating);
+      const ratings = Object.values(answers as Record<string, { rating: string }>).map((a) => a.rating);
       expect(ratings).toContain("yes");
       expect(ratings).toContain("no");
       expect(ratings).toContain("maybe");

@@ -96,13 +96,20 @@ export function QuestionCard({
         </div>
       ) : (
         <div className="space-y-3 mb-6 mt-6">
-          {([
-            { rating: "yes" as const, label: UI.question.yes, variant: "accent" as const },
-            { rating: "if-partner-wants" as const, label: UI.question.willing, variant: "accent-light" as const },
-            { rating: "maybe" as const, label: UI.question.maybe, variant: "neutral" as const },
-            { rating: "fantasy" as const, label: UI.question.fantasy, variant: "neutral" as const, className: "italic" },
-            { rating: "no" as const, label: UI.question.no, variant: "outline" as const },
-          ] as const).map((btn) => (
+          {(
+            [
+              { rating: "yes" as const, label: UI.question.yes, variant: "accent" as const },
+              { rating: "if-partner-wants" as const, label: UI.question.willing, variant: "accent-light" as const },
+              { rating: "maybe" as const, label: UI.question.maybe, variant: "neutral" as const },
+              {
+                rating: "fantasy" as const,
+                label: UI.question.fantasy,
+                variant: "neutral" as const,
+                className: "italic",
+              },
+              { rating: "no" as const, label: UI.question.no, variant: "outline" as const },
+            ] as const
+          ).map((btn) => (
             <Button
               key={btn.rating}
               variant={btn.variant}

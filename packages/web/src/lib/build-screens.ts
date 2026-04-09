@@ -81,8 +81,22 @@ export function buildScreens(
 
     if (q.giveText && q.receiveText) {
       if (questionMode === "all") {
-        screens.push({ type: "question", question: q, role: "give", displayText: q.giveText, key: `${q.id}:give`, categoryId: catId });
-        screens.push({ type: "question", question: q, role: "receive", displayText: q.receiveText, key: `${q.id}:receive`, categoryId: catId });
+        screens.push({
+          type: "question",
+          question: q,
+          role: "give",
+          displayText: q.giveText,
+          key: `${q.id}:give`,
+          categoryId: catId,
+        });
+        screens.push({
+          type: "question",
+          question: q,
+          role: "receive",
+          displayText: q.receiveText,
+          key: `${q.id}:receive`,
+          categoryId: catId,
+        });
         continue;
       }
 
@@ -95,14 +109,35 @@ export function buildScreens(
         (q.targetGive === "all" || otherAnatomies.some((a) => anatomyMatches(q.targetGive, a)));
 
       if (canGive) {
-        screens.push({ type: "question", question: q, role: "give", displayText: q.giveText, key: `${q.id}:give`, categoryId: catId });
+        screens.push({
+          type: "question",
+          question: q,
+          role: "give",
+          displayText: q.giveText,
+          key: `${q.id}:give`,
+          categoryId: catId,
+        });
       }
       if (canReceive) {
-        screens.push({ type: "question", question: q, role: "receive", displayText: q.receiveText, key: `${q.id}:receive`, categoryId: catId });
+        screens.push({
+          type: "question",
+          question: q,
+          role: "receive",
+          displayText: q.receiveText,
+          key: `${q.id}:receive`,
+          categoryId: catId,
+        });
       }
     } else {
       if (questionMode === "all" || anatomyMatches(q.targetGive, anatomy)) {
-        screens.push({ type: "question", question: q, role: "mutual", displayText: q.text, key: `${q.id}:mutual`, categoryId: catId });
+        screens.push({
+          type: "question",
+          question: q,
+          role: "mutual",
+          displayText: q.text,
+          key: `${q.id}:mutual`,
+          categoryId: catId,
+        });
       }
     }
   }

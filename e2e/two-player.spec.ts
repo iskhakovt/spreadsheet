@@ -20,9 +20,9 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(alice);
       await answerAllQuestions(alice, "yes");
       await alice.getByRole("button", { name: "I'm done" }).click();
-      await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
+      await expect(alice.getByText("Waiting for everyone")).toBeVisible();
       // Ensure Alice sees herself as "Done" before Bob starts
-      await expect(alice.getByText("Done")).toBeVisible({ timeout: 10000 });
+      await expect(alice.getByText("Done")).toBeVisible();
 
       // Bob: open link → set same category → intro → answer all → done
       const bobCtx = await browser.newContext();
@@ -34,8 +34,8 @@ for (const encrypted of [false, true]) {
       await bob.getByRole("button", { name: "I'm done" }).click();
 
       // Both complete → Bob goes straight to results
-      await expect(bob.getByText("Your results")).toBeVisible({ timeout: 10000 });
-      await expect(bob.getByText("Alice & Bob")).toBeVisible({ timeout: 10000 });
+      await expect(bob.getByText("Your results")).toBeVisible();
+      await expect(bob.getByText("Alice & Bob")).toBeVisible();
       await expect(bob.getByText("Go for it").first()).toBeVisible();
 
       // Alice's 5s fast poll on /waiting picks up allComplete → guard redirects to /results

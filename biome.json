@@ -27,7 +27,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "**/*.integration.test.ts", "**/*.spec.ts"],
+      "includes": ["**/*.test.ts", "**/*.integration.test.ts", "**/*.spec.ts", "**/test/**"],
       "linter": {
         "rules": {
           "style": {

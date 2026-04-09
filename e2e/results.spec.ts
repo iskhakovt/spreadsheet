@@ -16,8 +16,8 @@ test.describe("results display", () => {
     // Alice: answer all questions as Yes + Now
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
-    await expect(alice.getByText("Done")).toBeVisible({ timeout: 10000 });
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
     const bobCtx = await browser.newContext();
@@ -28,7 +28,7 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible({ timeout: 10000 });
+    await expect(bob.getByText("Your results")).toBeVisible();
     await expect(bob.getByText("Alice & Bob")).toBeVisible();
 
     // All should be "Go for it" (both yes + both now)
@@ -57,8 +57,8 @@ test.describe("results display", () => {
     // Alice: answer all as Maybe
     await answerAllQuestions(alice, "maybe");
     await alice.getByRole("button", { name: "I'm done" }).click();
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
-    await expect(alice.getByText("Done")).toBeVisible({ timeout: 10000 });
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all as Maybe too
     const bobCtx = await browser.newContext();
@@ -69,7 +69,7 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "maybe");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible({ timeout: 10000 });
+    await expect(bob.getByText("Your results")).toBeVisible();
 
     // All should be "Worth discussing" (both maybe)
     const worthDiscussing = bob.getByText("Worth discussing");
@@ -95,8 +95,8 @@ test.describe("results display", () => {
     // Alice: all No
     await answerAllQuestions(alice, "no");
     await alice.getByRole("button", { name: "I'm done" }).click();
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: 10000 });
-    await expect(alice.getByText("Done")).toBeVisible({ timeout: 10000 });
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: all Yes
     const bobCtx = await browser.newContext();
@@ -107,7 +107,7 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible({ timeout: 10000 });
+    await expect(bob.getByText("Your results")).toBeVisible();
 
     // No matches should appear — all hidden because Alice said No
     await expect(bob.getByText("No matches found")).toBeVisible();

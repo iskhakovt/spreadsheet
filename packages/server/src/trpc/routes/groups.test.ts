@@ -6,15 +6,28 @@ import { appRouter } from "../router.js";
 const createCaller = createCallerFactory(appRouter);
 
 /** Build a mock context with stubbed stores */
-function mockCtx(overrides: Partial<{
-  person: TrpcContext["person"];
-  group: TrpcContext["group"];
-  groups: Partial<TrpcContext["groups"]>;
-  sync: Partial<TrpcContext["sync"]>;
-  questions: Partial<TrpcContext["questions"]>;
-}>): TrpcContext {
+function mockCtx(
+  overrides: Partial<{
+    person: TrpcContext["person"];
+    group: TrpcContext["group"];
+    groups: Partial<TrpcContext["groups"]>;
+    sync: Partial<TrpcContext["sync"]>;
+    questions: Partial<TrpcContext["questions"]>;
+  }>,
+): TrpcContext {
   return {
-    groups: { create: vi.fn(), setupAdmin: vi.fn(), addPerson: vi.fn(), removePerson: vi.fn(), setProfile: vi.fn(), markReady: vi.fn(), getPersonByToken: vi.fn(), getGroupById: vi.fn(), getStatus: vi.fn(), ...overrides.groups },
+    groups: {
+      create: vi.fn(),
+      setupAdmin: vi.fn(),
+      addPerson: vi.fn(),
+      removePerson: vi.fn(),
+      setProfile: vi.fn(),
+      markReady: vi.fn(),
+      getPersonByToken: vi.fn(),
+      getGroupById: vi.fn(),
+      getStatus: vi.fn(),
+      ...overrides.groups,
+    },
     sync: { push: vi.fn(), markComplete: vi.fn(), unmarkComplete: vi.fn(), compare: vi.fn(), ...overrides.sync },
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
@@ -23,7 +36,15 @@ function mockCtx(overrides: Partial<{
 }
 
 const adminPerson = { id: "p1", groupId: "g1", name: "Alice", anatomy: null, isAdmin: true, isCompleted: false };
-const readyGroup = { id: "g1", encrypted: false, isReady: true, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null };
+const readyGroup = {
+  id: "g1",
+  encrypted: false,
+  isReady: true,
+  questionMode: "all",
+  showTiming: true,
+  anatomyLabels: null,
+  anatomyPicker: null,
+};
 const unreadyGroup = { ...readyGroup, isReady: false };
 
 describe("groups.create", () => {
@@ -33,7 +54,11 @@ describe("groups.create", () => {
     });
     const caller = createCaller(ctx);
     const result = await caller.groups.create({
-      encrypted: false, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null,
+      encrypted: false,
+      questionMode: "all",
+      showTiming: true,
+      anatomyLabels: null,
+      anatomyPicker: null,
     });
     expect(result).toEqual({ groupId: "g1", adminToken: "tok" });
   });
@@ -41,7 +66,14 @@ describe("groups.create", () => {
   it("rejects invalid questionMode", async () => {
     const caller = createCaller(mockCtx({}));
     await expect(
-      caller.groups.create({ encrypted: false, questionMode: "bogus" as any, showTiming: true, anatomyLabels: null, anatomyPicker: null }),
+      caller.groups.create({
+        encrypted: false,
+        // biome-ignore lint/suspicious/noExplicitAny: testing invalid input rejection
+        questionMode: "bogus" as any,
+        showTiming: true,
+        anatomyLabels: null,
+        anatomyPicker: null,
+      }),
     ).rejects.toThrow();
   });
 });
@@ -52,9 +84,9 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "not_found" }) },
     });
     const caller = createCaller(ctx);
-    await expect(
-      caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] }),
-    ).rejects.toThrow("Invalid admin token");
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+      "Invalid admin token",
+    );
   });
 
   it("maps store already_setup error", async () => {
@@ -62,9 +94,9 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "already_setup" }) },
     });
     const caller = createCaller(ctx);
-    await expect(
-      caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] }),
-    ).rejects.toThrow("already set up");
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+      "already set up",
+    );
   });
 
   it("maps store anatomy_required error", async () => {
@@ -72,9 +104,9 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "anatomy_required" }) },
     });
     const caller = createCaller(ctx);
-    await expect(
-      caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] }),
-    ).rejects.toThrow("Anatomy required");
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+      "Anatomy required",
+    );
   });
 
   it("returns partnerTokens on success", async () => {
@@ -83,7 +115,10 @@ describe("groups.setupAdmin", () => {
     });
     const caller = createCaller(ctx);
     const result = await caller.groups.setupAdmin({
-      adminToken: "x", name: "A", anatomy: null, partners: [{ name: "B", anatomy: null }],
+      adminToken: "x",
+      name: "A",
+      anatomy: null,
+      partners: [{ name: "B", anatomy: null }],
     });
     expect(result.partnerTokens).toEqual(["t1"]);
   });
@@ -93,9 +128,9 @@ describe("groups.addPerson", () => {
   it("rejects if group is ready", async () => {
     const ctx = mockCtx({ person: adminPerson, group: readyGroup });
     const caller = createCaller(ctx);
-    await expect(
-      caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false }),
-    ).rejects.toThrow("marked ready");
+    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow(
+      "marked ready",
+    );
   });
 
   it("calls store when group is not ready", async () => {
@@ -113,9 +148,9 @@ describe("groups.addPerson", () => {
       group: unreadyGroup,
     });
     const caller = createCaller(ctx);
-    await expect(
-      caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false }),
-    ).rejects.toThrow("Admin access required");
+    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow(
+      "Admin access required",
+    );
   });
 });
 
@@ -127,7 +162,9 @@ describe("groups.removePerson", () => {
       groups: { removePerson: vi.fn().mockResolvedValue({ error: "not_found" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" })).rejects.toThrow("not found");
+    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" })).rejects.toThrow(
+      "not found",
+    );
   });
 
   it("maps self_remove error", async () => {
@@ -137,7 +174,9 @@ describe("groups.removePerson", () => {
       groups: { removePerson: vi.fn().mockResolvedValue({ error: "self_remove" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000001" })).rejects.toThrow("yourself");
+    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000001" })).rejects.toThrow(
+      "yourself",
+    );
   });
 
   it("maps has_entries error", async () => {
@@ -147,16 +186,18 @@ describe("groups.removePerson", () => {
       groups: { removePerson: vi.fn().mockResolvedValue({ error: "has_entries" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" })).rejects.toThrow("submitted answers");
+    await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" })).rejects.toThrow(
+      "submitted answers",
+    );
   });
 });
 
 describe("groups.setProfile", () => {
   it("requires auth (rejects anon)", async () => {
     const caller = createCaller(mockCtx({}));
-    await expect(
-      caller.groups.setProfile({ name: "Bob", anatomy: null }),
-    ).rejects.toThrow("Invalid or missing person token");
+    await expect(caller.groups.setProfile({ name: "Bob", anatomy: null })).rejects.toThrow(
+      "Invalid or missing person token",
+    );
   });
 
   it("calls store when authenticated", async () => {

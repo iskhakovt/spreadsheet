@@ -21,18 +21,24 @@ describe("classifyMatch", () => {
   // --- Green light (both yes/willing + both now) ---
   describe("green-light — both positive + both now", () => {
     it("both yes + both now", () => expect(classifyMatch(a("yes", "now"), a("yes", "now"))).toBe("green-light"));
-    it("yes + willing, both now", () => expect(classifyMatch(a("yes", "now"), a("if-partner-wants", "now"))).toBe("green-light"));
-    it("willing + willing, both now", () => expect(classifyMatch(a("if-partner-wants", "now"), a("if-partner-wants", "now"))).toBe("green-light"));
-    it("willing + yes, both now", () => expect(classifyMatch(a("if-partner-wants", "now"), a("yes", "now"))).toBe("green-light"));
+    it("yes + willing, both now", () =>
+      expect(classifyMatch(a("yes", "now"), a("if-partner-wants", "now"))).toBe("green-light"));
+    it("willing + willing, both now", () =>
+      expect(classifyMatch(a("if-partner-wants", "now"), a("if-partner-wants", "now"))).toBe("green-light"));
+    it("willing + yes, both now", () =>
+      expect(classifyMatch(a("if-partner-wants", "now"), a("yes", "now"))).toBe("green-light"));
   });
 
   // --- Match (both yes/willing, not both now) ---
   describe("match — both positive, timing differs", () => {
     it("both yes, A now B later", () => expect(classifyMatch(a("yes", "now"), a("yes", "later"))).toBe("match"));
     it("both yes, both later", () => expect(classifyMatch(a("yes", "later"), a("yes", "later"))).toBe("match"));
-    it("both yes, null timing (showTiming off)", () => expect(classifyMatch(a("yes", null), a("yes", null))).toBe("match"));
-    it("yes + willing, A later B now", () => expect(classifyMatch(a("yes", "later"), a("if-partner-wants", "now"))).toBe("match"));
-    it("willing + willing, both later", () => expect(classifyMatch(a("if-partner-wants", "later"), a("if-partner-wants", "later"))).toBe("match"));
+    it("both yes, null timing (showTiming off)", () =>
+      expect(classifyMatch(a("yes", null), a("yes", null))).toBe("match"));
+    it("yes + willing, A later B now", () =>
+      expect(classifyMatch(a("yes", "later"), a("if-partner-wants", "now"))).toBe("match"));
+    it("willing + willing, both later", () =>
+      expect(classifyMatch(a("if-partner-wants", "later"), a("if-partner-wants", "later"))).toBe("match"));
     it("yes null + yes now", () => expect(classifyMatch(a("yes", null), a("yes", "now"))).toBe("match"));
   });
 

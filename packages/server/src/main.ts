@@ -11,6 +11,7 @@ switch (command) {
     await runMigrations(db);
     console.log("Migrations applied");
     process.exit(0);
+    break;
   }
 
   case "seed": {
@@ -21,6 +22,7 @@ switch (command) {
     await seed(new QuestionStore(db));
     console.log("Seed complete");
     process.exit(0);
+    break;
   }
 
   case "setup": {
@@ -33,6 +35,7 @@ switch (command) {
     await seed(new QuestionStore(db));
     console.log("Seed complete");
     process.exit(0);
+    break;
   }
 
   default:

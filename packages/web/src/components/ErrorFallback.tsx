@@ -4,7 +4,7 @@ import { Button } from "./Button.js";
 import { Card } from "./Card.js";
 
 /** Root-level fallback — shown when the entire app crashes */
-export function RootErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+export function RootErrorFallback({ resetErrorBoundary }: FallbackProps) {
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="text-center space-y-6 max-w-sm">
@@ -19,7 +19,7 @@ export function RootErrorFallback({ error, resetErrorBoundary }: FallbackProps) 
 }
 
 /** Screen-level fallback — shown when a single screen crashes */
-export function ScreenErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+export function ScreenErrorFallback({ resetErrorBoundary }: FallbackProps) {
   return (
     <Card>
       <div className="text-center pt-16 space-y-6">

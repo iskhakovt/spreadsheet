@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import * as schema from "./schema.js";
 

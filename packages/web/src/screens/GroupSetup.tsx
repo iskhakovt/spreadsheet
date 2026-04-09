@@ -120,7 +120,12 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
             </div>
           ))}
 
-          <Button fullWidth onClick={async () => { await onDone(); }}>
+          <Button
+            fullWidth
+            onClick={async () => {
+              await onDone();
+            }}
+          >
             Start filling out
           </Button>
         </div>

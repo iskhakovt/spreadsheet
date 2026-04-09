@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
-import { decodeStoken, encodeStoken } from "../stoken.js";
 import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
+import { decodeStoken, encodeStoken } from "../stoken.js";
 
 export class SyncStore {
   #tx: <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;
@@ -11,10 +11,7 @@ export class SyncStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
-  async push(
-    personId: string,
-    input: { stoken: string | null; operations: string[]; progress: string | null },
-  ) {
+  async push(personId: string, input: { stoken: string | null; operations: string[]; progress: string | null }) {
     return this.#tx(async (tx) => {
       if (input.progress !== null) {
         await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
@@ -78,7 +75,10 @@ export class SyncStore {
   }
 
   async compare(groupId: string): Promise<
-    | { members: { id: string; name: string; anatomy: string | null }[]; entries: { personId: string; operation: string }[] }
+    | {
+        members: { id: string; name: string; anatomy: string | null }[];
+        entries: { personId: string; operation: string }[];
+      }
     | { error: "not_all_complete" }
   > {
     return this.#tx(async (tx) => {

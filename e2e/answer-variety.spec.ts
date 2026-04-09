@@ -8,7 +8,7 @@ test.describe("answer variety", () => {
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);
     // Dismiss category welcome screen
-    await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
 
     // Q1: Yes + Now
@@ -42,7 +42,7 @@ test.describe("answer variety", () => {
     await setCategories(page, ["group"]);
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);
-    await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
 
     // Answer Q1

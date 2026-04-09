@@ -1,4 +1,4 @@
-import { count, sql } from "drizzle-orm";
+import { count } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { QuestionStore } from "../store/questions.js";
 import { createDatabase, type Database } from "./index.js";
@@ -39,9 +39,7 @@ describe("seed data on real Postgres", () => {
   });
 
   it("all questions have a valid tier (1, 2, or 3)", async () => {
-    const rows = await db
-      .select({ tier: questions.tier })
-      .from(questions);
+    const rows = await db.select({ tier: questions.tier }).from(questions);
 
     for (const row of rows) {
       expect([1, 2, 3]).toContain(row.tier);
@@ -49,10 +47,7 @@ describe("seed data on real Postgres", () => {
   });
 
   it("every tier has at least one question", async () => {
-    const rows = await db
-      .select({ tier: questions.tier, n: count() })
-      .from(questions)
-      .groupBy(questions.tier);
+    const rows = await db.select({ tier: questions.tier, n: count() }).from(questions).groupBy(questions.tier);
 
     const tierMap = Object.fromEntries(rows.map((r) => [r.tier, r.n]));
     expect(tierMap[1]).toBeGreaterThan(0);
@@ -61,7 +56,7 @@ describe("seed data on real Postgres", () => {
   });
 
   it("upsert preserves tier values on re-seed", async () => {
-    const [before] = await db
+    const [_before] = await db
       .select({ tier: questions.tier, n: count() })
       .from(questions)
       .groupBy(questions.tier)

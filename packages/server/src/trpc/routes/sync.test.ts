@@ -5,15 +5,28 @@ import { appRouter } from "../router.js";
 
 const createCaller = createCallerFactory(appRouter);
 
-function mockCtx(overrides: Partial<{
-  person: TrpcContext["person"];
-  group: TrpcContext["group"];
-  groups: Partial<TrpcContext["groups"]>;
-  sync: Partial<TrpcContext["sync"]>;
-  questions: Partial<TrpcContext["questions"]>;
-}>): TrpcContext {
+function mockCtx(
+  overrides: Partial<{
+    person: TrpcContext["person"];
+    group: TrpcContext["group"];
+    groups: Partial<TrpcContext["groups"]>;
+    sync: Partial<TrpcContext["sync"]>;
+    questions: Partial<TrpcContext["questions"]>;
+  }>,
+): TrpcContext {
   return {
-    groups: { create: vi.fn(), setupAdmin: vi.fn(), addPerson: vi.fn(), removePerson: vi.fn(), setProfile: vi.fn(), markReady: vi.fn(), getPersonByToken: vi.fn(), getGroupById: vi.fn(), getStatus: vi.fn(), ...overrides.groups },
+    groups: {
+      create: vi.fn(),
+      setupAdmin: vi.fn(),
+      addPerson: vi.fn(),
+      removePerson: vi.fn(),
+      setProfile: vi.fn(),
+      markReady: vi.fn(),
+      getPersonByToken: vi.fn(),
+      getGroupById: vi.fn(),
+      getStatus: vi.fn(),
+      ...overrides.groups,
+    },
     sync: { push: vi.fn(), markComplete: vi.fn(), unmarkComplete: vi.fn(), compare: vi.fn(), ...overrides.sync },
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
@@ -22,15 +35,23 @@ function mockCtx(overrides: Partial<{
 }
 
 const person = { id: "p1", groupId: "g1", name: "Alice", anatomy: "afab", isAdmin: true, isCompleted: false };
-const group = { id: "g1", encrypted: false, isReady: true, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null };
+const group = {
+  id: "g1",
+  encrypted: false,
+  isReady: true,
+  questionMode: "all",
+  showTiming: true,
+  anatomyLabels: null,
+  anatomyPicker: null,
+};
 
 describe("sync.push", () => {
   it("validates opaque format before calling store", async () => {
     const ctx = mockCtx({ person, group });
     const caller = createCaller(ctx);
-    await expect(
-      caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: null }),
-    ).rejects.toThrow("Invalid operation format");
+    await expect(caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: null })).rejects.toThrow(
+      "Invalid operation format",
+    );
   });
 
   it("passes valid operations to store", async () => {
@@ -51,9 +72,9 @@ describe("sync.push", () => {
 
   it("requires auth", async () => {
     const caller = createCaller(mockCtx({}));
-    await expect(
-      caller.sync.push({ stoken: null, operations: [], progress: null }),
-    ).rejects.toThrow("Invalid or missing person token");
+    await expect(caller.sync.push({ stoken: null, operations: [], progress: null })).rejects.toThrow(
+      "Invalid or missing person token",
+    );
   });
 });
 

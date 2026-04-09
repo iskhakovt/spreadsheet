@@ -110,9 +110,7 @@
         "groups_adminToken_unique": {
           "name": "groups_adminToken_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "adminToken"
-          ]
+          "columns": ["adminToken"]
         }
       },
       "policies": {},
@@ -155,12 +153,8 @@
           "name": "journal_entries_personId_persons_id_fk",
           "tableFrom": "journal_entries",
           "tableTo": "persons",
-          "columnsFrom": [
-            "personId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["personId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -238,12 +232,8 @@
           "name": "persons_groupId_groups_id_fk",
           "tableFrom": "persons",
           "tableTo": "groups",
-          "columnsFrom": [
-            "groupId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["groupId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -253,9 +243,7 @@
         "persons_token_unique": {
           "name": "persons_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -336,12 +324,8 @@
           "name": "questions_categoryId_categories_id_fk",
           "tableFrom": "questions",
           "tableTo": "categories",
-          "columnsFrom": [
-            "categoryId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["categoryId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -357,19 +341,12 @@
     "public.question_mode": {
       "name": "question_mode",
       "schema": "public",
-      "values": [
-        "all",
-        "filtered"
-      ]
+      "values": ["all", "filtered"]
     },
     "public.target": {
       "name": "target",
       "schema": "public",
-      "values": [
-        "all",
-        "amab",
-        "afab"
-      ]
+      "values": ["all", "amab", "afab"]
     }
   },
   "schemas": {},

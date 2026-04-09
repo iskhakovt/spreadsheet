@@ -90,7 +90,10 @@ export const groupsRouter = router({
         case "self_remove":
           throw new TRPCError({ code: "BAD_REQUEST", message: "Can't remove yourself" });
         case "has_entries":
-          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Can't remove a person who has submitted answers" });
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Can't remove a person who has submitted answers",
+          });
       }
     }
 

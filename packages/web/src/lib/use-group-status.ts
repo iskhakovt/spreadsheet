@@ -6,6 +6,12 @@ type GroupStatus = NonNullable<Awaited<ReturnType<typeof trpc.groups.status.quer
 
 const DEFAULT_POLL_MS = 30_000;
 
+/** Runtime override via window.__ENV.POLL_MS (set by server, used by E2E tests for fast polling). */
+function getEffectivePoll(pollMs: number): number {
+  const override = (window as { __ENV?: { POLL_MS?: string } }).__ENV?.POLL_MS;
+  return override ? Number(override) : pollMs;
+}
+
 export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
   const [status, setStatus] = useState<GroupStatus | null | "loading" | "error">("loading");
 
@@ -29,7 +35,7 @@ export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
   }, [token]);
 
   useEffect(() => {
-    const interval = setInterval(refresh, pollMs);
+    const interval = setInterval(refresh, getEffectivePoll(pollMs));
     return () => clearInterval(interval);
   }, [token, pollMs]);
 

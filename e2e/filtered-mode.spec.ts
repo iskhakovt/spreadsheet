@@ -28,7 +28,7 @@ for (const encrypted of [false, true]) {
       await partnerSection.getByRole("button", { name: "Penis" }).click();
 
       await page.getByText("Create & get links").click();
-      await expect(page.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("You're all set")).toBeVisible();
     });
   });
 }

@@ -1,10 +1,11 @@
-import { test as base, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { test as base, expect } from "@playwright/test";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 
 export const test = base.extend({
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright fixture convention — {} means no dependencies
   baseURL: async ({}, use) => {
     let port: string;
     try {

@@ -6,10 +6,10 @@ import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { createDatabase } from "./db/index.js";
+import { initSentry } from "./sentry.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
-import { initSentry } from "./sentry.js";
 import { createContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
@@ -48,6 +48,7 @@ app.use(
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
   SENTRY_DSN: process.env.SENTRY_DSN_FRONTEND ?? process.env.SENTRY_DSN ?? "",
+  ...(process.env.POLL_MS && { POLL_MS: process.env.POLL_MS }),
 });
 const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
 

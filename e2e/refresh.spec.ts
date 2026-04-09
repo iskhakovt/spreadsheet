@@ -9,7 +9,7 @@ for (const encrypted of [false, true]) {
       await page.getByText("Start filling out").click();
       await goThroughIntro(page);
       // Wait for welcome screen to load, then dismiss
-      await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/\d+ questions/)).toBeVisible();
       await page.getByRole("button", { name: "Start" }).click();
 
       await expect(page.getByRole("button", { name: "Yes" })).toBeVisible();
@@ -21,9 +21,9 @@ for (const encrypted of [false, true]) {
       // But the URL stays on /questions
       expect(page.url()).toMatch(/\/questions/);
       // Wait for content to load — either welcome or question screen
-      await expect(
-        page.getByText(/\d+ questions/).or(page.getByRole("button", { name: "Yes" })),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/\d+ questions/).or(page.getByRole("button", { name: "Yes" }))).toBeVisible({
+        timeout: 10000,
+      });
     });
 
     test("refresh on setup screen stays on setup", async ({ page }) => {
@@ -38,7 +38,7 @@ for (const encrypted of [false, true]) {
 
       await page.reload();
 
-      await expect(page.getByText("Set up your group")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Set up your group")).toBeVisible();
     });
   });
 }

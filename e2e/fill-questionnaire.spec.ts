@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, setCategories, setTier, startFillingWithCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, setCategories, setTier } from "./helpers.js";
 
 test.describe("questionnaire flow", () => {
   test("create group → setup → answer questions", async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Create & get links").click();
 
     // Links screen
-    await expect(page.getByText("You're all set")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("You're all set")).toBeVisible();
 
     // Restrict to one category for speed
     await setCategories(page, ["foundations"]);
@@ -25,11 +25,11 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Start filling out").click();
 
     // Should see intro
-    await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Here's how it works")).toBeVisible();
     await page.getByText("Let's go").click();
 
     // Should see category welcome screen (no more category picker)
-    await expect(page.getByText("Foundations")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Foundations")).toBeVisible();
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
 
@@ -57,7 +57,7 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Start filling out").click();
 
     // Intro screen should show tier picker
-    await expect(page.getByText("How many questions?")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("How many questions?")).toBeVisible();
     await expect(page.getByText("Essentials")).toBeVisible();
     await expect(page.getByText("Curious")).toBeVisible();
     await expect(page.getByText("Adventurous")).toBeVisible();
@@ -66,7 +66,7 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Let's go").click();
 
     // Should proceed to questions
-    await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/\d+ questions/)).toBeVisible();
   });
 
   test("changing tier on Summary updates question counts", async ({ page }) => {
@@ -83,12 +83,12 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Progress").click();
 
     // Summary should show Essentials selected and a count for power
-    await expect(page.getByText("Your progress")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Your progress")).toBeVisible();
     const essentialsCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
     const essentialTotal = Number(essentialsCount?.split("/")[1] ?? 0);
 
     // Switch to Adventurous on Summary
-    await page.getByRole("radio", { name: "Adventurous" }).click();
+    await page.getByText("Adventurous").click();
 
     // Count should increase
     const adventurousCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
