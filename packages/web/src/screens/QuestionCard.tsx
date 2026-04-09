@@ -129,16 +129,14 @@ export function QuestionCard({
           disabled={index === 0}
           className="flex items-center gap-1 text-text-muted disabled:opacity-30"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
-            <title>Back</title>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           {UI.question.back}
         </button>
         <button type="button" onClick={onSkip} className="flex items-center gap-1 text-text-muted">
           {UI.question.skip}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
-            <title>Skip</title>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
             <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
