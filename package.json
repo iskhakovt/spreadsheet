@@ -22,5 +22,6 @@
     "testcontainers": "^11.13.0",
     "typescript": "^6.0.0",
     "vitest": "^4.1.0"
-  }
+  },
+  "packageManager": "pnpm@10.27.0"
 }
