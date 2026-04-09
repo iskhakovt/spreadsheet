@@ -102,3 +102,11 @@ export function getHasSeenIntro(): boolean {
 export function setHasSeenIntro(): void {
   setRaw("hasSeenIntro", "true");
 }
+
+export function getCurrentScreenKey(): string | null {
+  return getRaw("currentScreen");
+}
+
+export function setCurrentScreenKey(key: string): void {
+  setRaw("currentScreen", key);
+}

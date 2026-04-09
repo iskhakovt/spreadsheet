@@ -82,7 +82,7 @@ export class SyncStore {
     | { error: "not_all_complete" }
   > {
     return this.#tx(async (tx) => {
-      const members = await tx.select().from(persons).where(eq(persons.groupId, groupId));
+      const members = await tx.select().from(persons).where(eq(persons.groupId, groupId)).orderBy(persons.createdAt);
 
       if (!members.every((m) => m.isCompleted)) {
         return { error: "not_all_complete" as const };

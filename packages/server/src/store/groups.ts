@@ -224,7 +224,8 @@ export class GroupStore {
           progress: persons.progress,
         })
         .from(persons)
-        .where(eq(persons.groupId, person.groupId));
+        .where(eq(persons.groupId, person.groupId))
+        .orderBy(persons.createdAt);
 
       const group = await tx
         .select()

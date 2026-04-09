@@ -125,11 +125,24 @@ export function QuestionCard({
 
       {/* Navigation */}
       <div className="flex justify-between text-sm">
-        <button type="button" onClick={onBack} disabled={index === 0} className="text-text-muted disabled:opacity-30">
-          &larr; {UI.question.back}
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={index === 0}
+          className="flex items-center gap-1 text-text-muted disabled:opacity-30"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+            <title>Back</title>
+            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          {UI.question.back}
         </button>
-        <button type="button" onClick={onSkip} className="text-text-muted">
-          {UI.question.skip} &rarr;
+        <button type="button" onClick={onSkip} className="flex items-center gap-1 text-text-muted">
+          {UI.question.skip}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+            <title>Skip</title>
+            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
         </button>
       </div>
 

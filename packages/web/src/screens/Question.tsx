@@ -9,12 +9,14 @@ import {
   addPendingOp,
   clearPendingOps,
   getAnswers,
+  getCurrentScreenKey,
   getPendingOps,
   getSelectedCategories,
   getSelectedTier,
   getStoken,
   setAnswer,
   setAnswers,
+  setCurrentScreenKey,
   setSelectedCategories,
   setStoken,
 } from "../lib/storage.js";
@@ -93,18 +95,47 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
 
-  // Navigate to startKey or first unanswered
+  // Navigate to startKey, saved position, or first unanswered
   useEffect(() => {
     if (screens.length > 0) {
       if (startKey) {
         const idx = screens.findIndex((s) => s.key === startKey);
         if (idx !== -1) setIndex(idx);
         onStartKeyConsumed?.();
-      } else if (Object.keys(answers).length > 0) {
-        const firstUnanswered = screens.findIndex((s) => s.type === "question" && !answers[s.key]);
-        if (firstUnanswered !== -1) setIndex(firstUnanswered);
+      } else {
+        const saved = getCurrentScreenKey();
+        const savedIdx = saved ? screens.findIndex((s) => s.key === saved) : -1;
+        if (savedIdx !== -1) {
+          setIndex(savedIdx);
+        } else if (Object.keys(answers).length > 0) {
+          const firstUnanswered = screens.findIndex((s) => s.type === "question" && !answers[s.key]);
+          if (firstUnanswered !== -1) setIndex(firstUnanswered);
+        }
       }
     }
+  }, [screens.length]);
+
+  // Persist current screen key so position survives unmount (e.g. summary detour)
+  useEffect(() => {
+    const current = screens[Math.min(index, screens.length - 1)];
+    if (current) setCurrentScreenKey(current.key);
+  }, [index, screens]);
+
+  // Arrow key navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") {
+        setIndex((i) => Math.max(0, i - 1));
+        setShowTiming(false);
+        setShowDescription(false);
+      } else if (e.key === "ArrowRight") {
+        setIndex((i) => Math.min(screens.length, i + 1));
+        setShowTiming(false);
+        setShowDescription(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [screens.length]);
 
   // Auto-sync 3s after last answer, show indicator after 5s

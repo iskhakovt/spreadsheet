@@ -23,11 +23,14 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
   hidden: { bg: "", label: "" },
 };
 
-export function Comparison() {
+export function Comparison({ onBack }: { onBack?: () => void }) {
   const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
   const [questions, setQuestions] = useState<Record<string, QuestionInfo>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [questionOrder, setQuestionOrder] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([trpc.sync.compare.query(), trpc.questions.list.query()])
@@ -44,6 +47,13 @@ export function Comparison() {
           cMap[c.id] = c.label;
         }
         setCategories(cMap);
+        setCategoryOrder(questionsData.categories.map((c) => c.id));
+
+        const qOrder: Record<string, number> = {};
+        for (let i = 0; i < questionsData.questions.length; i++) {
+          qOrder[questionsData.questions[i].id] = i;
+        }
+        setQuestionOrder(qOrder);
 
         // Replay each member's journal
         const members: MemberAnswers[] = await Promise.all(
@@ -91,14 +101,56 @@ export function Comparison() {
     }
   }
 
+  const showTabs = pairs.length > 1;
+  const pairKey = (a: MemberAnswers, b: MemberAnswers) => `${a.id}-${b.id}`;
+  const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
+
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center">Your results</h1>
 
-        {pairs.map(({ a, b }) => (
-          <PairComparison key={`${a.id}-${b.id}`} a={a} b={b} questions={questions} categories={categories} />
-        ))}
+        {showTabs && (
+          <div className="flex gap-2 justify-center flex-wrap">
+            {pairs.map(({ a, b }) => {
+              const pk = pairKey(a, b);
+              const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
+              return (
+                <button
+                  key={pk}
+                  type="button"
+                  onClick={() => setActivePairKey(pk)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    isActive ? "bg-accent text-white" : "bg-surface text-text-muted hover:text-text"
+                  }`}
+                >
+                  {a.name} & {b.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {visiblePair && (
+          <PairComparison
+            key={`${visiblePair.a.id}-${visiblePair.b.id}`}
+            a={visiblePair.a}
+            b={visiblePair.b}
+            questions={questions}
+            categories={categories}
+            categoryOrder={categoryOrder}
+            questionOrder={questionOrder}
+            showHeading={!showTabs}
+          />
+        )}
+
+        {onBack && (
+          <div className="text-center pt-4">
+            <button type="button" onClick={onBack} className="text-text-muted hover:text-text underline text-sm">
+              Change my answers
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -109,11 +161,17 @@ function PairComparison({
   b,
   questions,
   categories,
+  categoryOrder,
+  questionOrder,
+  showHeading = true,
 }: {
   a: MemberAnswers;
   b: MemberAnswers;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
+  categoryOrder: string[];
+  questionOrder: Record<string, number>;
+  showHeading?: boolean;
 }) {
   const pairMatches = buildPairMatches(a.answers, b.answers, questions, a.name);
 
@@ -129,43 +187,49 @@ function PairComparison({
     grouped[categoryId].matches.push(match);
   }
 
-  // Sort matches: green-light first, then match, then maybe, then possible, then fantasy
+  // Sort categories and questions in the same order as the question flow
+  const sortedCategories = categoryOrder.filter((id) => grouped[id]);
   const matchOrder: MatchType[] = ["green-light", "match", "both-maybe", "possible", "fantasy"];
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-center">
-        {a.name} & {b.name}
-      </h2>
+      {showHeading && (
+        <h2 className="text-xl font-bold text-center">
+          {a.name} & {b.name}
+        </h2>
+      )}
 
-      {Object.entries(grouped).length === 0 ? (
+      {sortedCategories.length === 0 ? (
         <p className="text-center text-text-muted">No matches found — but that's OK.</p>
       ) : (
-        Object.entries(grouped).map(([catId, group]) => (
-          <div key={catId}>
-            <h3 className="text-sm font-medium text-text-muted mb-2">{group.label}</h3>
-            <div className="space-y-2">
-              {group.matches
-                .sort((x, y) => matchOrder.indexOf(x.matchType) - matchOrder.indexOf(y.matchType))
-                .map((match) => {
-                  const style = MATCH_STYLES[match.matchType];
-                  return (
-                    <div
-                      key={`${match.questionId}-${match.displayText}`}
-                      className={`px-4 py-3 rounded-lg ${style.bg}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`font-medium ${match.matchType === "fantasy" ? "italic" : ""}`}>
-                          {match.displayText}
-                        </span>
-                        <span className="text-sm text-text-muted shrink-0 ml-3">{style.label}</span>
+        sortedCategories.map((catId) => {
+          const group = grouped[catId];
+          return (
+            <div key={catId}>
+              <h3 className="text-sm font-medium text-text-muted mb-2">{group.label}</h3>
+              <div className="space-y-2">
+                {group.matches
+                  .sort((x, y) => (questionOrder[x.questionId] ?? 0) - (questionOrder[y.questionId] ?? 0))
+                  .map((match) => {
+                    const style = MATCH_STYLES[match.matchType];
+                    return (
+                      <div
+                        key={`${match.questionId}-${match.displayText}`}
+                        className={`px-4 py-3 rounded-lg ${style.bg}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`font-medium ${match.matchType === "fantasy" ? "italic" : ""}`}>
+                            {match.displayText}
+                          </span>
+                          <span className="text-sm text-text-muted shrink-0 ml-3">{style.label}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );

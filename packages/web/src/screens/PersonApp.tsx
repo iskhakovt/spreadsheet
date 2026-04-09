@@ -220,7 +220,12 @@ export function PersonApp() {
               </Card>
             }
           >
-            <Comparison />
+            <Comparison
+              onBack={async () => {
+                await trpc.sync.unmarkComplete.mutate();
+                await refreshStatus();
+              }}
+            />
           </Suspense>
         </Route>
 
