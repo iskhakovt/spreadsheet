@@ -118,16 +118,16 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     }
 
     if (rating === "yes") {
-      await page.getByRole("radio", { name: "Yes" }).check();
+      await page.getByRole("radio", { name: "Yes" }).click();
       // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
       const nowBtn = page.getByRole("button", { name: "Now" });
       if (await nowBtn.isVisible().catch(() => false)) {
         await nowBtn.click();
       }
     } else if (rating === "no") {
-      await page.getByRole("radio", { name: "No" }).check();
+      await page.getByRole("radio", { name: "No" }).click();
     } else {
-      await page.getByRole("radio", { name: "Maybe" }).check();
+      await page.getByRole("radio", { name: "Maybe" }).click();
     }
   }
   await expect(doneLocator(page)).toBeVisible();

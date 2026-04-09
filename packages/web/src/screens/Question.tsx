@@ -51,6 +51,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   const handleRatingRef = useRef<(rating: Rating) => void>(undefined);
   const handleTimingRef = useRef<(timing: Timing) => void>(undefined);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const shouldFocusHeading = useRef(false);
   const answers = getAnswers();
   const pendingOps = getPendingOps();
 
@@ -124,9 +125,12 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     if (current) setCurrentScreenKey(current.key);
   }, [index, screens]);
 
-  // Focus heading on question transition
+  // Focus heading on click/tap transitions (not keyboard — aria-live handles that)
   useEffect(() => {
-    headingRef.current?.focus();
+    if (shouldFocusHeading.current) {
+      headingRef.current?.focus();
+      shouldFocusHeading.current = false;
+    }
   }, [index]);
 
   // Keyboard navigation: arrows + number keys for ratings
@@ -303,6 +307,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     const op = await encodeValue({ key: current.key, data: answer } satisfies OperationPayload);
     addPendingOp(op);
     setShowDescription(false);
+    shouldFocusHeading.current = true;
     setIndex((i) => i + 1);
   }
 

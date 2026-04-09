@@ -26,7 +26,7 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(admin);
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
     await admin.getByRole("button", { name: "Start" }).click();
-    await admin.getByRole("radio", { name: "No" }).check();
+    await admin.getByRole("radio", { name: "No" }).click();
 
     // Verify admin has scoped answers
     const adminAnswers = await scopedGet(admin, "answers");
@@ -40,7 +40,7 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(bob);
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
     await bob.getByRole("button", { name: "Start" }).click();
-    await bob.getByRole("radio", { name: "Yes" }).check();
+    await bob.getByRole("radio", { name: "Yes" }).click();
 
     // Bob has separate scoped answers
     const bobAnswers = await scopedGet(bob, "answers");

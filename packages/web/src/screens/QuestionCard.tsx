@@ -1,5 +1,5 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
-import type { RefObject } from "react";
+import { type RefObject, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
@@ -84,12 +84,10 @@ export function QuestionCard({
           </button>
         )}
       </div>
-
       {/* Screen reader announcement */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         Question {posInCategory} of {catQuestionScreens.length}, {category?.label}
       </div>
-
       {/* Question text + description — fixed height zone so buttons don't jump */}
       <div className="min-h-[6rem] mb-2">
         <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold leading-tight outline-none">
@@ -109,7 +107,6 @@ export function QuestionCard({
           <p className="text-sm text-text-muted mt-2 leading-relaxed">{screen.question.description}</p>
         )}
       </div>
-
       {/* Timing sub-question */}
       {showTiming ? (
         <div className="space-y-3 mb-6">
@@ -125,41 +122,7 @@ export function QuestionCard({
           <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1 or 2</p>
         </div>
       ) : (
-        <fieldset aria-label="Rate this activity" className="space-y-3 mb-6 mt-6">
-          {RATING_OPTIONS.map((opt) => (
-            <label
-              key={opt.rating}
-              onClick={() => onRating(opt.rating)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onRating(opt.rating);
-                }
-              }}
-              className={cn(
-                "flex items-center justify-center w-full",
-                "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
-                "transition-all duration-200 ease-out",
-                "active:scale-[0.97] active:shadow-none",
-                "cursor-pointer select-none",
-                variantStyles[opt.variant],
-                opt.italic && "italic",
-                existingAnswer?.rating === opt.rating && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
-              )}
-            >
-              <input
-                type="radio"
-                name="rating"
-                value={opt.rating}
-                checked={existingAnswer?.rating === opt.rating}
-                readOnly
-                className="sr-only"
-              />
-              {opt.label}
-            </label>
-          ))}
-          <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
-        </fieldset>
+        <RatingGroup existingAnswer={existingAnswer} onRating={onRating} />
       )}
 
       {/* Navigation */}
@@ -188,7 +151,6 @@ export function QuestionCard({
           </svg>
         </button>
       </div>
-
       {/* Progress bar + sync */}
       <div
         className="mt-6 h-1.5 bg-surface rounded-full overflow-hidden"
@@ -206,5 +168,65 @@ export function QuestionCard({
         <SyncIndicator syncing={syncing} show={showSyncIndicator} pendingCount={pendingCount} onSync={onSync} />
       </div>
     </Card>
+  );
+}
+
+/** Roving-tabindex radio group — button[role="radio"] pattern (Radix/React Aria style). */
+function RatingGroup({
+  existingAnswer,
+  onRating,
+}: {
+  existingAnswer: Answer | undefined;
+  onRating: (r: Rating) => void;
+}) {
+  const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
+  const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    const len = RATING_OPTIONS.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = (focusIdx + 1) % len;
+      setFocusIdx(next);
+      refs.current[next]?.focus();
+    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prev = (focusIdx - 1 + len) % len;
+      setFocusIdx(prev);
+      refs.current[prev]?.focus();
+    }
+  }
+
+  return (
+    <div role="radiogroup" aria-label="Rate this activity" className="space-y-3 mb-6 mt-6" onKeyDown={handleKeyDown}>
+      {RATING_OPTIONS.map((opt, i) => (
+        // biome-ignore lint/a11y/useSemanticElements: button[role=radio] is the WAI-ARIA APG pattern for custom radio groups (roving tabindex)
+        <button
+          key={opt.rating}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          type="button"
+          role="radio"
+          aria-checked={existingAnswer?.rating === opt.rating}
+          tabIndex={i === focusIdx ? 0 : -1}
+          onClick={() => onRating(opt.rating)}
+          className={cn(
+            "flex items-center justify-center w-full",
+            "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
+            "transition-all duration-200 ease-out",
+            "active:scale-[0.97] active:shadow-none",
+            "cursor-pointer select-none",
+            variantStyles[opt.variant],
+            opt.italic && "italic",
+            existingAnswer?.rating === opt.rating && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+      <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
+    </div>
   );
 }

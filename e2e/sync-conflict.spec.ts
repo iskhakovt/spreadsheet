@@ -12,7 +12,7 @@ for (const encrypted of [false, true]) {
       await page.getByRole("button", { name: "Start" }).click();
 
       // Q1: answer Yes
-      await page.getByRole("radio", { name: "Yes" }).check();
+      await page.getByRole("radio", { name: "Yes" }).click();
 
       // Wait for auto-sync to complete
       await expect(async () => {
@@ -25,7 +25,7 @@ for (const encrypted of [false, true]) {
       expect(stokenAfterQ1).toBeTruthy();
 
       // Q2: answer No
-      await page.getByRole("radio", { name: "No" }).check();
+      await page.getByRole("radio", { name: "No" }).click();
 
       // Wait for auto-sync
       await expect(async () => {
@@ -37,7 +37,7 @@ for (const encrypted of [false, true]) {
       await scopedSet(page, "stoken", stokenAfterQ1!);
 
       // Q3: answer Maybe
-      await page.getByRole("radio", { name: "Maybe" }).check();
+      await page.getByRole("radio", { name: "Maybe" }).click();
 
       // Wait for auto-sync to handle the conflict + retry
       await expect(async () => {
