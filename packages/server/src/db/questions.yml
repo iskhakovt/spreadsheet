@@ -1,0 +1,1137 @@
+# Question bank for Spreadsheet
+# Copyright 2026 Timur Iskhakov
+# Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+# See LICENSE-QUESTIONS in this directory for the full license text.
+#
+# Tiers:
+#   1 = Essentials — if you're sleeping with someone, discuss this
+#   2 = Curious    — common fantasies, toys, and more to explore
+#   3 = Adventurous — niche interests, edge play, advanced dynamics
+
+categories:
+  - id: foundations
+    label: Foundations
+    description: Communication, setting, mood, basics
+  - id: touch
+    label: Touch & Body
+    description: Massage, body contact, skin-to-skin
+  - id: oral
+    label: Oral
+    description: Oral sex, kissing, mouth play
+  - id: penetration
+    label: Penetration & Positions
+    description: Vaginal, anal, positions, toys
+  - id: toys
+    label: Toys & Accessories
+    description: Vibrators, dildos, plugs, rings
+  - id: sensation
+    label: Sensation Play
+    description: Temperature, texture, blindfolds, sensory
+  - id: bondage
+    label: Bondage & Restraint
+    description: Tying, cuffs, restriction of movement
+  - id: impact
+    label: Impact Play
+    description: Spanking, slapping, flogging
+  - id: power
+    label: Power Exchange
+    description: Dominance, submission, control, service
+  - id: roleplay
+    label: Role Play & Fantasy
+    description: Scenarios, costumes, characters
+  - id: exhibitionism
+    label: Exhibitionism & Voyeurism
+    description: Being watched, watching, public
+  - id: group
+    label: Group & External
+    description: Threesomes, swinging, watching others
+  - id: fetish
+    label: Materials & Fetish
+    description: Latex, leather, stockings, costumes
+  - id: edge
+    label: Edge Play
+    description: Higher-risk activities — breath, needle, knife
+  - id: environment
+    label: Sensory Environment
+    description: Lighting, sound, smell, texture — ND-friendly
+  - id: aftercare
+    label: Aftercare
+    description: What happens after — holding, space, snacks
+questions:
+  # ── Foundations ──────────────────────────────────────────────
+  - id: dirty-talk
+    category: foundations
+    tier: 1
+    text: Dirty talk
+    giveText: Talking dirty to your partner
+    receiveText: Hearing dirty talk from your partner
+  - id: sexting
+    category: foundations
+    tier: 1
+    text: Sexting
+    giveText: Sending sexual texts/photos
+    receiveText: Receiving sexual texts/photos
+  - id: phone-sex
+    category: foundations
+    tier: 2
+    text: Phone sex / voice notes
+    description: Sexual conversation or erotic audio over the phone — voice only, no video
+  - id: sharing-fantasies
+    category: foundations
+    tier: 1
+    text: Sharing sexual fantasies with each other
+    giveText: Telling your partner your fantasies
+    receiveText: Hearing your partner's fantasies
+  - id: scheduling
+    category: foundations
+    tier: 1
+    text: Scheduling sex
+  - id: spontaneous
+    category: foundations
+    tier: 1
+    text: Spontaneous sex
+  - id: quickie
+    category: foundations
+    tier: 1
+    text: Quickies (fast, urgent sex)
+    description: Five minutes, clothes barely off, no long buildup
+  - id: slow-sex
+    category: foundations
+    tier: 1
+    text: Slow, deliberate sex
+    description: Savoring every moment — breathing together, no rush, connection over speed
+  - id: morning-sex
+    category: foundations
+    tier: 2
+    text: Being woken up with sex
+    giveText: Waking your partner with sexual touch
+    receiveText: Being woken up by your partner's touch
+    description: Pre-negotiated — your partner starts while you're still half asleep
+  - id: shower-bath-sex
+    category: foundations
+    tier: 2
+    text: Shower or bath sex
+  - id: period-sex
+    category: foundations
+    tier: 1
+    text: Period sex
+  - id: initiating
+    category: foundations
+    tier: 1
+    text: Initiating
+    giveText: Initiating sex
+    receiveText: Being initiated on
+  - id: eye-contact
+    category: foundations
+    tier: 1
+    text: Eye contact during sex
+  - id: being-vocal
+    category: foundations
+    tier: 1
+    text: Being vocal / noisy during sex
+  - id: laughing-during
+    category: foundations
+    tier: 1
+    text: Laughing during sex
+    description: Awkward moments, funny noises, unexpected mishaps — laughing is welcome, not a mood-killer
+  - id: watching-porn
+    category: foundations
+    tier: 1
+    text: Watching porn together
+  - id: reading-erotica
+    category: foundations
+    tier: 2
+    text: Reading erotica together
+  - id: mirror-watching
+    category: foundations
+    tier: 2
+    text: Watching yourselves in a mirror
+  - id: filming
+    category: foundations
+    tier: 1
+    text: Filming / photos (private, just for us)
+  - id: verbal-affirmation
+    category: foundations
+    tier: 1
+    text: Verbal affirmation during sex
+    giveText: Telling your partner what feels good
+    receiveText: Hearing what feels good from your partner
+
+  # ── Touch & Body ────────────────────────────────────────────
+  - id: sensual-massage
+    category: touch
+    tier: 1
+    text: Sensual massage
+    giveText: Giving a sensual massage
+    receiveText: Receiving a sensual massage
+  - id: deep-tissue-massage
+    category: touch
+    tier: 2
+    text: Deep tissue / firm massage
+    giveText: Giving a firm massage
+    receiveText: Receiving a firm massage
+  - id: body-worship
+    category: touch
+    tier: 2
+    text: Body worship
+    giveText: Worshipping your partner's body (kissing, touching everywhere)
+    receiveText: Having your body worshipped
+    description: Kissing, licking, and touching every part of a partner's body with reverence
+  - id: kissing-mouth
+    category: touch
+    tier: 1
+    text: Kissing (mouth)
+  - id: kissing-neck
+    category: touch
+    tier: 1
+    text: Kissing / licking neck and ears
+  - id: kissing-body
+    category: touch
+    tier: 1
+    text: Kissing all over the body
+  - id: nipple-play
+    category: touch
+    tier: 1
+    text: Nipple play
+    giveText: Playing with your partner's nipples
+    receiveText: Having your nipples played with
+  - id: hair-pulling
+    category: touch
+    tier: 1
+    text: Hair pulling
+    giveText: Pulling your partner's hair
+    receiveText: Having your hair pulled
+  - id: scratching
+    category: touch
+    tier: 2
+    text: Scratching / nails on skin
+    giveText: Scratching your partner
+    receiveText: Being scratched
+  - id: biting
+    category: touch
+    tier: 2
+    text: Biting (light to medium)
+    giveText: Biting your partner
+    receiveText: Being bitten
+  - id: marks
+    category: touch
+    tier: 2
+    text: Leaving marks (hickeys, bite marks, bruises)
+    giveText: Leaving marks on your partner
+    receiveText: Having marks left on you
+    description: Visible marks that last — hickeys, bite marks, light bruising
+  - id: tickling
+    category: touch
+    tier: 2
+    text: Tickling
+  - id: frottage
+    category: touch
+    tier: 1
+    text: Dry humping / grinding
+    description: Grinding against each other, clothed or naked, without penetration
+  - id: wrestling
+    category: touch
+    tier: 2
+    text: Wrestling / play-fighting
+    description: Playful physical struggle — pinning each other, testing strength
+  - id: foot-play
+    category: touch
+    tier: 2
+    text: Foot massage / foot play
+    giveText: Massaging, kissing, or worshipping your partner's feet
+    receiveText: Having your feet massaged, kissed, or worshipped
+  - id: cuddling-naked
+    category: touch
+    tier: 1
+    text: Cuddling naked (non-sexual skin-to-skin)
+    description: Being naked together without it needing to lead to sex
+  - id: hand-job
+    category: touch
+    tier: 1
+    text: Hand job
+    giveText: Giving a hand job
+    receiveText: Receiving a hand job
+    targetGive: all
+    targetReceive: amab
+  - id: fingering
+    category: touch
+    tier: 1
+    text: Fingering
+    giveText: Fingering your partner
+    receiveText: Being fingered
+    targetGive: all
+    targetReceive: afab
+  - id: mutual-masturbation
+    category: touch
+    tier: 1
+    text: Mutual masturbation (at the same time)
+  - id: watching-partner-masturbate
+    category: touch
+    tier: 1
+    text: Watching partner masturbate
+    giveText: Masturbating while partner watches
+    receiveText: Watching your partner masturbate
+
+  # ── Oral ─────────────────────────────────────────────────────
+  - id: cunnilingus
+    category: oral
+    tier: 1
+    text: Cunnilingus
+    giveText: Going down on a vulva
+    receiveText: Receiving oral on your vulva
+    targetGive: all
+    targetReceive: afab
+  - id: fellatio
+    category: oral
+    tier: 1
+    text: Blowjob
+    giveText: Giving a blowjob
+    receiveText: Receiving a blowjob
+    targetGive: all
+    targetReceive: amab
+  - id: sixty-nine
+    category: oral
+    tier: 1
+    text: 69 (simultaneous oral)
+  - id: rimming
+    category: oral
+    tier: 2
+    text: Rimming (oral on anus)
+    giveText: Rimming your partner
+    receiveText: Being rimmed
+    description: Oral stimulation of the anus with the mouth and tongue
+  - id: face-sitting
+    category: oral
+    tier: 2
+    text: Face-sitting
+    giveText: Sitting on your partner's face
+    receiveText: Having your partner sit on your face
+    description: One partner sits on the other's face for oral stimulation
+  - id: deep-throat
+    category: oral
+    tier: 2
+    text: Deep throating
+    giveText: Deep throating your partner
+    receiveText: Being deep throated
+    targetGive: all
+    targetReceive: amab
+    description: Taking a penis deep into the mouth and throat
+  - id: swallowing
+    category: oral
+    tier: 2
+    text: Swallowing
+    giveText: Ejaculating in your partner's mouth
+    receiveText: Swallowing your partner's ejaculate
+    targetGive: amab
+    targetReceive: all
+  - id: facial
+    category: oral
+    tier: 2
+    text: Facial (ejaculate on face)
+    giveText: Ejaculating on your partner's face
+    receiveText: Having your partner ejaculate on your face
+    targetGive: amab
+    targetReceive: all
+
+  # ── Penetration & Positions ─────────────────────────────────
+  - id: vaginal-penetration
+    category: penetration
+    tier: 1
+    text: Vaginal penetration
+    targetGive: all
+    targetReceive: afab
+    giveText: Penetrating your partner vaginally
+    receiveText: Being penetrated vaginally
+  - id: anal-penetration
+    category: penetration
+    tier: 1
+    text: Anal penetration
+    giveText: Penetrating your partner anally
+    receiveText: Being penetrated anally
+  - id: missionary
+    category: penetration
+    tier: 1
+    text: Missionary
+  - id: doggy-style
+    category: penetration
+    tier: 1
+    text: Doggy style
+  - id: cowgirl
+    category: penetration
+    tier: 1
+    text: Cowgirl / partner on top
+  - id: reverse-cowgirl
+    category: penetration
+    tier: 2
+    text: Reverse cowgirl (on top, facing away)
+  - id: spooning
+    category: penetration
+    tier: 1
+    text: Spooning / side by side
+  - id: prone-bone
+    category: penetration
+    tier: 2
+    text: Prone bone (face down, flat)
+    description: Penetration while the receiving partner lies flat on their stomach
+  - id: standing
+    category: penetration
+    tier: 2
+    text: Standing up
+  - id: against-wall
+    category: penetration
+    tier: 2
+    text: Against a wall
+  - id: edge-of-bed
+    category: penetration
+    tier: 2
+    text: Edge of bed / furniture
+  - id: lotus
+    category: penetration
+    tier: 2
+    text: Lotus (seated, face to face)
+    description: Seated face-to-face position with legs wrapped around each other
+  - id: pegging
+    category: penetration
+    tier: 2
+    text: Pegging (strap-on anal)
+    giveText: Pegging your partner
+    receiveText: Being pegged
+    targetGive: all
+    targetReceive: amab
+    description: Penetrating a partner anally using a strap-on dildo
+  - id: double-pen-toy
+    category: penetration
+    tier: 3
+    text: Double penetration (partner + toy)
+    giveText: Penetrating your partner while they use a toy
+    receiveText: Being penetrated by partner and toy at the same time
+    description: Vaginal and anal penetration simultaneously — one from a partner, one from a toy
+  - id: fisting
+    category: penetration
+    tier: 3
+    text: Fisting
+    giveText: Fisting your partner
+    receiveText: Being fisted
+    description: Inserting the entire hand into the vagina or anus
+
+  # ── Toys & Accessories ──────────────────────────────────────
+  - id: vibrator
+    category: toys
+    tier: 1
+    text: Vibrator
+    giveText: Using a vibrator on your partner
+    receiveText: Having a vibrator used on you
+  - id: dildo
+    category: toys
+    tier: 1
+    text: Dildo
+    giveText: Using a dildo on your partner
+    receiveText: Having a dildo used on you
+  - id: butt-plug
+    category: toys
+    tier: 2
+    text: Butt plug
+    giveText: Using a butt plug on your partner
+    receiveText: Wearing a butt plug
+  - id: anal-beads
+    category: toys
+    tier: 2
+    text: Anal beads
+    giveText: Using anal beads on your partner
+    receiveText: Having anal beads used on you
+    description: A string of graduated beads inserted and slowly removed from the anus
+  - id: prostate-massager
+    category: toys
+    tier: 2
+    text: Prostate massager
+    giveText: Using a prostate massager on your partner
+    receiveText: Using a prostate massager
+    targetGive: all
+    targetReceive: amab
+    description: A toy designed to stimulate the prostate gland internally
+  - id: cock-ring
+    category: toys
+    tier: 2
+    text: Cock ring
+    targetGive: all
+    targetReceive: amab
+    giveText: Using a cock ring on your partner
+    receiveText: Wearing a cock ring
+  - id: nipple-clamps
+    category: toys
+    tier: 2
+    text: Nipple clamps
+    giveText: Putting nipple clamps on your partner
+    receiveText: Wearing nipple clamps
+  - id: suction-toy
+    category: toys
+    tier: 2
+    text: Suction toy (e.g. Womanizer)
+    giveText: Using a suction toy on your partner
+    receiveText: Having a suction toy used on you
+    targetGive: all
+    targetReceive: afab
+    description: A toy that uses air suction to stimulate the clitoris (e.g. Womanizer, Satisfyer)
+  - id: remote-toy
+    category: toys
+    tier: 2
+    text: Remote-controlled toy (in public or at home)
+  - id: strap-on
+    category: toys
+    tier: 2
+    text: Strap-on (non-pegging use)
+    giveText: Using a strap-on on your partner
+    receiveText: Having a strap-on used on you
+  - id: gag
+    category: toys
+    tier: 3
+    text: Gag (ball gag, ring gag, bit)
+    giveText: Gagging your partner
+    receiveText: Being gagged
+    description: A device placed in or over the mouth to restrict speech
+  - id: sex-furniture
+    category: toys
+    tier: 3
+    text: Sex furniture (wedge, swing, bench)
+    description: Shaped pillows, swings, or furniture designed to support positions and angles
+
+  # ── Sensation Play ──────────────────────────────────────────
+  - id: blindfold
+    category: sensation
+    tier: 2
+    text: Blindfold
+    giveText: Blindfolding your partner
+    receiveText: Being blindfolded
+  - id: earplugs
+    category: sensation
+    tier: 2
+    text: Earplugs / noise-cancelling (sensory deprivation)
+  - id: ice
+    category: sensation
+    tier: 2
+    text: Ice / cold play
+    giveText: Using ice on your partner
+    receiveText: Having ice used on you
+  - id: wax
+    category: sensation
+    tier: 2
+    text: Wax play (warm candles)
+    giveText: Dripping wax on your partner
+    receiveText: Having wax dripped on you
+    description: Dripping warm candle wax on the body for temperature sensation
+  - id: feather
+    category: sensation
+    tier: 2
+    text: Feather / light touch play
+    giveText: Using light touch on your partner
+    receiveText: Being lightly touched
+  - id: pinwheel
+    category: sensation
+    tier: 3
+    text: Wartenberg pinwheel
+    giveText: Using a pinwheel on your partner
+    receiveText: Having a pinwheel used on you
+    description: A small wheel with sharp points rolled across the skin for prickling sensation
+  - id: texture-play
+    category: sensation
+    tier: 2
+    text: Different textures (silk, leather, fur, rubber)
+  - id: warming-cooling-lube
+    category: sensation
+    tier: 2
+    text: Warming or cooling lube
+  - id: electrostim
+    category: sensation
+    tier: 3
+    text: Electrostimulation (e-stim / TENS / violet wand)
+    giveText: Using electrical stimulation on your partner
+    receiveText: Having electrical stimulation used on you
+    description: Devices that send mild electrical pulses through erogenous zones — from gentle tingling to intense pulsing
+
+  # ── Bondage & Restraint ─────────────────────────────────────
+  - id: held-down
+    category: bondage
+    tier: 1
+    text: Being held down by hands
+    giveText: Holding your partner down
+    receiveText: Being held down
+  - id: handcuffs
+    category: bondage
+    tier: 2
+    text: Handcuffs
+    giveText: Handcuffing your partner
+    receiveText: Being handcuffed
+  - id: rope-bondage
+    category: bondage
+    tier: 2
+    text: Rope bondage / shibari
+    giveText: Tying your partner with rope
+    receiveText: Being tied with rope
+    description: Tying a partner with rope — can be functional (restraint) or decorative (shibari)
+  - id: scarves-ties
+    category: bondage
+    tier: 2
+    text: Scarves / ties / soft restraints
+    giveText: Tying your partner with soft restraints
+    receiveText: Being tied with soft restraints
+  - id: spreader-bar
+    category: bondage
+    tier: 3
+    text: Spreader bar
+    giveText: Using a spreader bar on your partner
+    receiveText: Being restrained with a spreader bar
+    description: A rigid bar attached to cuffs that holds limbs apart
+  - id: bed-restraints
+    category: bondage
+    tier: 2
+    text: Bed restraints (under-mattress straps)
+    giveText: Restraining your partner to the bed
+    receiveText: Being restrained to the bed
+  - id: breast-bondage
+    category: bondage
+    tier: 3
+    text: Chest harness / breast bondage
+    giveText: Tying your partner's chest
+    receiveText: Having your chest tied
+    description: Rope or straps wrapped around the chest — decorative, functional, or both
+  - id: suspension
+    category: bondage
+    tier: 3
+    text: Suspension (partial or full body)
+    giveText: Suspending your partner
+    receiveText: Being suspended
+    description: Being partially or fully lifted off the ground in rope or harness. Requires training and proper equipment.
+  - id: mummification
+    category: bondage
+    tier: 3
+    text: Mummification / body wrapping
+    giveText: Wrapping your partner
+    receiveText: Being wrapped
+    description: Being wrapped entirely in cling film, tape, or bandages — total immobilization
+
+  # ── Impact Play ─────────────────────────────────────────────
+  - id: spanking-hand
+    category: impact
+    tier: 1
+    text: Spanking (hand)
+    giveText: Spanking your partner
+    receiveText: Being spanked
+  - id: paddling
+    category: impact
+    tier: 2
+    text: Paddling
+    giveText: Paddling your partner
+    receiveText: Being paddled
+  - id: flogging
+    category: impact
+    tier: 2
+    text: Flogging
+    giveText: Flogging your partner
+    receiveText: Being flogged
+    description: Striking with a flogger — a handle with multiple soft tails
+  - id: crop
+    category: impact
+    tier: 2
+    text: Riding crop
+    giveText: Using a crop on your partner
+    receiveText: Having a crop used on you
+    description: A short, stiff riding crop used for targeted impact
+  - id: caning
+    category: impact
+    tier: 3
+    text: Caning
+    giveText: Caning your partner
+    receiveText: Being caned
+    description: Striking with a thin, rigid cane — sharp and stinging, distinct from spanking
+  - id: whipping
+    category: impact
+    tier: 3
+    text: Whipping (single-tail)
+    giveText: Whipping your partner
+    receiveText: Being whipped
+    description: A single-tail whip — requires skill and trust. Intense, precise impact.
+  - id: face-slapping
+    category: impact
+    tier: 3
+    text: Face slapping (consensual)
+    giveText: Slapping your partner's face
+    receiveText: Being face-slapped
+
+  # ── Power Exchange ──────────────────────────────────────────
+  - id: dominant-role
+    category: power
+    tier: 2
+    text: Taking the dominant role
+  - id: submissive-role
+    category: power
+    tier: 2
+    text: Taking the submissive role
+  - id: giving-orders
+    category: power
+    tier: 2
+    text: Giving orders
+    giveText: Giving orders in bed
+    receiveText: Following orders in bed
+  - id: collar-leash
+    category: power
+    tier: 3
+    text: Collar and/or leash
+    giveText: Putting a collar/leash on your partner
+    receiveText: Wearing a collar/leash
+  - id: orgasm-control
+    category: power
+    tier: 2
+    text: Orgasm control / edging
+    giveText: Controlling your partner's orgasm
+    receiveText: Having your orgasm controlled
+    description: One partner controls when the other is allowed to orgasm, often through edging (bringing close then stopping)
+  - id: orgasm-denial
+    category: power
+    tier: 3
+    text: Orgasm denial
+    giveText: Denying your partner's orgasm
+    receiveText: Being denied orgasm
+    description: Deliberately preventing orgasm, sometimes for extended periods
+  - id: forced-orgasm
+    category: power
+    tier: 3
+    text: Forced orgasm (consensual)
+    giveText: Forcing your partner to orgasm
+    receiveText: Being forced to orgasm
+    description: Consensually stimulating a partner past the point where they want to stop
+  - id: begging
+    category: power
+    tier: 2
+    text: Begging
+    giveText: Making your partner beg
+    receiveText: Begging for it
+  - id: praise-kink
+    category: power
+    tier: 1
+    text: Praise kink
+    giveText: Praising your partner during sex
+    receiveText: Being praised during sex
+  - id: degradation
+    category: power
+    tier: 2
+    text: Degradation / humiliation (verbal)
+    giveText: Degrading your partner (consensual)
+    receiveText: Being degraded (consensual)
+    description: Consensual verbal humiliation during sex — name-calling, put-downs. Must be negotiated carefully.
+  - id: brat-play
+    category: power
+    tier: 2
+    text: Brat play (playful resistance)
+    giveText: Taming the brat (making them behave)
+    receiveText: Being bratty (provoking your partner into correcting you)
+    description: Playful disobedience and teasing — one partner pushes back, the other "makes" them behave
+  - id: free-use
+    category: power
+    tier: 3
+    text: Free use (consensual)
+    giveText: Having free use of your partner
+    receiveText: Being available for your partner anytime
+    description: Pre-negotiated arrangement where one partner can initiate anytime. Requires extensive trust and clear boundaries.
+  - id: cnc
+    category: power
+    tier: 3
+    text: Consensual non-consent (CNC / ravishment play)
+    description: A pre-negotiated scene where one partner pretends to resist. Requires extensive discussion, safe words, and trust.
+  - id: service-sub
+    category: power
+    tier: 3
+    text: Service submission
+    giveText: Receiving service (partner attends to you)
+    receiveText: Serving your partner (attending to their needs)
+  - id: chastity
+    category: power
+    tier: 3
+    text: Chastity device
+    giveText: Controlling your partner's chastity
+    receiveText: Wearing a chastity device
+    description: A device that prevents sexual stimulation or orgasm, controlled by a partner
+
+  # ── Role Play & Fantasy ─────────────────────────────────────
+  - id: stranger-pickup
+    category: roleplay
+    tier: 2
+    text: Stranger / bar pickup scenario
+  - id: boss-employee
+    category: roleplay
+    tier: 2
+    text: Boss and employee
+  - id: teacher-student
+    category: roleplay
+    tier: 2
+    text: Teacher and student
+  - id: medical
+    category: roleplay
+    tier: 2
+    text: Doctor / nurse / medical exam
+  - id: pet-play
+    category: roleplay
+    tier: 3
+    text: Pet play (puppy, kitten)
+    giveText: Being the handler/owner
+    receiveText: Being the pet
+    description: Role play where one partner takes on an animal persona (puppy, kitten) and the other is the handler
+  - id: daddy-mommy
+    category: roleplay
+    tier: 3
+    text: Daddy / Mommy (caregiver dynamic)
+    giveText: Being the caregiver (daddy/mommy)
+    receiveText: Being the little
+    description: A nurturing power dynamic where one partner takes a caregiver role. Not age play — about care and authority.
+  - id: maid-service
+    category: roleplay
+    tier: 3
+    text: Maid / butler / service role
+    giveText: Being served
+    receiveText: Serving in costume
+  - id: uniform-cosplay
+    category: roleplay
+    tier: 2
+    text: Uniform / cosplay / costume play
+  - id: primal-play
+    category: roleplay
+    tier: 3
+    text: Primal play (raw, instinctual)
+    description: Wrestling, biting, growling, chasing — acting on raw animal instinct without rules or protocol. Hunter/prey or mutual struggle.
+  - id: breeding-fantasy
+    category: roleplay
+    tier: 3
+    text: Breeding / impregnation fantasy
+    description: Arousal from the idea of impregnation — the fantasy, not necessarily the desire for actual pregnancy
+  - id: abduction-play
+    category: roleplay
+    tier: 3
+    text: Abduction / break-in scenario
+    giveText: Being the captor
+    receiveText: Being taken
+    description: A pre-planned scene where one partner "captures" or "breaks in." Related to CNC but focused on the scenario.
+
+  # ── Exhibitionism & Voyeurism ───────────────────────────────
+  - id: semi-public
+    category: exhibitionism
+    tier: 2
+    text: Sex in semi-public places (risk of being caught)
+  - id: outdoor-sex
+    category: exhibitionism
+    tier: 2
+    text: Outdoor sex (nature, secluded)
+  - id: sex-unusual-location
+    category: exhibitionism
+    tier: 1
+    text: Sex in an unusual location (car, hotel, kitchen)
+    description: Somewhere that isn't your bed — the novelty of a different environment
+  - id: strip-tease
+    category: exhibitionism
+    tier: 2
+    text: Strip tease / lap dance
+    giveText: Doing a strip tease for your partner
+    receiveText: Watching your partner strip
+  - id: nude-around-house
+    category: exhibitionism
+    tier: 1
+    text: Being nude around the house
+  - id: skinny-dipping
+    category: exhibitionism
+    tier: 2
+    text: Skinny dipping
+    description: Swimming naked together — possibly leading to more
+  - id: window-play
+    category: exhibitionism
+    tier: 3
+    text: Window play (sex near open window/curtains)
+
+  # ── Group & External ────────────────────────────────────────
+  - id: threesome-mff
+    category: group
+    tier: 2
+    text: Threesome (MFF)
+  - id: threesome-mmf
+    category: group
+    tier: 2
+    text: Threesome (MMF)
+  - id: swinging
+    category: group
+    tier: 2
+    text: Swinging / partner swap
+  - id: soft-swap
+    category: group
+    tier: 3
+    text: Soft swap with another couple
+    description: Kissing, touching, or oral with another couple — but no penetration outside your pair
+  - id: cuckolding
+    category: group
+    tier: 3
+    text: Cuckolding / cuckqueaning
+    giveText: Being with someone else while your partner watches
+    receiveText: Watching your partner with someone else (with arousal)
+    description: Arousal from seeing your partner with another person — distinct from swinging, often involves a power or jealousy element
+  - id: watching-partner
+    category: group
+    tier: 2
+    text: Watching your partner with someone else
+  - id: being-watched
+    category: group
+    tier: 2
+    text: Being watched by a third person
+
+  # ── Materials & Fetish ──────────────────────────────────────
+  - id: lingerie
+    category: fetish
+    tier: 1
+    text: Lingerie
+    giveText: Seeing your partner in lingerie
+    receiveText: Wearing lingerie
+  - id: latex-leather
+    category: fetish
+    tier: 2
+    text: Latex / leather / PVC
+  - id: stockings
+    category: fetish
+    tier: 1
+    text: Stockings / thigh-highs
+  - id: heels
+    category: fetish
+    tier: 2
+    text: High heels during sex
+  - id: corset
+    category: fetish
+    tier: 3
+    text: Corset
+    giveText: Seeing your partner in a corset
+    receiveText: Wearing a tightly-laced corset
+  - id: cross-dressing
+    category: fetish
+    tier: 3
+    text: Cross-dressing
+    giveText: Seeing your partner cross-dress
+    receiveText: Cross-dressing during sex
+    description: Wearing clothing traditionally associated with another gender during intimacy
+  - id: partial-clothing
+    category: fetish
+    tier: 1
+    text: Sex while partially clothed
+    description: Keeping some clothes on — a skirt pushed up, shirt still on, underwear pulled aside
+  - id: masks
+    category: fetish
+    tier: 3
+    text: Masks / masquerade
+    description: Wearing decorative masks during sex — anonymity with someone you know
+  - id: body-paint
+    category: fetish
+    tier: 3
+    text: Body paint
+  - id: food-play
+    category: fetish
+    tier: 2
+    text: Food play (whipped cream, chocolate, etc.)
+
+  # ── Edge Play ───────────────────────────────────────────────
+  - id: breath-play
+    category: edge
+    tier: 2
+    text: Breath play / choking (light)
+    giveText: Choking your partner (light pressure)
+    receiveText: Being choked (light pressure)
+    description: Light pressure on the neck for heightened sensation. High risk — can cause injury or death even at light levels.
+  - id: choking-firm
+    category: edge
+    tier: 3
+    text: Choking (firm pressure)
+    giveText: Firmly choking your partner
+    receiveText: Being firmly choked
+    description: Firm pressure on the sides of the neck. Significantly higher risk than light pressure. Requires knowledge of anatomy.
+  - id: knife-play
+    category: edge
+    tier: 3
+    text: Knife play (sensation, not cutting)
+    giveText: Using a blade on your partner
+    receiveText: Having a blade used on you
+    description: Using a blade on the skin for sensation, not cutting. The psychological thrill of danger.
+  - id: fire-play
+    category: edge
+    tier: 3
+    text: Fire play
+    giveText: Using fire on your partner's skin
+    receiveText: Having fire used on your skin
+    description: Briefly passing flame across the skin using alcohol and a fire wand. Requires training and safety precautions.
+  - id: needle-play
+    category: edge
+    tier: 3
+    text: Needle play
+    description: Piercing the skin with sterile needles. Requires training and sterile technique.
+  - id: blood-play
+    category: edge
+    tier: 3
+    text: Blood play
+  - id: golden-shower
+    category: edge
+    tier: 3
+    text: Golden shower / watersports
+    giveText: Peeing on your partner
+    receiveText: Being peed on
+    description: Urinating on or being urinated on by a partner
+  - id: spit-play
+    category: edge
+    tier: 3
+    text: Spit play
+    giveText: Spitting on your partner
+    receiveText: Being spat on
+  - id: cum-play
+    category: edge
+    tier: 2
+    text: Cum play (where it goes, playing with it)
+
+  # ── Sensory Environment ─────────────────────────────────────
+  - id: dim-lighting
+    category: environment
+    tier: 1
+    text: Dim lighting / candles
+  - id: full-dark
+    category: environment
+    tier: 1
+    text: Complete darkness
+  - id: bright-light
+    category: environment
+    tier: 1
+    text: Bright light (want to see everything)
+  - id: music
+    category: environment
+    tier: 1
+    text: Music / playlist during
+  - id: silence
+    category: environment
+    tier: 1
+    text: Silence (no music, no TV)
+  - id: white-noise
+    category: environment
+    tier: 2
+    text: White noise / fan
+  - id: scented-candles
+    category: environment
+    tier: 2
+    text: Scented candles / incense
+  - id: unscented
+    category: environment
+    tier: 1
+    text: Unscented everything (no perfume, no scented products)
+  - id: clean-sheets
+    category: environment
+    tier: 2
+    text: Fresh / clean sheets specifically
+  - id: shower-before
+    category: environment
+    tier: 2
+    text: Shower together before
+  - id: weighted-blanket
+    category: environment
+    tier: 1
+    text: Weighted blanket during or after
+    description: Using a heavy blanket for deep pressure comfort during or after sex
+  - id: firm-pressure
+    category: environment
+    tier: 1
+    text: Prefer firm pressure over light touch
+    description: Preferring firm, steady touch over light or unpredictable contact
+  - id: warn-before-touch
+    category: environment
+    tier: 1
+    text: Warn me before touching a new body area
+  - id: verbal-narration
+    category: environment
+    tier: 2
+    text: Narrate what you'll do before doing it
+    description: '"I''m going to kiss your neck now" — verbal cues before each new touch or action'
+  - id: one-sensation
+    category: environment
+    tier: 2
+    text: One type of stimulation at a time
+    description: Building up sensations gradually rather than combining kissing + touching + penetration simultaneously
+  - id: predictable-rhythm
+    category: environment
+    tier: 2
+    text: Predictable rhythm and pattern during sex
+    description: Consistent sequences and knowing roughly what comes next — reduces anxiety, helps stay present
+  - id: non-verbal-signals
+    category: environment
+    tier: 1
+    text: Non-verbal check-in signals (tapping, hand squeeze)
+    description: Agreed-upon signals for stop / slow down / more — for when speaking is difficult during overwhelm or intense sensation
+  - id: eyes-closed-ok
+    category: environment
+    tier: 1
+    text: Eyes closed during sex is welcome
+    description: Closing eyes to manage sensory input — not a sign of disconnection
+  - id: warmup-hands
+    category: environment
+    tier: 2
+    text: Warm your hands and toys before touching
+    description: Cold touch is a jarring sensory interruption — warming up first makes a difference
+  - id: flat-affect-ok
+    category: environment
+    tier: 1
+    text: I may not look like I'm enjoying it — but I am
+    description: Flat facial expression or quiet reactions don't mean disengagement — no pressure to perform visible pleasure
+  - id: stimming-ok
+    category: environment
+    tier: 1
+    text: Stimming during sex is welcome
+    description: Repetitive self-soothing movements (rocking, hand-flapping, fidgeting) are welcome during intimacy
+  - id: breaks-ok
+    category: environment
+    tier: 1
+    text: Breaks during sex (water, bathroom, pause) without killing the mood
+  - id: transition-time
+    category: environment
+    tier: 1
+    text: Need transition time from daily activity to intimacy
+    description: Needing a buffer period to mentally shift from daily activities to being intimate
+
+  # ── Aftercare ───────────────────────────────────────────────
+  - id: cuddling-after
+    category: aftercare
+    tier: 1
+    text: Cuddling / holding after
+  - id: space-after
+    category: aftercare
+    tier: 1
+    text: Quiet alone time after
+  - id: snacks-after
+    category: aftercare
+    tier: 1
+    text: Snacks / water after
+  - id: shower-after
+    category: aftercare
+    tier: 2
+    text: Shower together after
+  - id: warm-washcloth
+    category: aftercare
+    tier: 2
+    text: Being cleaned up with a warm washcloth
+    giveText: Gently cleaning your partner up afterward
+    receiveText: Being gently cleaned up afterward
+  - id: reassurance-after
+    category: aftercare
+    tier: 1
+    text: Verbal reassurance after intense play
+    description: Hearing "you're amazing, I love you, you did so well" — especially important after rough or intense sex
+  - id: talking-after
+    category: aftercare
+    tier: 1
+    text: Talking about what we liked / didn't like
+  - id: next-day-checkin
+    category: aftercare
+    tier: 2
+    text: Next-day check-in
+    description: A text or conversation the next day — "how are you feeling about last night?"
+  - id: no-phone-after
+    category: aftercare
+    tier: 2
+    text: No phones for a while after
+  - id: falling-asleep
+    category: aftercare
+    tier: 1
+    text: Falling asleep together right after

@@ -1,0 +1,197 @@
+import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
+import { useState } from "react";
+import { AnatomyPicker } from "../components/AnatomyPicker.js";
+import { Button } from "../components/Button.js";
+import { Card } from "../components/Card.js";
+import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
+import { UI } from "../lib/strings.js";
+import { trpc } from "../lib/trpc.js";
+import { useCopy } from "../lib/use-copy.js";
+
+interface Member {
+  name: string;
+  anatomy: string | null;
+  isCompleted: boolean;
+  isAdmin: boolean;
+  progress: string | null;
+}
+
+interface InviteProps {
+  members: Member[];
+  group: {
+    encrypted: boolean;
+    isReady: boolean;
+    questionMode: string;
+    anatomyLabels: string | null;
+    anatomyPicker: string | null;
+  };
+  onGroupReady: () => void;
+  onStartFilling: () => void;
+}
+
+export function Invite({ members, group, onGroupReady, onStartFilling }: InviteProps) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState("");
+  const [anatomy, setAnatomy] = useState<Anatomy | "">("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const { copiedIndex, copy } = useCopy();
+  const [loading, setLoading] = useState(false);
+
+  const needsAnatomy = group.questionMode === "filtered" && group.anatomyPicker === "admin";
+  const labels = group.anatomyLabels
+    ? ANATOMY_LABEL_PRESETS[group.anatomyLabels as AnatomyLabels]
+    : ANATOMY_LABEL_PRESETS.anatomical;
+
+  async function handleAddPerson(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name) return;
+    if (needsAnatomy && !anatomy) return;
+    setLoading(true);
+    try {
+      const groupKey = getGroupKeyFromUrl();
+      const encName = await wrapSensitive(name);
+      const rawAnatomy = needsAnatomy ? (anatomy as string) : null;
+      const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : rawAnatomy;
+
+      const result = await trpc.groups.addPerson.mutate({
+        name: encName,
+        anatomy: encAnatomy,
+        isAdmin,
+      });
+      const keyFragment = groupKey ? `#key=${groupKey}` : "";
+      const link = `${window.location.origin}/p/${result.token}${keyFragment}`;
+      setGeneratedLink(link);
+      setName("");
+      setAnatomy("");
+      setIsAdmin(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="space-y-8">
+        <h1 className="text-2xl font-bold">{UI.invite.title}</h1>
+
+        {/* Members list */}
+        <div>
+          <h3 className="text-sm font-medium text-text-muted mb-3">{UI.invite.members}</h3>
+          <div className="space-y-2">
+            {members.map((m) => (
+              <div key={m.name} className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{m.name}</span>
+                  {m.isAdmin && (
+                    <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">admin</span>
+                  )}
+                </div>
+                {group.isReady && (
+                  <span className={`text-sm ${m.isCompleted ? "text-accent" : "text-text-muted"}`}>
+                    {m.isCompleted
+                      ? "Done"
+                      : group.questionMode === "filtered" && !m.anatomy
+                        ? "Pending setup"
+                        : "In progress"}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Generated link */}
+        {generatedLink && (
+          <div className="p-4 bg-surface rounded-lg space-y-3">
+            <p className="text-sm text-text-muted">Share this link with your partner:</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={generatedLink}
+                className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
+              />
+              <button
+                type="button"
+                onClick={() => copy(generatedLink)}
+                className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
+              >
+                {copiedIndex !== null ? UI.invite.copied : UI.invite.copyLink}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Add person form */}
+        {showAdd ? (
+          <form onSubmit={handleAddPerson} className="space-y-4 p-4 bg-surface rounded-lg">
+            <div>
+              <label htmlFor="invite-name" className="block text-sm font-medium mb-1 text-text-muted">
+                Name
+              </label>
+              <input
+                id="invite-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Partner's name"
+                className="w-full px-4 py-3 rounded-lg bg-bg border border-border text-text placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+            </div>
+
+            {/* Anatomy picker — only shown in admin-picks + filtered mode */}
+            {needsAnatomy && (
+              <div>
+                <label htmlFor="invite-body-type" className="block text-sm font-medium mb-1 text-text-muted">
+                  Body type
+                </label>
+                <AnatomyPicker
+                  selected={anatomy}
+                  onSelect={setAnatomy}
+                  labels={labels}
+                  unselectedClass="bg-bg border-border text-text-muted"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="admin"
+                checked={isAdmin}
+                onChange={(e) => setIsAdmin(e.target.checked)}
+                className=""
+              />
+              <label htmlFor="admin" className="text-sm">
+                Make admin
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <Button fullWidth type="submit" disabled={!name || (needsAnatomy && !anatomy) || loading}>
+                {UI.invite.addPerson}
+              </Button>
+              <Button variant="ghost" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : !group.isReady ? (
+          <Button variant="neutral" fullWidth onClick={() => setShowAdd(true)}>
+            {UI.invite.addPerson}
+          </Button>
+        ) : null}
+
+        {group.isReady ? (
+          <Button fullWidth onClick={onStartFilling}>
+            {UI.invite.startFilling}
+          </Button>
+        ) : (
+          <Button fullWidth onClick={onGroupReady} disabled={members.length < 2}>
+            Everyone is added
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}

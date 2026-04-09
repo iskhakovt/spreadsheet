@@ -1,0 +1,26 @@
+#!/bin/sh
+# Pre-commit hook: lint + typecheck
+# Set up: git config core.hooksPath scripts/hooks
+
+set -e
+
+echo "pre-commit: checking formatting..."
+pnpm lint 2>&1 || {
+  echo "Lint failed. Run 'pnpm lint:fix' to fix."
+  exit 1
+}
+
+echo "pre-commit: typechecking..."
+pnpm -r typecheck 2>&1 || {
+  echo "Typecheck failed."
+  exit 1
+}
+
+# Check for secrets
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: scanning for secrets..."
+  gitleaks protect --staged --no-banner 2>&1 || {
+    echo "Gitleaks found secrets in staged files."
+    exit 1
+  }
+fi

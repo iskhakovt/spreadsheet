@@ -1,0 +1,8 @@
+node_modules
+packages/*/node_modules
+packages/*/dist
+build
+.git
+.task
+*.db
+.env

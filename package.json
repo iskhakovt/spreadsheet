@@ -1,0 +1,26 @@
+{
+  "name": "spreadsheet",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "dev:server": "pnpm --filter @spreadsheet/server dev",
+    "dev:web": "pnpm --filter @spreadsheet/web dev",
+    "build": "pnpm --filter @spreadsheet/shared build && pnpm --filter @spreadsheet/server typecheck && pnpm --filter @spreadsheet/web build && pnpm --filter @spreadsheet/server build",
+    "typecheck": "pnpm --filter @spreadsheet/shared build && pnpm --filter @spreadsheet/server typecheck && pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.0",
+    "@playwright/test": "^1.59.1",
+    "@testcontainers/postgresql": "^11.13.0",
+    "testcontainers": "^11.13.0",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.0"
+  }
+}

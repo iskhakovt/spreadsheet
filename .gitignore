@@ -1,0 +1,11 @@
+.idea/
+node_modules/
+dist/
+build/
+*.db
+.task/
+.env
+.env.test
+test-results/
+playwright-report/
+e2e/.e2e-port

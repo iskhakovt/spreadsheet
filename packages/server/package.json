@@ -1,0 +1,36 @@
+{
+  "name": "@spreadsheet/server",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./trpc": "./src/trpc/router.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --outDir dist",
+    "typecheck": "tsc --build",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.0",
+    "@hono/trpc-server": "^0.4.0",
+    "@sentry/node": "^10.47.0",
+    "@spreadsheet/shared": "workspace:*",
+    "@trpc/server": "^11.16.0",
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.12.0",
+    "postgres": "^3.4.0",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.4.3",
+    "@testcontainers/postgresql": "^11.13.0",
+    "@types/node": "^25.5.2",
+    "drizzle-kit": "^0.31.0",
+    "testcontainers": "^11.13.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.0"
+  }
+}

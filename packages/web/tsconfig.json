@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2025",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ES2025", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src"],
+  "references": [{ "path": "../server" }]
+}

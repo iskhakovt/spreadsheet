@@ -1,0 +1,44 @@
+import { decodeOpaque } from "@spreadsheet/shared";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import { authedProcedure, router } from "../init.js";
+
+export const syncRouter = router({
+  push: authedProcedure
+    .input(
+      z.object({
+        stoken: z.string().nullable(),
+        operations: z.array(z.string()),
+        progress: z.string().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      for (const op of input.operations) {
+        try {
+          decodeOpaque(op);
+        } catch {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid operation format" });
+        }
+      }
+
+      return ctx.sync.push(ctx.person.id, input);
+    }),
+
+  markComplete: authedProcedure.mutation(async ({ ctx }) => {
+    await ctx.sync.markComplete(ctx.person.id);
+    return { ok: true };
+  }),
+
+  unmarkComplete: authedProcedure.mutation(async ({ ctx }) => {
+    await ctx.sync.unmarkComplete(ctx.person.id);
+    return { ok: true };
+  }),
+
+  compare: authedProcedure.query(async ({ ctx }) => {
+    const result = await ctx.sync.compare(ctx.group.id);
+    if ("error" in result) {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "All group members must mark complete before comparing" });
+    }
+    return result;
+  }),
+});
