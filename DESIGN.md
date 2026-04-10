@@ -61,10 +61,20 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 
 ## Performance
 
-- Prefetch questions immediately on auth (ready before UI needs them)
+- **Question bank cached** in TanStack Query with `staleTime: Infinity` — fetched once per session, reused across PersonApp / Question / Comparison
 - Lazy-load comparison view (dynamic import, loaded only when needed)
 - No SSR — app is small, loads in <100ms
 - Single code split: main app + comparison chunk
+
+## Real-time delivery
+
+The `/results` screen needs to show edits that happen after a partner marks complete (user clicks "Change my answers", edits a question, their partner's view should reflect the change live). We implement this with tRPC v11's `tracked()` primitive for lossless reconnect recovery:
+
+- **Two server event buses**: `groupEvents` (status broadcasts from all mutating procedures) and `journalEvents` (append-only journal events from `sync.push`). Separated by concern so neither stream processes events the other generated.
+- **Two WS subscriptions**: `groups.onStatus` yields full status snapshots (no `tracked()` — snapshot replace semantics, reconnect just yields current state) and `sync.onJournalChange` yields journal entries via `tracked(id, data)` for resume-safe incremental delivery.
+- **Subscribe-before-query invariant**: the subscription resolver attaches the `on(journalEvents, ...)` iterable BEFORE querying the backfill, so any event emitted during the query window is buffered in the iterable and delivered after the backfill without loss.
+- **Reconnect recovery**: `wsLink` automatically stamps the latest `lastEventId` onto the pending subscription message and re-sends it on reconnect. The server's generator queries entries > cursor and replays missed events. "Lost event → stale results forever" is structurally prevented by the protocol.
+- **No polling fallback** — the previous `groups.status` polling has been removed. Recovery relies on `wsLink` auto-reconnect + `keepAlive` ping/pong (30s ping, 5s pong) + `tracked()` resume. If WS is persistently broken, the app degrades to "reload to fix".
 
 ## Deployment
 

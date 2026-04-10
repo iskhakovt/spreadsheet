@@ -215,6 +215,64 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 
 The server is the **sequencer**. It assigns order. Clients never see or guess internal ids.
 
+## Reading the journal — `sync.journal` and `sync.onJournalChange`
+
+The read side of the sync protocol has two parallel surfaces, both gated on the "all members complete" precondition:
+
+### HTTP query: `sync.journal({ sinceId })`
+
+Cursor-based pull of journal entries. The input is a nullable `sinceId`:
+- `sinceId: null` → return all entries for the group
+- `sinceId: N` → return entries with `id > N`
+
+Response shape:
+```ts
+{
+  members: [{ id, name, anatomy }, ...],
+  entries: [{ id, personId, operation }, ...],
+  cursor: number | null  // highest id in the response, or the input sinceId if empty
+}
+```
+
+Used by the client on initial `/results` mount. On an empty delta (nothing new since the cursor), `cursor` echoes the input rather than going to `null`, so repeated callers don't regress their cursor.
+
+### WS subscription: `sync.onJournalChange({ lastEventId })`
+
+Real-time delivery of journal appends using tRPC v11's `tracked()` primitive. The resolver follows the canonical tRPC pattern:
+
+1. **Precondition check** — throw `PRECONDITION_FAILED` if not all members complete
+2. **Subscribe-before-query** — attach `on(journalEvents, ...)` BEFORE the backfill query so events emitted during the query window are buffered in the iterable
+3. **Backfill** — query entries > `lastEventId` (or all entries if `null`), yield as a single `tracked(lastId, { entries })` event
+4. **Live stream** — consume the iterable, dedup entries already in the backfill, yield each new batch as a `tracked(lastId, { entries })` event
+
+Client side (`wsLink` in tRPC v11):
+- Auto-stamps the latest `lastEventId` onto the pending subscription message after every yield
+- Auto-reconnects with exponential backoff on disconnect
+- Re-sends the stored subscription message on reconnect, so the server resumes from the cursor
+
+**Lossless reconnect recovery.** Events lost during a disconnect window are replayed by the server's backfill query on the next reconnect. No polling needed, no out-of-order delivery possible.
+
+### Why two buses on the server
+
+`packages/server/src/events.ts` exports two EventEmitters:
+
+- `groupEvents` — emitted by all broadcasting mutations (markComplete, setProfile, markReady, etc.). Consumed by `groups.onStatus`.
+- `journalEvents` — emitted by `sync.push` after a successful non-rejected commit, with the committed entries payload. Consumed by `sync.onJournalChange`.
+
+Two buses, not one: status broadcasts and journal appends happen at very different rates and are consumed by different subscriptions. Sharing a single bus would mean each subscription filters out ~half the events it receives.
+
+### Edit after completion
+
+When a marked-complete user edits an answer (via "Edit my answers" on `/waiting` or "Change my answers" on `/results`), the flow is:
+
+1. User navigates to `/questions` — NO mutation, no unmark. `/questions` is in the free-routes list so the guard doesn't kick them away.
+2. User changes an answer — `useSyncQueue` debounces for 3s, then `sync.push` commits
+3. Server emits on `journalEvents` (unconditional — if no subscriber is listening, emit is a no-op)
+4. Partners viewing `/results` have `sync.onJournalChange` active → receive a `tracked` append → `setQueryData` merges into the `sync.journal` cache → `Comparison` re-renders with updated pair matches
+5. **No one is kicked from `/results`** — `isCompleted` was never mutated, `allComplete` stays true
+
+This is the "propagate live, never mutate status implicitly" pattern: navigation to edit is not a server-state change.
+
 ### Client logic
 
 ```

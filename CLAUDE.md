@@ -5,11 +5,11 @@ A yes/no/maybe list for couples and groups to discover shared sexual interests. 
 ## Stack
 
 - **Language:** TypeScript (full stack, shared types via tRPC)
-- **Backend:** Node.js, Hono, tRPC, Drizzle, Zod
-- **Frontend:** React, Vite 8, Tailwind, shadcn/ui (Base UI primitives)
+- **Backend:** Node.js, Hono, tRPC v11 (HTTP + WebSocket), Drizzle, Zod
+- **Frontend:** React 19, Vite 8, Tailwind, shadcn/ui (Base UI primitives), TanStack Query v5 + `@trpc/tanstack-react-query`
 - **Database:** Postgres (prod + dev), PGlite (unit tests)
 - **Offline:** vite-plugin-pwa, localStorage
-- **Testing:** Vitest, PGlite, testcontainers
+- **Testing:** Vitest, PGlite, testcontainers, Playwright
 - **Build:** pnpm, Biome
 
 ## Monorepo Structure
@@ -30,14 +30,24 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 - **Admin token flow** — `groups.create` returns `adminToken` (no person). `setupAdmin` creates admin + partners + marks ready in one transaction, reusing adminToken as person token.
 - **Encryption** — key in URL fragment `#key=...`, cached in `sessionStorage`. `wrapSensitive`/`unwrapSensitive` handle encrypt/decrypt transparently. Opaque `p:1:`/`e:1:` prefix format.
-- **Routing** — wouter nested routes under `/p/:token`. Two navigation patterns:
-  - **Universal guard**: `resolveRoute()` computes the correct screen from status. A `<Redirect>` at the top of the Switch redirects if the current route doesn't match. Free routes (`/invite`, `/summary`, `/review`) are exempt — users navigate there intentionally.
-  - **Explicit navigation**: actions that change completion state (markComplete) navigate explicitly to `/waiting` because free routes are exempt from the guard. All other state changes use `await refreshStatus()` and let the guard redirect.
-  - **Rule**: always `await` callbacks that trigger `refreshStatus()`. Fire-and-forget causes stale guards.
-- **Auto-sync** — 3s debounce after last answer. Indicator hidden for first 5s (uses `visibility: hidden` for no layout shift). Conflict: merge + retry.
+- **Routing** — wouter nested routes under `/p/:token`.
+  - **Universal guard**: `resolveRoute()` computes the correct screen from status. A `<Redirect>` at the top of the Switch redirects if the current route doesn't match. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
+  - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
+  - **Mutations self-invalidate** via `useMutation({ onSuccess: qc.invalidateQueries(trpc.groups.status.pathFilter()) })`. Always return the invalidation promise so the mutation stays pending until the refetch completes — this is what replaces the old `await refreshStatus()` threading.
+- **Data fetching** — TanStack Query v5 via `@trpc/tanstack-react-query` (`useTRPC()` returns a typed proxy).
+  - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `main.tsx` handles loading.
+  - Writes: `useMutation(trpc.x.mutationOptions({ onSuccess: invalidate }))`. Use `mutate()` for fire-and-forget with local callbacks; `mutateAsync()` when you need to await the result.
+  - Live updates: `useSubscription(trpc.x.subscriptionOptions(...))` with `setQueryData` in `onData` to feed updates into the same cache entry that an HTTP query populated.
+  - **Never call `.query()` / `.mutate()` on a singleton** — there is no `trpc` singleton, only the `useTRPC()` proxy inside hooks/components. If you need imperative access from a non-hook context, use `useTRPCClient()`.
+- **Real-time delivery** — two independent event buses on the server, two WS subscriptions on the client:
+  - `groupEvents` (+ `groups.onStatus` subscription) — status snapshots on every broadcasting mutation (setProfile, markReady, addPerson, removePerson, markComplete, unmarkComplete). No `tracked()` because status is snapshot-based — a reconnect just yields the current state.
+  - `journalEvents` (+ `sync.onJournalChange` subscription) — incremental append-only journal events from `sync.push`. Uses tRPC v11 `tracked()` for resume-safe reconnect: `wsLink` automatically re-sends the subscription message with the latest `lastEventId` on reconnect, and the server's subscription generator queries entries > cursor and replays them. Lossless by construction.
+  - **Subscribe-before-query invariant** in `sync.onJournalChange`: the generator attaches the `on(journalEvents, ...)` iterable BEFORE querying the backfill. Events emitted during the query window are buffered in the iterable, not lost. Covered by an integration test.
+- **No polling fallback** — the app relies entirely on `wsLink` auto-reconnect + `keepAlive` ping/pong (30s/5s) + `tracked()` resume for recovery. If WS is persistently broken the app degrades (reload fixes).
+- **Auto-sync** — 3s debounce after last answer, indicator after 5s. Owned by `useSyncQueue(totalQuestions)` in `lib/use-sync-queue.ts` — wraps `useMutation(trpc.sync.push)` with debounce + conflict-merge retry.
 - **Question flow** — `Screen` discriminated union (`welcome` | `question`). Welcome interstitials at category boundaries. All categories on by default, managed from Summary screen. Timing sub-question ("now or later?") controlled by `group.showTiming`.
-- **Session** — Zustand vanilla store (`lib/session.ts`) holds auth token + localStorage scope. Per-tab (module-scoped), not localStorage. `setSession(token)` called synchronously on every render.
-- **Storage** — localStorage scoped by FNV-1a hash of token (`s{hash}:key`). Multiple persons coexist without cross-contamination. Shared `fnv1a` hash in `@spreadsheet/shared`.
+- **Session** — Zustand vanilla store (`lib/session.ts`) holds auth token + localStorage scope. Per-tab (module-scoped), not localStorage. `setSession(token)` called synchronously on every render. Orthogonal to the TanStack cache (which is also per-tab).
+- **Storage** — localStorage scoped by FNV-1a hash of token (`s{hash}:key`). Multiple persons coexist without cross-contamination. Shared `fnv1a` hash in `@spreadsheet/shared`. localStorage owns **client-authored state** (answers, pendingOps, stoken, UI prefs); TanStack cache owns **server state** (groups.status, questions.list, sync.journal). Clean split.
 
 ### Server Structure
 
@@ -125,6 +135,8 @@ Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite buil
 - `packages/server/src/test/factories.ts` — `anonCtx`, `authedCtx`, `createAndSetup`, `createGroupDirect`, `createCaller`
 - `packages/server/src/test/pglite.ts` — `createTestDatabase()`, `truncateAll()`
 - Route tests define `mockCtx()` locally with `vi.fn()` stubs for all stores
+- **Subscription integration tests** use `createCaller(ctx, { signal })` with a real `AbortController`, and an `openSubscription(factory)` helper (see `e2e/groups.subscription.integration.test.ts` and `sync.journal-subscription.integration.test.ts`) that wraps the async iterable with timeout + cancel. For `tracked()` subscriptions the caller receives the raw tuple `[id, data, symbol]` — destructure via `unwrap()` helpers; the HTTP/WS adapter unwraps to `{id, data}` on the wire but `createCaller` passes the tuple through.
+- Integration tests have `fileParallelism: false` in `vitest.config.ts` because they share a single Postgres container — running multiple `.integration.test.ts` files in parallel deadlocks on TRUNCATE.
 - `e2e/fixtures.ts` — custom Playwright fixture with dynamic `baseURL` (random port via `.e2e-port` file)
 - `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `setCategories`, `scopedGet`, `scopedSet`
 

@@ -146,8 +146,9 @@ Shows all answered questions grouped by category. Tap any answer to jump back an
 ### 12. Waiting
 
 After marking done. Shows member status list (Done / In progress).
-- Fast polls every 5s (transitional screen)
+- Updates live via tRPC WebSocket subscription (`groups.onStatus`)
 - Auto-redirects to Results when all complete (declarative route guard)
+- **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see any subsequent edits live via the journal subscription; they are NOT kicked to `/waiting`.
 
 ### 13. Comparison (lazy-loaded)
 
@@ -161,6 +162,10 @@ Available once all members mark complete. Grouped by category, sorted by match q
 | Mixed yes/maybe | Possible | Worth exploring |
 | Both fantasy | Shared fantasy | Both fantasize |
 | Either said no | *Hidden* | Not shown |
+
+**Live updates**: if any group member edits an answer after marking complete, their changes propagate to everyone viewing `/results` via the `sync.onJournalChange` WebSocket subscription (using tRPC v11's `tracked()` for reconnect-safe delivery). The comparison updates in place without a page reload.
+
+**"Change my answers" button**: navigates to `/questions` without calling `unmarkComplete`. Same semantics as the `/waiting` "Edit my answers" button — no one else is kicked out of their results view.
 
 ## Layout
 
@@ -185,18 +190,20 @@ URL-based routing via wouter (nested under `/p/:token`):
 ```
 
 **Navigation patterns**:
-- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/invite`, `/summary`, `/review`) are exempt.
-- **Explicit navigation**: `markComplete` navigates explicitly to `/waiting` (free routes are exempt from the guard, so it won't auto-redirect from `/review`).
-- **Rule**: always `await` callbacks that call `refreshStatus()` — fire-and-forget causes stale guard evaluation.
+- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt.
+- **`/questions` is a free route** so marked-complete users can edit their answers without unmarking. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
+- **Mutations self-invalidate** via TanStack Query's `useMutation({ onSuccess: invalidateQueries })` — always return the invalidation promise so the mutation stays pending until the refetch completes. No more manual `refreshStatus()` threading.
 
 **Admin token pre-setup**: Before `setupAdmin`, the URL `/p/{adminToken}` resolves via the group's `admin_token` field. PersonApp detects `status.person === null` and renders GroupSetup directly (outside the router).
 
 ## Auto-sync
 
+- Owned by the `useSyncQueue(totalQuestions)` hook in `lib/use-sync-queue.ts`
 - Answers are synced to the server 3 seconds after the last answer (debounced)
 - Sync indicator hidden for the first 5 seconds — auto-sync handles it silently
 - If auto-sync fails, "N unsynced" appears below the progress bar (click to retry)
 - Uses `visibility: hidden` (not conditional rendering) to prevent layout shifts
+- Conflict retry: on `pushRejected`, merges the server's returned entries with local pending ops and retries once. Double-rejection leaves ops in the queue for the next manual sync.
 
 ## Encryption Key Lifecycle
 
