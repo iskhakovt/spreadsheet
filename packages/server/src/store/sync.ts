@@ -36,16 +36,21 @@ export class SyncStore {
         return {
           stoken: currentHead > 0 ? encodeStoken(currentHead) : null,
           entries: entries.map((e) => e.operation),
+          committedEntries: [],
           pushRejected: true as const,
         };
       }
 
+      // The ops this call is about to commit — captured so the route can
+      // propagate them to the journal event bus after the transaction commits.
+      let committedEntries: { id: number; personId: string; operation: string }[] = [];
       let lastId = currentHead;
       if (input.operations.length > 0) {
         const inserted = await tx
           .insert(journalEntries)
           .values(input.operations.map((operation) => ({ personId, operation })))
-          .returning({ id: journalEntries.id });
+          .returning({ id: journalEntries.id, operation: journalEntries.operation });
+        committedEntries = inserted.map((r) => ({ id: r.id, personId, operation: r.operation }));
         lastId = inserted[inserted.length - 1].id;
       }
 
@@ -57,6 +62,7 @@ export class SyncStore {
       return {
         stoken: lastId > 0 ? encodeStoken(lastId) : null,
         entries: entries.map((e) => e.operation),
+        committedEntries,
         pushRejected: false as const,
       };
     });

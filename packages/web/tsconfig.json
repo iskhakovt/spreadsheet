@@ -9,6 +9,5 @@
     "noEmit": true,
     "lib": ["ES2025", "DOM", "DOM.Iterable"]
   },
-  "include": ["src"],
-  "references": [{ "path": "../server" }]
+  "include": ["src", "../server/src/trpc/router.ts"]
 }

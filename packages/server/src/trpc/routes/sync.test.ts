@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { groupEvents } from "../../events.js";
+import { groupEvents, journalEvents } from "../../events.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -8,6 +8,7 @@ const createCaller = createCallerFactory(appRouter);
 
 afterEach(() => {
   groupEvents.removeAllListeners();
+  journalEvents.removeAllListeners();
 });
 
 function mockCtx(
@@ -60,6 +61,13 @@ const group = {
 };
 
 describe("sync.push", () => {
+  const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
+    stoken: "s1",
+    entries: [],
+    committedEntries: entries,
+    pushRejected: false as const,
+  });
+
   it("validates opaque format before calling store", async () => {
     const ctx = mockCtx({ person, group });
     const caller = createCaller(ctx);
@@ -69,7 +77,7 @@ describe("sync.push", () => {
   });
 
   it("passes valid operations to store", async () => {
-    const push = vi.fn().mockResolvedValue({ stoken: "s1", entries: [], pushRejected: false });
+    const push = vi.fn().mockResolvedValue(pushOk());
     const ctx = mockCtx({ person, group, sync: { push } });
     const caller = createCaller(ctx);
     await caller.sync.push({
@@ -89,6 +97,96 @@ describe("sync.push", () => {
     await expect(caller.sync.push({ stoken: null, operations: [], progress: null })).rejects.toThrow(
       "Invalid or missing person token",
     );
+  });
+
+  it("strips committedEntries from the wire response", async () => {
+    const committedEntries = [{ id: 1, personId: "p1", operation: "p:1:blob" }];
+    const push = vi.fn().mockResolvedValue(pushOk(committedEntries));
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    const result = await caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
+    expect("committedEntries" in result).toBe(false);
+  });
+});
+
+describe("sync.push journal bus emission", () => {
+  const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
+    stoken: "s1",
+    entries: [],
+    committedEntries: entries,
+    pushRejected: false as const,
+  });
+
+  it("emits journal:<groupId> with committed entries on success", async () => {
+    const committedEntries = [
+      { id: 1, personId: "p1", operation: "p:1:blob1" },
+      { id: 2, personId: "p1", operation: "p:1:blob2" },
+    ];
+    const push = vi.fn().mockResolvedValue(pushOk(committedEntries));
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(committedEntries);
+  });
+
+  it("does NOT emit on rejected push", async () => {
+    const push = vi.fn().mockResolvedValue({
+      stoken: "s1",
+      entries: ["p:1:serverEntry"],
+      committedEntries: [],
+      pushRejected: true as const,
+    });
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: "stale-stoken", operations: [], progress: null });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit on validation error (invalid op format)", async () => {
+    const push = vi.fn();
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await expect(caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: null })).rejects.toThrow(
+      "Invalid operation format",
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when committedEntries is empty (progress-only push)", async () => {
+    const push = vi.fn().mockResolvedValue(pushOk([]));
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: null, operations: [], progress: 'p:1:{"answered":5,"total":10}' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit a groupEvents update on successful push (no status broadcast)", async () => {
+    const push = vi.fn().mockResolvedValue(pushOk([{ id: 1, personId: "p1", operation: "p:1:blob" }]));
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: null, operations: [], progress: null });
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 
@@ -144,19 +242,6 @@ describe("sync.markComplete / unmarkComplete", () => {
     groupEvents.on("group:g1", handler);
     const caller = createCaller(mockCtx({}));
     await expect(caller.sync.markComplete()).rejects.toThrow("Invalid or missing person token");
-    expect(handler).not.toHaveBeenCalled();
-  });
-});
-
-describe("sync.push (no broadcast)", () => {
-  it("does NOT emit a group event after successful push", async () => {
-    const push = vi.fn().mockResolvedValue({ stoken: "s1", entries: [], pushRejected: false });
-    const handler = vi.fn();
-    groupEvents.on("group:g1", handler);
-    const ctx = mockCtx({ person, group, sync: { push } });
-    const caller = createCaller(ctx);
-    await caller.sync.push({ stoken: null, operations: [], progress: null });
-    expect(push).toHaveBeenCalled();
     expect(handler).not.toHaveBeenCalled();
   });
 });
