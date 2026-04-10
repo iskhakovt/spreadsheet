@@ -3,7 +3,13 @@ import { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared"
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
-import { broadcastingAdminProcedure, broadcastingProcedure, publicProcedure, router } from "../init.js";
+import {
+  authedProcedure,
+  broadcastingAdminProcedure,
+  broadcastingProcedure,
+  publicProcedure,
+  router,
+} from "../init.js";
 
 export const groupsRouter = router({
   create: publicProcedure
@@ -121,29 +127,22 @@ export const groupsRouter = router({
    * yields again whenever any mutation in the group emits via {@link groupEvents}.
    * Each subscriber gets a personalized payload (their own `person` field).
    *
-   * Public procedure (not authed) so it works with both person tokens and
-   * admin tokens — the latter is needed during the brief pre-setupAdmin
-   * window where the URL holds an admin token but no person record exists.
+   * Authed — the client gates this subscription on `status.person` being
+   * non-null (see `useGroupStatus`), so it's never opened during the brief
+   * pre-`setupAdmin` window where the URL holds an admin token but no person
+   * record exists yet.
    *
    * The event listener is registered BEFORE the initial yield so events that
    * fire between the initial state fetch and the consumer's next pull are
    * queued and delivered (not lost). Cleanup is automatic via `signal`.
    */
-  onStatus: publicProcedure.subscription(async function* ({ ctx, signal }) {
-    if (!ctx.personToken) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Missing token" });
-    }
+  onStatus: authedProcedure.subscription(async function* ({ ctx, signal }) {
+    // Register the listener first so any broadcasts fired while we fetch the
+    // initial state are queued internally (not lost).
+    const eventIterator = on(groupEvents, groupEventName(ctx.group.id), { signal });
 
     const initial = await ctx.groups.getStatus(ctx.personToken);
-    if (!initial) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Invalid token" });
-    }
-
-    // Register the listener BEFORE the first yield so any subsequent
-    // broadcasts are queued internally and delivered to the next iteration.
-    const eventIterator = on(groupEvents, groupEventName(initial.group.id), { signal });
-
-    yield initial;
+    if (initial) yield initial;
 
     for await (const _evt of eventIterator) {
       const next = await ctx.groups.getStatus(ctx.personToken);

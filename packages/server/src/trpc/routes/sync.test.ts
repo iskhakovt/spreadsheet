@@ -36,6 +36,9 @@ function mockCtx(
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
     group: overrides.group ?? null,
+    // authedProcedure requires personToken alongside person; default to a
+    // dummy when a person is provided so mock-based tests mirror real usage.
+    personToken: overrides.person ? "mock-token" : null,
   } as unknown as TrpcContext;
 }
 

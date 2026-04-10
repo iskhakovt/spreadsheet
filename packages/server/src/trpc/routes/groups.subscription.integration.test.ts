@@ -207,39 +207,28 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     expect(first?.person?.anatomy).toBe("e:1:encryptedAfab");
   });
 
-  it("rejects subscribers with no token", async () => {
+  it("rejects subscribers with no token (authed procedure)", async () => {
     const caller = createCaller(anonCtx(db));
     await expect(async () => {
       const iter = await caller.groups.onStatus();
       const it = iter[Symbol.asyncIterator]();
       await it.next();
-    }).rejects.toThrow(/Missing token|UNAUTHORIZED/);
+    }).rejects.toThrow(/Invalid or missing person token/);
   });
 
-  it("rejects subscribers with an unknown token", async () => {
+  it("rejects subscribers with a token that doesn't resolve to a person", async () => {
+    // This covers two cases:
+    //   1. An admin token before `setupAdmin` has created the person row
+    //      — the client must gate the subscription on `status.person` and
+    //        not open it during the /setup window.
+    //   2. A truly bogus token.
     const ctx = { ...anonCtx(db), personToken: "not-a-real-token" } as ReturnType<typeof anonCtx>;
     const caller = createCaller(ctx);
     await expect(async () => {
       const iter = await caller.groups.onStatus();
       const it = iter[Symbol.asyncIterator]();
       await it.next();
-    }).rejects.toThrow(/Invalid token|NOT_FOUND/);
-  });
-
-  it("works with admin token before setupAdmin (returns admin-only status)", async () => {
-    // Pre-setupAdmin: token is admin, no person record yet
-    const caller = createCaller(anonCtx(db));
-    const { adminToken } = await caller.groups.create(defaultCreate());
-
-    // Build a context with the admin token but no person resolved
-    const ctx = { ...anonCtx(db), personToken: adminToken } as ReturnType<typeof anonCtx>;
-    const sub = await openSubscription((signal) => createCaller(ctx, { signal }).groups.onStatus());
-    const initial = await sub.next(1000);
-    sub.cancel();
-
-    expect(initial).toBeDefined();
-    expect(initial?.person).toBeNull();
-    expect(initial?.group).toBeDefined();
+    }).rejects.toThrow(/Invalid or missing person token/);
   });
 
   it("registers a listener while the subscription is active and removes it on cancel", async () => {

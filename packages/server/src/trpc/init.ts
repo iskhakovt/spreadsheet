@@ -9,10 +9,12 @@ export const publicProcedure = t.procedure;
 export const createCallerFactory = t.createCallerFactory;
 
 export const authedProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.person || !ctx.group) {
+  if (!ctx.person || !ctx.group || !ctx.personToken) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid or missing person token" });
   }
-  return next({ ctx: { ...ctx, person: ctx.person, group: ctx.group } });
+  return next({
+    ctx: { ...ctx, person: ctx.person, group: ctx.group, personToken: ctx.personToken },
+  });
 });
 
 export const adminProcedure = authedProcedure.use(({ ctx, next }) => {

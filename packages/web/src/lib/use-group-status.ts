@@ -47,7 +47,17 @@ export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
   }, [token]);
 
   // Real-time subscription via WebSocket.
+  //
+  // Gated on `status.person` being non-null: the server subscription is
+  // `authedProcedure` and requires a resolved person row. During the brief
+  // `/setup` phase (admin token before `setupAdmin` has created the person)
+  // we intentionally don't open the WS — there's nothing to subscribe to
+  // anyway because Alice is alone filling out a form. Once `setupAdmin`
+  // runs and `refresh()` picks up the new status with a real person, this
+  // effect re-runs and opens the subscription.
+  const personId = typeof status === "object" && status?.person ? status.person.id : null;
   useEffect(() => {
+    if (!personId) return;
     const sub = trpc.groups.onStatus.subscribe(undefined, {
       onStarted: () => setWsConnected(true),
       onData: async (raw) => {
@@ -70,7 +80,7 @@ export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
       sub.unsubscribe();
       setWsConnected(false);
     };
-  }, [token]);
+  }, [personId]);
 
   // Polling fallback — only runs while WS is NOT delivering data.
   useEffect(() => {

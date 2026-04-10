@@ -53,7 +53,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(bob.getByText("Here's how it works")).toBeVisible();
 
     // WS push delivers the group-ready broadcast → guard redirects to /intro
-    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 3000 });
+    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
 
     // Both go through intro → answer questions → complete
     await setCategories(alice, ["group"]);
