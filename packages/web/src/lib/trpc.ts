@@ -1,4 +1,5 @@
 import { createTRPCClient, createWSClient, httpBatchLink, splitLink, wsLink } from "@trpc/client";
+import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { getAuthToken } from "./session.js";
 
@@ -10,19 +11,14 @@ const wsUrl = (): string => {
 };
 
 /**
- * Single tRPC WebSocket client per tab. We use lazy mode so the WS doesn't
- * connect until the first subscription is started — this guarantees that
- * `connectionParams` is evaluated AFTER PersonApp has called `setSession()`
- * and the auth token is available.
+ * Single tRPC WebSocket client per tab. Lazy so the WS doesn't connect until
+ * the first subscription — guarantees `connectionParams` is evaluated AFTER
+ * PersonApp has called `setSession()` and the auth token is available.
  *
- * Known limitation: if the user navigates between two `/p/:token` URLs in
- * the same tab (rare — normally a fresh page load), the existing WS keeps
- * its original auth context. New subscriptions still go through the same
- * connection so they'd be authorized as the previous person. The polling
- * fallback in `useGroupStatus` recovers within `pollMs` and a hard reload
- * fixes it permanently.
+ * Exported so PersonApp can call `wsClient.close()` on token change to force
+ * a fresh auth handshake with the new token.
  */
-const wsClient = createWSClient({
+export const wsClient = createWSClient({
   url: wsUrl,
   lazy: { enabled: true, closeMs: 5_000 },
   connectionParams: () => {
@@ -31,18 +27,43 @@ const wsClient = createWSClient({
   },
 });
 
-export const trpc = createTRPCClient<AppRouter>({
-  links: [
-    splitLink({
-      condition: (op) => op.type === "subscription",
-      true: wsLink({ client: wsClient }),
-      false: httpBatchLink({
-        url: "/api/trpc",
-        headers() {
-          const token = getAuthToken();
-          return token ? { "x-person-token": token } : {};
-        },
+/**
+ * Factory for the tRPC client. Exported as a factory (rather than a stable
+ * singleton) so the provider tree can wrap it in `useState(() => ...)` for
+ * referential stability across renders.
+ */
+export function makeTrpcClient() {
+  return createTRPCClient<AppRouter>({
+    links: [
+      splitLink({
+        condition: (op) => op.type === "subscription",
+        true: wsLink({ client: wsClient }),
+        false: httpBatchLink({
+          url: "/api/trpc",
+          headers() {
+            const token = getAuthToken();
+            return token ? { "x-person-token": token } : {};
+          },
+        }),
       }),
-    }),
-  ],
-});
+    ],
+  });
+}
+
+/**
+ * Legacy singleton client, kept temporarily during the TanStack migration so
+ * call sites that still use `trpc.x.query()` / `trpc.x.mutate()` keep working.
+ * Removed in the final step of the migration once every call site has been
+ * converted to `useQuery` / `useMutation` / `useSubscription` via the proxy.
+ */
+export const trpc = makeTrpcClient();
+
+/**
+ * TanStack Query integration bindings. Components use these:
+ *
+ *   const trpc = useTRPC();
+ *   const query = useSuspenseQuery(trpc.groups.status.queryOptions({ token }));
+ *   const mutation = useMutation(trpc.groups.markReady.mutationOptions({ onSuccess: ... }));
+ *   useSubscription(trpc.groups.onStatus.subscriptionOptions(undefined, { onData: ... }));
+ */
+export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRouter>();
