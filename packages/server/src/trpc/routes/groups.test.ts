@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { groupEvents } from "../../events.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
 
 const createCaller = createCallerFactory(appRouter);
+
+afterEach(() => {
+  groupEvents.removeAllListeners();
+});
 
 /** Build a mock context with stubbed stores */
 function mockCtx(
@@ -222,5 +227,80 @@ describe("groups.markReady", () => {
     const caller = createCaller(ctx);
     await caller.groups.markReady();
     expect(markReady).toHaveBeenCalledWith("g1");
+  });
+});
+
+describe("broadcasting middleware", () => {
+  it("emits group event after successful setProfile", async () => {
+    const setProfile = vi.fn().mockResolvedValue(undefined);
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
+    const caller = createCaller(ctx);
+    await caller.groups.setProfile({ name: "B", anatomy: null });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits group event after successful addPerson", async () => {
+    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", token: "t2" });
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });
+    const caller = createCaller(ctx);
+    await caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits group event after successful removePerson", async () => {
+    const removePerson = vi.fn().mockResolvedValue({ ok: true });
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { removePerson } });
+    const caller = createCaller(ctx);
+    await caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits group event after successful markReady", async () => {
+    const markReady = vi.fn().mockResolvedValue(undefined);
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { markReady } });
+    const caller = createCaller(ctx);
+    await caller.groups.markReady();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT emit when setProfile throws", async () => {
+    const setProfile = vi.fn().mockRejectedValue(new Error("db down"));
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
+    const caller = createCaller(ctx);
+    await expect(caller.groups.setProfile({ name: "B", anatomy: null })).rejects.toThrow("db down");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when addPerson is rejected by isReady guard (BAD_REQUEST)", async () => {
+    const addPerson = vi.fn();
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { addPerson } });
+    const caller = createCaller(ctx);
+    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow();
+    expect(addPerson).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when admin check fails", async () => {
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({
+      person: { ...adminPerson, isAdmin: false },
+      group: unreadyGroup,
+    });
+    const caller = createCaller(ctx);
+    await expect(caller.groups.markReady()).rejects.toThrow("Admin access required");
+    expect(handler).not.toHaveBeenCalled();
   });
 });
