@@ -74,24 +74,18 @@ export function PersonApp() {
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
-  // All mutations share the same onSuccess: invalidate groups.status so the
-  // guard re-evaluates with fresh server state. invalidateQueries returns a
-  // promise that the mutation awaits, so onSettled only fires after the
-  // refetch completes — no more stale-guard races.
+  // Mutations share onSuccess: invalidate groups.status so the guard
+  // re-evaluates with fresh server state. invalidateQueries returns a promise
+  // that the mutation awaits, so onSettled only fires after the refetch
+  // completes — no more stale-guard races.
+  //
+  // NOTE: sync.unmarkComplete has no UI caller — the "Edit my answers" flow
+  // navigates without mutating completion state. The server procedure is
+  // kept as a safety valve for future admin tools.
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
   const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
   const markCompleteMutation = useMutation(
     trpcProxy.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }),
-  );
-  const unmarkCompleteMutation = useMutation(
-    trpcProxy.sync.unmarkComplete.mutationOptions({
-      onSuccess: async () => {
-        await invalidateStatus();
-        // Also invalidate the journal cache so re-entering /results gets a
-        // fresh fetch with the latest entries.
-        await queryClient.invalidateQueries({ queryKey: trpcProxy.sync.journal.pathKey() });
-      },
-    }),
   );
 
   if (status === "loading") {
@@ -146,8 +140,12 @@ export function PersonApp() {
   const defaultRoute = resolveRoute(status.person, status.group, allComplete);
 
   // Universal guard: if current route doesn't match resolved state, redirect.
-  // Freely-navigable routes (/invite, /summary, /review) are exempt.
-  const freeRoutes = ["/invite", "/summary", "/review"];
+  // Freely-navigable routes are exempt. /questions is in the list because
+  // marked-complete users can enter it via the "Edit my answers" buttons on
+  // /waiting and /results without triggering an unmark mutation — they keep
+  // their completion state, and any new writes land as journal appends that
+  // propagate to partners via the sync.onJournalChange subscription.
+  const freeRoutes = ["/invite", "/summary", "/review", "/questions"];
   const shouldRedirect = location !== "/" && location !== defaultRoute && !freeRoutes.includes(location);
 
   return (
@@ -245,7 +243,7 @@ export function PersonApp() {
                 </Card>
               }
             >
-              <Comparison onBack={() => unmarkCompleteMutation.mutate()} />
+              <Comparison onBack={() => navigate("/questions")} />
             </Suspense>
           </Route>
 
@@ -343,8 +341,14 @@ function WaitingScreen({
             View results
           </button>
         )}
+        {/* Escape hatch back to editing. Navigates only — does NOT unmark
+            completion state, so partners on /results aren't kicked out. Any
+            new answers sync normally and propagate via the journal stream. */}
+        <button type="button" onClick={() => navigate("/questions")} className="text-sm text-text-muted underline">
+          Edit my answers
+        </button>
         {status.person.isAdmin && (
-          <button type="button" onClick={() => navigate("/invite")} className="text-sm text-text-muted">
+          <button type="button" onClick={() => navigate("/invite")} className="text-sm text-text-muted block mx-auto">
             View group members
           </button>
         )}
