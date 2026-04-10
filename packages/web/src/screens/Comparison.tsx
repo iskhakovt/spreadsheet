@@ -1,20 +1,56 @@
 import type { Answer } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useEffect, useMemo, useState } from "react";
-import { Card } from "../components/Card.js";
+import { useMemo, useRef, useState } from "react";
 import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { unwrapSensitive } from "../lib/crypto.js";
 import { replayJournal } from "../lib/journal.js";
-import { type JournalState, mergeJournal } from "../lib/merge-journal.js";
-import { useTRPC } from "../lib/trpc.js";
+import { type JournalEntry, mergeJournal } from "../lib/merge-journal.js";
+import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
 interface MemberAnswers {
   id: string;
   name: string;
   anatomy: string | null;
   answers: Record<string, Answer>;
+}
+
+/**
+ * Shape stored in the TanStack cache for `sync.journal`.
+ *
+ * The queryFn decrypts + replays the raw server response into `members`
+ * (with plaintext names + per-question answer state) so that Comparison
+ * can render synchronously on first mount — no async useEffect cycle
+ * between "data arrived" and "content visible", which was adding ~500ms
+ * of latency on the critical render path under parallel E2E load.
+ *
+ * The raw `entries` are retained alongside the derived `members` so the
+ * subscription can dedup incremental appends by `id` against the current
+ * cache state before re-replaying.
+ */
+interface CachedJournal {
+  members: MemberAnswers[];
+  entries: JournalEntry[];
+  cursor: number | null;
+}
+
+/** Decrypt + replay the raw journal response into MemberAnswers[]. */
+async function replayMembers(
+  members: { id: string; name: string; anatomy: string | null }[],
+  entries: JournalEntry[],
+): Promise<MemberAnswers[]> {
+  return Promise.all(
+    members.map(async (m) => {
+      const memberEntries = entries.filter((e) => e.personId === m.id);
+      return {
+        id: m.id,
+        name: await unwrapSensitive(m.name),
+        anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
+        answers: await replayJournal(memberEntries),
+      };
+    }),
+  );
 }
 
 const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
@@ -49,6 +85,7 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
  */
 export function Comparison({ onBack }: { onBack?: () => void }) {
   const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   // Questions list — cached session-wide, feeds the category/question lookup tables.
@@ -80,9 +117,25 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     return qOrder;
   }, [questionsData.questions]);
 
-  // Initial journal backfill — suspends until server responds.
-  const journalOptions = trpc.sync.journal.queryOptions({ sinceId: null });
-  const { data: journal } = useSuspenseQuery(journalOptions);
+  // Initial journal backfill — suspends until server responds AND the
+  // per-member replay + decryption finishes. By doing this inside the
+  // queryFn we skip the old "render → useEffect → async replay → setState
+  // → re-render" cycle entirely. The cache stores the decrypted shape,
+  // so on first paint Comparison already has memberAnswers.
+  // Use the tRPC proxy's queryKey so cache lookups match, but write our own
+  // queryFn that fetches via the vanilla client and decrypts + replays before
+  // returning. The cache stores the derived shape (CachedJournal), so on the
+  // first paint Comparison already has memberAnswers — no extra useEffect
+  // cycle between "data arrived" and "content visible".
+  const journalQueryKey = trpc.sync.journal.queryKey({ sinceId: null });
+  const { data: journal } = useSuspenseQuery({
+    queryKey: journalQueryKey,
+    queryFn: async ({ signal }): Promise<CachedJournal> => {
+      const raw = await trpcClient.sync.journal.query({ sinceId: null }, { signal });
+      const members = await replayMembers(raw.members, raw.entries);
+      return { members, entries: raw.entries, cursor: raw.cursor };
+    },
+  });
 
   // Cursor seeded from the HTTP response so the subscription doesn't re-backfill.
   // Read once on mount — the subscription advances its own tracked cursor after that.
@@ -92,8 +145,13 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     return last ? String(last.id) : null;
   }, []);
 
-  // Live updates via tracked subscription. onData merges new entries into
-  // the same cache entry the query populated, so readers stay in sync.
+  // Monotonic sequence counter: if two subscription updates arrive in quick
+  // succession and their async replays interleave, drop stale applies.
+  const seqRef = useRef(0);
+
+  // Live updates via tracked subscription. onData merges the new raw entries
+  // into the cached raw set, re-replays members over the merged entries,
+  // and writes the derived shape back via setQueryData.
   //
   // tRPC v11 tracked subscriptions deliver `{ id, data }` to onData, where
   // `data` is the payload the server yielded via `tracked(id, data)`.
@@ -101,12 +159,27 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     trpc.sync.onJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
       {
-        onData: (msg) => {
+        onData: async (msg) => {
           const entries = msg.data.entries;
           if (entries.length === 0) return;
-          queryClient.setQueryData(journalOptions.queryKey, (prev: JournalState | undefined) =>
-            mergeJournal(prev, entries),
-          );
+          const mySeq = ++seqRef.current;
+          try {
+            const current = queryClient.getQueryData<CachedJournal>(journalQueryKey);
+            if (!current) return;
+            // Dedup + append via the pure helper
+            const mergedRaw = mergeJournal({ ...current }, entries);
+            // Re-replay per member over the merged raw entries
+            const members = await replayMembers(current.members, mergedRaw.entries);
+            // Drop if a newer push already landed while we were replaying
+            if (mySeq !== seqRef.current) return;
+            queryClient.setQueryData(journalQueryKey, {
+              members,
+              entries: mergedRaw.entries,
+              cursor: mergedRaw.cursor,
+            });
+          } catch (err) {
+            console.error("Failed to merge journal update:", err);
+          }
         },
         onError: (err) => {
           console.error("Journal subscription error:", err);
@@ -115,56 +188,8 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     ),
   );
 
-  // Async decryption + replay per member. Re-runs whenever the journal entries
-  // change (either from the initial query or a subscription push).
-  const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
-  const [decryptError, setDecryptError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const members: MemberAnswers[] = await Promise.all(
-          journal.members.map(async (m) => {
-            const memberEntries = journal.entries.filter((e) => e.personId === m.id);
-            return {
-              id: m.id,
-              name: await unwrapSensitive(m.name as string),
-              anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
-              answers: await replayJournal(memberEntries),
-            };
-          }),
-        );
-        if (!cancelled) setMemberAnswers(members);
-      } catch (err) {
-        if (!cancelled) setDecryptError(err instanceof Error ? err.message : "Failed to decrypt comparison");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [journal.entries, journal.members]);
-
+  const memberAnswers = journal.members;
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
-
-  if (decryptError) {
-    return (
-      <Card>
-        <div className="pt-16 text-center space-y-4">
-          <h1 className="text-2xl font-bold">Can't compare yet</h1>
-          <p className="text-text-muted">{decryptError}</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!memberAnswers) {
-    return (
-      <Card>
-        <div className="pt-32 text-center text-text-muted">Loading results...</div>
-      </Card>
-    );
-  }
 
   // Build pairwise comparisons
   const pairs: { a: MemberAnswers; b: MemberAnswers }[] = [];

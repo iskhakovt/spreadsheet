@@ -91,33 +91,10 @@ export function PersonApp() {
     trpcProxy.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }),
   );
 
-  if (status === "loading") {
-    return (
-      <Card>
-        <div className="flex items-center justify-center pt-32">
-          <p className="text-text-muted">Loading...</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (status === "error") {
-    return (
-      <Card>
-        <div className="text-center pt-32 space-y-4">
-          <h1 className="text-2xl font-bold">Something went wrong</h1>
-          <p className="text-text-muted">Couldn't reach the server. Check your connection and try again.</p>
-          <button
-            type="button"
-            onClick={() => refreshStatus()}
-            className="px-6 py-3 rounded-lg bg-accent text-accent-fg font-medium"
-          >
-            Retry
-          </button>
-        </div>
-      </Card>
-    );
-  }
+  // Loading is handled by the top-level <Suspense> boundary in main.tsx
+  // via useLiveStatus → useSuspenseQuery. Errors propagate to the nearest
+  // ErrorBoundary (root fallback reloads the page; screen fallback retries
+  // by resetting resetKeys). No per-hook loading/error state needed here.
 
   if (status === null) {
     return (
