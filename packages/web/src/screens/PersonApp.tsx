@@ -5,7 +5,8 @@ import {
   type CategoryData,
   type QuestionData,
 } from "@spreadsheet/shared";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
@@ -14,8 +15,8 @@ import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
-import { trpc } from "../lib/trpc.js";
-import { useGroupStatus } from "../lib/use-group-status.js";
+import { trpc, wsClient } from "../lib/trpc.js";
+import { useLiveStatus } from "../lib/use-live-status.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
 import { Invite } from "./Invite.js";
@@ -44,13 +45,31 @@ function resolveRoute(person: Person, group: Group, allComplete: boolean): strin
 export function PersonApp() {
   const { token } = useParams<{ token: string }>();
   const [location, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   // Set session synchronously — must happen before any tRPC call or storage read this render.
   setSession(token);
 
-  // Poll faster (5s) on transitional screens where we're waiting for others
-  const fastPoll = ["/waiting", "/pending"].includes(location);
-  const { status, refresh: refreshStatus } = useGroupStatus(token, fastPoll ? 5_000 : 30_000);
+  // On token change (rare — normally a fresh page load), close the WS so
+  // the new token gets a clean auth handshake via connectionParams, and
+  // invalidate any cached server state that isn't token-keyed (so the new
+  // person doesn't read the previous person's data). Fixes the PR #8 caveat
+  // where wsLink kept the old auth context after in-tab navigation between
+  // two /p/:token URLs.
+  //
+  // Queries keyed by `{ token }` (like groups.status) naturally segregate
+  // by cache key so no extra work is needed for them.
+  const prevTokenRef = useRef(token);
+  useEffect(() => {
+    if (prevTokenRef.current !== token) {
+      wsClient.close();
+      queryClient.invalidateQueries({ queryKey: [["sync"]] });
+      queryClient.invalidateQueries({ queryKey: [["questions"]] });
+      prevTokenRef.current = token;
+    }
+  }, [token, queryClient]);
+
+  const { status, refresh: refreshStatus } = useLiveStatus(token);
   const [questionsData, setQuestionsData] = useState<Awaited<ReturnType<typeof trpc.questions.list.query>> | null>(
     null,
   );
