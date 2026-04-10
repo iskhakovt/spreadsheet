@@ -12,8 +12,17 @@ function getEffectivePoll(pollMs: number): number {
   return override ? Number(override) : pollMs;
 }
 
+/**
+ * Subscribes to real-time group status via WebSocket and falls back to HTTP
+ * polling if the WS isn't delivering. The fallback covers: initial mount
+ * (before WS connects), WS errors, and CF Tunnel/proxy environments where
+ * WebSocket is blocked.
+ *
+ * API surface unchanged from the polling-only era — `status` and `refresh()`.
+ */
 export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
   const [status, setStatus] = useState<GroupStatus | null | "loading" | "error">("loading");
+  const [wsConnected, setWsConnected] = useState(false);
 
   async function fetchAndDecryptStatus(): Promise<GroupStatus | null> {
     const raw = await trpc.groups.status.query({ token });
@@ -30,14 +39,56 @@ export function useGroupStatus(token: string, pollMs = DEFAULT_POLL_MS) {
       });
   }
 
+  // Initial fetch — runs once per token, ensures the UI has data even if WS
+  // is slow to connect (or never connects).
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // Real-time subscription via WebSocket.
+  //
+  // Gated on `status.person` being non-null: the server subscription is
+  // `authedProcedure` and requires a resolved person row. During the brief
+  // `/setup` phase (admin token before `setupAdmin` has created the person)
+  // we intentionally don't open the WS — there's nothing to subscribe to
+  // anyway because Alice is alone filling out a form. Once `setupAdmin`
+  // runs and `refresh()` picks up the new status with a real person, this
+  // effect re-runs and opens the subscription.
+  const personId = typeof status === "object" && status?.person ? status.person.id : null;
   useEffect(() => {
+    if (!personId) return;
+    const sub = trpc.groups.onStatus.subscribe(undefined, {
+      onStarted: () => setWsConnected(true),
+      onData: async (raw) => {
+        if (!raw) return;
+        try {
+          const decrypted = await decryptStatus(raw);
+          setStatus(decrypted);
+          setWsConnected(true);
+        } catch (err) {
+          console.error("Failed to decrypt WS status:", err);
+        }
+      },
+      onError: (err) => {
+        console.error("WS subscription error:", err);
+        setWsConnected(false);
+      },
+      onComplete: () => setWsConnected(false),
+    });
+    return () => {
+      sub.unsubscribe();
+      setWsConnected(false);
+    };
+  }, [personId]);
+
+  // Polling fallback — only runs while WS is NOT delivering data.
+  useEffect(() => {
+    if (wsConnected) return;
     const interval = setInterval(refresh, getEffectivePoll(pollMs));
     return () => clearInterval(interval);
-  }, [token, pollMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, pollMs, wsConnected]);
 
   return { status, refresh };
 }

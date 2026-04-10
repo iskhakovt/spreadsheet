@@ -52,8 +52,8 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     // Bob should advance past pending (Alice already picked) → intro
     await expect(bob.getByText("Here's how it works")).toBeVisible();
 
-    // Alice's 5s fast poll on /pending picks up that group is ready → guard redirects to /intro
-    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 20000 });
+    // WS push delivers the group-ready broadcast → guard redirects to /intro
+    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
 
     // Both go through intro → answer questions → complete
     await setCategories(alice, ["group"]);

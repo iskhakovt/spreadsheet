@@ -31,10 +31,10 @@ async function createGroupWithMembers() {
   const bobToken = partnerTokens[0];
 
   const aliceStatus = await caller.groups.status({ token: adminToken });
-  const aliceCtx = authedCtx(db, aliceStatus!);
+  const aliceCtx = authedCtx(db, aliceStatus!, adminToken);
 
   const bobStatus = await caller.groups.status({ token: bobToken });
-  const bobCtx = authedCtx(db, bobStatus!);
+  const bobCtx = authedCtx(db, bobStatus!, bobToken);
 
   return {
     alice: { token: adminToken, caller: createCaller(aliceCtx) },
@@ -122,7 +122,7 @@ describe("full sync flow (real Postgres)", () => {
     expect(status!.person!.name).toBe("e:1:encryptedAlice");
     expect(status!.person!.anatomy).toBe("e:1:encryptedAfab");
 
-    const ctx = authedCtx(db, status!);
+    const ctx = authedCtx(db, status!, adminToken);
     const encCaller = createCaller(ctx);
 
     const result = await encCaller.sync.push({

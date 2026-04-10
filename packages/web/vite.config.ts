@@ -31,6 +31,12 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      // tRPC subscriptions over WebSocket — must come before /api so the more
+      // specific path matches first.
+      "/api/trpc-ws": {
+        target: "ws://localhost:8080",
+        ws: true,
+      },
       "/api": {
         target: "http://localhost:8080",
         configure: (proxy) => {

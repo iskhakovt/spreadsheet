@@ -18,12 +18,16 @@ function makeStores(db: Database) {
 }
 
 export function anonCtx(db: Database): TrpcContext {
-  return { ...makeStores(db), person: null, group: null } as TrpcContext;
+  return { ...makeStores(db), person: null, group: null, personToken: null } as TrpcContext;
 }
 
 /** Build an authenticated context from a status response. Single place for the cast. */
-export function authedCtx(db: Database, status: { person: unknown; group: unknown }): TrpcContext {
-  return { ...makeStores(db), person: status.person, group: status.group } as TrpcContext;
+export function authedCtx(
+  db: Database,
+  status: { person: unknown; group: unknown },
+  personToken: string | null = null,
+): TrpcContext {
+  return { ...makeStores(db), person: status.person, group: status.group, personToken } as TrpcContext;
 }
 
 export function defaultCreate(overrides: Record<string, unknown> = {}) {
@@ -51,7 +55,7 @@ export async function createAndSetup(db: Database, overrides: Record<string, unk
   return {
     token: adminToken,
     status: status!,
-    ctx: authedCtx(db, status!),
+    ctx: authedCtx(db, status!, adminToken),
   };
 }
 
@@ -83,5 +87,5 @@ export async function createGroupDirect(db: Database, overrides: Record<string, 
     })
     .returning();
 
-  return { token, groupId: group.id, personId: person.id, ctx: authedCtx(db, { person, group }) };
+  return { token, groupId: group.id, personId: person.id, ctx: authedCtx(db, { person, group }, token) };
 }

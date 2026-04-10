@@ -1,9 +1,11 @@
 import { decodeOpaque } from "@spreadsheet/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { authedProcedure, router } from "../init.js";
+import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 export const syncRouter = router({
+  // Stays as authedProcedure (no broadcast): push happens every 3s per active
+  // user, progress is cosmetic, and the polling fallback covers waiting screens.
   push: authedProcedure
     .input(
       z.object({
@@ -24,12 +26,12 @@ export const syncRouter = router({
       return ctx.sync.push(ctx.person.id, input);
     }),
 
-  markComplete: authedProcedure.mutation(async ({ ctx }) => {
+  markComplete: broadcastingProcedure.mutation(async ({ ctx }) => {
     await ctx.sync.markComplete(ctx.person.id);
     return { ok: true };
   }),
 
-  unmarkComplete: authedProcedure.mutation(async ({ ctx }) => {
+  unmarkComplete: broadcastingProcedure.mutation(async ({ ctx }) => {
     await ctx.sync.unmarkComplete(ctx.person.id);
     return { ok: true };
   }),

@@ -3,14 +3,16 @@ import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
+import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
+import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
 import { initSentry } from "./sentry.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
-import { createContext } from "./trpc/context.js";
+import { createContext, createWSContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
 initSentry();
@@ -81,4 +83,35 @@ server.on("listening", () => {
   const addr = server.address();
   const actualPort = typeof addr === "object" && addr ? addr.port : port;
   console.log(`listening on :${actualPort}`);
+});
+
+// WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
+// `noServer: true` lets us pick which upgrade requests to handle so the rest
+// (e.g. Vite HMR in dev) fall through.
+const wss = new WebSocketServer({ noServer: true });
+
+const wssHandler = applyWSSHandler({
+  wss,
+  router: appRouter,
+  createContext: (opts) => createWSContext(stores, opts),
+  keepAlive: {
+    enabled: true,
+    pingMs: 30_000,
+    pongWaitMs: 5_000,
+  },
+});
+
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  if (url.pathname === "/api/trpc-ws") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  }
+  // Other upgrade paths are left untouched.
+});
+
+process.on("SIGTERM", () => {
+  wssHandler.broadcastReconnectNotification();
+  wss.close();
 });

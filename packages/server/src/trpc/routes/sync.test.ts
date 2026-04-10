@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { groupEvents } from "../../events.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
 
 const createCaller = createCallerFactory(appRouter);
+
+afterEach(() => {
+  groupEvents.removeAllListeners();
+});
 
 function mockCtx(
   overrides: Partial<{
@@ -31,6 +36,9 @@ function mockCtx(
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
     group: overrides.group ?? null,
+    // authedProcedure requires personToken alongside person; default to a
+    // dummy when a person is provided so mock-based tests mirror real usage.
+    personToken: overrides.person ? "mock-token" : null,
   } as unknown as TrpcContext;
 }
 
@@ -93,6 +101,57 @@ describe("sync.markComplete / unmarkComplete", () => {
     const caller = createCaller(ctx);
     await caller.sync.unmarkComplete();
     expect(unmarkComplete).toHaveBeenCalledWith("p1");
+  });
+
+  it("emits group:<id> event after successful markComplete", async () => {
+    const markComplete = vi.fn().mockResolvedValue(undefined);
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { markComplete } });
+    const caller = createCaller(ctx);
+    await caller.sync.markComplete();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits group:<id> event after successful unmarkComplete", async () => {
+    const unmarkComplete = vi.fn().mockResolvedValue(undefined);
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { unmarkComplete } });
+    const caller = createCaller(ctx);
+    await caller.sync.unmarkComplete();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT emit when markComplete throws", async () => {
+    const markComplete = vi.fn().mockRejectedValue(new Error("boom"));
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { markComplete } });
+    const caller = createCaller(ctx);
+    await expect(caller.sync.markComplete()).rejects.toThrow("boom");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when caller is unauthenticated", async () => {
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const caller = createCaller(mockCtx({}));
+    await expect(caller.sync.markComplete()).rejects.toThrow("Invalid or missing person token");
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("sync.push (no broadcast)", () => {
+  it("does NOT emit a group event after successful push", async () => {
+    const push = vi.fn().mockResolvedValue({ stoken: "s1", entries: [], pushRejected: false });
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: null, operations: [], progress: null });
+    expect(push).toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 
