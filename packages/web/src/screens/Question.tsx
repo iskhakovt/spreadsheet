@@ -1,6 +1,7 @@
 import type { Answer, CategoryData, OperationPayload, QuestionData, Rating, Timing } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
@@ -35,6 +36,7 @@ interface QuestionProps {
 export function Question({ person, group, members, onDone, onSummary, startKey, onStartKeyConsumed }: QuestionProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
   const questions = questionsData.questions as QuestionData[];
   const categoryMap = useMemo(() => {
@@ -225,11 +227,15 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     );
   }
 
-  // --- Mark complete: flush pending writes first, then mark + refresh status ---
+  // --- Mark complete: flush pending writes, mark, then navigate to /waiting ---
+  // Explicit navigation is needed because /questions is in the free routes
+  // list (so the guard doesn't kick marked-complete users out of editing),
+  // which means it also won't auto-redirect from /questions to /waiting.
   async function handleMarkComplete() {
     await handleSync();
     await markCompleteMutation.mutateAsync();
     await onDone();
+    navigate("/waiting");
   }
 
   // --- Answer handlers ---

@@ -50,7 +50,6 @@ app.use(
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
   SENTRY_DSN: process.env.SENTRY_DSN_FRONTEND ?? process.env.SENTRY_DSN ?? "",
-  ...(process.env.POLL_MS && { POLL_MS: process.env.POLL_MS }),
 });
 const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
 

@@ -31,7 +31,6 @@ export default async function globalSetup() {
       STOKEN_SECRET: "e2e-test-secret",
       STATIC_ROOT: staticRoot,
       PORT: "0",
-      POLL_MS: "1000",
     },
     stdio: "pipe",
   });
