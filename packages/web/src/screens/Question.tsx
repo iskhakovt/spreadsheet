@@ -175,9 +175,14 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
 
   // Auto-sync scheduled whenever the pending-ops count changes. The hook
   // owns the 3s debounce timer + the 5s indicator delay internally.
+  //
+  // Dep is `pendingOps.length` specifically (not just `pendingOps`, which
+  // is a fresh localStorage read per render). Without a dep the effect
+  // would re-run on every render, which could defer the debounce
+  // indefinitely if an unrelated parent re-renders us more often than 3s.
   useEffect(() => {
     scheduleSync(pendingOps.length);
-  });
+  }, [pendingOps.length, scheduleSync]);
 
   // --- Empty state (no matching questions for selected categories) ---
   if (qScreens.length === 0) {

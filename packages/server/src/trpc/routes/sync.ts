@@ -1,6 +1,6 @@
 import { on } from "node:events";
 import { decodeOpaque } from "@spreadsheet/shared";
-import { TRPCError, type TrackedEnvelope, tracked } from "@trpc/server";
+import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
 import { emitJournalUpdate, journalEventName, journalEvents } from "../../events.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
@@ -12,16 +12,6 @@ import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 export interface JournalChangeMessage {
   entries: { id: number; personId: string; operation: string }[];
 }
-
-/**
- * Explicit envelope type for yielded events. Using `TrackedEnvelope` from the
- * public `@trpc/server` entrypoint forces TypeScript's declaration emit to
- * resolve the type through the public path rather than through the internal
- * `unstable-core-do-not-import` module. Wrapping `tracked(...)` calls as
- * `tracked(...) as JournalChangeEnvelope` ensures the async generator's yield
- * type uses the public alias.
- */
-export type JournalChangeEnvelope = TrackedEnvelope<JournalChangeMessage>;
 
 export const syncRouter = router({
   // Stays as authedProcedure on the status side (no groupEvents broadcast):
@@ -106,9 +96,27 @@ export const syncRouter = router({
    */
   onJournalChange: authedProcedure
     .input(z.object({ lastEventId: z.string().nullish() }).optional())
-    .subscription(async function* ({ ctx, input, signal }): AsyncGenerator<JournalChangeEnvelope, void, unknown> {
-      // Precondition: the whole group must be complete before anyone can
-      // stream the journal. Matches the `sync.journal` query gate.
+    .subscription(async function* ({ ctx, input, signal }) {
+      // Ordering of startup steps matters. The "listener-before-query"
+      // invariant is load-bearing for the backfill/live-stream handoff, but
+      // there's a preliminary precondition check that must run before either:
+      //
+      //   1. Precondition gate (getStatus + allComplete check) — throws if
+      //      the group isn't ready. Events emitted between this check and
+      //      the listener attach are NOT delivered as live events, but they
+      //      WILL be picked up by the backfill query below because that query
+      //      reads entries > lastEventId (or all entries on a fresh connect).
+      //      So this window is structurally safe.
+      //
+      //   2. Listener attach — MUST be before the backfill query, because
+      //      events emitted during the backfill query's round-trip would
+      //      otherwise be lost (not in the backfill, not in the live stream).
+      //      The iterable buffers them until the for-await loop consumes them.
+      //
+      //   3. Backfill query — reads entries > lastEventId from Postgres.
+      //
+      //   4. Live stream — consumes the buffered iterable, deduping entries
+      //      that overlap with the backfill via the cursor.
       const status = await ctx.groups.getStatus(ctx.personToken);
       if (!status?.members.every((m) => m.isCompleted)) {
         throw new TRPCError({
@@ -117,8 +125,9 @@ export const syncRouter = router({
         });
       }
 
-      // CRITICAL: listener BEFORE query, so events emitted during the query
-      // are buffered in the iterable rather than lost.
+      // CRITICAL: listener BEFORE backfill query. Any emission in the
+      // backfill window is buffered in the iterable and delivered after
+      // we exit the for-await loop's startup.
       const iterable = on(journalEvents, journalEventName(ctx.group.id), { signal });
 
       // Backfill from the client's cursor (or the beginning on a fresh connect).
@@ -135,10 +144,7 @@ export const syncRouter = router({
       let cursor = sinceId;
       if (backfill.entries.length > 0) {
         const latestId = backfill.entries[backfill.entries.length - 1].id;
-        const envelope: JournalChangeEnvelope = tracked(String(latestId), {
-          entries: backfill.entries,
-        });
-        yield envelope;
+        yield tracked(String(latestId), { entries: backfill.entries } satisfies JournalChangeMessage);
         cursor = latestId;
       }
 
@@ -150,10 +156,7 @@ export const syncRouter = router({
         const fresh = entries.filter((e) => cursor === null || e.id > cursor);
         if (fresh.length === 0) continue;
         const latestId = fresh[fresh.length - 1].id;
-        const envelope: JournalChangeEnvelope = tracked(String(latestId), {
-          entries: fresh,
-        });
-        yield envelope;
+        yield tracked(String(latestId), { entries: fresh } satisfies JournalChangeMessage);
         cursor = latestId;
       }
     }),

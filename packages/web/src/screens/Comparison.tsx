@@ -137,13 +137,14 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     },
   });
 
-  // Cursor seeded from the HTTP response so the subscription doesn't re-backfill.
-  // Read once on mount — the subscription advances its own tracked cursor after that.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialLastEventId = useMemo(() => {
+  // Cursor seeded from the HTTP backfill so the subscription doesn't re-fetch
+  // the same entries. Captured once on mount via useState's lazy initializer;
+  // the subscription advances its own tracked cursor from here. Re-renders do
+  // not recompute this value, so the subscription input stays stable.
+  const [initialLastEventId] = useState<string | null>(() => {
     const last = journal.entries[journal.entries.length - 1];
     return last ? String(last.id) : null;
-  }, []);
+  });
 
   // Monotonic sequence counter: if two subscription updates arrive in quick
   // succession and their async replays interleave, drop stale applies.

@@ -236,7 +236,7 @@ export function PersonApp() {
   );
 }
 
-function NonAdminOnboarding({ status }: { status: GroupStatus; onDone?: () => void | Promise<void> }) {
+function NonAdminOnboarding({ status }: { status: GroupStatus }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const setProfileMutation = useMutation(
@@ -337,7 +337,7 @@ function WaitingScreen({
   );
 }
 
-function PickAnatomyScreen({ status }: { status: GroupStatus & { person: Person }; onDone?: () => void }) {
+function PickAnatomyScreen({ status }: { status: GroupStatus & { person: Person } }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const setProfileMutation = useMutation(

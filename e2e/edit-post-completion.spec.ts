@@ -28,9 +28,14 @@ test.describe("edit after completion", () => {
     await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
     await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
 
-    // Both should see "Match" matches since everyone answered yes
+    // Both should see "Match" labels since everyone answered yes
     await expect(alice.getByText("Match").first()).toBeVisible();
     await expect(bob.getByText("Match").first()).toBeVisible();
+
+    // Snapshot Bob's match count BEFORE Alice's edit so we can assert a
+    // concrete drop rather than a magic-number upper bound.
+    const matchesBefore = await bob.getByText("Match").count();
+    expect(matchesBefore).toBeGreaterThan(0);
 
     // Alice clicks "Change my answers" — navigates back to /questions,
     // crucially WITHOUT calling unmarkComplete. Bob is NOT kicked from /results.
@@ -40,32 +45,19 @@ test.describe("edit after completion", () => {
     // Bob is still on /results (not kicked to /waiting)
     await expect(bob.getByText("Your results")).toBeVisible();
 
-    // Alice changes her first answer from "yes" to "no"
+    // Alice changes her first answer from "yes" to "no". This triggers the
+    // 3s sync.push debounce → server commit → journalEvents emit → Bob's
+    // tracked subscription → setQueryData merge → Comparison re-render.
     await expect(alice.getByRole("radio", { name: "No" })).toBeVisible();
     await alice.getByRole("radio", { name: "No" }).click();
 
-    // Wait ~4s for the 3s debounce to flush, then the sync.push commits,
-    // server emits on journalEvents, Bob's subscription yields a tracked
-    // append, cache merges, Comparison re-renders.
-    //
-    // Bob should see the match classification for the affected question
-    // change — from "Match" count decreasing. Use the page's visible
-    // match count as the assertion lever.
-    //
-    // Simplest observable: the total "Match" match count drops.
-    await alice.waitForTimeout(4000);
-
-    // Verify that Bob's matches are no longer "all Match" — at least
-    // one question should have flipped (either disappeared or changed
-    // classification).
-    // The test is deliberately loose on what changed: we just assert that
-    // Bob's view reacted within a reasonable window.
-    const goForItCount = await bob.getByText("Match").count();
-
-    // Before Alice's edit, every answered question should have shown
-    // "Match". After the edit (yes → no on at least one), the count
-    // must have dropped.
-    expect(goForItCount).toBeLessThan(50); // Sanity: clearly fewer than before
+    // Poll Bob's match count until it drops. This covers the full pipeline
+    // latency (debounce + network + subscription + merge + re-render)
+    // without a hard-coded sleep.
+    await expect(async () => {
+      const matchesAfter = await bob.getByText("Match").count();
+      expect(matchesAfter).toBeLessThan(matchesBefore);
+    }).toPass({ timeout: 10_000 });
 
     await aliceCtx.close();
     await bobCtx.close();
