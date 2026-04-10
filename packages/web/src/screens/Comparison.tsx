@@ -1,11 +1,12 @@
 import type { Answer } from "@spreadsheet/shared";
-import { useEffect, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "../components/Card.js";
 import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { unwrapSensitive } from "../lib/crypto.js";
 import { replayJournal } from "../lib/journal.js";
-import { trpc } from "../lib/trpc.js";
+import { trpc, useTRPC } from "../lib/trpc.js";
 
 interface MemberAnswers {
   id: string;
@@ -24,37 +25,46 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
 };
 
 export function Comparison({ onBack }: { onBack?: () => void }) {
+  const trpcProxy = useTRPC();
+  // Questions list is cached globally with staleTime: Infinity — if PersonApp
+  // has already loaded it, this returns from cache synchronously without a
+  // refetch. First mount dedupes if Question.tsx hasn't triggered the load yet.
+  const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
+
+  const questions = useMemo(() => {
+    const qMap: Record<string, QuestionInfo> = {};
+    for (const q of questionsData.questions) {
+      qMap[q.id] = { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText };
+    }
+    return qMap;
+  }, [questionsData.questions]);
+
+  const categories = useMemo(() => {
+    const cMap: Record<string, string> = {};
+    for (const c of questionsData.categories) {
+      cMap[c.id] = c.label;
+    }
+    return cMap;
+  }, [questionsData.categories]);
+
+  const categoryOrder = useMemo(() => questionsData.categories.map((c) => c.id), [questionsData.categories]);
+
+  const questionOrder = useMemo(() => {
+    const qOrder: Record<string, number> = {};
+    for (let i = 0; i < questionsData.questions.length; i++) {
+      qOrder[questionsData.questions[i].id] = i;
+    }
+    return qOrder;
+  }, [questionsData.questions]);
+
   const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
-  const [questions, setQuestions] = useState<Record<string, QuestionInfo>>({});
-  const [categories, setCategories] = useState<Record<string, string>>({});
-  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
-  const [questionOrder, setQuestionOrder] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([trpc.sync.journal.query({ sinceId: null }), trpc.questions.list.query()])
-      .then(async ([compareData, questionsData]) => {
-        // Build question lookup
-        const qMap: typeof questions = {};
-        for (const q of questionsData.questions) {
-          qMap[q.id] = { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText };
-        }
-        setQuestions(qMap);
-
-        const cMap: Record<string, string> = {};
-        for (const c of questionsData.categories) {
-          cMap[c.id] = c.label;
-        }
-        setCategories(cMap);
-        setCategoryOrder(questionsData.categories.map((c) => c.id));
-
-        const qOrder: Record<string, number> = {};
-        for (let i = 0; i < questionsData.questions.length; i++) {
-          qOrder[questionsData.questions[i].id] = i;
-        }
-        setQuestionOrder(qOrder);
-
+    trpc.sync.journal
+      .query({ sinceId: null })
+      .then(async (compareData) => {
         // Replay each member's journal
         const members: MemberAnswers[] = await Promise.all(
           compareData.members.map(async (m) => {

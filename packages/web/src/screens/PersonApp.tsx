@@ -5,7 +5,7 @@ import {
   type CategoryData,
   type QuestionData,
 } from "@spreadsheet/shared";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
@@ -15,7 +15,7 @@ import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
-import { trpc, wsClient } from "../lib/trpc.js";
+import { trpc, useTRPC, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
@@ -70,14 +70,9 @@ export function PersonApp() {
   }, [token, queryClient]);
 
   const { status, refresh: refreshStatus } = useLiveStatus(token);
-  const [questionsData, setQuestionsData] = useState<Awaited<ReturnType<typeof trpc.questions.list.query>> | null>(
-    null,
-  );
+  const trpcProxy = useTRPC();
+  const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    trpc.questions.list.query().then(setQuestionsData);
-  }, [token]);
 
   if (status === "loading") {
     return (
@@ -191,47 +186,35 @@ export function PersonApp() {
           </Route>
 
           <Route path="/summary">
-            {questionsData ? (
-              <Summary
-                questions={questionsData.questions as QuestionData[]}
-                categories={questionsData.categories as CategoryData[]}
-                isAdmin={status.person.isAdmin}
-                onNavigateToCategory={(catId) => {
-                  setStartKey(`welcome:${catId}`);
-                  navigate("/questions");
-                }}
-                onBack={() => navigate("/questions")}
-                onReview={() => navigate("/review")}
-                onViewGroup={() => navigate("/invite")}
-              />
-            ) : (
-              <Card>
-                <div className="pt-32 text-center text-text-muted">Loading...</div>
-              </Card>
-            )}
+            <Summary
+              questions={questionsData.questions as QuestionData[]}
+              categories={questionsData.categories as CategoryData[]}
+              isAdmin={status.person.isAdmin}
+              onNavigateToCategory={(catId) => {
+                setStartKey(`welcome:${catId}`);
+                navigate("/questions");
+              }}
+              onBack={() => navigate("/questions")}
+              onReview={() => navigate("/review")}
+              onViewGroup={() => navigate("/invite")}
+            />
           </Route>
 
           <Route path="/review">
-            {questionsData ? (
-              <Review
-                questions={questionsData.questions as QuestionData[]}
-                categories={questionsData.categories as CategoryData[]}
-                onMarkComplete={async () => {
-                  await trpc.sync.markComplete.mutate();
-                  await refreshStatus();
-                  navigate("/waiting");
-                }}
-                onViewProgress={() => navigate("/summary")}
-                onEditQuestion={(key) => {
-                  setStartKey(key);
-                  navigate("/questions");
-                }}
-              />
-            ) : (
-              <Card>
-                <div className="pt-32 text-center text-text-muted">Loading...</div>
-              </Card>
-            )}
+            <Review
+              questions={questionsData.questions as QuestionData[]}
+              categories={questionsData.categories as CategoryData[]}
+              onMarkComplete={async () => {
+                await trpc.sync.markComplete.mutate();
+                await refreshStatus();
+                navigate("/waiting");
+              }}
+              onViewProgress={() => navigate("/summary")}
+              onEditQuestion={(key) => {
+                setStartKey(key);
+                navigate("/questions");
+              }}
+            />
           </Route>
 
           <Route path="/waiting">

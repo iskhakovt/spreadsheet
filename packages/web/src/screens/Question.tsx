@@ -1,4 +1,5 @@
 import type { Answer, CategoryData, OperationPayload, QuestionData, Rating, Timing } from "@spreadsheet/shared";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -21,7 +22,7 @@ import {
   setStoken,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
-import { trpc } from "../lib/trpc.js";
+import { trpc, useTRPC } from "../lib/trpc.js";
 import { QuestionCard } from "./QuestionCard.js";
 import { WelcomeScreen } from "./WelcomeScreen.js";
 
@@ -36,8 +37,15 @@ interface QuestionProps {
 }
 
 export function Question({ person, group, members, onDone, onSummary, startKey, onStartKeyConsumed }: QuestionProps) {
-  const [questions, setQuestions] = useState<QuestionData[]>([]);
-  const [categoryMap, setCategoryMap] = useState<Record<string, CategoryData>>({});
+  const trpcProxy = useTRPC();
+  const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
+  const questions = questionsData.questions as QuestionData[];
+  const categoryMap = useMemo(() => {
+    const map: Record<string, CategoryData> = {};
+    for (const c of questionsData.categories as CategoryData[]) map[c.id] = c;
+    return map;
+  }, [questionsData.categories]);
+
   const [index, setIndex] = useState(0);
   const [showDescription, setShowDescription] = useState(false);
   const [showTiming, setShowTiming] = useState(false);
@@ -55,20 +63,17 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   const answers = getAnswers();
   const pendingOps = getPendingOps();
 
-  // Load questions + auto-select categories + sync pending ops from previous session
+  // Auto-select all categories on first mount if the user hasn't chosen any.
+  // Also flush any leftover pendingOps from a previous session after a short
+  // delay so the sync machinery is ready.
   useEffect(() => {
-    trpc.questions.list.query().then((data) => {
-      setQuestions(data.questions as QuestionData[]);
-      const map: Record<string, CategoryData> = {};
-      for (const c of data.categories as CategoryData[]) map[c.id] = c;
-      setCategoryMap(map);
-      if (!getSelectedCategories()) {
-        setSelectedCategories((data.categories as CategoryData[]).map((c) => c.id));
-      }
-      if (getPendingOps().length > 0) {
-        setTimeout(() => handleSyncRef.current?.(), 500);
-      }
-    });
+    if (!getSelectedCategories()) {
+      setSelectedCategories((questionsData.categories as CategoryData[]).map((c) => c.id));
+    }
+    if (getPendingOps().length > 0) {
+      setTimeout(() => handleSyncRef.current?.(), 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedCategories = getSelectedCategories() ?? [];
@@ -179,14 +184,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     };
   });
 
-  // --- Loading / empty states ---
-  if (questions.length === 0) {
-    return (
-      <Card>
-        <div className="pt-32 text-center text-text-muted">Loading questions...</div>
-      </Card>
-    );
-  }
+  // --- Empty state (no matching questions for selected categories) ---
   if (qScreens.length === 0) {
     return (
       <Card>
