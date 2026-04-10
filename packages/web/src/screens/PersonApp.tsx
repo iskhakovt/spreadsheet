@@ -6,16 +6,18 @@ import {
   type QuestionData,
 } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
+import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
-import { type trpc, useTRPC, wsClient } from "../lib/trpc.js";
+import { useTRPC, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
@@ -26,7 +28,8 @@ import { Summary } from "./Summary.js";
 
 const Comparison = lazy(() => import("./Comparison.js").then((m) => ({ default: m.Comparison })));
 
-type GroupStatus = NonNullable<Awaited<ReturnType<typeof trpc.groups.status.query>>>;
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type GroupStatus = NonNullable<RouterOutputs["groups"]["status"]>;
 type Person = NonNullable<GroupStatus["person"]>;
 type Group = GroupStatus["group"];
 

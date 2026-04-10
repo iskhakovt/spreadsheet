@@ -1,10 +1,13 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useState } from "react";
+import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { decryptStatus } from "./decrypt-status.js";
-import { type trpc as legacyTrpcClient, useTRPC } from "./trpc.js";
+import { useTRPC } from "./trpc.js";
 
-type RawStatus = NonNullable<Awaited<ReturnType<typeof legacyTrpcClient.groups.status.query>>>;
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type RawStatus = NonNullable<RouterOutputs["groups"]["status"]>;
 type StatusState = RawStatus | null | "loading" | "error";
 
 /**

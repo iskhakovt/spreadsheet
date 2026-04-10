@@ -51,19 +51,16 @@ export function makeTrpcClient() {
 }
 
 /**
- * Legacy singleton client, kept temporarily during the TanStack migration so
- * call sites that still use `trpc.x.query()` / `trpc.x.mutate()` keep working.
- * Removed in the final step of the migration once every call site has been
- * converted to `useQuery` / `useMutation` / `useSubscription` via the proxy.
- */
-export const trpc = makeTrpcClient();
-
-/**
  * TanStack Query integration bindings. Components use these:
  *
  *   const trpc = useTRPC();
  *   const query = useSuspenseQuery(trpc.groups.status.queryOptions({ token }));
  *   const mutation = useMutation(trpc.groups.markReady.mutationOptions({ onSuccess: ... }));
  *   useSubscription(trpc.groups.onStatus.subscriptionOptions(undefined, { onData: ... }));
+ *
+ * The legacy stable `trpc` singleton has been removed — every call site goes
+ * through `useTRPC()` now. If you need to call a query/mutation imperatively
+ * from a non-hook context (rare), use `useTRPCClient()` to grab the vanilla
+ * client instead.
  */
 export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRouter>();

@@ -147,6 +147,9 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: 5.97.0
         version: 5.97.0(@tanstack/react-query@5.97.0(react@19.2.4))(react@19.2.4)
+      '@trpc/server':
+        specifier: 11.16.0
+        version: 11.16.0(typescript@6.0.2)
       '@types/node':
         specifier: ^25.5.2
         version: 25.5.2
