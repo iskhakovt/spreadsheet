@@ -36,14 +36,16 @@ export const syncRouter = router({
     return { ok: true };
   }),
 
-  compare: authedProcedure.query(async ({ ctx }) => {
-    const result = await ctx.sync.compare(ctx.group.id);
-    if ("error" in result) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "All group members must mark complete before comparing",
-      });
-    }
-    return result;
-  }),
+  journal: authedProcedure
+    .input(z.object({ sinceId: z.number().int().nonnegative().nullable() }).optional())
+    .query(async ({ ctx, input }) => {
+      const result = await ctx.sync.journalSince(ctx.group.id, input?.sinceId ?? null);
+      if ("error" in result) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "All group members must mark complete before viewing journal",
+        });
+      }
+      return result;
+    }),
 });

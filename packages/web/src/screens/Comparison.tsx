@@ -33,7 +33,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([trpc.sync.compare.query(), trpc.questions.list.query()])
+    Promise.all([trpc.sync.journal.query({ sinceId: null }), trpc.questions.list.query()])
       .then(async ([compareData, questionsData]) => {
         // Build question lookup
         const qMap: typeof questions = {};

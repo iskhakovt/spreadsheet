@@ -32,7 +32,13 @@ function mockCtx(
       getStatus: vi.fn(),
       ...overrides.groups,
     },
-    sync: { push: vi.fn(), markComplete: vi.fn(), unmarkComplete: vi.fn(), compare: vi.fn(), ...overrides.sync },
+    sync: {
+      push: vi.fn(),
+      markComplete: vi.fn(),
+      unmarkComplete: vi.fn(),
+      journalSince: vi.fn(),
+      ...overrides.sync,
+    },
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
     group: overrides.group ?? null,
@@ -155,21 +161,43 @@ describe("sync.push (no broadcast)", () => {
   });
 });
 
-describe("sync.compare", () => {
+describe("sync.journal", () => {
   it("returns data when store succeeds", async () => {
-    const data = { members: [{ id: "p1", name: "A", anatomy: "afab" }], entries: [] };
-    const compare = vi.fn().mockResolvedValue(data);
-    const ctx = mockCtx({ person, group, sync: { compare } });
+    const data = {
+      members: [{ id: "p1", name: "A", anatomy: "afab" }],
+      entries: [],
+      cursor: null,
+    };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
-    const result = await caller.sync.compare();
+    const result = await caller.sync.journal({ sinceId: null });
     expect(result).toEqual(data);
-    expect(compare).toHaveBeenCalledWith("g1");
+    expect(journalSince).toHaveBeenCalledWith("g1", null);
+  });
+
+  it("passes sinceId through to the store", async () => {
+    const data = { members: [], entries: [], cursor: 42 };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    await caller.sync.journal({ sinceId: 42 });
+    expect(journalSince).toHaveBeenCalledWith("g1", 42);
+  });
+
+  it("defaults sinceId to null when input is omitted", async () => {
+    const data = { members: [], entries: [], cursor: null };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    await caller.sync.journal();
+    expect(journalSince).toHaveBeenCalledWith("g1", null);
   });
 
   it("throws when store returns not_all_complete", async () => {
-    const compare = vi.fn().mockResolvedValue({ error: "not_all_complete" });
-    const ctx = mockCtx({ person, group, sync: { compare } });
+    const journalSince = vi.fn().mockResolvedValue({ error: "not_all_complete" });
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
-    await expect(caller.sync.compare()).rejects.toThrow("All group members must mark complete");
+    await expect(caller.sync.journal({ sinceId: null })).rejects.toThrow("All group members must mark complete");
   });
 });

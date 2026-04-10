@@ -43,7 +43,7 @@ async function createGroupWithMembers() {
 }
 
 describe("full sync flow (real Postgres)", () => {
-  it("create → push → mark complete → compare", async () => {
+  it("create → push → mark complete → journal", async () => {
     const { alice, bob } = await createGroupWithMembers();
 
     const aliceResult = await alice.caller.sync.push({
@@ -70,15 +70,55 @@ describe("full sync flow (real Postgres)", () => {
     await alice.caller.sync.markComplete();
     await bob.caller.sync.markComplete();
 
-    const comparison = await alice.caller.sync.compare();
-    expect(comparison.members).toHaveLength(2);
-    expect(comparison.entries).toHaveLength(4);
+    const journal = await alice.caller.sync.journal({ sinceId: null });
+    expect(journal.members).toHaveLength(2);
+    expect(journal.entries).toHaveLength(4);
+    // cursor is the highest id; every entry has a numeric id
+    expect(journal.cursor).toBe(journal.entries[journal.entries.length - 1].id);
   });
 
-  it("rejects compare when not all complete", async () => {
+  it("journal delta returns only entries after sinceId", async () => {
+    const { alice, bob } = await createGroupWithMembers();
+
+    const alicePushA = await alice.caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    await bob.caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    await alice.caller.sync.markComplete();
+    await bob.caller.sync.markComplete();
+
+    const initial = await alice.caller.sync.journal({ sinceId: null });
+    expect(initial.entries).toHaveLength(2);
+    const initialCursor = initial.cursor;
+
+    // Edit while complete — another push lands a new entry. Alice's stoken
+    // must be her own head (from alicePushA) to avoid a stoken conflict.
+    await alice.caller.sync.push({
+      stoken: alicePushA.stoken,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"no","timing":null}}'],
+      progress: null,
+    });
+
+    const delta = await alice.caller.sync.journal({ sinceId: initialCursor });
+    expect(delta.entries).toHaveLength(1);
+    expect(delta.cursor).toBeGreaterThan(initialCursor ?? 0);
+
+    // Empty delta: fetching again with the new cursor returns nothing new
+    const empty = await alice.caller.sync.journal({ sinceId: delta.cursor });
+    expect(empty.entries).toHaveLength(0);
+    expect(empty.cursor).toBe(delta.cursor);
+  });
+
+  it("rejects journal when not all complete", async () => {
     const { alice } = await createGroupWithMembers();
     await alice.caller.sync.markComplete();
-    await expect(alice.caller.sync.compare()).rejects.toThrow("All group members");
+    await expect(alice.caller.sync.journal({ sinceId: null })).rejects.toThrow("All group members");
   });
 
   it("handles stale stoken conflict", async () => {
