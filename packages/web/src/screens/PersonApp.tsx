@@ -5,7 +5,7 @@ import {
   type CategoryData,
   type QuestionData,
 } from "@spreadsheet/shared";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
@@ -15,7 +15,7 @@ import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
-import { trpc, useTRPC, wsClient } from "../lib/trpc.js";
+import { type trpc, useTRPC, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
@@ -74,6 +74,26 @@ export function PersonApp() {
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
+  // All mutations share the same onSuccess: invalidate groups.status so the
+  // guard re-evaluates with fresh server state. invalidateQueries returns a
+  // promise that the mutation awaits, so onSettled only fires after the
+  // refetch completes — no more stale-guard races.
+  const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
+  const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
+  const markCompleteMutation = useMutation(
+    trpcProxy.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }),
+  );
+  const unmarkCompleteMutation = useMutation(
+    trpcProxy.sync.unmarkComplete.mutationOptions({
+      onSuccess: async () => {
+        await invalidateStatus();
+        // Also invalidate the journal cache so re-entering /results gets a
+        // fresh fetch with the latest entries.
+        await queryClient.invalidateQueries({ queryKey: trpcProxy.sync.journal.pathKey() });
+      },
+    }),
+  );
+
   if (status === "loading") {
     return (
       <Card>
@@ -117,7 +137,7 @@ export function PersonApp() {
   if (!status.person) {
     return (
       <ErrorBoundary FallbackComponent={ScreenErrorFallback} onError={handleError} resetKeys={[location]}>
-        <GroupSetup adminToken={token} group={status.group} onDone={refreshStatus} />
+        <GroupSetup adminToken={token} group={status.group} />
       </ErrorBoundary>
     );
   }
@@ -143,7 +163,7 @@ export function PersonApp() {
           {shouldRedirect && <Redirect to={defaultRoute} replace />}
 
           <Route path="/setup">
-            <NonAdminOnboarding status={status} onDone={refreshStatus} />
+            <NonAdminOnboarding status={status} />
           </Route>
 
           <Route path="/pending">
@@ -154,10 +174,7 @@ export function PersonApp() {
             <Invite
               members={status.members}
               group={status.group}
-              onGroupReady={async () => {
-                await trpc.groups.markReady.mutate();
-                await refreshStatus();
-              }}
+              onGroupReady={() => markReadyMutation.mutate()}
               onStartFilling={() => {
                 if (!getHasSeenIntro()) navigate("/intro");
                 else navigate("/questions");
@@ -166,7 +183,7 @@ export function PersonApp() {
           </Route>
 
           <Route path="/anatomy">
-            <PickAnatomyScreen status={status} onDone={refreshStatus} />
+            <PickAnatomyScreen status={status} />
           </Route>
 
           <Route path="/intro">
@@ -205,8 +222,7 @@ export function PersonApp() {
               questions={questionsData.questions as QuestionData[]}
               categories={questionsData.categories as CategoryData[]}
               onMarkComplete={async () => {
-                await trpc.sync.markComplete.mutate();
-                await refreshStatus();
+                await markCompleteMutation.mutateAsync();
                 navigate("/waiting");
               }}
               onViewProgress={() => navigate("/summary")}
@@ -229,12 +245,7 @@ export function PersonApp() {
                 </Card>
               }
             >
-              <Comparison
-                onBack={async () => {
-                  await trpc.sync.unmarkComplete.mutate();
-                  await refreshStatus();
-                }}
-              />
+              <Comparison onBack={() => unmarkCompleteMutation.mutate()} />
             </Suspense>
           </Route>
 
@@ -247,7 +258,15 @@ export function PersonApp() {
   );
 }
 
-function NonAdminOnboarding({ status, onDone }: { status: GroupStatus; onDone: () => void | Promise<void> }) {
+function NonAdminOnboarding({ status }: { status: GroupStatus; onDone?: () => void | Promise<void> }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const setProfileMutation = useMutation(
+    trpc.groups.setProfile.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
+    }),
+  );
+
   const showAnatomy = status.group.questionMode === "filtered" && status.group.anatomyPicker === "self";
   const anatomyLabelKey = (status.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
@@ -256,10 +275,7 @@ function NonAdminOnboarding({ status, onDone }: { status: GroupStatus; onDone: (
     <OnboardingForm
       showAnatomy={showAnatomy}
       labels={labels}
-      onSubmit={async (name, anatomy) => {
-        await trpc.groups.setProfile.mutate({ name, anatomy });
-        await onDone();
-      }}
+      onSubmit={(name, anatomy) => setProfileMutation.mutate({ name, anatomy })}
     />
   );
 }
@@ -337,13 +353,15 @@ function WaitingScreen({
   );
 }
 
-function PickAnatomyScreen({
-  status,
-  onDone,
-}: {
-  status: GroupStatus & { person: Person };
-  onDone: () => void | Promise<void>;
-}) {
+function PickAnatomyScreen({ status }: { status: GroupStatus & { person: Person }; onDone?: () => void }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const setProfileMutation = useMutation(
+    trpc.groups.setProfile.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
+    }),
+  );
+
   const anatomyLabelKey = (status.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
   const [selected, setSelected] = useState<Anatomy | "">("");
@@ -357,10 +375,9 @@ function PickAnatomyScreen({
         <Button
           fullWidth
           disabled={!selected}
-          onClick={async () => {
+          onClick={() => {
             if (!selected) return;
-            await trpc.groups.setProfile.mutate({ name: status.person.name, anatomy: selected });
-            await onDone();
+            setProfileMutation.mutate({ name: status.person.name, anatomy: selected });
           }}
         >
           Continue

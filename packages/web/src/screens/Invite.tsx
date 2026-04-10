@@ -1,11 +1,12 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
-import { trpc } from "../lib/trpc.js";
+import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
 interface Member {
@@ -30,13 +31,21 @@ interface InviteProps {
 }
 
 export function Invite({ members, group, onGroupReady, onStartFilling }: InviteProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const { copiedIndex, copy } = useCopy();
-  const [loading, setLoading] = useState(false);
+
+  const addPersonMutation = useMutation(
+    trpc.groups.addPerson.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
+    }),
+  );
+  const loading = addPersonMutation.isPending;
 
   const needsAnatomy = group.questionMode === "filtered" && group.anatomyPicker === "admin";
   const labels = group.anatomyLabels
@@ -47,27 +56,22 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: InviteP
     e.preventDefault();
     if (!name) return;
     if (needsAnatomy && !anatomy) return;
-    setLoading(true);
-    try {
-      const groupKey = getGroupKeyFromUrl();
-      const encName = await wrapSensitive(name);
-      const rawAnatomy = needsAnatomy ? (anatomy as string) : null;
-      const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : rawAnatomy;
+    const groupKey = getGroupKeyFromUrl();
+    const encName = await wrapSensitive(name);
+    const rawAnatomy = needsAnatomy ? (anatomy as string) : null;
+    const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : rawAnatomy;
 
-      const result = await trpc.groups.addPerson.mutate({
-        name: encName,
-        anatomy: encAnatomy,
-        isAdmin,
-      });
-      const keyFragment = groupKey ? `#key=${groupKey}` : "";
-      const link = `${window.location.origin}/p/${result.token}${keyFragment}`;
-      setGeneratedLink(link);
-      setName("");
-      setAnatomy("");
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
+    const result = await addPersonMutation.mutateAsync({
+      name: encName,
+      anatomy: encAnatomy,
+      isAdmin,
+    });
+    const keyFragment = groupKey ? `#key=${groupKey}` : "";
+    const link = `${window.location.origin}/p/${result.token}${keyFragment}`;
+    setGeneratedLink(link);
+    setName("");
+    setAnatomy("");
+    setIsAdmin(false);
   }
 
   return (
