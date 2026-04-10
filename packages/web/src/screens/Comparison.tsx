@@ -1,12 +1,14 @@
 import type { Answer } from "@spreadsheet/shared";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../components/Card.js";
 import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { unwrapSensitive } from "../lib/crypto.js";
 import { replayJournal } from "../lib/journal.js";
-import { trpc, useTRPC } from "../lib/trpc.js";
+import { type JournalState, mergeJournal } from "../lib/merge-journal.js";
+import { useTRPC } from "../lib/trpc.js";
 
 interface MemberAnswers {
   id: string;
@@ -24,12 +26,33 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
   hidden: { bg: "", label: "" },
 };
 
+/**
+ * Compares answers between pairs of group members on /results.
+ *
+ * Data flow:
+ * 1. `useSuspenseQuery(trpc.sync.journal, { sinceId: null })` fetches the
+ *    initial backfill via HTTP and suspends until it lands.
+ * 2. `useSubscription(trpc.sync.onJournalChange, { lastEventId })` opens
+ *    a tRPC v11 tracked subscription over WS. The initial `lastEventId`
+ *    is seeded from the HTTP query's cursor so the subscription starts
+ *    streaming only new entries.
+ * 3. Each subscription push's `onData` merges the new entries into the
+ *    same TanStack cache entry via `setQueryData` — the query and the
+ *    subscription share one source of truth.
+ * 4. A `useEffect` keyed on `journal.entries` runs async decryption and
+ *    replay per member, producing `memberAnswers` which drives the UI.
+ *
+ * Reconnect is lossless by construction: wsLink auto-reconnects and
+ * re-sends the subscription message with the latest tracked id, so the
+ * server's generator replays entries > lastEventId. See Step 4's
+ * sync.journal-subscription.integration.test.ts for the full contract.
+ */
 export function Comparison({ onBack }: { onBack?: () => void }) {
-  const trpcProxy = useTRPC();
-  // Questions list is cached globally with staleTime: Infinity — if PersonApp
-  // has already loaded it, this returns from cache synchronously without a
-  // refetch. First mount dedupes if Question.tsx hasn't triggered the load yet.
-  const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  // Questions list — cached session-wide, feeds the category/question lookup tables.
+  const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
 
   const questions = useMemo(() => {
     const qMap: Record<string, QuestionInfo> = {};
@@ -57,18 +80,53 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     return qOrder;
   }, [questionsData.questions]);
 
+  // Initial journal backfill — suspends until server responds.
+  const journalOptions = trpc.sync.journal.queryOptions({ sinceId: null });
+  const { data: journal } = useSuspenseQuery(journalOptions);
+
+  // Cursor seeded from the HTTP response so the subscription doesn't re-backfill.
+  // Read once on mount — the subscription advances its own tracked cursor after that.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialLastEventId = useMemo(() => {
+    const last = journal.entries[journal.entries.length - 1];
+    return last ? String(last.id) : null;
+  }, []);
+
+  // Live updates via tracked subscription. onData merges new entries into
+  // the same cache entry the query populated, so readers stay in sync.
+  //
+  // tRPC v11 tracked subscriptions deliver `{ id, data }` to onData, where
+  // `data` is the payload the server yielded via `tracked(id, data)`.
+  useSubscription(
+    trpc.sync.onJournalChange.subscriptionOptions(
+      { lastEventId: initialLastEventId },
+      {
+        onData: (msg) => {
+          const entries = msg.data.entries;
+          if (entries.length === 0) return;
+          queryClient.setQueryData(journalOptions.queryKey, (prev: JournalState | undefined) =>
+            mergeJournal(prev, entries),
+          );
+        },
+        onError: (err) => {
+          console.error("Journal subscription error:", err);
+        },
+      },
+    ),
+  );
+
+  // Async decryption + replay per member. Re-runs whenever the journal entries
+  // change (either from the initial query or a subscription push).
   const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [activePairKey, setActivePairKey] = useState<string | null>(null);
+  const [decryptError, setDecryptError] = useState<string | null>(null);
 
   useEffect(() => {
-    trpc.sync.journal
-      .query({ sinceId: null })
-      .then(async (compareData) => {
-        // Replay each member's journal
+    let cancelled = false;
+    (async () => {
+      try {
         const members: MemberAnswers[] = await Promise.all(
-          compareData.members.map(async (m) => {
-            const memberEntries = compareData.entries.filter((e) => e.personId === m.id);
+          journal.members.map(async (m) => {
+            const memberEntries = journal.entries.filter((e) => e.personId === m.id);
             return {
               id: m.id,
               name: await unwrapSensitive(m.name as string),
@@ -77,19 +135,24 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
             };
           }),
         );
-        setMemberAnswers(members);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load comparison");
-      });
-  }, []);
+        if (!cancelled) setMemberAnswers(members);
+      } catch (err) {
+        if (!cancelled) setDecryptError(err instanceof Error ? err.message : "Failed to decrypt comparison");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [journal.entries, journal.members]);
 
-  if (error) {
+  const [activePairKey, setActivePairKey] = useState<string | null>(null);
+
+  if (decryptError) {
     return (
       <Card>
         <div className="pt-16 text-center space-y-4">
           <h1 className="text-2xl font-bold">Can't compare yet</h1>
-          <p className="text-text-muted">{error}</p>
+          <p className="text-text-muted">{decryptError}</p>
         </div>
       </Card>
     );
