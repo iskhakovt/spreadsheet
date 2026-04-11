@@ -81,7 +81,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 ## Commits
 
-**Conventional Commits** — all messages follow `type(scope): description`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Scope: `server`, `web`, `shared`, `db`. Semantic-release uses these to determine version bumps (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major). Non-conventional messages won't trigger a release.
+**Conventional Commits** — all messages follow `type(scope): description`. Types follow `@commitlint/config-conventional` defaults (`feat`, `fix`, `perf`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `style`, `revert`). Scope: `server`, `web`, `shared`, `db`. Semantic-release uses these to determine version bumps (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major). Non-conventional messages won't trigger a release. PR titles are validated by the `pr-title` CI job (commitlint). To customize the accepted types, edit `.releaserc.json` — `commitlint.config.js` derives its `type-enum` from there.
 
 ## Architecture Rules
 

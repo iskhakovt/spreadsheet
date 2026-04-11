@@ -39,6 +39,8 @@ COPY --from=build /app/deployed/package.json ./
 COPY --from=build /app/packages/server/dist/ dist/
 COPY --from=build /app/packages/web/dist/ web/
 
+ARG VERSION
+ENV VERSION=$VERSION
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV STATIC_ROOT=./web
