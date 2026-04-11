@@ -305,13 +305,14 @@ function WaitingScreen({
   allComplete: boolean;
   navigate: (to: string) => void;
 }) {
+  const others = status.members.filter((m) => m.id !== status.person.id);
   return (
     <Card>
       <div className="text-center pt-16 space-y-6">
         <h1 className="text-2xl font-bold">{allComplete ? "Everyone is done!" : "Waiting for everyone..."}</h1>
         <div className="space-y-3">
-          {status.members.map((m) => (
-            <div key={m.name} className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
+          {others.map((m) => (
+            <div key={m.id} className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
               <span>{m.name}</span>
               <span className={m.isCompleted ? "text-accent" : "text-text-muted"}>
                 {m.isCompleted ? "Done" : "In progress..."}

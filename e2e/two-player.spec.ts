@@ -18,8 +18,6 @@ for (const encrypted of [false, true]) {
       await answerAllQuestions(alice, "yes");
       await alice.getByRole("button", { name: "I'm done" }).click();
       await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-      // Ensure Alice sees herself as "Done" before Bob starts
-      await expect(alice.getByText("Done")).toBeVisible();
 
       // Bob: open link → intro → narrow via Summary → answer → done
       await bob.goto(partnerLink);
