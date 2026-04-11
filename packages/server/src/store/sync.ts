@@ -31,7 +31,8 @@ export class SyncStore {
         const entries = await tx
           .select({ operation: journalEntries.operation })
           .from(journalEntries)
-          .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)));
+          .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)))
+          .orderBy(journalEntries.id);
 
         return {
           stoken: currentHead > 0 ? encodeStoken(currentHead) : null,
@@ -57,7 +58,8 @@ export class SyncStore {
       const entries = await tx
         .select({ operation: journalEntries.operation })
         .from(journalEntries)
-        .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)));
+        .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)))
+        .orderBy(journalEntries.id);
 
       return {
         stoken: lastId > 0 ? encodeStoken(lastId) : null,
@@ -106,7 +108,11 @@ export class SyncStore {
     | { error: "not_all_complete" }
   > {
     return this.#tx(async (tx) => {
-      const members = await tx.select().from(persons).where(eq(persons.groupId, groupId)).orderBy(persons.createdAt);
+      const members = await tx
+        .select()
+        .from(persons)
+        .where(eq(persons.groupId, groupId))
+        .orderBy(persons.createdAt, persons.id);
 
       if (!members.every((m) => m.isCompleted)) {
         return { error: "not_all_complete" as const };

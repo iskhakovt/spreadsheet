@@ -225,7 +225,7 @@ export class GroupStore {
         })
         .from(persons)
         .where(eq(persons.groupId, person.groupId))
-        .orderBy(persons.createdAt);
+        .orderBy(persons.createdAt, persons.id);
 
       const group = await tx
         .select()
