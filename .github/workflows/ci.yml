@@ -9,13 +9,36 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Deny-by-default; each job grants what it needs.
+permissions: {}
+
 jobs:
+  pr-title:
+    name: PR Title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Validate Conventional Commits format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          echo "$PR_TITLE" | npx --yes \
+            -p @commitlint/cli@20.5.0 \
+            -p @commitlint/config-conventional@20.5.0 \
+            commitlint
+
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 24
           cache: pnpm
@@ -28,10 +51,12 @@ jobs:
   unit:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 24
           cache: pnpm
@@ -43,10 +68,12 @@ jobs:
   integration:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 24
           cache: pnpm
@@ -58,10 +85,12 @@ jobs:
   e2e:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 24
           cache: pnpm
@@ -73,13 +102,14 @@ jobs:
       - name: Get Playwright version
         id: pw-version
         run: |
+          set -euo pipefail
           PW_VERSION=$(npx playwright --version)
           echo "Playwright: $PW_VERSION"
           [[ "$PW_VERSION" =~ ^Version\ [0-9]+\.[0-9]+ ]] || { echo "Unexpected format: $PW_VERSION"; exit 1; }
           echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ steps.pw-version.outputs.version }}
@@ -95,22 +125,44 @@ jobs:
 
   release:
     needs: [unit, integration, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'iskhakovt/spreadsheet'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
       pull-requests: write
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.published }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: cycjimmy/semantic-release-action@v6
+      - id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx --yes \
+            -p semantic-release@25.0.3 \
+            -p @semantic-release/commit-analyzer@13.0.1 \
+            -p @semantic-release/release-notes-generator@14.1.0 \
+            -p @semantic-release/github@12.0.6 \
+            semantic-release
+          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish Image
+    # `needs:` is required even though `if:` references the same job:
+    # without it the outputs context is empty and `if:` silently false.
+    needs: [release]
+    if: needs.release.outputs.new_release_published == 'true'
+    uses: ./.github/workflows/publish.yml
+    # Keep in sync with the docker job in publish.yml.
+    permissions:
+      contents: read
+      packages: write
