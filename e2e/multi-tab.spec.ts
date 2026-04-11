@@ -2,11 +2,10 @@ import { expect, test } from "./fixtures.js";
 import { answerAllQuestions, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
-  test("admin opens partner link in same browser — answers don't cross-contaminate", async ({ browser }) => {
-    // Single context = shared localStorage (simulates same browser, multiple tabs)
-    const ctx = await browser.newContext();
-    const admin = await ctx.newPage();
-
+  test("admin opens partner link in same browser — answers don't cross-contaminate", async ({
+    multiTab: { ctx, admin },
+  }) => {
+    // Shared context = shared localStorage (simulates same browser, multiple tabs)
     await admin.goto("/");
     await admin.getByText("Get started").click();
     await admin.getByText("All questions").click();
@@ -32,7 +31,11 @@ test.describe("multi-tab isolation", () => {
     await admin.getByText("Back").click();
     await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
 
-    // Open Bob's link in same browser (new page, shared localStorage)
+    // Open Bob's link in same browser (new page in the SAME context, shared
+    // localStorage). This is the crux of the multi-tab test — a new page in
+    // a new context would be correctly isolated at the browser level; we
+    // want to verify that the in-app scoped-storage keying prevents
+    // cross-contamination even when the browser context IS shared.
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
     await goThroughIntro(bob);
@@ -59,14 +62,11 @@ test.describe("multi-tab isolation", () => {
       .click()
       .catch(() => {});
     await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
-
-    await ctx.close();
   });
 
-  test("admin marks complete after visiting partner link — marks correct person", async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const admin = await ctx.newPage();
-
+  test("admin marks complete after visiting partner link — marks correct person", async ({
+    multiTab: { ctx, admin },
+  }) => {
     await admin.goto("/");
     await admin.getByText("Get started").click();
     await admin.getByText("All questions").click();
@@ -98,14 +98,11 @@ test.describe("multi-tab isolation", () => {
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
     await expect(admin.getByText("Done")).toBeVisible();
     await expect(admin.getByText("In progress")).toBeVisible();
-
-    await ctx.close();
   });
 
-  test("both users answer in same browser — both can complete and see results", async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const admin = await ctx.newPage();
-
+  test("both users answer in same browser — both can complete and see results", async ({
+    multiTab: { ctx, admin },
+  }) => {
     await admin.goto("/");
     await admin.getByText("Get started").click();
     await admin.getByText("All questions").click();
@@ -128,7 +125,7 @@ test.describe("multi-tab isolation", () => {
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
     await expect(admin.getByText("Done")).toBeVisible();
 
-    // Bob answers and completes in same browser
+    // Bob answers and completes in same browser context
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
     await goThroughIntro(bob);
@@ -140,7 +137,5 @@ test.describe("multi-tab isolation", () => {
     await expect(bob.getByText("Your results").or(bob.getByText("Waiting for everyone"))).toBeVisible({
       timeout: 10000,
     });
-
-    await ctx.close();
   });
 });

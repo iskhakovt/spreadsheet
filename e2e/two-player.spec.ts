@@ -3,10 +3,7 @@ import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCatego
 
 for (const encrypted of [false, true]) {
   test.describe(`two-player completion flow (${encrypted ? "encrypted" : "plaintext"})`, () => {
-    test("Alice and Bob both complete and see results", async ({ browser }) => {
-      const aliceCtx = await browser.newContext();
-      const alice = await aliceCtx.newPage();
-
+    test("Alice and Bob both complete and see results", async ({ alice, bob }) => {
       const { partnerLink } = await createGroupAndSetup(alice, { encrypted });
 
       if (encrypted) {
@@ -25,8 +22,6 @@ for (const encrypted of [false, true]) {
       await expect(alice.getByText("Done")).toBeVisible();
 
       // Bob: open link → intro → narrow via Summary → answer → done
-      const bobCtx = await browser.newContext();
-      const bob = await bobCtx.newPage();
       await bob.goto(partnerLink);
       await goThroughIntro(bob);
       await narrowToCategory(bob, "Group & External");
@@ -41,9 +36,6 @@ for (const encrypted of [false, true]) {
       // WS push delivers Bob's completion to Alice → guard redirects to /results
       await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
       await expect(alice.getByText("Alice & Bob")).toBeVisible({ timeout: 5000 });
-
-      await aliceCtx.close();
-      await bobCtx.close();
     });
   });
 }

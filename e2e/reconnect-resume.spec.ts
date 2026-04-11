@@ -22,9 +22,7 @@ import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCatego
  * re-sends the subscription message with the latest tracked id.
  */
 test.describe("tracked() reconnect resume", () => {
-  test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
+  test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     await alice.getByText("Start filling out").click();
@@ -35,8 +33,6 @@ test.describe("tracked() reconnect resume", () => {
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob joins — start with WS allowed so he gets the initial subscription
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -60,7 +56,7 @@ test.describe("tracked() reconnect resume", () => {
     // which the tRPC wsLink observes as a close event and queues for
     // auto-reconnect. This is the only reliable way from Playwright to force
     // the reconnect path.
-    const bobCdp = await bobCtx.newCDPSession(bob);
+    const bobCdp = await bob.context().newCDPSession(bob);
     await bobCdp.send("Network.enable");
     await bobCdp.send("Network.emulateNetworkConditions", {
       offline: true,
@@ -116,7 +112,5 @@ test.describe("tracked() reconnect resume", () => {
     }).toPass({ timeout: 20_000 });
 
     await bobCdp.detach();
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 });

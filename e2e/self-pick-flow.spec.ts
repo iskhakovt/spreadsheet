@@ -2,10 +2,7 @@ import { expect, test } from "./fixtures.js";
 import { answerAllQuestions, narrowToCategory } from "./helpers.js";
 
 test.describe("filtered mode — self-pick anatomy flow", () => {
-  test("both players pick anatomy, wait for each other, then answer", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
-
+  test("both players pick anatomy, wait for each other, then answer", async ({ alice, bob }) => {
     // Admin creates filtered group with self-pick anatomy
     await alice.goto("/");
     await alice.getByText("Get started").click();
@@ -40,8 +37,6 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(alice.getByText("Setting up...")).toBeVisible();
 
     // Bob opens his link
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(bobLink);
 
     // Bob should see anatomy picker (self-pick, his anatomy is null)
@@ -70,8 +65,5 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     // Both complete → Bob sees results
     await expect(bob.getByText("Your results")).toBeVisible();
     await expect(bob.getByText("Alice & Bob")).toBeVisible();
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 });

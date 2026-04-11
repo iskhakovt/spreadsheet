@@ -2,11 +2,9 @@ import { expect, test } from "./fixtures.js";
 import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("edit after completion", () => {
-  test("Alice edits an answer on /results, Bob sees the pair matches update live", async ({ browser }) => {
+  test("Alice edits an answer on /results, Bob sees the pair matches update live", async ({ alice, bob }) => {
     // Both Alice and Bob complete the questionnaire answering "yes" to everything
     // so they'll see "Match" matches when both land on /results.
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
     const { partnerLink } = await createGroupAndSetup(alice);
 
     await alice.getByText("Start filling out").click();
@@ -16,8 +14,6 @@ test.describe("edit after completion", () => {
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -58,43 +54,34 @@ test.describe("edit after completion", () => {
       const matchesAfter = await bob.getByText("Match", { exact: true }).count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
     }).toPass({ timeout: 10_000 });
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 
-  test("Alice's /waiting screen has an 'Edit my answers' button that navigates without unmarking", async ({
-    browser,
-  }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
-    await createGroupAndSetup(alice);
+  test("Alice's /waiting screen has an 'Edit my answers' button that navigates without unmarking", async ({ page }) => {
+    await createGroupAndSetup(page);
 
-    await alice.getByText("Start filling out").click();
-    await goThroughIntro(alice);
-    await narrowToCategory(alice, "Group & External");
-    await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await page.getByText("Start filling out").click();
+    await goThroughIntro(page);
+    await narrowToCategory(page, "Group & External");
+    await answerAllQuestions(page, "yes");
+    await page.getByRole("button", { name: "I'm done" }).click();
 
-    // Alice is now on /waiting
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-    await expect(alice).toHaveURL(/\/waiting/);
+    // Page is now on /waiting
+    await expect(page.getByText("Waiting for everyone")).toBeVisible();
+    await expect(page).toHaveURL(/\/waiting/);
 
-    // Click the "Edit my answers" button — navigates to /questions
-    await alice.getByRole("button", { name: "Edit my answers" }).click();
-    await expect(alice).toHaveURL(/\/questions/);
+    // Click "Edit my answers" — navigates to /questions
+    await page.getByRole("button", { name: "Edit my answers" }).click();
+    await expect(page).toHaveURL(/\/questions/);
 
-    // Alice should be able to change an answer and navigate away freely.
     // isCompleted should NOT have been touched server-side. We verify this
-    // with a reload (not goBack) — goBack replays the SPA history entry
-    // and could pass against a stale in-memory completion flag. `reload()`
-    // forces the guard to re-evaluate against fresh server status; if
-    // isCompleted were false, the guard would bounce us back to /questions.
-    await alice.goBack();
-    await alice.reload();
-    await expect(alice).toHaveURL(/\/waiting/);
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-
-    await aliceCtx.close();
+    // with a reload (not goBack alone) — goBack replays the SPA history
+    // entry and could pass against a stale in-memory completion flag.
+    // `reload()` forces the guard to re-evaluate against fresh server
+    // status; if isCompleted were false, the guard would bounce us back
+    // to /questions.
+    await page.goBack();
+    await page.reload();
+    await expect(page).toHaveURL(/\/waiting/);
+    await expect(page.getByText("Waiting for everyone")).toBeVisible();
   });
 });
