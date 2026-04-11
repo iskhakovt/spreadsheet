@@ -16,6 +16,13 @@ export interface PairMatch {
   answerB: Answer;
 }
 
+/** One category's bucket of matches for the /results view. */
+export interface CategoryGroup {
+  categoryId: string;
+  label: string;
+  matches: PairMatch[];
+}
+
 export interface BuildPairOptions {
   /** Display name for person A — appended in parens on give/receive rows
    *  to disambiguate whose perspective the row reflects. */
@@ -86,4 +93,45 @@ export function buildPairMatches(
   }
 
   return matches;
+}
+
+/**
+ * Bucket a flat list of pair matches into category groups for display.
+ *
+ * - Matches are grouped by the category of their question
+ * - Categories appear in the order dictated by `categoryOrder` (the
+ *   question-flow order). Empty categories (no matches) are dropped.
+ * - Within each category, matches are sorted by `questionOrder` (the
+ *   position of the question in the original question list). This
+ *   keeps match rows in the same order the user answered them.
+ * - Matches whose question is missing from `questions` are dropped.
+ *
+ * Returns a new array; does not mutate the input.
+ */
+export function buildGroupedMatches(
+  pairMatches: PairMatch[],
+  questions: Record<string, QuestionInfo>,
+  categories: Record<string, string>,
+  categoryOrder: string[],
+  questionOrder: Record<string, number>,
+): CategoryGroup[] {
+  const grouped: Record<string, { label: string; matches: PairMatch[] }> = {};
+  for (const match of pairMatches) {
+    const q = questions[match.questionId];
+    if (!q) continue;
+    const categoryId = q.categoryId;
+    if (!grouped[categoryId]) {
+      grouped[categoryId] = { label: categories[categoryId] ?? categoryId, matches: [] };
+    }
+    grouped[categoryId].matches.push(match);
+  }
+  return categoryOrder
+    .filter((id) => grouped[id])
+    .map((categoryId) => ({
+      categoryId,
+      label: grouped[categoryId].label,
+      matches: grouped[categoryId].matches
+        .slice()
+        .sort((x, y) => (questionOrder[x.questionId] ?? 0) - (questionOrder[y.questionId] ?? 0)),
+    }));
 }

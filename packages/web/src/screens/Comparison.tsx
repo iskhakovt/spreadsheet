@@ -1,7 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useMemo, useRef, useState } from "react";
-import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
+import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import {
   type CachedJournal,
@@ -10,7 +10,7 @@ import {
   makeJournalQueryFn,
   rebuildMemberAnswers,
 } from "../lib/journal-query.js";
-import { sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
+import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { mergeJournal } from "../lib/merge-journal.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
@@ -213,12 +213,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
 
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
-  const pairs: { a: MemberAnswers; b: MemberAnswers }[] = [];
-  for (let i = 0; i < memberAnswers.length; i++) {
-    for (let j = i + 1; j < memberAnswers.length; j++) {
-      pairs.push({ a: memberAnswers[i], b: memberAnswers[j] });
-    }
-  }
+  const pairs = useMemo(() => buildPairs(memberAnswers), [memberAnswers]);
 
   const showTabs = pairs.length > 1;
   const pairKey = (a: MemberAnswers, b: MemberAnswers) => `${a.id}-${b.id}`;
@@ -234,19 +229,14 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
     : 0;
 
   function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (pairs.length === 0) return;
-    let nextIndex: number;
-    if (e.key === "ArrowRight") nextIndex = (activeIndex + 1) % pairs.length;
-    else if (e.key === "ArrowLeft") nextIndex = (activeIndex - 1 + pairs.length) % pairs.length;
-    else if (e.key === "Home") nextIndex = 0;
-    else if (e.key === "End") nextIndex = pairs.length - 1;
-    else return;
+    const next = nextTabIndex(e.key, activeIndex, pairs.length);
+    if (next === null) return;
     e.preventDefault();
-    const nextPair = pairs[nextIndex];
+    const nextPair = pairs[next];
     setActivePairKey(pairKey(nextPair.a, nextPair.b));
     // Move focus to the newly-active tab so keyboard users stay inside the tablist
     const buttons = tabListRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    buttons?.[nextIndex]?.focus();
+    buttons?.[next]?.focus();
   }
 
   return (
@@ -389,20 +379,7 @@ function PairComparison({
     aIsViewer,
   });
 
-  // Group matches by category
-  const grouped: Record<string, { label: string; matches: typeof pairMatches }> = {};
-  for (const match of pairMatches) {
-    const q = questions[match.questionId];
-    if (!q) continue;
-    const categoryId = q.categoryId;
-    if (!grouped[categoryId]) {
-      grouped[categoryId] = { label: categories[categoryId] ?? categoryId, matches: [] };
-    }
-    grouped[categoryId].matches.push(match);
-  }
-
-  // Sort categories and questions in the same order as the question flow
-  const sortedCategories = categoryOrder.filter((id) => grouped[id]);
+  const groups = buildGroupedMatches(pairMatches, questions, categories, categoryOrder, questionOrder);
 
   // Headline: how many green-lights and total non-hidden matches. Gives the
   // user a one-glance sense of the page before they start reading. This is
@@ -418,7 +395,7 @@ function PairComparison({
         </h2>
       )}
 
-      {sortedCategories.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="py-16 text-center space-y-4">
           <p className="text-base text-text-muted italic">
             No overlaps this time — but that's part of the conversation too.
@@ -447,46 +424,41 @@ function PairComparison({
             </div>
           </div>
 
-          {sortedCategories.map((catId) => {
-            const group = grouped[catId];
-            return (
-              <section key={catId} className="space-y-3">
-                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
-                  <span className="w-1 h-1 rounded-full bg-accent" />
-                  {group.label}
-                  <span className="flex-1 h-px bg-border/40 ml-1" />
-                  <span className="tabular-nums text-text-muted/60 normal-case tracking-normal text-[11px]">
-                    {group.matches.length}
-                  </span>
-                </h3>
-                <div className="space-y-2">
-                  {group.matches
-                    .sort((x, y) => (questionOrder[x.questionId] ?? 0) - (questionOrder[y.questionId] ?? 0))
-                    .map((match) => {
-                      const style = MATCH_STYLES[match.matchType];
-                      return (
-                        <div
-                          key={`${match.questionId}-${match.displayText}`}
-                          className={`px-4 py-3 rounded-[var(--radius-md)] transition-all ${style.container}`}
-                          data-testid="match-row"
-                          data-match-type={match.matchType}
+          {groups.map((group) => (
+            <section key={group.categoryId} className="space-y-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
+                <span className="w-1 h-1 rounded-full bg-accent" />
+                {group.label}
+                <span className="flex-1 h-px bg-border/40 ml-1" />
+                <span className="tabular-nums text-text-muted/60 normal-case tracking-normal text-[11px]">
+                  {group.matches.length}
+                </span>
+              </h3>
+              <div className="space-y-2">
+                {group.matches.map((match) => {
+                  const style = MATCH_STYLES[match.matchType];
+                  return (
+                    <div
+                      key={`${match.questionId}-${match.displayText}`}
+                      className={`px-4 py-3 rounded-[var(--radius-md)] transition-all ${style.container}`}
+                      data-testid="match-row"
+                      data-match-type={match.matchType}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`${style.labelStyle}`}>{match.displayText}</span>
+                        <span
+                          className={`text-[10px] uppercase tracking-wider font-semibold shrink-0 px-2 py-0.5 rounded-full ${style.badge}`}
+                          data-testid="match-badge"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className={`${style.labelStyle}`}>{match.displayText}</span>
-                            <span
-                              className={`text-[10px] uppercase tracking-wider font-semibold shrink-0 px-2 py-0.5 rounded-full ${style.badge}`}
-                              data-testid="match-badge"
-                            >
-                              {style.label}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </section>
-            );
-          })}
+                          {style.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </>
       )}
     </div>

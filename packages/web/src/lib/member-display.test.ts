@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MemberAnswers } from "./journal-query.js";
-import { sortMembersViewerFirst, viewerDisplayName } from "./member-display.js";
+import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "./member-display.js";
 
 /** Factory for a minimal MemberAnswers that the sort/display helpers care about. */
 const m = (id: string, name: string): MemberAnswers => ({
@@ -109,5 +109,127 @@ describe("viewerDisplayName", () => {
     // malformed state), the helper doesn't invent one.
     const anon = m("anon", "");
     expect(viewerDisplayName(anon, "someone-else")).toBe("");
+  });
+});
+
+describe("buildPairs", () => {
+  it("empty list → no pairs", () => {
+    expect(buildPairs([])).toEqual([]);
+  });
+
+  it("single item → no pairs (can't pair with itself)", () => {
+    expect(buildPairs([1])).toEqual([]);
+  });
+
+  it("two items → one pair", () => {
+    expect(buildPairs([1, 2])).toEqual([{ a: 1, b: 2 }]);
+  });
+
+  it("three items → three pairs in deterministic order", () => {
+    expect(buildPairs(["a", "b", "c"])).toEqual([
+      { a: "a", b: "b" },
+      { a: "a", b: "c" },
+      { a: "b", b: "c" },
+    ]);
+  });
+
+  it("four items → six pairs (n choose 2)", () => {
+    const pairs = buildPairs([1, 2, 3, 4]);
+    expect(pairs).toHaveLength(6);
+    // Verify it's every unique pair with i < j
+    expect(pairs).toEqual([
+      { a: 1, b: 2 },
+      { a: 1, b: 3 },
+      { a: 1, b: 4 },
+      { a: 2, b: 3 },
+      { a: 2, b: 4 },
+      { a: 3, b: 4 },
+    ]);
+  });
+
+  it("preserves input order — index 0 is always `a` in its pairs", () => {
+    // When input is [viewer, ...others], all "viewer & X" pairs come
+    // first in the output. This is the property Comparison relies on
+    // for "you-pairs before other-vs-other".
+    const result = buildPairs(["viewer", "bob", "carol"]);
+    expect(result[0]).toEqual({ a: "viewer", b: "bob" });
+    expect(result[1]).toEqual({ a: "viewer", b: "carol" });
+    expect(result[2]).toEqual({ a: "bob", b: "carol" });
+  });
+
+  it("works with MemberAnswers type", () => {
+    const alice = m("alice", "Alice");
+    const bob = m("bob", "Bob");
+    const result = buildPairs([alice, bob]);
+    expect(result).toEqual([{ a: alice, b: bob }]);
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [1, 2, 3];
+    const snapshot = [...input];
+    buildPairs(input);
+    expect(input).toEqual(snapshot);
+  });
+});
+
+describe("nextTabIndex", () => {
+  describe("ArrowRight — next with wrap", () => {
+    it("from 0 of 3 → 1", () => {
+      expect(nextTabIndex("ArrowRight", 0, 3)).toBe(1);
+    });
+    it("from 1 of 3 → 2", () => {
+      expect(nextTabIndex("ArrowRight", 1, 3)).toBe(2);
+    });
+    it("from 2 of 3 → wraps to 0", () => {
+      expect(nextTabIndex("ArrowRight", 2, 3)).toBe(0);
+    });
+  });
+
+  describe("ArrowLeft — previous with wrap", () => {
+    it("from 1 of 3 → 0", () => {
+      expect(nextTabIndex("ArrowLeft", 1, 3)).toBe(0);
+    });
+    it("from 2 of 3 → 1", () => {
+      expect(nextTabIndex("ArrowLeft", 2, 3)).toBe(1);
+    });
+    it("from 0 of 3 → wraps to 2", () => {
+      expect(nextTabIndex("ArrowLeft", 0, 3)).toBe(2);
+    });
+  });
+
+  describe("Home / End", () => {
+    it("Home → 0 regardless of active index", () => {
+      expect(nextTabIndex("Home", 0, 5)).toBe(0);
+      expect(nextTabIndex("Home", 3, 5)).toBe(0);
+      expect(nextTabIndex("Home", 4, 5)).toBe(0);
+    });
+    it("End → length - 1 regardless of active index", () => {
+      expect(nextTabIndex("End", 0, 5)).toBe(4);
+      expect(nextTabIndex("End", 3, 5)).toBe(4);
+      expect(nextTabIndex("End", 4, 5)).toBe(4);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("length = 0 → null for every key (degenerate)", () => {
+      expect(nextTabIndex("ArrowRight", 0, 0)).toBeNull();
+      expect(nextTabIndex("ArrowLeft", 0, 0)).toBeNull();
+      expect(nextTabIndex("Home", 0, 0)).toBeNull();
+      expect(nextTabIndex("End", 0, 0)).toBeNull();
+    });
+
+    it("length = 1 → navigating wraps back to 0", () => {
+      expect(nextTabIndex("ArrowRight", 0, 1)).toBe(0);
+      expect(nextTabIndex("ArrowLeft", 0, 1)).toBe(0);
+      expect(nextTabIndex("Home", 0, 1)).toBe(0);
+      expect(nextTabIndex("End", 0, 1)).toBe(0);
+    });
+
+    it("unrecognized key → null", () => {
+      expect(nextTabIndex("Enter", 0, 3)).toBeNull();
+      expect(nextTabIndex("Tab", 0, 3)).toBeNull();
+      expect(nextTabIndex("a", 0, 3)).toBeNull();
+      expect(nextTabIndex("", 0, 3)).toBeNull();
+    });
   });
 });
