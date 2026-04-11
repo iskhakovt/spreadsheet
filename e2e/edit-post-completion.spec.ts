@@ -56,7 +56,6 @@ test.describe("edit after completion", () => {
     }).toPass({ timeout: 10_000 });
   });
 
-  // Single-user test — uses built-in `page` fixture, no manual context needed.
   test("Alice's /waiting screen has an 'Edit my answers' button that navigates without unmarking", async ({ page }) => {
     await createGroupAndSetup(page);
 
