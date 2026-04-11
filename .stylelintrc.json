@@ -1,0 +1,17 @@
+{
+  "extends": ["stylelint-config-standard", "@dreamsicle.io/stylelint-config-tailwindcss"],
+  "rules": {
+    "selector-no-vendor-prefix": [
+      true,
+      {
+        "ignoreSelectors": ["::-webkit-scrollbar", "::-webkit-scrollbar-track", "::-webkit-scrollbar-thumb"]
+      }
+    ],
+    "property-no-vendor-prefix": [
+      true,
+      {
+        "ignoreProperties": ["font-smoothing", "osx-font-smoothing"]
+      }
+    ]
+  }
+}
