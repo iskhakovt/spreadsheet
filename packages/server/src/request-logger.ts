@@ -38,6 +38,8 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
       status,
       durationMs,
     };
+    // `fields.err` runs through the logger's `sanitizeError` serializer
+    // (logger.ts) — any custom properties on the Error are dropped there.
     if (c.error) fields.err = c.error;
     child[level](fields, "request");
   };

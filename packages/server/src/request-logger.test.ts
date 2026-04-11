@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { type Logger, pino, stdSerializers } from "pino";
+import { type Logger, pino } from "pino";
 import { describe, expect, it } from "vitest";
-import type { HonoLoggerEnv } from "./logger.js";
+import { type HonoLoggerEnv, sanitizeError } from "./logger.js";
 import { requestLogger, sanitizePath } from "./request-logger.js";
 
 function captureLogger(): { logger: Logger; records: Array<Record<string, unknown>> } {
@@ -10,7 +10,7 @@ function captureLogger(): { logger: Logger; records: Array<Record<string, unknow
     {
       level: "trace",
       formatters: { level: (label: string) => ({ level: label }) },
-      serializers: { err: stdSerializers.err },
+      serializers: { err: sanitizeError },
     },
     {
       write(line: string) {
@@ -148,7 +148,25 @@ describe("requestLogger middleware", () => {
     const entry = records[0];
     expect(entry.status).toBe(500);
     expect(entry.level).toBe("error");
-    expect(entry.err).toMatchObject({ type: "Error", message: "kaboom" });
+    expect(entry.err).toMatchObject({ name: "Error", message: "kaboom" });
+  });
+
+  it("strips custom enumerable fields from thrown errors (no nested leak past single-level redact)", async () => {
+    const { logger, records } = captureLogger();
+    const app = makeApp(logger);
+    app.get("/throw", () => {
+      const err = new Error("boom") as Error & { token?: string; params?: Record<string, unknown> };
+      err.token = "secret-token-abc";
+      err.params = { nested: "nested-secret" };
+      throw err;
+    });
+
+    await app.fetch(new Request("http://localhost/throw"));
+
+    const serialized = JSON.stringify(records[0]);
+    expect(serialized).not.toContain("secret-token-abc");
+    expect(serialized).not.toContain("nested-secret");
+    expect(records[0].err).toMatchObject({ name: "Error", message: "boom" });
   });
 
   it("attaches a child logger and reqId to the Hono context", async () => {

@@ -1,4 +1,4 @@
-import { type Logger, type LoggerOptions, pino, stdSerializers } from "pino";
+import { type Logger, type LoggerOptions, pino } from "pino";
 
 const isProduction = process.env.NODE_ENV === "production";
 const version = process.env.VERSION ?? "dev";
@@ -28,6 +28,23 @@ export const redactPaths = [
   "*.password",
 ];
 
+// Allowlist-only error serializer. Extracts the fields we want in logs and
+// drops everything else — crucially, any custom enumerable properties the
+// thrower may have attached (tokens, nested `params`, headers) are discarded
+// so they can never reach the transport. Exported for tests.
+export function sanitizeError(err: unknown): Record<string, unknown> {
+  if (!err || typeof err !== "object") return { message: String(err) };
+  const e = err as Error & { code?: unknown; status?: unknown };
+  const out: Record<string, unknown> = {
+    name: typeof e.name === "string" ? e.name : "Error",
+    message: typeof e.message === "string" ? e.message : "",
+  };
+  if (typeof e.stack === "string") out.stack = e.stack;
+  if (typeof e.code === "string" || typeof e.code === "number") out.code = e.code;
+  if (typeof e.status === "number") out.status = e.status;
+  return out;
+}
+
 const baseOptions: LoggerOptions = {
   name: "spreadsheet-server",
   level: process.env.LOG_LEVEL ?? (isProduction ? "info" : "debug"),
@@ -36,11 +53,14 @@ const baseOptions: LoggerOptions = {
     paths: redactPaths,
     censor: "[REDACTED]",
   },
-  // Pino does not log enumerable properties of Error objects by default —
-  // without this serializer, `logger.error({ err }, ...)` drops the message
-  // and stack entirely.
+  // Allowlist-based `err` serializer. Pino's stdSerializers.err copies every
+  // enumerable own property of an Error verbatim, which slips past our
+  // single-level redact list whenever a custom error subclass carries nested
+  // `params` / `headers` / tokens. Keeping the serialized shape flat and
+  // primitive-only means nothing nested can escape, regardless of what the
+  // thrower attached. Applies to every `{ err }` call site — defense in depth.
   serializers: {
-    err: stdSerializers.err,
+    err: sanitizeError,
   },
   formatters: {
     level(label) {
