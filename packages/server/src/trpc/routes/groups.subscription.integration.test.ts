@@ -244,10 +244,12 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     expect(during).toBeGreaterThan(before);
 
     sub.cancel();
-    // Allow microtasks to settle
-    await new Promise((r) => setTimeout(r, 50));
 
-    const after = groupEvents.listenerCount(eventName);
-    expect(after).toBe(before);
+    // Poll via `expect.poll` — the prior `setTimeout(50)` was a fixed
+    // sleep guessing at cleanup latency, fragile under CI load. `poll`
+    // retries the assertion (zero overhead on the fast path), surfaces
+    // observed values in the failure message, and matches the equivalent
+    // cleanup assertion in sync.journal-subscription.integration.test.ts.
+    await expect.poll(() => groupEvents.listenerCount(eventName)).toBe(before);
   });
 });
