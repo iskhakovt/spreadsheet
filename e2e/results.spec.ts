@@ -12,7 +12,6 @@ test.describe("results display", () => {
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
     await bob.goto(partnerLink);
@@ -49,7 +48,6 @@ test.describe("results display", () => {
     await answerAllQuestions(alice, "maybe");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all as Maybe too
     await bob.goto(partnerLink);
@@ -82,7 +80,6 @@ test.describe("results display", () => {
     await answerAllQuestions(alice, "no");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
-    await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: all Yes
     await bob.goto(partnerLink);

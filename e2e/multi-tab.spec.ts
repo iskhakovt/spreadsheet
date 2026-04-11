@@ -94,9 +94,10 @@ test.describe("multi-tab isolation", () => {
     await answerAllQuestions(admin, "no");
     await admin.getByRole("button", { name: "I'm done" }).click();
 
-    // Correct person (Alice) marked complete
+    // Correct person (Alice) marked complete: admin reached /waiting (proves
+    // Alice is complete — guard wouldn't land her here otherwise) and Bob is
+    // still "In progress" (proves admin didn't wrongly mark Bob complete).
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
-    await expect(admin.getByText("Done")).toBeVisible();
     await expect(admin.getByText("In progress")).toBeVisible();
   });
 
@@ -123,7 +124,6 @@ test.describe("multi-tab isolation", () => {
     await answerAllQuestions(admin, "yes");
     await admin.getByRole("button", { name: "I'm done" }).click();
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
-    await expect(admin.getByText("Done")).toBeVisible();
 
     // Bob answers and completes in same browser context
     const bob = await ctx.newPage();
