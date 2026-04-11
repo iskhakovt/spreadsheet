@@ -312,37 +312,39 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
         )}
 
         <div className="stagger-5">
-          {visiblePair && showTabs && (
-            <div role="tabpanel" id="pair-tabpanel" aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}>
-              <PairComparison
-                key={`${visiblePair.a.id}-${visiblePair.b.id}`}
-                a={visiblePair.a}
-                b={visiblePair.b}
-                aDisplayName={displayName(visiblePair.a)}
-                bDisplayName={displayName(visiblePair.b)}
-                aIsViewer={visiblePair.a.id === viewerId}
-                questions={questions}
-                categories={categories}
-                categoryOrder={categoryOrder}
-                questionOrder={questionOrder}
-                showHeading={false}
-              />
-            </div>
-          )}
-          {visiblePair && !showTabs && (
-            <PairComparison
-              a={visiblePair.a}
-              b={visiblePair.b}
-              aDisplayName={displayName(visiblePair.a)}
-              bDisplayName={displayName(visiblePair.b)}
-              aIsViewer={visiblePair.a.id === viewerId}
-              questions={questions}
-              categories={categories}
-              categoryOrder={categoryOrder}
-              questionOrder={questionOrder}
-              showHeading
-            />
-          )}
+          {visiblePair &&
+            (() => {
+              // Single PairComparison instantiation — tabs/no-tabs branches
+              // only differ in whether we wrap with a tabpanel role. Using
+              // one source of truth for the element keeps props + key
+              // symmetric and prevents asymmetric-key drift.
+              const pair = (
+                <PairComparison
+                  key={`${visiblePair.a.id}-${visiblePair.b.id}`}
+                  a={visiblePair.a}
+                  b={visiblePair.b}
+                  aDisplayName={displayName(visiblePair.a)}
+                  bDisplayName={displayName(visiblePair.b)}
+                  aIsViewer={visiblePair.a.id === viewerId}
+                  questions={questions}
+                  categories={categories}
+                  categoryOrder={categoryOrder}
+                  questionOrder={questionOrder}
+                  showHeading={!showTabs}
+                />
+              );
+              return showTabs ? (
+                <div
+                  role="tabpanel"
+                  id="pair-tabpanel"
+                  aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}
+                >
+                  {pair}
+                </div>
+              ) : (
+                pair
+              );
+            })()}
         </div>
 
         {onBack && (
