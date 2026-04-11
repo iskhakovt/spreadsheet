@@ -42,10 +42,10 @@ describe("logger redact paths", () => {
       expect((records[0].req as { headers: Record<string, unknown> }).headers.cookie).toBe(REDACTED);
     });
 
-    it("redacts req.headers.host", () => {
+    it("does NOT redact req.headers.host (the public-facing hostname is not a secret and is useful for vhost debugging)", () => {
       const { logger, records } = captureLogger();
       logger.info({ req: { headers: { host: "internal.example" } } }, "test");
-      expect((records[0].req as { headers: Record<string, unknown> }).headers.host).toBe(REDACTED);
+      expect((records[0].req as { headers: Record<string, unknown> }).headers.host).toBe("internal.example");
     });
   });
 

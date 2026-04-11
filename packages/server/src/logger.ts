@@ -10,11 +10,12 @@ const env = process.env.NODE_ENV ?? "development";
 // form. Anything nested deeper is by convention NOT logged — see logger.test.ts
 // for the cases this list provably covers.
 export const redactPaths = [
-  // Request headers (deep paths, no wildcards needed)
+  // Request headers carrying credentials. `host` is intentionally NOT here
+  // — it's the public-facing hostname the client sent and is useful for
+  // debugging which vhost was hit.
   'req.headers["x-person-token"]',
   "req.headers.authorization",
   "req.headers.cookie",
-  "req.headers.host",
   // Sensitive keys at root of a logged object
   "adminToken",
   "partnerTokens",
