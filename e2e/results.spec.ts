@@ -28,6 +28,7 @@ test.describe("results display", () => {
     // data-match-type attribute on match rows so we don't collide with the
     // summary-strip label which also reads "Go for it".
     const greenLightRows = bob.locator('[data-testid="match-row"][data-match-type="green-light"]');
+    await expect(greenLightRows.first()).toBeVisible();
     expect(await greenLightRows.count()).toBeGreaterThan(0);
 
     // No other match types should appear — target by data-match-type so
@@ -62,6 +63,7 @@ test.describe("results display", () => {
     // All should be both-maybe (worth discussing). Target match-type
     // attribute to avoid collision with summary strip labels.
     const bothMaybeRows = bob.locator('[data-testid="match-row"][data-match-type="both-maybe"]');
+    await expect(bothMaybeRows.first()).toBeVisible();
     expect(await bothMaybeRows.count()).toBeGreaterThan(0);
 
     // No green-light or plain match rows. Target by data-match-type so we
