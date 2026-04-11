@@ -10,6 +10,7 @@ import {
   makeJournalQueryFn,
   rebuildMemberAnswers,
 } from "../lib/journal-query.js";
+import { sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { mergeJournal } from "../lib/merge-journal.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
@@ -208,11 +209,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
     ),
   );
 
-  const memberAnswers = useMemo(() => {
-    const viewer = journal.members.find((m) => m.id === viewerId);
-    const others = journal.members.filter((m) => m.id !== viewerId).sort((a, b) => a.name.localeCompare(b.name));
-    return viewer ? [viewer, ...others] : others;
-  }, [journal.members, viewerId]);
+  const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
 
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
@@ -226,7 +223,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
   const showTabs = pairs.length > 1;
   const pairKey = (a: MemberAnswers, b: MemberAnswers) => `${a.id}-${b.id}`;
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
-  const displayName = (m: MemberAnswers) => (m.id === viewerId ? "You" : m.name);
+  const displayName = (member: MemberAnswers) => viewerDisplayName(member, viewerId);
 
   // Roving tabindex + arrow-key navigation for the tablist (WAI-ARIA APG).
   // Active tab has tabIndex=0, others tabIndex=-1, arrow/Home/End move focus
