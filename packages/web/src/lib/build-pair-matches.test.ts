@@ -234,9 +234,31 @@ describe("buildPairMatches", () => {
       expect(result[0].displayText).toBe("Kissing");
     });
 
-    it("give/receive uses role-specific text with name", () => {
-      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, "Alice");
+    it("give/receive uses role-specific text with name parenthetical", () => {
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, { aName: "Alice" });
       expect(result[0].displayText).toBe("Give oral (Alice)");
+    });
+
+    it("give/receive omits parenthetical when A is the viewer", () => {
+      // When the pair's A is the current viewer, the row already reads from
+      // A's perspective (giveText/receiveText are implicitly about A), so
+      // "(You)" would be redundant and grammatically stilted.
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, {
+        aName: "You",
+        aIsViewer: true,
+      });
+      expect(result[0].displayText).toBe("Give oral");
+    });
+
+    it("give/receive keeps parenthetical when A is not the viewer (other-vs-other pair)", () => {
+      // In a 3+ person group, pairs like (Bob, Carol) viewed by Alice still
+      // need the parenthetical — otherwise "Give oral" on its own doesn't
+      // say whose perspective it's from.
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, {
+        aName: "Bob",
+        aIsViewer: false,
+      });
+      expect(result[0].displayText).toBe("Give oral (Bob)");
     });
 
     it("give/receive falls back to base text when no role text", () => {

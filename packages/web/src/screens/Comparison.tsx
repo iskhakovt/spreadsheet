@@ -38,6 +38,10 @@ interface PairComparisonProps {
   b: MemberAnswers;
   aDisplayName: string;
   bDisplayName: string;
+  /** Whether A is the current viewer — controls whether match-row labels
+   *  get a parenthetical ("(Bob)" when Bob is A in an other-vs-other pair,
+   *  nothing when A is the viewer because the rows already read from A). */
+  aIsViewer: boolean;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
   categoryOrder: string[];
@@ -319,6 +323,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
                 b={visiblePair.b}
                 aDisplayName={displayName(visiblePair.a)}
                 bDisplayName={displayName(visiblePair.b)}
+                aIsViewer={visiblePair.a.id === viewerId}
                 questions={questions}
                 categories={categories}
                 categoryOrder={categoryOrder}
@@ -333,6 +338,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
               b={visiblePair.b}
               aDisplayName={displayName(visiblePair.a)}
               bDisplayName={displayName(visiblePair.b)}
+              aIsViewer={visiblePair.a.id === viewerId}
               questions={questions}
               categories={categories}
               categoryOrder={categoryOrder}
@@ -372,16 +378,17 @@ function PairComparison({
   b,
   aDisplayName,
   bDisplayName,
+  aIsViewer,
   questions,
   categories,
   categoryOrder,
   questionOrder,
   showHeading = true,
 }: PairComparisonProps) {
-  // buildPairMatches uses a.name internally for its own match-text
-  // labelling (e.g. "Alice wants X"). Pass aDisplayName so labels read
-  // as "You want X" when the viewer is a.
-  const pairMatches = buildPairMatches(a.answers, b.answers, questions, aDisplayName);
+  const pairMatches = buildPairMatches(a.answers, b.answers, questions, {
+    aName: aDisplayName,
+    aIsViewer,
+  });
 
   // Group matches by category
   const grouped: Record<string, { label: string; matches: typeof pairMatches }> = {};

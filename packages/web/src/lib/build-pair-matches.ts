@@ -16,6 +16,16 @@ export interface PairMatch {
   answerB: Answer;
 }
 
+export interface BuildPairOptions {
+  /** Display name for person A — appended in parens on give/receive rows
+   *  to disambiguate whose perspective the row reflects. */
+  aName?: string;
+  /** When true, A is the viewer of the /results page — the parenthetical
+   *  is omitted because every row naturally reads from A's perspective
+   *  (giveText/receiveText are phrased with A as the implicit subject). */
+  aIsViewer?: boolean;
+}
+
 /**
  * Build the list of matches between two people's answers.
  *
@@ -28,8 +38,10 @@ export function buildPairMatches(
   aAnswers: Record<string, Answer>,
   bAnswers: Record<string, Answer>,
   questions: Record<string, QuestionInfo>,
-  aName?: string,
+  opts: BuildPairOptions = {},
 ): PairMatch[] {
+  const { aName, aIsViewer = false } = opts;
+  const parenthetical = !aIsViewer && aName ? ` (${aName})` : "";
   const matches: PairMatch[] = [];
   const seen = new Set<string>();
 
@@ -66,9 +78,9 @@ export function buildPairMatches(
     // Display from A's perspective
     let displayText: string;
     if (roleA === "give") {
-      displayText = q.giveText ? `${q.giveText}${aName ? ` (${aName})` : ""}` : q.text;
+      displayText = q.giveText ? `${q.giveText}${parenthetical}` : q.text;
     } else {
-      displayText = q.receiveText ? `${q.receiveText}${aName ? ` (${aName})` : ""}` : q.text;
+      displayText = q.receiveText ? `${q.receiveText}${parenthetical}` : q.text;
     }
     matches.push({ questionId: qId, displayText, matchType, answerA: aAnswers[keyA], answerB: bAnswers[keyB] });
   }
