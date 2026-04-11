@@ -1,5 +1,6 @@
 import type { Database } from "../db/index.js";
 import { groups, persons } from "../db/schema.js";
+import { createSilentLogger } from "../logger.js";
 import { GroupStore } from "../store/groups.js";
 import { QuestionStore } from "../store/questions.js";
 import { SyncStore } from "../store/sync.js";
@@ -8,6 +9,8 @@ import { createCallerFactory } from "../trpc/init.js";
 import { appRouter } from "../trpc/router.js";
 
 export const createCaller = createCallerFactory(appRouter);
+
+const testLogger = createSilentLogger();
 
 function makeStores(db: Database) {
   return {
@@ -18,7 +21,7 @@ function makeStores(db: Database) {
 }
 
 export function anonCtx(db: Database): TrpcContext {
-  return { ...makeStores(db), person: null, group: null, personToken: null } as TrpcContext;
+  return { ...makeStores(db), person: null, group: null, personToken: null, logger: testLogger } as TrpcContext;
 }
 
 /** Build an authenticated context from a status response. Single place for the cast. */
@@ -27,7 +30,13 @@ export function authedCtx(
   status: { person: unknown; group: unknown },
   personToken: string | null = null,
 ): TrpcContext {
-  return { ...makeStores(db), person: status.person, group: status.group, personToken } as TrpcContext;
+  return {
+    ...makeStores(db),
+    person: status.person,
+    group: status.group,
+    personToken,
+    logger: testLogger,
+  } as TrpcContext;
 }
 
 export function defaultCreate(overrides: Record<string, unknown> = {}) {

@@ -8,6 +8,8 @@ import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
+import { type HonoLoggerEnv, logger } from "./logger.js";
+import { requestLogger } from "./request-logger.js";
 import { initSentry } from "./sentry.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
@@ -16,9 +18,11 @@ import { createContext, createWSContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
 initSentry();
+logger.info("server starting");
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
+  logger.fatal("DATABASE_URL environment variable is required");
   throw new Error("DATABASE_URL environment variable is required");
 }
 
@@ -29,7 +33,9 @@ const stores = {
   questions: new QuestionStore(db),
 };
 
-const app = new Hono();
+const app = new Hono<HonoLoggerEnv>();
+
+app.use("*", requestLogger(logger));
 
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok" }));
@@ -68,7 +74,7 @@ let indexHtml: string | null = null;
 try {
   indexHtml = readFileSync(resolve(staticRoot, "index.html"), "utf-8").replace("</head>", `${envScript}</head>`);
 } catch {
-  // index.html may not exist during dev
+  logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
 }
 
 app.get("/*", (c) => {
@@ -81,7 +87,7 @@ const server = serve({ fetch: app.fetch, port });
 server.on("listening", () => {
   const addr = server.address();
   const actualPort = typeof addr === "object" && addr ? addr.port : port;
-  console.log(`listening on :${actualPort}`);
+  logger.info({ port: actualPort }, "server listening");
 });
 
 // WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
@@ -100,6 +106,11 @@ const wssHandler = applyWSSHandler({
   },
 });
 
+wss.on("connection", (ws) => {
+  logger.debug("ws connection opened");
+  ws.on("close", () => logger.debug("ws connection closed"));
+});
+
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   if (url.pathname === "/api/trpc-ws") {
@@ -111,6 +122,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 process.on("SIGTERM", () => {
+  logger.info("SIGTERM received — broadcasting WS reconnect");
   wssHandler.broadcastReconnectNotification();
   wss.close();
 });
