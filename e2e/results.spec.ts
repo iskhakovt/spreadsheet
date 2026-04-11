@@ -97,4 +97,39 @@ test.describe("results display", () => {
     // Comparison empty state copy was updated as part of the UI polish.
     await expect(bob.getByText("No overlaps this time")).toBeVisible();
   });
+
+  test("give/receive match rows render without '(You)' parenthetical on viewer pair", async ({ alice, bob }) => {
+    // "Bondage & Restraint" is purely give/receive (0 mutual questions in
+    // the question bank), so every rendered match row exercises the
+    // giveText/receiveText display path. "Group & External" (used by the
+    // other tests) is mostly mutual and wouldn't catch a regression here.
+    const { partnerLink } = await createGroupAndSetup(alice);
+    await alice.getByText("Start filling out").click();
+    await goThroughIntro(alice);
+    await narrowToCategory(alice, "Bondage & Restraint");
+    await answerAllQuestions(alice, "yes");
+    await alice.getByRole("button", { name: "I'm done" }).click();
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+
+    await bob.goto(partnerLink);
+    await goThroughIntro(bob);
+    await narrowToCategory(bob, "Bondage & Restraint");
+    await answerAllQuestions(bob, "yes");
+    await bob.getByRole("button", { name: "I'm done" }).click();
+
+    await expect(bob.getByText("Your matches")).toBeVisible();
+
+    // At least one give/receive match row exists — category is purely g/r
+    // so this guarantees the display path was exercised.
+    const matchRows = bob.locator('[data-testid="match-row"]');
+    await expect(matchRows.first()).toBeVisible();
+    expect(await matchRows.count()).toBeGreaterThan(0);
+
+    // Negative assertion: no row contains "(You)". Viewer is A on every
+    // pair in a 2-person group, so the parenthetical must never appear.
+    // This catches any regression where buildPairMatches' aIsViewer flag
+    // isn't wired through correctly from Comparison.tsx.
+    await expect(bob.getByText("(You)")).toHaveCount(0);
+    await expect(alice.getByText("(You)")).toHaveCount(0);
+  });
 });
