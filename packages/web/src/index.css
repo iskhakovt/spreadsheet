@@ -188,8 +188,13 @@ input[type="checkbox"]:focus-visible {
 
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .animate-in {
-    animation: none;
+  .animate-in,
+  .float-a,
+  .float-b,
+  .celebrate,
+  [class^="stagger-"],
+  [class*=" stagger-"] {
+    animation: none !important;
   }
   *,
   *::before,

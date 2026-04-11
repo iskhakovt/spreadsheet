@@ -200,6 +200,30 @@ export function Comparison({ viewerId, onBack }: { viewerId: string; onBack?: ()
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
   const displayName = (m: MemberAnswers) => (m.id === viewerId ? "You" : m.name);
 
+  // Roving tabindex + arrow-key navigation for the tablist (WAI-ARIA APG).
+  // Active tab has tabIndex=0, others tabIndex=-1, arrow/Home/End move focus
+  // and activate the new tab.
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const activeIndex = visiblePair
+    ? pairs.findIndex((p) => pairKey(p.a, p.b) === pairKey(visiblePair.a, visiblePair.b))
+    : 0;
+
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (pairs.length === 0) return;
+    let nextIndex: number;
+    if (e.key === "ArrowRight") nextIndex = (activeIndex + 1) % pairs.length;
+    else if (e.key === "ArrowLeft") nextIndex = (activeIndex - 1 + pairs.length) % pairs.length;
+    else if (e.key === "Home") nextIndex = 0;
+    else if (e.key === "End") nextIndex = pairs.length - 1;
+    else return;
+    e.preventDefault();
+    const nextPair = pairs[nextIndex];
+    setActivePairKey(pairKey(nextPair.a, nextPair.b));
+    // Move focus to the newly-active tab so keyboard users stay inside the tablist
+    const buttons = tabListRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.[nextIndex]?.focus();
+  }
+
   return (
     <div className="relative min-h-screen px-4 py-10 sm:py-14 overflow-hidden">
       {/* Atmospheric backdrop — same technique as Landing but softer, so
@@ -229,7 +253,13 @@ export function Comparison({ viewerId, onBack }: { viewerId: string; onBack?: ()
         </header>
 
         {showTabs && (
-          <div className="stagger-4 flex gap-2 justify-center flex-wrap" role="tablist" aria-label="Pair results">
+          <div
+            ref={tabListRef}
+            className="stagger-4 flex gap-2 justify-center flex-wrap"
+            role="tablist"
+            aria-label="Pair results"
+            onKeyDown={handleTabKeyDown}
+          >
             {pairs.map(({ a, b }) => {
               const pk = pairKey(a, b);
               const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
@@ -241,6 +271,7 @@ export function Comparison({ viewerId, onBack }: { viewerId: string; onBack?: ()
                   aria-selected={isActive ?? false}
                   aria-controls="pair-tabpanel"
                   id={`tab-${pk}`}
+                  tabIndex={isActive ? 0 : -1}
                   onClick={() => setActivePairKey(pk)}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
                     isActive
