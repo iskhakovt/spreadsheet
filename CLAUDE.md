@@ -79,6 +79,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 ## Code Style
 
+- **Inclusive language (mandatory)** — use `allowlist`/`denylist`, not `whitelist`/`blacklist`; `main`, not `master`; `primary`/`replica`, not `master`/`slave`. Applies to code, comments, docs, commit messages, and PR descriptions. If you encounter legacy terms while editing nearby code, fix them in the same change.
 - **Idiomatic TypeScript** — use interfaces for object shapes, generics for reusable components.
 - **`function` declarations for named exports** — `function foo()` not `const foo = () => {}`. Arrow functions for callbacks and inline lambdas only.
 - **Naming** — lowercase-hyphenated filenames (`category-picker.tsx`), `.test.ts` suffix for tests. PascalCase for types/interfaces/components, camelCase for functions/variables.
