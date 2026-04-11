@@ -180,11 +180,6 @@ input[type="checkbox"]:focus-visible {
   outline-offset: 2px;
 }
 
-/* Warm glow on keyboard focus — default for all focusable elements.
-   Lives in @layer base so per-element focus utilities (e.g.
-   `focus:outline-none focus:ring-*` on form inputs) win via the
-   utilities layer. Previously unlayered, which stacked a second
-   outline on top of those rings. */
 @layer base {
   *:focus-visible {
     outline: 2px solid var(--color-accent-light);
