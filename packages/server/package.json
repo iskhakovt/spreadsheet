@@ -14,7 +14,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.0",
     "@hono/trpc-server": "^0.4.0",
-    "@sentry/node": "^10.47.0",
+    "@sentry/node": "^10.48.0",
     "@spreadsheet/shared": "workspace:*",
     "@trpc/server": "^11.16.0",
     "drizzle-orm": "^0.45.0",
