@@ -1,6 +1,37 @@
 import { expect, type Page } from "@playwright/test";
 import { fnv1a } from "../packages/shared/src/hash.js";
 
+/**
+ * E2E test helpers — UI-driven by policy.
+ *
+ * ## The bypass policy
+ *
+ * Tests MUST exercise real user journeys. Anything a real user would see,
+ * click, or navigate to is done through the UI — not by poking at routes,
+ * localStorage, or query caches.
+ *
+ * The two exceptions:
+ *   1. `scopedGet` — reading localStorage as an observer to assert
+ *      invariants that are hard to read off the DOM (e.g. polling
+ *      `pendingOps` until it clears to detect sync completion without
+ *      baking in a hard sleep).
+ *   2. `scopedSet` — writing localStorage to simulate adversarial state
+ *      the UI can't produce (e.g. rolling back `stoken` to a stale value
+ *      for the sync-conflict test).
+ *
+ * These are the sharp tools. If you reach for them, add a comment
+ * explaining *why* no UI equivalent exists. If a reviewer can see a UI
+ * path that would express the same intent, the helper is wrong.
+ *
+ * Why this matters: a prior `setCategories` helper wrote directly to
+ * `selectedCategories` and every test called it to bypass the Summary
+ * screen. That meant a fresh-user bug in `Question.tsx`'s category
+ * default-selection (useEffect-in-lazy-init trap) went undetected —
+ * *not a single test* actually mounted the question flow without
+ * pre-seeded storage. Every bypass creates a blind spot that must be
+ * closed elsewhere; it is safer not to create them in the first place.
+ */
+
 /** Compute the scoped localStorage key prefix for a token. */
 function scopePrefix(token: string): string {
   return `s${fnv1a(token)}:`;
@@ -13,13 +44,26 @@ function tokenFromUrl(url: string): string {
   return match[1];
 }
 
-/** Read a scoped localStorage key for the current page's person. */
+/**
+ * Read a scoped localStorage key for the current page's person.
+ *
+ * Reserved for invariants that can't be observed off the DOM (e.g.
+ * polling `pendingOps` until it drains as a sync-completion signal).
+ * Do NOT use this to check state that's visible in the UI — assert
+ * the UI instead.
+ */
 export async function scopedGet(page: Page, key: string): Promise<string | null> {
   const prefix = scopePrefix(tokenFromUrl(page.url()));
   return page.evaluate(({ p, k }) => localStorage.getItem(p + k), { p: prefix, k: key });
 }
 
-/** Write a scoped localStorage key for the current page's person. */
+/**
+ * Write a scoped localStorage key for the current page's person.
+ *
+ * Reserved for adversarial state the UI can't produce (e.g. rolling
+ * back `stoken` to force a sync conflict). Every call site MUST have
+ * a comment explaining why there is no UI path.
+ */
 export async function scopedSet(page: Page, key: string, value: string): Promise<void> {
   const prefix = scopePrefix(tokenFromUrl(page.url()));
   await page.evaluate(({ p, k, v }) => localStorage.setItem(p + k, v), { p: prefix, k: key, v: value });
@@ -72,14 +116,51 @@ export async function goThroughIntro(page: Page) {
   await page.getByText("Let's go").click();
 }
 
-/** Set selected categories via scoped localStorage. */
-export async function setCategories(page: Page, categoryIds: string[]) {
-  await scopedSet(page, "selectedCategories", JSON.stringify(categoryIds));
-}
+/**
+ * Narrow the selected categories to a single target via the Summary UI.
+ *
+ * Precondition: the page is on the first category welcome screen (right
+ * after `goThroughIntro`). This is the natural point in the journey where
+ * a real user who wants to narrow their scope would click through to
+ * Summary.
+ *
+ * Flow: Welcome → View all categories → (uncheck every category whose
+ * label doesn't match `targetLabel`) → click the target category entry
+ * → lands on the target's welcome screen, ready for `answerAllQuestions`.
+ *
+ * Adds a few seconds per test compared to bypassing via localStorage,
+ * but exercises the Summary UI — which users actually use for this.
+ */
+export async function narrowToCategory(page: Page, targetLabel: string) {
+  // From any category welcome, "View all categories" → Summary
+  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
+  await page.getByRole("button", { name: "View all categories" }).click();
 
-/** Set tier level via scoped localStorage. */
-export async function setTier(page: Page, tier: number) {
-  await scopedSet(page, "selectedTier", String(tier));
+  await expect(page.getByText("Your progress")).toBeVisible();
+
+  // Uncheck every category except the target. The checkbox accessibility
+  // name is "Include <Category Label>". We read the list off the DOM so
+  // this helper survives adding/removing categories without editing here.
+  const checkboxes = page.getByRole("checkbox");
+  const count = await checkboxes.count();
+  for (let i = 0; i < count; i++) {
+    const cb = checkboxes.nth(i);
+    const name = (await cb.getAttribute("aria-label")) ?? "";
+    if (name === `Include ${targetLabel}`) continue;
+    // Only uncheck if currently checked; Playwright's `.uncheck()` is a
+    // no-op on an already-unchecked checkbox but still generates a click.
+    if (await cb.isChecked()) {
+      await cb.uncheck();
+    }
+  }
+
+  // Click the target category row — this navigates directly to the
+  // target's welcome screen via `onNavigateToCategory(category.id)`.
+  await page.getByRole("button", { name: new RegExp(`^${targetLabel}`) }).click();
+
+  // We should now be on the target category's welcome screen, ready to
+  // click Start.
+  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
 }
 
 /** Check if we've reached the end of questions. */
@@ -131,14 +212,4 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     }
   }
   await expect(doneLocator(page)).toBeVisible();
-}
-
-/**
- * Click "Start filling out" then go through intro.
- * Optionally restrict to a single category (set before navigating).
- */
-export async function startFillingWithCategory(page: Page, category: string) {
-  await setCategories(page, [category]);
-  await page.getByText("Start filling out").click();
-  await goThroughIntro(page);
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, scopedGet } from "./helpers.js";
 
 /**
  * Verifies the tRPC `tracked()` resume protocol end-to-end: if Bob's WS drops,
@@ -27,9 +27,9 @@ test.describe("tracked() reconnect resume", () => {
     const alice = await aliceCtx.newPage();
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
+    await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
@@ -38,8 +38,8 @@ test.describe("tracked() reconnect resume", () => {
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
@@ -48,8 +48,8 @@ test.describe("tracked() reconnect resume", () => {
     await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
 
     // Both see "Match" labels initially
-    await expect(bob.getByText("Match").first()).toBeVisible();
-    const matchesBefore = await bob.getByText("Match").count();
+    await expect(bob.getByText("Match", { exact: true }).first()).toBeVisible();
+    const matchesBefore = await bob.getByText("Match", { exact: true }).count();
     expect(matchesBefore).toBeGreaterThan(0);
 
     // --- BOB'S NETWORK GOES DOWN (including his existing WS) ---
@@ -79,16 +79,12 @@ test.describe("tracked() reconnect resume", () => {
     await expect(alice).toHaveURL(/\/questions/);
     await alice.getByRole("radio", { name: "No" }).click();
 
-    // Poll Alice's localStorage until her pendingOps queue clears — that's
-    // the signal her sync.push has committed to the server. No hard sleeps.
+    // Poll Alice's pendingOps via scopedGet (rationale in helpers.ts:
+    // sync completion is not observable from the DOM — there's no
+    // "last synced" indicator, and the sync indicator is hidden during
+    // the 5s grace window. scopedGet is the least-bad signal).
     await expect(async () => {
-      const pending = await alice.evaluate(() => {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.endsWith(":pendingOps")) return localStorage.getItem(key);
-        }
-        return null;
-      });
+      const pending = await scopedGet(alice, "pendingOps");
       expect(pending === null || pending === "[]").toBe(true);
     }).toPass({ timeout: 10_000 });
 
@@ -115,7 +111,7 @@ test.describe("tracked() reconnect resume", () => {
     // wsLink reconnect backoff (first retry is sub-second, subsequent
     // retries grow; worst case we wait a few seconds).
     await expect(async () => {
-      const matchesAfter = await bob.getByText("Match").count();
+      const matchesAfter = await bob.getByText("Match", { exact: true }).count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
     }).toPass({ timeout: 20_000 });
 

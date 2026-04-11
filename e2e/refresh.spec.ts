@@ -1,14 +1,14 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 for (const encrypted of [false, true]) {
   test.describe(`refresh persistence (${encrypted ? "encrypted" : "plaintext"})`, () => {
     test("refresh on questions screen stays on questions", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await setCategories(page, ["group"]);
       await page.getByText("Start filling out").click();
       await goThroughIntro(page);
-      // Wait for welcome screen to load, then dismiss
+      await narrowToCategory(page, "Group & External");
+      // Dismiss welcome screen and land on first question
       await expect(page.getByText(/\d+ questions/)).toBeVisible();
       await page.getByRole("button", { name: "Start" }).click();
 

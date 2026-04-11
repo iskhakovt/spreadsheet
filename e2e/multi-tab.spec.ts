@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, goThroughIntro, scopedGet, setCategories } from "./helpers.js";
+import { answerAllQuestions, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
   test("admin opens partner link in same browser — answers don't cross-contaminate", async ({ browser }) => {
@@ -20,36 +20,45 @@ test.describe("multi-tab isolation", () => {
     await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
-    // Admin answers one question
-    await setCategories(admin, ["group"]);
+    // Admin answers one question with "No"
     await admin.getByText("Start filling out").click();
     await goThroughIntro(admin);
+    await narrowToCategory(admin, "Group & External");
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
     await admin.getByRole("button", { name: "Start" }).click();
     await admin.getByRole("radio", { name: "No" }).click();
 
-    // Verify admin has scoped answers
-    const adminAnswers = await scopedGet(admin, "answers");
-    expect(adminAnswers).toBeTruthy();
-    expect(Object.values(JSON.parse(adminAnswers!))[0]).toHaveProperty("rating", "no");
+    // Verify via UI: press Back, admin's previous answer is still "No" selected
+    await admin.getByText("Back").click();
+    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
 
     // Open Bob's link in same browser (new page, shared localStorage)
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
     await bob.getByRole("button", { name: "Start" }).click();
     await bob.getByRole("radio", { name: "Yes" }).click();
 
-    // Bob has separate scoped answers
-    const bobAnswers = await scopedGet(bob, "answers");
-    expect(bobAnswers).toBeTruthy();
-    expect(Object.values(JSON.parse(bobAnswers!))[0]).toHaveProperty("rating", "yes");
+    // Bob's answer is "Yes" — verify via UI same way
+    await bob.getByText("Back").click();
+    await expect(bob.getByRole("radio", { name: "Yes" })).toHaveAttribute("aria-checked", "true");
 
-    // Admin's answers untouched
-    const adminAnswersAfter = await scopedGet(admin, "answers");
-    expect(adminAnswersAfter).toBe(adminAnswers);
+    // Admin's first answer is STILL "No" — Bob's write didn't touch
+    // admin's scoped localStorage. This is the core isolation assertion:
+    // if scoping were broken, either Bob would see admin's "No" or admin
+    // would see Bob's "Yes". We verify by reloading admin's page so it
+    // re-reads localStorage from scratch.
+    await admin.reload();
+    // After reload on /questions with existing answers, we land either on
+    // a welcome screen or mid-flow. Navigate explicitly to the first
+    // question to verify its saved answer.
+    await admin
+      .getByRole("button", { name: "Start" })
+      .click()
+      .catch(() => {});
+    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
 
     await ctx.close();
   });
@@ -71,8 +80,8 @@ test.describe("multi-tab isolation", () => {
     await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
-    // Set categories, THEN open Bob's link (the risky action order)
-    await setCategories(admin, ["group"]);
+    // Open Bob's link in a second tab first (the risky action order that
+    // used to cause "admin marks Bob complete" cross-contamination bugs)
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
     await bob.close();
@@ -81,6 +90,7 @@ test.describe("multi-tab isolation", () => {
     await admin.bringToFront();
     await admin.getByText("Start filling out").click();
     await goThroughIntro(admin);
+    await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "no");
     await admin.getByRole("button", { name: "I'm done" }).click();
 
@@ -110,9 +120,9 @@ test.describe("multi-tab isolation", () => {
     const bobLink = await admin.locator("input[readonly]").inputValue();
 
     // Alice answers and completes
-    await setCategories(admin, ["group"]);
     await admin.getByText("Start filling out").click();
     await goThroughIntro(admin);
+    await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "yes");
     await admin.getByRole("button", { name: "I'm done" }).click();
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
@@ -121,8 +131,8 @@ test.describe("multi-tab isolation", () => {
     // Bob answers and completes in same browser
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 

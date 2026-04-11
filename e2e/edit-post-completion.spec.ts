@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("edit after completion", () => {
   test("Alice edits an answer on /results, Bob sees the pair matches update live", async ({ browser }) => {
@@ -9,9 +9,9 @@ test.describe("edit after completion", () => {
     const alice = await aliceCtx.newPage();
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
+    await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
@@ -19,8 +19,8 @@ test.describe("edit after completion", () => {
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
@@ -29,12 +29,12 @@ test.describe("edit after completion", () => {
     await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
 
     // Both should see "Match" labels since everyone answered yes
-    await expect(alice.getByText("Match").first()).toBeVisible();
-    await expect(bob.getByText("Match").first()).toBeVisible();
+    await expect(alice.getByText("Match", { exact: true }).first()).toBeVisible();
+    await expect(bob.getByText("Match", { exact: true }).first()).toBeVisible();
 
     // Snapshot Bob's match count BEFORE Alice's edit so we can assert a
     // concrete drop rather than a magic-number upper bound.
-    const matchesBefore = await bob.getByText("Match").count();
+    const matchesBefore = await bob.getByText("Match", { exact: true }).count();
     expect(matchesBefore).toBeGreaterThan(0);
 
     // Alice clicks "Change my answers" — navigates back to /questions,
@@ -55,7 +55,7 @@ test.describe("edit after completion", () => {
     // latency (debounce + network + subscription + merge + re-render)
     // without a hard-coded sleep.
     await expect(async () => {
-      const matchesAfter = await bob.getByText("Match").count();
+      const matchesAfter = await bob.getByText("Match", { exact: true }).count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
     }).toPass({ timeout: 10_000 });
 
@@ -70,9 +70,9 @@ test.describe("edit after completion", () => {
     const alice = await aliceCtx.newPage();
     await createGroupAndSetup(alice);
 
-    await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
+    await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
 
@@ -86,9 +86,10 @@ test.describe("edit after completion", () => {
 
     // Alice should be able to change an answer and navigate away freely.
     // isCompleted should NOT have been touched server-side. We verify this
-    // indirectly: re-navigate to /waiting and confirm we're still there
-    // (guard would have bounced us to /questions if isCompleted were false).
-    await alice.goto(alice.url().replace("/questions", "/waiting"));
+    // indirectly: navigate back via browser history. The key assertion: the
+    // guard does NOT kick us back to /questions, which would happen if
+    // isCompleted were false.
+    await alice.goBack();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await aliceCtx.close();

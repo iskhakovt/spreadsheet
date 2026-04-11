@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, setCategories, setTier } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, narrowToCategory } from "./helpers.js";
 
 test.describe("questionnaire flow", () => {
   test("create group → setup → answer questions", async ({ page }) => {
@@ -19,17 +19,17 @@ test.describe("questionnaire flow", () => {
 
     // Links screen
     await expect(page.getByText("You're all set")).toBeVisible();
-
-    // Restrict to one category for speed
-    await setCategories(page, ["foundations"]);
-
     await page.getByText("Start filling out").click();
 
     // Should see intro
     await expect(page.getByText("Here's how it works")).toBeVisible();
     await page.getByText("Let's go").click();
 
-    // Should see category welcome screen (no more category picker)
+    // Narrow to Foundations via Summary UI to keep the test focused, but
+    // still exercises the real Summary flow (no localStorage poke).
+    await narrowToCategory(page, "Foundations");
+
+    // Should see category welcome screen
     await expect(page.getByText("Foundations")).toBeVisible();
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
@@ -53,8 +53,6 @@ test.describe("questionnaire flow", () => {
   test("tier picker appears on intro and filters questions", async ({ page }) => {
     await createGroupAndSetup(page);
 
-    // Restrict to one category for speed
-    await setCategories(page, ["group"]);
     await page.getByText("Start filling out").click();
 
     // Intro screen should show tier picker
@@ -66,24 +64,30 @@ test.describe("questionnaire flow", () => {
     // "Curious" should be selected by default (has accent border)
     await page.getByText("Let's go").click();
 
-    // Should proceed to questions
+    // Should proceed to questions — narrow to a single category via UI
+    await narrowToCategory(page, "Group & External");
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
   });
 
   test("changing tier on Summary updates question counts", async ({ page }) => {
     await createGroupAndSetup(page);
 
-    // Use a category with mixed tiers (power has 1 T1, 7 T2, 7 T3)
-    await setCategories(page, ["power"]);
-    await setTier(page, 1);
+    // Intro → pick Essentials tier via the Intro screen's tier picker.
+    // The label is visible on Intro as part of the tier selector.
     await page.getByText("Start filling out").click();
+    await expect(page.getByText("How many questions?")).toBeVisible();
+    await page.getByText("Essentials").click();
     await page.getByText("Let's go").click();
+
+    // Narrow to Power Exchange (has a mix of T1, T2, T3 questions, so tier
+    // changes produce visible count changes).
+    await narrowToCategory(page, "Power Exchange");
 
     // Start category, land on a question, then navigate to Summary
     await page.getByRole("button", { name: "Start" }).click();
-    await page.getByText("Progress").click();
+    await page.getByRole("button", { name: "Progress" }).click();
 
-    // Summary should show Essentials selected and a count for power
+    // Summary should show Essentials currently selected and a count for power
     await expect(page.getByText("Your progress")).toBeVisible();
     const essentialsCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
     const essentialTotal = Number(essentialsCount?.split("/")[1] ?? 0);
@@ -91,7 +95,7 @@ test.describe("questionnaire flow", () => {
     // Switch to Adventurous on Summary
     await page.getByText("Adventurous").click();
 
-    // Count should increase
+    // Count should increase (more questions unlocked at higher tier)
     const adventurousCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
     const adventurousTotal = Number(adventurousCount?.split("/")[1] ?? 0);
 

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 for (const encrypted of [false, true]) {
   test.describe(`two-player completion flow (${encrypted ? "encrypted" : "plaintext"})`, () => {
@@ -14,22 +14,22 @@ for (const encrypted of [false, true]) {
         expect(partnerLink).toContain("#key=");
       }
 
-      // Alice: set single category → intro → answer all → done
-      await setCategories(alice, ["group"]);
+      // Alice: full journey — start, intro, narrow via Summary UI, answer, done
       await alice.getByText("Start filling out").click();
       await goThroughIntro(alice);
+      await narrowToCategory(alice, "Group & External");
       await answerAllQuestions(alice, "yes");
       await alice.getByRole("button", { name: "I'm done" }).click();
       await expect(alice.getByText("Waiting for everyone")).toBeVisible();
       // Ensure Alice sees herself as "Done" before Bob starts
       await expect(alice.getByText("Done")).toBeVisible();
 
-      // Bob: open link → set same category → intro → answer all → done
+      // Bob: open link → intro → narrow via Summary → answer → done
       const bobCtx = await browser.newContext();
       const bob = await bobCtx.newPage();
       await bob.goto(partnerLink);
-      await setCategories(bob, ["group"]);
       await goThroughIntro(bob);
+      await narrowToCategory(bob, "Group & External");
       await answerAllQuestions(bob, "yes");
       await bob.getByRole("button", { name: "I'm done" }).click();
 

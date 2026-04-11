@@ -1,12 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("answer variety", () => {
   test("all rating types and timing options work", async ({ page }) => {
     await createGroupAndSetup(page, { showTiming: true });
-    await setCategories(page, ["group"]);
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);
+    await narrowToCategory(page, "Group & External");
     // Dismiss category welcome screen
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
@@ -39,9 +39,9 @@ test.describe("answer variety", () => {
 
   test("skip advances without recording an answer", async ({ page }) => {
     await createGroupAndSetup(page);
-    await setCategories(page, ["group"]);
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);
+    await narrowToCategory(page, "Group & External");
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
     await page.getByRole("button", { name: "Start" }).click();
 
