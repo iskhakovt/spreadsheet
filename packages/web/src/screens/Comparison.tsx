@@ -21,7 +21,31 @@ import { useTRPC, useTRPCClient } from "../lib/trpc.js";
  * Every answer is equal, but discovering a mutual "yes + now" is the
  * payoff this app exists for — it earns a distinctive treatment.
  */
-const MATCH_STYLES: Record<MatchType, { container: string; badge: string; label: string; labelStyle: string }> = {
+interface MatchStyle {
+  container: string;
+  badge: string;
+  label: string;
+  labelStyle: string;
+}
+
+interface ComparisonProps {
+  viewerId: string;
+  onBack?: () => void;
+}
+
+interface PairComparisonProps {
+  a: MemberAnswers;
+  b: MemberAnswers;
+  aDisplayName: string;
+  bDisplayName: string;
+  questions: Record<string, QuestionInfo>;
+  categories: Record<string, string>;
+  categoryOrder: string[];
+  questionOrder: Record<string, number>;
+  showHeading?: boolean;
+}
+
+const MATCH_STYLES: Record<MatchType, MatchStyle> = {
   "green-light": {
     container:
       "bg-gradient-to-br from-accent/20 via-accent-light/15 to-accent/10 border border-accent/25 shadow-sm shadow-accent/10",
@@ -77,7 +101,7 @@ const MATCH_STYLES: Record<MatchType, { container: string; badge: string; label:
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, onBack }: { viewerId: string; onBack?: () => void }) {
+export function Comparison({ viewerId, onBack }: ComparisonProps) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -353,17 +377,7 @@ function PairComparison({
   categoryOrder,
   questionOrder,
   showHeading = true,
-}: {
-  a: MemberAnswers;
-  b: MemberAnswers;
-  aDisplayName: string;
-  bDisplayName: string;
-  questions: Record<string, QuestionInfo>;
-  categories: Record<string, string>;
-  categoryOrder: string[];
-  questionOrder: Record<string, number>;
-  showHeading?: boolean;
-}) {
+}: PairComparisonProps) {
   // buildPairMatches uses a.name internally for its own match-text
   // labelling (e.g. "Alice wants X"). Pass aDisplayName so labels read
   // as "You want X" when the viewer is a.
