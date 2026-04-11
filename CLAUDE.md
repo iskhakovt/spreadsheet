@@ -108,6 +108,8 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 **Key gotcha**: `style` in Angular's conventional-commits vocabulary means **code formatting**, not visual design. A UI polish that users can see is `feat`, because it ships changes to production and users experience them. Using `style` for a visual refresh silently suppresses the release — users won't see the new design until some unrelated `feat`/`fix` lands later.
 
+**Bringing `main` forward into a feature branch — use `git merge`, not `git rebase`.** Rebase rewrites published commits, which forces a push, breaks the PR review's commit-level discussion threading, and invalidates any local clones. Merge is reversible and preserves the branch's history. The squash-merge at PR-close collapses everything anyway, so the linear-history argument for rebase doesn't apply here.
+
 ## Architecture Rules
 
 - **All DB access goes through stores.** Routes never use `ctx.db` directly. Stores enforce transactions via `#tx`.
