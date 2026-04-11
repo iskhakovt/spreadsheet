@@ -95,7 +95,16 @@ export const syncRouter = router({
    * whatever cursor they last saw.
    */
   onJournalChange: authedProcedure
-    .input(z.object({ lastEventId: z.string().nullish() }).optional())
+    .input(
+      z
+        .object({
+          // lastEventId is stringified journal entry id (bigserial > 0);
+          // reject non-numeric strings early so a malformed resume cursor
+          // can't reach the `Number(...)` cast below and produce NaN.
+          lastEventId: z.string().regex(/^\d+$/, "lastEventId must be a numeric string").nullish(),
+        })
+        .optional(),
+    )
     .subscription(async function* ({ ctx, input, signal }) {
       // Ordering of startup steps matters. The "listener-before-query"
       // invariant is load-bearing for the backfill/live-stream handoff, but

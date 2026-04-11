@@ -33,7 +33,7 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 - **Routing** — wouter nested routes under `/p/:token`.
   - **Universal guard**: `resolveRoute()` computes the correct screen from status. A `<Redirect>` at the top of the Switch redirects if the current route doesn't match. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
   - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
-  - **Mutations self-invalidate** via `useMutation({ onSuccess: qc.invalidateQueries(trpc.groups.status.pathFilter()) })`. Always return the invalidation promise so the mutation stays pending until the refetch completes — this is what replaces the old `await refreshStatus()` threading.
+  - **Mutations self-invalidate** via `useMutation({ onSuccess: () => qc.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }) })`. Always return the invalidation promise so the mutation stays pending until the refetch completes — this is what replaces the old `await refreshStatus()` threading.
 - **Data fetching** — TanStack Query v5 via `@trpc/tanstack-react-query` (`useTRPC()` returns a typed proxy).
   - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `main.tsx` handles loading.
   - Writes: `useMutation(trpc.x.mutationOptions({ onSuccess: invalidate }))`. Use `mutate()` for fire-and-forget with local callbacks; `mutateAsync()` when you need to await the result.

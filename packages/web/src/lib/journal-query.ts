@@ -29,7 +29,13 @@ export interface CachedJournal {
   cursor: number | null;
 }
 
-/** Decrypt + replay raw server members + entries into MemberAnswers[]. */
+/**
+ * Decrypt + replay raw server members + entries into MemberAnswers[].
+ *
+ * Used by the initial fetch path — takes raw (encrypted in encrypted mode)
+ * name/anatomy strings and returns the decrypted MemberAnswers shape with
+ * `answers` built by replaying the journal per person.
+ */
 export async function replayMembers(
   members: { id: string; name: string; anatomy: string | null }[],
   entries: JournalEntry[],
@@ -41,6 +47,31 @@ export async function replayMembers(
         id: m.id,
         name: await unwrapSensitive(m.name),
         anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
+        answers: await replayJournal(memberEntries),
+      };
+    }),
+  );
+}
+
+/**
+ * Rebuild MemberAnswers[] from the merged raw-entry set, preserving the
+ * already-decrypted name/anatomy from the previous state. Used on the WS
+ * merge path where we receive new journal entries but the member metadata
+ * (name/anatomy) hasn't changed — re-running full `replayMembers` would
+ * pass already-decrypted strings back through `unwrapSensitive`, which is
+ * idempotent but wasteful and obscures the contract.
+ */
+export async function rebuildMemberAnswers(
+  members: MemberAnswers[],
+  mergedEntries: JournalEntry[],
+): Promise<MemberAnswers[]> {
+  return Promise.all(
+    members.map(async (m) => {
+      const memberEntries = mergedEntries.filter((e) => e.personId === m.id);
+      return {
+        id: m.id,
+        name: m.name,
+        anatomy: m.anatomy,
         answers: await replayJournal(memberEntries),
       };
     }),

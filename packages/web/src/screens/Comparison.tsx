@@ -8,7 +8,7 @@ import {
   JOURNAL_QUERY_KEY,
   type MemberAnswers,
   makeJournalQueryFn,
-  replayMembers,
+  rebuildMemberAnswers,
 } from "../lib/journal-query.js";
 import { mergeJournal } from "../lib/merge-journal.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
@@ -124,8 +124,10 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
             if (!current) return;
             // Dedup + append via the pure helper
             const mergedRaw = mergeJournal({ ...current }, entries);
-            // Re-replay per member over the merged raw entries
-            const members = await replayMembers(current.members, mergedRaw.entries);
+            // Rebuild only the per-person `answers` from the merged entries.
+            // Names/anatomy were already decrypted in the initial queryFn and
+            // haven't changed, so we don't re-run unwrapSensitive on them.
+            const members = await rebuildMemberAnswers(current.members, mergedRaw.entries);
             // Drop if a newer push already landed while we were replaying
             if (mySeq !== seqRef.current) return;
             queryClient.setQueryData(JOURNAL_QUERY_KEY, {

@@ -16,13 +16,29 @@ import { useTRPC } from "./trpc.js";
  * The pending-ops queue and sync cursor stay in scoped localStorage —
  * `useSyncQueue` only provides the transport layer.
  *
+ * Identity stability
+ * ------------------
+ * `handleSync` and `scheduleSync` are exposed with stable references for
+ * the entire lifetime of the hook. This matters because Question.tsx uses
+ * `scheduleSync` as a `useEffect` dependency — if the identity churned on
+ * every render, the effect would clear+reschedule the debounce every
+ * render, deferring the sync indefinitely if external renders (e.g. WS
+ * pushes in a sibling hook) kept firing faster than 3s.
+ *
+ * To achieve this, the mutable inputs (`totalQuestions`, `pushMutation`)
+ * are kept in refs so the `useCallback` closures don't re-create when
+ * those values change. `pushMutation` in particular gets a new object
+ * reference on every render because `useMutation`'s result isn't stable
+ * in the same way `useQuery`'s `data` is — so we read through a ref and
+ * call `mutateAsync` via the ref's current value.
+ *
  * Usage:
  * ```tsx
  * const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(totalQuestions);
  *
  * // When a new answer lands, call scheduleSync. If nothing else lands
  * // within 3s, the debounce fires handleSync automatically.
- * useEffect(() => scheduleSync(pendingOps.length), [pendingOps.length]);
+ * useEffect(() => scheduleSync(pendingOps.length), [pendingOps.length, scheduleSync]);
  *
  * // For "mark complete" — flush pending writes first, then call the
  * // markComplete mutation.
@@ -45,6 +61,16 @@ export function useSyncQueue(totalQuestions: number) {
   // reschedule on the next answer.
   const inFlightRef = useRef(false);
 
+  // Mutable inputs held in refs so the callbacks below can be stable
+  // across re-renders. `pushMutation` specifically changes identity every
+  // render — useMutation doesn't guarantee a stable result object — so
+  // we call `.mutateAsync` through the ref instead of closing over it.
+  const totalQuestionsRef = useRef(totalQuestions);
+  totalQuestionsRef.current = totalQuestions;
+  const pushMutationRef = useRef(pushMutation);
+  pushMutationRef.current = pushMutation;
+
+  // Stable across the hook's lifetime — empty dep array.
   const handleSync = useCallback(async (): Promise<void> => {
     const ops = getPendingOps();
     if (ops.length === 0 || inFlightRef.current) return;
@@ -52,9 +78,9 @@ export function useSyncQueue(totalQuestions: number) {
     try {
       const progress = await encodeValue({
         answered: Object.keys(getAnswers()).length,
-        total: totalQuestions,
+        total: totalQuestionsRef.current,
       });
-      const result = await pushMutation.mutateAsync({
+      const result = await pushMutationRef.current.mutateAsync({
         stoken: getStoken(),
         operations: ops,
         progress,
@@ -71,9 +97,9 @@ export function useSyncQueue(totalQuestions: number) {
       setAnswers(merged);
       const retryProgress = await encodeValue({
         answered: Object.keys(merged).length,
-        total: totalQuestions,
+        total: totalQuestionsRef.current,
       });
-      const retry = await pushMutation.mutateAsync({
+      const retry = await pushMutationRef.current.mutateAsync({
         stoken: result.stoken,
         operations: ops,
         progress: retryProgress,
@@ -87,7 +113,7 @@ export function useSyncQueue(totalQuestions: number) {
     } finally {
       inFlightRef.current = false;
     }
-  }, [totalQuestions, pushMutation]);
+  }, []);
 
   /**
    * Schedule or cancel a debounced sync. Call this whenever the pending
@@ -95,6 +121,9 @@ export function useSyncQueue(totalQuestions: number) {
    *
    * - If `pendingCount === 0`: clear any scheduled sync and hide the indicator
    * - Otherwise: reset the 3s debounce timer + the 5s indicator timer
+   *
+   * Stable across the hook's lifetime — callers can safely use it as a
+   * `useEffect` dep without triggering spurious re-runs.
    */
   const scheduleSync = useCallback(
     (pendingCount: number) => {

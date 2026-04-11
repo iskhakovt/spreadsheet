@@ -9,6 +9,17 @@ import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories 
  * This is the critical correctness test for the "lost event = stale results
  * forever" failure mode — without `tracked()`, a disconnected subscriber
  * would permanently miss edits that happened during the disconnect window.
+ *
+ * Implementation note: dropping Bob's WS requires more than
+ * `page.route("**\/api/trpc-ws**", abort)`. Playwright's route handler only
+ * sees the initial HTTP upgrade handshake, not the frames on an established
+ * WebSocket — so `abort` on the route after the upgrade is a no-op, and the
+ * existing WS would continue delivering Alice's edit via the normal live-
+ * stream path (not via tracked resume). We use CDP's
+ * `Network.emulateNetworkConditions { offline: true }` to sever Bob's entire
+ * network, which actually kills the existing WS connection. The subsequent
+ * `offline: false` restores connectivity, and `wsLink`'s auto-reconnect
+ * re-sends the subscription message with the latest tracked id.
  */
 test.describe("tracked() reconnect resume", () => {
   test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ browser }) => {
@@ -38,20 +49,29 @@ test.describe("tracked() reconnect resume", () => {
 
     // Both see "Match" labels initially
     await expect(bob.getByText("Match").first()).toBeVisible();
-
-    // Snapshot Bob's match count BEFORE the edit so we can assert a
-    // concrete drop rather than a magic-number upper bound.
     const matchesBefore = await bob.getByText("Match").count();
     expect(matchesBefore).toBeGreaterThan(0);
 
-    // --- BOB'S WS GOES DOWN ---
-    // Block Bob's WS. Any new subscription message (including resume on
-    // reconnect) will fail until we unblock.
-    await bobCtx.route("**/api/trpc-ws**", (route) => route.abort());
+    // --- BOB'S NETWORK GOES DOWN (including his existing WS) ---
+    //
+    // Use CDP to flip Bob's page offline. Unlike page.route (which only
+    // intercepts HTTP-level traffic including the WS upgrade but NOT frames
+    // on an established WS), offline-mode actually severs the TCP connection,
+    // which the tRPC wsLink observes as a close event and queues for
+    // auto-reconnect. This is the only reliable way from Playwright to force
+    // the reconnect path.
+    const bobCdp = await bobCtx.newCDPSession(bob);
+    await bobCdp.send("Network.enable");
+    await bobCdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      downloadThroughput: 0,
+      uploadThroughput: 0,
+      latency: 0,
+    });
 
-    // Give the WS close some time to propagate — wsLink's auto-reconnect
-    // will keep retrying in the background. Bob's current cached state on
-    // /results remains visible.
+    // Give wsLink a moment to observe the close + transition to the
+    // connecting/retry state. Its auto-reconnect will keep failing while
+    // offline, but we're about to come back online so that's fine.
     await bob.waitForTimeout(500);
 
     // --- ALICE EDITS WHILE BOB IS DISCONNECTED ---
@@ -59,15 +79,10 @@ test.describe("tracked() reconnect resume", () => {
     await expect(alice).toHaveURL(/\/questions/);
     await alice.getByRole("radio", { name: "No" }).click();
 
-    // Wait for Alice's own sync.push to commit (debounce + network).
-    // We poll rather than sleep — Alice's UI has no direct signal of
-    // sync completion, so we check via localStorage: pendingOps clears
-    // once sync succeeds.
+    // Poll Alice's localStorage until her pendingOps queue clears — that's
+    // the signal her sync.push has committed to the server. No hard sleeps.
     await expect(async () => {
       const pending = await alice.evaluate(() => {
-        const token = window.location.pathname.split("/p/")[1]?.split(/[/#?]/)[0];
-        if (!token) return "not-found";
-        // Find the scoped pendingOps key (s{fnv1a(token)}:pendingOps)
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key?.endsWith(":pendingOps")) return localStorage.getItem(key);
@@ -77,25 +92,34 @@ test.describe("tracked() reconnect resume", () => {
       expect(pending === null || pending === "[]").toBe(true);
     }).toPass({ timeout: 10_000 });
 
-    // Bob hasn't seen the update — WS is blocked, his cached state is stale
+    // At this point:
+    // - The server's journal has Alice's new entry committed
+    // - journalEvents has emitted the append
+    // - Bob's WS is severed — the emission goes into the void for him
+    // - His cached /results view still shows matchesBefore matches
 
-    // --- BOB'S WS COMES BACK ---
-    // Unblock WS so the next reconnect attempt succeeds
-    await bobCtx.unroute("**/api/trpc-ws**");
+    // --- BOB'S NETWORK COMES BACK ---
+    // Restore connectivity. wsLink's exponential-backoff reconnect will
+    // succeed on the next attempt, re-send the subscription message with
+    // Bob's last tracked id, and the server's generator will replay entries
+    // > that id. The `onData` reflex merges into the cache, Comparison
+    // re-renders with the updated match count.
+    await bobCdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+      latency: 0,
+    });
 
-    // Bob's wsLink reconnects and re-sends the subscription message with
-    // the latest tracked id. The server's generator queries entries > id
-    // and replays Alice's missed write. The `onData` merges into the cache,
-    // Comparison re-renders.
-    //
-    // The recovery window is bounded by wsLink's reconnect backoff (default
-    // retry delay is fast — <5s for first retry). Poll until the match
-    // count drops.
+    // Poll until Bob's match count drops. Generous timeout to cover the
+    // wsLink reconnect backoff (first retry is sub-second, subsequent
+    // retries grow; worst case we wait a few seconds).
     await expect(async () => {
       const matchesAfter = await bob.getByText("Match").count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
-    }).toPass({ timeout: 15_000 });
+    }).toPass({ timeout: 20_000 });
 
+    await bobCdp.detach();
     await aliceCtx.close();
     await bobCtx.close();
   });
