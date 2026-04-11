@@ -358,7 +358,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" role="presentation">
                 <path
-                  d="M11.333 2.667L2 12l.667 1.333L12 4M9.333 2L14 6.667"
+                  d="M11 3L13 5L5 13L2 14L3 11ZM9 5L11 7"
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
@@ -412,7 +412,6 @@ function PairComparison({
           <p className="text-base text-text-muted italic">
             No overlaps this time — but that's part of the conversation too.
           </p>
-          <p className="text-xs text-text-muted/70">Try the "Change my answers" button to explore more.</p>
         </div>
       ) : (
         <>
