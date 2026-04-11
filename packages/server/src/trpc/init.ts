@@ -14,7 +14,16 @@ const loggingMiddleware = t.middleware(async ({ ctx, path, type, next }) => {
   if (result.ok) {
     ctx.logger.debug({ trpcPath: path, trpcType: type, durationMs }, "trpc ok");
   } else {
-    ctx.logger.warn({ trpcPath: path, trpcType: type, durationMs, code: result.error.code }, "trpc error");
+    ctx.logger.warn(
+      {
+        trpcPath: path,
+        trpcType: type,
+        durationMs,
+        code: result.error.code,
+        message: result.error.message,
+      },
+      "trpc error",
+    );
   }
   return result;
 });

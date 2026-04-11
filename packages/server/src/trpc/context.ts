@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
 import type { Context as HonoContext } from "hono";
 import type { Logger } from "pino";
@@ -64,5 +65,8 @@ export async function createContext(stores: Stores, c: HonoContext<HonoLoggerEnv
 
 export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOptions): Promise<TrpcContext> {
   const params = opts.info.connectionParams as { token?: string } | undefined;
-  return buildContext(stores, params?.token ?? null, rootLogger.child({ transport: "ws" }));
+  // `connId` is per-WS-connection (analogous to `reqId` for HTTP) — without it,
+  // log lines from concurrent WS subscriptions can't be correlated.
+  const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
+  return buildContext(stores, params?.token ?? null, connLogger);
 }

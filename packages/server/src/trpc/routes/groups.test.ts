@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents } from "../../events.js";
-import { createSilentLogger } from "../../logger.js";
+import { silentLogger } from "../../logger.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -41,7 +41,7 @@ function mockCtx(
     // authedProcedure requires personToken alongside person; default to a
     // dummy when a person is provided so mock-based tests mirror real usage.
     personToken: overrides.person ? "mock-token" : null,
-    logger: createSilentLogger(),
+    logger: silentLogger,
   } as unknown as TrpcContext;
 }
 

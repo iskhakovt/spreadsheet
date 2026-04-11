@@ -13,6 +13,11 @@ export function sanitizePath(path: string): string {
 
 export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerEnv> {
   return async (c, next) => {
+    // Container orchestrators hit /health every few seconds — logging each
+    // probe drowns the signal at scale. The handler doesn't need a
+    // request-scoped logger or reqId, so skip the middleware entirely.
+    if (c.req.path === "/health") return next();
+
     const reqId = randomUUID();
     const child = rootLogger.child({ reqId });
     c.set("logger", child);

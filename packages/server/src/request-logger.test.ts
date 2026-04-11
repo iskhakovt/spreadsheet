@@ -72,6 +72,11 @@ describe("requestLogger middleware", () => {
   function makeApp(rootLogger: Logger) {
     const app = new Hono<HonoLoggerEnv>();
     app.use("*", requestLogger(rootLogger));
+    // Explicit onError so the throw test doesn't depend on Hono's default
+    // behavior. Hono's compose still sets `c.error` before invoking onError
+    // (compose.js:25), so the middleware sees the error either way; this just
+    // pins the response shape.
+    app.onError((_err, c) => c.text("error", 500));
     return app;
   }
 
@@ -162,6 +167,16 @@ describe("requestLogger middleware", () => {
 
     expect(seen.logger).toBeDefined();
     expect(typeof seen.reqId).toBe("string");
+  });
+
+  it("does not log /health (skipped to avoid drowning prod logs in liveness probes)", async () => {
+    const { logger, records } = captureLogger();
+    const app = makeApp(logger);
+    app.get("/health", (c) => c.json({ status: "ok" }));
+
+    const res = await app.fetch(new Request("http://localhost/health"));
+    expect(res.status).toBe(200);
+    expect(records).toHaveLength(0);
   });
 
   it("gives each request a distinct reqId", async () => {
