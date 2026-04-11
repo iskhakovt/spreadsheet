@@ -38,29 +38,41 @@ export function WelcomeScreen({
       <div className="space-y-8 text-center py-6">
         {/* Small eyebrow label above the heading — provides rhythm and signals
             this is a category intro, not a question. */}
-        <p className="stagger-1 text-xs font-medium uppercase tracking-[0.2em] text-accent/80">New category</p>
+        <p
+          className="stagger text-xs font-medium uppercase tracking-[0.2em] text-accent/80"
+          style={{ "--stagger-index": 0 } as React.CSSProperties}
+        >
+          New category
+        </p>
 
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className="stagger-2 text-[2.25rem] font-bold leading-[1.05] tracking-tight outline-none"
+          className="stagger text-[2.25rem] font-bold leading-[1.05] tracking-tight outline-none"
+          style={{ "--stagger-index": 1 } as React.CSSProperties}
         >
           {cat?.label}
         </h2>
 
         {cat?.description && (
-          <p className="stagger-3 text-text-muted leading-relaxed text-[15px] text-balance max-w-[22rem] mx-auto">
+          <p
+            className="stagger text-text-muted leading-relaxed text-[15px] text-balance max-w-[22rem] mx-auto"
+            style={{ "--stagger-index": 2 } as React.CSSProperties}
+          >
             {cat.description}
           </p>
         )}
 
-        <div className="stagger-3 inline-flex items-center gap-2 text-xs text-text-muted">
+        <div
+          className="stagger inline-flex items-center gap-2 text-xs text-text-muted"
+          style={{ "--stagger-index": 2 } as React.CSSProperties}
+        >
           <span className="h-px w-6 bg-border" />
           <span className="tabular-nums">{screen.questionCount} questions</span>
           <span className="h-px w-6 bg-border" />
         </div>
 
-        <div className="stagger-4 space-y-3 pt-2">
+        <div className="stagger space-y-3 pt-2" style={{ "--stagger-index": 3 } as React.CSSProperties}>
           <Button fullWidth onClick={() => setIndex((i) => i + 1)}>
             Start
           </Button>

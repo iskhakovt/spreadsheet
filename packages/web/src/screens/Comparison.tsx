@@ -252,11 +252,22 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
 
       <div className="max-w-2xl mx-auto space-y-10">
         <header className="text-center space-y-3">
-          <p className="stagger-1 text-xs font-medium uppercase tracking-[0.2em] text-accent/80">Everyone's done</p>
-          <h1 className="stagger-2 text-[2.75rem] sm:text-[3.25rem] font-bold leading-[0.95] tracking-[-0.02em]">
+          <p
+            className="stagger text-xs font-medium uppercase tracking-[0.2em] text-accent/80"
+            style={{ "--stagger-index": 0 } as React.CSSProperties}
+          >
+            Everyone's done
+          </p>
+          <h1
+            className="stagger text-[2.75rem] sm:text-[3.25rem] font-bold leading-[0.95] tracking-[-0.02em]"
+            style={{ "--stagger-index": 1 } as React.CSSProperties}
+          >
             Your matches
           </h1>
-          <div className="stagger-3 inline-flex items-center gap-3 pt-1">
+          <div
+            className="stagger inline-flex items-center gap-3 pt-1"
+            style={{ "--stagger-index": 2 } as React.CSSProperties}
+          >
             <span className="h-px w-10 bg-accent/30" />
             <p className="text-sm text-text-muted italic">
               {memberAnswers.length > 2
@@ -270,7 +281,8 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
         {showTabs && (
           <div
             ref={tabListRef}
-            className="stagger-4 flex gap-2 justify-center flex-wrap"
+            className="stagger flex gap-2 justify-center flex-wrap"
+            style={{ "--stagger-index": 3 } as React.CSSProperties}
             role="tablist"
             aria-label="Pair results"
             onKeyDown={handleTabKeyDown}
@@ -301,7 +313,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
           </div>
         )}
 
-        <div className="stagger-5">
+        <div className="stagger" style={{ "--stagger-index": 4 } as React.CSSProperties}>
           {visiblePair &&
             (() => {
               // Single PairComparison instantiation — tabs/no-tabs branches

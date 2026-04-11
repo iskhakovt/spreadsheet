@@ -78,14 +78,14 @@ body::before {
   animation: fadeSlideIn 0.35s ease-out both;
 }
 
-/* Staggered entrance — add .stagger-1 .. .stagger-5 to sequence siblings
-   after their parent's .animate-in. Uses `both` so elements stay hidden
-   until their delay fires (no flash of already-visible content). */
-.stagger-1 { animation: fadeSlideIn 0.5s 0.05s ease-out both; }
-.stagger-2 { animation: fadeSlideIn 0.5s 0.15s ease-out both; }
-.stagger-3 { animation: fadeSlideIn 0.5s 0.25s ease-out both; }
-.stagger-4 { animation: fadeSlideIn 0.5s 0.35s ease-out both; }
-.stagger-5 { animation: fadeSlideIn 0.5s 0.45s ease-out both; }
+/* Staggered entrance — add .stagger to each sibling that should fade in
+   sequence, plus an inline `style={{ "--stagger-index": i }}` to set its
+   position (0-indexed). Scales to any number of elements. Uses `both` so
+   elements stay hidden until their delay fires (no FOUC). Missing
+   --stagger-index → 0 → no delay, animates immediately. */
+.stagger {
+  animation: fadeSlideIn 0.5s calc(var(--stagger-index, 0) * 100ms + 50ms) ease-out both;
+}
 
 /* Gentle drift for decorative background blobs. Two variants with
    different timings so the composition never settles into a repeating
@@ -189,11 +189,10 @@ input[type="checkbox"]:focus-visible {
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-in,
+  .stagger,
   .float-a,
   .float-b,
-  .celebrate,
-  [class^="stagger-"],
-  [class*=" stagger-"] {
+  .celebrate {
     animation: none !important;
   }
   *,
