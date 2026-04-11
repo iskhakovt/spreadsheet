@@ -40,12 +40,14 @@ test.describe("tracked() reconnect resume", () => {
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     // Both reach /results via the WS push
-    await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
-    await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
 
-    // Both see "Match" labels initially
-    await expect(bob.getByText("Match", { exact: true }).first()).toBeVisible();
-    const matchesBefore = await bob.getByText("Match", { exact: true }).count();
+    // Both see "match" (both-yes) rows initially. Target by data-match-type
+    // attribute so we don't collide with summary-strip text ("Total matches").
+    const bobMatchRows = bob.locator('[data-testid="match-row"][data-match-type="match"]');
+    await expect(bobMatchRows.first()).toBeVisible();
+    const matchesBefore = await bobMatchRows.count();
     expect(matchesBefore).toBeGreaterThan(0);
 
     // --- BOB'S NETWORK GOES DOWN (including his existing WS) ---
@@ -107,7 +109,7 @@ test.describe("tracked() reconnect resume", () => {
     // wsLink reconnect backoff (first retry is sub-second, subsequent
     // retries grow; worst case we wait a few seconds).
     await expect(async () => {
-      const matchesAfter = await bob.getByText("Match", { exact: true }).count();
+      const matchesAfter = await bobMatchRows.count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
     }).toPass({ timeout: 20_000 });
 

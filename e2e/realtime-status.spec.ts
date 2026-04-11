@@ -25,7 +25,7 @@ test.describe("realtime status (WebSocket)", () => {
     // click would hide the click's own processing time.
     const start = Date.now();
     await bob.getByRole("button", { name: "I'm done" }).click();
-    await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
     const elapsed = Date.now() - start;
 
     // Soft check: WS push is typically sub-second. Warn if it creeps up so we

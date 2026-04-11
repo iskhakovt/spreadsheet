@@ -93,6 +93,21 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 **Conventional Commits** — all messages follow `type(scope): description`. Types follow `@commitlint/config-conventional` defaults (`feat`, `fix`, `perf`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `style`, `revert`). Scope: `server`, `web`, `shared`, `db`. Semantic-release uses these to determine version bumps (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major). Non-conventional messages won't trigger a release. PR titles are validated by the `pr-title` CI job (commitlint). To customize the accepted types, edit `.releaserc.json` — `commitlint.config.js` derives its `type-enum` from there.
 
+**Type semantics** — use the type that triggers the correct release, not the one that "sort of" matches:
+
+| Type | Meaning | Triggers release? |
+|-|-|-|
+| `feat` | New user-visible feature or capability, including UI redesigns / visual refreshes | ✅ minor |
+| `fix` | User-visible bug fix | ✅ patch |
+| `perf` | Performance improvement users may feel | ✅ patch |
+| `refactor` | Internal restructuring, no user-visible change | ❌ |
+| `style` | **Code** formatting only (whitespace, semicolons, lint fixes) — **not** visual/UX changes | ❌ |
+| `test` | Test-only changes | ❌ |
+| `docs` | Documentation only | ❌ |
+| `chore` / `ci` / `build` | Tooling / infra / deps | ❌ |
+
+**Key gotcha**: `style` in Angular's conventional-commits vocabulary means **code formatting**, not visual design. A UI polish that users can see is `feat`, because it ships changes to production and users experience them. Using `style` for a visual refresh silently suppresses the release — users won't see the new design until some unrelated `feat`/`fix` lands later.
+
 ## Architecture Rules
 
 - **All DB access goes through stores.** Routes never use `ctx.db` directly. Stores enforce transactions via `#tx`.

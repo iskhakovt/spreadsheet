@@ -1,7 +1,7 @@
 import type { Answer } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
-import type { QuestionInfo } from "./build-pair-matches.js";
-import { buildPairMatches } from "./build-pair-matches.js";
+import type { PairMatch, QuestionInfo } from "./build-pair-matches.js";
+import { buildGroupedMatches, buildPairMatches } from "./build-pair-matches.js";
 
 // --- Helpers ---
 
@@ -234,9 +234,31 @@ describe("buildPairMatches", () => {
       expect(result[0].displayText).toBe("Kissing");
     });
 
-    it("give/receive uses role-specific text with name", () => {
-      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, "Alice");
+    it("give/receive uses role-specific text with name parenthetical", () => {
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, { aName: "Alice" });
       expect(result[0].displayText).toBe("Give oral (Alice)");
+    });
+
+    it("give/receive omits parenthetical when A is the viewer", () => {
+      // When the pair's A is the current viewer, the row already reads from
+      // A's perspective (giveText/receiveText are implicitly about A), so
+      // "(You)" would be redundant and grammatically stilted.
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, {
+        aName: "You",
+        aIsViewer: true,
+      });
+      expect(result[0].displayText).toBe("Give oral");
+    });
+
+    it("give/receive keeps parenthetical when A is not the viewer (other-vs-other pair)", () => {
+      // In a 3+ person group, pairs like (Bob, Carol) viewed by Alice still
+      // need the parenthetical — otherwise "Give oral" on its own doesn't
+      // say whose perspective it's from.
+      const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap, {
+        aName: "Bob",
+        aIsViewer: false,
+      });
+      expect(result[0].displayText).toBe("Give oral (Bob)");
     });
 
     it("give/receive falls back to base text when no role text", () => {
@@ -297,5 +319,137 @@ describe("buildPairMatches", () => {
       const result = buildPairMatches({ kissing: yes }, { kissing: yes }, qMap);
       expect(result).toHaveLength(0);
     });
+  });
+});
+
+describe("buildGroupedMatches", () => {
+  // --- Helpers ---
+
+  const match = (questionId: string, displayText = questionId): PairMatch => ({
+    questionId,
+    displayText,
+    matchType: "match",
+    answerA: yes,
+    answerB: yes,
+  });
+
+  const qInfo = (id: string, categoryId: string): QuestionInfo => ({
+    text: id,
+    categoryId,
+    giveText: null,
+    receiveText: null,
+  });
+
+  // Shared test fixtures
+  const questions: Record<string, QuestionInfo> = {
+    q1: qInfo("q1", "foundations"),
+    q2: qInfo("q2", "foundations"),
+    q3: qInfo("q3", "touch"),
+    q4: qInfo("q4", "oral"),
+  };
+  const categoryLabels = {
+    foundations: "Foundations",
+    touch: "Touch & Body",
+    oral: "Oral",
+  };
+  const categoryOrder = ["foundations", "touch", "oral", "bondage"];
+  const questionOrder = { q1: 0, q2: 1, q3: 2, q4: 3 };
+
+  it("empty matches → empty groups", () => {
+    const result = buildGroupedMatches([], questions, categoryLabels, categoryOrder, questionOrder);
+    expect(result).toEqual([]);
+  });
+
+  it("single category → single group", () => {
+    const result = buildGroupedMatches(
+      [match("q1"), match("q2")],
+      questions,
+      categoryLabels,
+      categoryOrder,
+      questionOrder,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].categoryId).toBe("foundations");
+    expect(result[0].label).toBe("Foundations");
+    expect(result[0].matches).toHaveLength(2);
+  });
+
+  it("multiple categories → groups sorted by categoryOrder", () => {
+    // Intentionally provide matches in reverse-category order — the
+    // output should still follow categoryOrder, not insertion order.
+    const result = buildGroupedMatches(
+      [match("q4"), match("q3"), match("q1")],
+      questions,
+      categoryLabels,
+      categoryOrder,
+      questionOrder,
+    );
+    expect(result.map((g) => g.categoryId)).toEqual(["foundations", "touch", "oral"]);
+  });
+
+  it("categories with zero matches are dropped from output", () => {
+    // "bondage" is in categoryOrder but no match lives there — it
+    // must not appear in the output.
+    const result = buildGroupedMatches([match("q1")], questions, categoryLabels, categoryOrder, questionOrder);
+    expect(result.map((g) => g.categoryId)).toEqual(["foundations"]);
+    expect(result.map((g) => g.categoryId)).not.toContain("bondage");
+  });
+
+  it("matches within a category are sorted by questionOrder", () => {
+    // Provide q2 before q1 — both in the same category — the output
+    // should re-sort them by questionOrder.
+    const result = buildGroupedMatches(
+      [match("q2"), match("q1")],
+      questions,
+      categoryLabels,
+      categoryOrder,
+      questionOrder,
+    );
+    expect(result[0].matches.map((m) => m.questionId)).toEqual(["q1", "q2"]);
+  });
+
+  it("matches whose question is missing from questions are dropped", () => {
+    const result = buildGroupedMatches(
+      [match("q1"), match("unknown"), match("q2")],
+      questions,
+      categoryLabels,
+      categoryOrder,
+      questionOrder,
+    );
+    // unknown is dropped; q1 and q2 bucket under foundations
+    expect(result).toHaveLength(1);
+    expect(result[0].matches.map((m) => m.questionId)).toEqual(["q1", "q2"]);
+  });
+
+  it("falls back to categoryId when category label is missing", () => {
+    // Simulate a match in a category not in the label map — the group
+    // should still render with the raw category id as the label.
+    const q = { ghost: qInfo("ghost", "unmapped") };
+    const result = buildGroupedMatches(
+      [match("ghost")],
+      q,
+      categoryLabels,
+      [...categoryOrder, "unmapped"],
+      questionOrder,
+    );
+    expect(result[0].categoryId).toBe("unmapped");
+    expect(result[0].label).toBe("unmapped"); // fallback to id
+  });
+
+  it("missing questionOrder entry → treated as 0 (stable)", () => {
+    // q1 has order 0, q99 has no order → should still sort deterministically
+    const q = { q1: qInfo("q1", "foundations"), q99: qInfo("q99", "foundations") };
+    const matches = [match("q99"), match("q1")];
+    const order = { q1: 0 }; // q99 missing
+    const result = buildGroupedMatches(matches, q, categoryLabels, ["foundations"], order);
+    // Both treated as 0 → stable sort preserves input order [q99, q1]
+    expect(result[0].matches.map((m) => m.questionId)).toEqual(["q99", "q1"]);
+  });
+
+  it("does not mutate the input matches array", () => {
+    const input = [match("q2"), match("q1")];
+    const snapshot = [...input];
+    buildGroupedMatches(input, questions, categoryLabels, categoryOrder, questionOrder);
+    expect(input).toEqual(snapshot);
   });
 });

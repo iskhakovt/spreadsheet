@@ -31,7 +31,14 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-bg);
+  /* Soft radial wash — keeps the cream base but warms the top-left corner
+     and cools the bottom-right with a whisper of peach. At ~2% alpha the
+     tint is felt, not seen. */
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(208, 128, 88, 0.06), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 100%, rgba(228, 184, 152, 0.08), transparent 55%),
+    var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -67,8 +74,45 @@ body::before {
 }
 
 .animate-in {
-  animation: fadeSlideIn 0.35s ease-out;
+  animation: fadeSlideIn 0.35s ease-out both;
 }
+
+/* Staggered entrance — add .stagger to each sibling that should fade in
+   sequence, plus an inline `style={{ "--stagger-index": i }}` to set its
+   position (0-indexed). Scales to any number of elements. Uses `both` so
+   elements stay hidden until their delay fires (no FOUC). Missing
+   --stagger-index → 0 → no delay, animates immediately. */
+.stagger {
+  animation: fadeSlideIn 0.5s calc(var(--stagger-index, 0) * 100ms + 50ms) ease-out both;
+}
+
+/* Gentle drift for decorative background blobs. Two variants with
+   different timings so the composition never settles into a repeating
+   pattern. */
+@keyframes floatA {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, -18px, 0) scale(1.03); }
+}
+@keyframes floatB {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(10px, 14px, 0) scale(0.97); }
+}
+.float-a { animation: floatA 18s ease-in-out infinite; }
+.float-b { animation: floatB 22s ease-in-out infinite; }
+
+/* Soft shine for progress bar growth moments */
+@keyframes progressShine {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+/* Celebratory pulse — scoped to elements that opt in via .celebrate */
+@keyframes celebrate {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(208, 128, 88, 0.4); }
+  50%  { transform: scale(1.015); box-shadow: 0 0 0 8px rgba(208, 128, 88, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(208, 128, 88, 0); }
+}
+.celebrate { animation: celebrate 1.2s ease-out; }
 
 /* Button press effect */
 @keyframes softPress {
@@ -143,8 +187,12 @@ input[type="checkbox"]:focus-visible {
 
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .animate-in {
-    animation: none;
+  .animate-in,
+  .stagger,
+  .float-a,
+  .float-b,
+  .celebrate {
+    animation: none !important;
   }
   *,
   *::before,

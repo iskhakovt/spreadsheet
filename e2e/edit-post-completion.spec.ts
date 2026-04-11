@@ -21,16 +21,20 @@ test.describe("edit after completion", () => {
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     // Both reach /results. Alice's view should update via WS.
-    await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
-    await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
 
-    // Both should see "Match" labels since everyone answered yes
-    await expect(alice.getByText("Match", { exact: true }).first()).toBeVisible();
-    await expect(bob.getByText("Match", { exact: true }).first()).toBeVisible();
+    // Both should see "match" (both-yes) rows since everyone answered yes.
+    // Target via data-match-type to avoid any collision with summary-strip
+    // labels ("Total matches") or the "Match" badge text elsewhere.
+    const aliceMatchRows = alice.locator('[data-testid="match-row"][data-match-type="match"]');
+    const bobMatchRows = bob.locator('[data-testid="match-row"][data-match-type="match"]');
+    await expect(aliceMatchRows.first()).toBeVisible();
+    await expect(bobMatchRows.first()).toBeVisible();
 
     // Snapshot Bob's match count BEFORE Alice's edit so we can assert a
     // concrete drop rather than a magic-number upper bound.
-    const matchesBefore = await bob.getByText("Match", { exact: true }).count();
+    const matchesBefore = await bobMatchRows.count();
     expect(matchesBefore).toBeGreaterThan(0);
 
     // Alice clicks "Change my answers" — navigates back to /questions,
@@ -39,7 +43,7 @@ test.describe("edit after completion", () => {
     await expect(alice).toHaveURL(/\/questions/);
 
     // Bob is still on /results (not kicked to /waiting)
-    await expect(bob.getByText("Your results")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible();
 
     // Alice changes her first answer from "yes" to "no". This triggers the
     // 3s sync.push debounce → server commit → journalEvents emit → Bob's
@@ -51,7 +55,7 @@ test.describe("edit after completion", () => {
     // latency (debounce + network + subscription + merge + re-render)
     // without a hard-coded sleep.
     await expect(async () => {
-      const matchesAfter = await bob.getByText("Match", { exact: true }).count();
+      const matchesAfter = await bobMatchRows.count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
     }).toPass({ timeout: 10_000 });
   });

@@ -19,24 +19,67 @@ export function Landing() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="animate-in text-center space-y-10 max-w-sm w-full">
-        <div className="flex justify-center">
-          <img src="/logo.svg" alt="" width="80" height="80" className="drop-shadow-sm" />
+    <div className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
+      {/* Atmospheric backdrop — two organic blobs drift slowly behind the
+          content. Pointer-events-none so they never interfere. Hidden from
+          screen readers — purely decorative. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div
+          className="float-a absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full blur-3xl opacity-40"
+          style={{ background: "radial-gradient(circle, #e4b898 0%, transparent 65%)" }}
+        />
+        <div
+          className="float-b absolute -bottom-32 -right-20 w-[480px] h-[480px] rounded-full blur-3xl opacity-35"
+          style={{ background: "radial-gradient(circle, #d08058 0%, transparent 70%)" }}
+        />
+        <div
+          className="float-a absolute top-1/3 right-1/4 w-[220px] h-[220px] rounded-full blur-3xl opacity-25"
+          style={{ background: "radial-gradient(circle, #7aab8e 0%, transparent 70%)", animationDelay: "-8s" }}
+        />
+      </div>
+
+      <div className="relative text-center max-w-sm w-full">
+        <div className="stagger flex justify-center mb-10" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+          <img
+            src="/logo.svg"
+            alt=""
+            width="88"
+            height="88"
+            className="drop-shadow-[0_8px_20px_rgba(208,128,88,0.25)]"
+          />
         </div>
 
-        <div className="space-y-4">
-          <h1 className="text-5xl font-bold tracking-tight text-text">{UI.appName}</h1>
-          <p className="text-lg text-accent font-medium">{UI.tagline}</p>
+        <div className="stagger mb-3" style={{ "--stagger-index": 1 } as React.CSSProperties}>
+          <h1 className="text-[3.25rem] leading-[0.95] font-bold tracking-[-0.03em] text-text">{UI.appName}</h1>
         </div>
 
-        <p className="text-text-muted leading-relaxed text-[15px] text-balance">{UI.landing.description}</p>
+        <div
+          className="stagger mb-10 flex items-center justify-center gap-3"
+          style={{ "--stagger-index": 2 } as React.CSSProperties}
+        >
+          <span className="h-px w-8 bg-accent/40" />
+          <p className="text-base text-accent font-medium italic tracking-wide">{UI.tagline}</p>
+          <span className="h-px w-8 bg-accent/40" />
+        </div>
 
-        <Button fullWidth onClick={() => setShowCreate(true)}>
-          {UI.landing.getStarted}
-        </Button>
+        <p
+          className="stagger text-text-muted leading-[1.7] text-[15px] text-balance mb-10"
+          style={{ "--stagger-index": 3 } as React.CSSProperties}
+        >
+          {UI.landing.description}
+        </p>
 
-        <p className="text-xs text-text-muted/60">Private. Encrypted. No account needed.</p>
+        <div className="stagger space-y-6" style={{ "--stagger-index": 4 } as React.CSSProperties}>
+          <Button fullWidth onClick={() => setShowCreate(true)}>
+            {UI.landing.getStarted}
+          </Button>
+
+          <p className="text-xs text-text-muted/70 tracking-wide">
+            Private <span className="text-text-muted/30 mx-1.5">&middot;</span>
+            Encrypted <span className="text-text-muted/30 mx-1.5">&middot;</span>
+            No account needed
+          </p>
+        </div>
       </div>
     </div>
   );
