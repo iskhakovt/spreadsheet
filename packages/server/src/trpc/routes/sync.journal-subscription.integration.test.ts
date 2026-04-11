@@ -334,10 +334,14 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     expect(during).toBeGreaterThan(before);
 
     sub.cancel();
-    await new Promise((r) => setTimeout(r, 50));
 
-    const after = journalEvents.listenerCount(eventKey);
-    expect(after).toBe(before);
+    // Poll via `expect.poll` instead of a fixed `setTimeout(50)`. Vitest's
+    // primitive retries the assertion, short-circuits on first match
+    // (zero overhead if cleanup already ran), and surfaces the actual
+    // observed values in the failure message — strictly better than both
+    // a fixed sleep (which guesses at CI timing) and a hand-rolled while
+    // loop (which reinvents the primitive with worse error reporting).
+    await expect.poll(() => journalEvents.listenerCount(eventKey)).toBe(before);
   });
 
   it("delivers encrypted entries as-is (server does not decrypt)", async () => {

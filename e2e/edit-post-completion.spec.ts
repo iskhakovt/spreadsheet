@@ -86,10 +86,13 @@ test.describe("edit after completion", () => {
 
     // Alice should be able to change an answer and navigate away freely.
     // isCompleted should NOT have been touched server-side. We verify this
-    // indirectly: navigate back via browser history. The key assertion: the
-    // guard does NOT kick us back to /questions, which would happen if
-    // isCompleted were false.
+    // with a reload (not goBack) — goBack replays the SPA history entry
+    // and could pass against a stale in-memory completion flag. `reload()`
+    // forces the guard to re-evaluate against fresh server status; if
+    // isCompleted were false, the guard would bounce us back to /questions.
     await alice.goBack();
+    await alice.reload();
+    await expect(alice).toHaveURL(/\/waiting/);
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await aliceCtx.close();

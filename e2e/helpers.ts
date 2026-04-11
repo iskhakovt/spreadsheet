@@ -156,7 +156,12 @@ export async function narrowToCategory(page: Page, targetLabel: string) {
 
   // Click the target category row — this navigates directly to the
   // target's welcome screen via `onNavigateToCategory(category.id)`.
-  await page.getByRole("button", { name: new RegExp(`^${targetLabel}`) }).click();
+  // Escape regex metacharacters in the label so labels containing `(`,
+  // `[`, `.`, `+`, `*`, `?` etc. don't break the match. Current labels
+  // are metacharacter-free but this is cheap defense against future
+  // labels like "Role Play (Fantasy)".
+  const escapedLabel = targetLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page.getByRole("button", { name: new RegExp(`^${escapedLabel}`) }).click();
 
   // We should now be on the target category's welcome screen, ready to
   // click Start.

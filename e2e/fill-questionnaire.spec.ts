@@ -87,17 +87,26 @@ test.describe("questionnaire flow", () => {
     await page.getByRole("button", { name: "Start" }).click();
     await page.getByRole("button", { name: "Progress" }).click();
 
-    // Summary should show Essentials currently selected and a count for power
+    // Summary should show Essentials currently selected and a count for
+    // Power Exchange. Scope the fraction lookup to the Power Exchange row
+    // specifically — `page.locator("text=/\\d+\\/\\d+/").first()` is
+    // DOM-order dependent and would silently read the wrong row if the
+    // Summary layout ever changes (e.g. overall progress counter, or a
+    // different category rendered first).
     await expect(page.getByText("Your progress")).toBeVisible();
-    const essentialsCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
-    const essentialTotal = Number(essentialsCount?.split("/")[1] ?? 0);
+    const powerRow = page
+      .locator("div")
+      .filter({ hasText: /^Power Exchange\s*\d+\/\d+/ })
+      .first();
+    const essentialsCountText = await powerRow.locator("text=/\\d+\\/\\d+/").textContent();
+    const essentialTotal = Number(essentialsCountText?.split("/")[1] ?? 0);
 
     // Switch to Adventurous on Summary
     await page.getByText("Adventurous").click();
 
     // Count should increase (more questions unlocked at higher tier)
-    const adventurousCount = await page.locator("text=/\\d+\\/\\d+/").first().textContent();
-    const adventurousTotal = Number(adventurousCount?.split("/")[1] ?? 0);
+    const adventurousCountText = await powerRow.locator("text=/\\d+\\/\\d+/").textContent();
+    const adventurousTotal = Number(adventurousCountText?.split("/")[1] ?? 0);
 
     expect(adventurousTotal).toBeGreaterThan(essentialTotal);
   });

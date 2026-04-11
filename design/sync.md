@@ -250,7 +250,7 @@ Real-time delivery of journal appends using tRPC v11's `tracked()` primitive. Th
 3. **Backfill** — query entries > `lastEventId` (or all entries if `null`), yield as a single `tracked(lastId, { entries })` event
 4. **Live stream** — consume the iterable, dedup entries already in the backfill, yield each new batch as a `tracked(lastId, { entries })` event
 
-Client side (`wsLink` in tRPC v11):
+Client-side (`wsLink` in tRPC v11):
 - Auto-stamps the latest `lastEventId` onto the pending subscription message after every yield
 - Auto-reconnects with exponential backoff on disconnect
 - Re-sends the stored subscription message on reconnect, so the server resumes from the cursor
