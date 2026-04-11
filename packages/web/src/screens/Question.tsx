@@ -60,7 +60,29 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     }),
   );
 
-  const selectedCategories = getSelectedCategories() ?? [];
+  // Selected categories are React state (not a plain localStorage read) so
+  // the first-mount default propagates through a re-render. Prior pattern
+  // read localStorage each render + wrote defaults in an effect — but
+  // effects don't trigger re-renders by themselves, so a fresh user with
+  // no stored categories would see an empty "No questions for your selected
+  // categories" screen until something else re-rendered the component.
+  //
+  // Storage contract:
+  //   null  → first-time user, default to all categories (and persist)
+  //   []    → user explicitly unchecked everything via Summary; respect it
+  //            (the empty-state Card below is the intended outcome)
+  //   [...] → use the stored list as-is
+  //
+  // The lazy initializer both returns the value for the first render AND
+  // persists the default to localStorage so the scoped storage contract
+  // (cross-tab, survives reload) is unchanged.
+  const [selectedCategories] = useState<string[]>(() => {
+    const stored = getSelectedCategories();
+    if (stored !== null) return stored;
+    const all = (questionsData.categories as CategoryData[]).map((c) => c.id);
+    setSelectedCategories(all);
+    return all;
+  });
   const maxTier = getSelectedTier();
   const otherAnatomies = useMemo(
     () =>
@@ -91,13 +113,10 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
   const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length);
 
-  // Auto-select all categories on first mount if the user hasn't chosen any.
-  // Also flush any leftover pendingOps from a previous session after a short
-  // delay so the sync machinery is ready.
+  // Flush any leftover pendingOps from a previous session after a short
+  // delay so the sync machinery is ready. (Category default-selection is
+  // handled by the useState initializer above.)
   useEffect(() => {
-    if (!getSelectedCategories()) {
-      setSelectedCategories((questionsData.categories as CategoryData[]).map((c) => c.id));
-    }
     if (getPendingOps().length > 0) {
       setTimeout(handleSync, 500);
     }
