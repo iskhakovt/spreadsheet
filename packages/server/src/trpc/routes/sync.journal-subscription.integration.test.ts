@@ -263,15 +263,20 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const sub = await openSubscription(journalSub(alice.ctx));
 
     // Commit a new entry immediately — this simulates a race where the push
-    // lands before the subscriber has received the initial backfill.
+    // lands before the subscriber has received the initial backfill. Use a
+    // uniquely-identifiable operation payload so we can find it in the
+    // collected stream even amongst the 2 initial entries from setup.
+    const racingOp = 'p:1:{"key":"oral:give","data":{"rating":"maybe","timing":null}}';
     await alice.caller.sync.push({
       stoken: alice.stoken,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"maybe","timing":null}}'],
+      operations: [racingOp],
       progress: null,
     });
 
-    // Drain at most 3 yields within 1s. The sum of entries across yields must
-    // include the new entry (either as part of backfill or as a live append).
+    // Drain at most 3 yields within 1s. The racing entry MUST appear
+    // somewhere in the collected stream — either as part of the backfill
+    // (if the server's query saw it) or as a live append (if the iterable
+    // buffered it). Losing it would indicate the invariant was violated.
     const collected: JournalEntry[] = [];
     for (let i = 0; i < 3; i++) {
       const next = await sub.next(500);
@@ -280,9 +285,11 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     }
     sub.cancel();
 
-    // Expect at least 3 entries total: 2 initial + 1 racing. The key invariant
-    // is that no events were lost — the new entry is present in the stream.
-    expect(collected.length).toBeGreaterThanOrEqual(3);
+    // Strict: the specific racing entry must be present, not just "enough"
+    // entries. Otherwise a bug that dropped the racing event while keeping
+    // the 2 initial entries + some other 3rd entry would slip by.
+    const found = collected.find((e) => e.operation === racingOp);
+    expect(found, `racing entry not delivered (collected ${collected.length} entries)`).toBeDefined();
   });
 
   it("throws PRECONDITION_FAILED when not all members are complete", async () => {

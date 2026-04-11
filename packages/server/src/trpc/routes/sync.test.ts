@@ -60,14 +60,15 @@ const group = {
   anatomyPicker: null,
 };
 
-describe("sync.push", () => {
-  const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
-    stoken: "s1",
-    entries: [],
-    committedEntries: entries,
-    pushRejected: false as const,
-  });
+/** Shared test fixture: what a successful sync.push store call returns. */
+const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
+  stoken: "s1",
+  entries: [],
+  committedEntries: entries,
+  pushRejected: false as const,
+});
 
+describe("sync.push", () => {
   it("validates opaque format before calling store", async () => {
     const ctx = mockCtx({ person, group });
     const caller = createCaller(ctx);
@@ -115,13 +116,6 @@ describe("sync.push", () => {
 });
 
 describe("sync.push journal bus emission", () => {
-  const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
-    stoken: "s1",
-    entries: [],
-    committedEntries: entries,
-    pushRejected: false as const,
-  });
-
   it("emits journal:<groupId> with committed entries on success", async () => {
     const committedEntries = [
       { id: 1, personId: "p1", operation: "p:1:blob1" },

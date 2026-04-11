@@ -62,9 +62,9 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 ## Performance
 
 - **Question bank cached** in TanStack Query with `staleTime: Infinity` — fetched once per session, reused across PersonApp / Question / Comparison
-- Lazy-load comparison view (dynamic import, loaded only when needed)
+- **Journal pre-warmed** on the `allComplete` transition so `/results` renders without waiting for the HTTP fetch on the critical path
 - No SSR — app is small, loads in <100ms
-- Single code split: main app + comparison chunk
+- Single bundle (~140KB gzipped main chunk); no dynamic code splits — the `/results` Comparison view was previously lazy-loaded but is now inlined to eliminate one HTTP round-trip from the render-critical path under contention
 
 ## Real-time delivery
 

@@ -18,11 +18,14 @@ journal_entries
   created_at    timestamptz      -- server receipt time
 ```
 
-The `id` is internal — clients never see it. Clients receive an **stoken** (signed opaque cursor) instead.
+The `id` is used by two distinct cursors with different threat models:
+
+- **Push cursor (`stoken`)** — used by `sync.push` for optimistic-concurrency-control. Must be tamper-proof because forging a stoken would let a client bypass the conflict-detection round-trip and insert out-of-sequence entries into someone's journal. Signed + opaque.
+- **Read cursor (raw `id`)** — used by `sync.journal` and the `sync.onJournalChange` subscription (`lastEventId`). No forgery risk: the read path is gated by `authedProcedure` + the group-completion precondition, so a client can only read their own group's journal, and the cursor is just "where did I last read to?". Raw numeric ids are fine here.
 
 ## Stoken Format
 
-The stoken is an HMAC-signed, versioned, base64url-encoded cursor:
+The stoken is an HMAC-signed, versioned, base64url-encoded cursor used by the push path:
 
 ```
 stoken = base64url("v1:" + id + ":" + hmac_sha256("v1:" + id, serverSecret))
@@ -40,6 +43,8 @@ Example: internal id `49` → stoken `djE6NDk6YTNmOGIy...`
 Server decodes and verifies the HMAC before using the id in queries. Invalid or forged stokens are rejected.
 
 `null` stoken on first sync = "give me everything."
+
+The read path is separately keyed by the raw numeric `id` as a cursor (`sinceId` on `sync.journal`, `lastEventId` on the subscription). See the "Reading the journal" section below for the details.
 
 ## Operation Payload
 
@@ -380,13 +385,10 @@ Not needed initially. With max ~150 answers and ~3 edits each = ~450 journal ent
 
 If the journal grows large, a snapshot is just a special journal entry containing the full answer state at that point. Clients can start replay from the latest snapshot instead of the beginning.
 
-## Polling for Partner Status
+## Partner Status Delivery
 
-Separate from sync — a lightweight endpoint:
+WS-first via the tRPC `groups.onStatus` subscription. The server emits on the `groupEvents` bus whenever any broadcasting mutation (`markComplete`, `setProfile`, `markReady`, `addPerson`, `removePerson`) successfully runs; the subscription generator re-reads `getStatus(token)` on each event and yields the fresh snapshot.
 
-```
-GET /api/group/status
-Response: { members: [{ name, completedAt }] }
-```
+Reconnect recovery is handled at the transport layer: `wsLink` auto-reconnects with exponential backoff, and on reconnect the subscription generator runs fresh and yields the initial state — no cursor needed because status is snapshot-based (the latest snapshot replaces any missed intermediates). There is no polling fallback; if the WebSocket is persistently broken the app degrades to "reload to fix".
 
-Polled every 30s while the app is open. When a partner's `completed_at` is set, show a banner.
+For the journal read path, see the "Reading the journal" section above.
