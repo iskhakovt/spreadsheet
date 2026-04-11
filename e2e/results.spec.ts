@@ -21,18 +21,21 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible();
     await expect(bob.getByText("Alice & Bob")).toBeVisible();
 
-    // All should be "Go for it" (both yes + both now)
-    const goForIt = bob.getByText("Go for it");
-    const goForItCount = await goForIt.count();
-    expect(goForItCount).toBeGreaterThan(0);
+    // All should be green-light matches (both yes + both now). Target the
+    // data-match-type attribute on match rows so we don't collide with the
+    // summary-strip label which also reads "Go for it".
+    const greenLightRows = bob.locator('[data-testid="match-row"][data-match-type="green-light"]');
+    expect(await greenLightRows.count()).toBeGreaterThan(0);
 
-    // No other match types should appear
-    await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
-    await expect(bob.getByText("Worth discussing")).not.toBeVisible();
-    await expect(bob.getByText("Possible")).not.toBeVisible();
+    // No other match types should appear — target by data-match-type so
+    // we don't collide with summary strip labels (which always render,
+    // including "Go for it" with count 0, so plain getByText won't work).
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]')).toHaveCount(0);
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="both-maybe"]')).toHaveCount(0);
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="possible"]')).toHaveCount(0);
   });
 
   test("mixed answers produce varied match types", async ({ alice, bob }) => {
@@ -54,15 +57,17 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "maybe");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible();
 
-    // All should be "Worth discussing" (both maybe)
-    const worthDiscussing = bob.getByText("Worth discussing");
-    expect(await worthDiscussing.count()).toBeGreaterThan(0);
+    // All should be both-maybe (worth discussing). Target match-type
+    // attribute to avoid collision with summary strip labels.
+    const bothMaybeRows = bob.locator('[data-testid="match-row"][data-match-type="both-maybe"]');
+    expect(await bothMaybeRows.count()).toBeGreaterThan(0);
 
-    // No "Go for it" or "Match"
-    await expect(bob.getByText("Go for it")).not.toBeVisible();
-    await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
+    // No green-light or plain match rows. Target by data-match-type so we
+    // don't collide with the summary strip's always-visible "Go for it" label.
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="green-light"]')).toHaveCount(0);
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]')).toHaveCount(0);
   });
 
   test("one says no — question hidden from results", async ({ alice, bob }) => {
@@ -84,9 +89,10 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    await expect(bob.getByText("Your results")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible();
 
-    // No matches should appear — all hidden because Alice said No
-    await expect(bob.getByText("No matches found")).toBeVisible();
+    // No matches should appear — all hidden because Alice said No. The
+    // Comparison empty state copy was updated as part of the UI polish.
+    await expect(bob.getByText("No overlaps this time")).toBeVisible();
   });
 });

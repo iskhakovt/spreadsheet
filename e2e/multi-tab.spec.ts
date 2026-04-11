@@ -134,7 +134,7 @@ test.describe("multi-tab isolation", () => {
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     // Bob should reach waiting or results
-    await expect(bob.getByText("Your results").or(bob.getByText("Waiting for everyone"))).toBeVisible({
+    await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
       timeout: 10000,
     });
   });

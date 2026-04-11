@@ -29,12 +29,14 @@ for (const encrypted of [false, true]) {
       await bob.getByRole("button", { name: "I'm done" }).click();
 
       // Both complete → Bob goes straight to results
-      await expect(bob.getByText("Your results")).toBeVisible({ timeout: 5000 });
+      await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
       await expect(bob.getByText("Alice & Bob")).toBeVisible({ timeout: 5000 });
-      await expect(bob.getByText("Match").first()).toBeVisible();
+      // Target by data-match-type — plain getByText("Match") would substring-match
+      // the "Your matches" header and "Total matches" summary strip label.
+      await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]').first()).toBeVisible();
 
       // WS push delivers Bob's completion to Alice → guard redirects to /results
-      await expect(alice.getByText("Your results")).toBeVisible({ timeout: 5000 });
+      await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
       await expect(alice.getByText("Alice & Bob")).toBeVisible({ timeout: 5000 });
     });
   });

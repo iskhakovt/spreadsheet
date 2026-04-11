@@ -71,15 +71,31 @@ export function QuestionCard({
   const catQuestionScreens = allQuestionScreens.filter((s) => s.categoryId === screen.categoryId);
   const posInCategory = catQuestionScreens.indexOf(screen) + 1;
 
+  const progressPct = totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0;
+
   return (
     <Card>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 text-sm">
-        <span className="text-text-muted">
-          {category?.label} &rsaquo; {posInCategory} of {catQuestionScreens.length}
+      {/* Header — category pill on the left, Progress link on the right.
+          The pill groups category label + position inside the category so
+          the eye reads "where am I" as one unit. */}
+      <div className="flex items-center justify-between mb-8">
+        <span className="inline-flex items-center gap-2 text-xs font-medium text-text-muted tracking-wide">
+          <span className="relative flex items-center justify-center">
+            <span className="absolute w-2 h-2 rounded-full bg-accent/40 animate-ping" />
+            <span className="relative w-1.5 h-1.5 rounded-full bg-accent" />
+          </span>
+          <span className="uppercase">{category?.label}</span>
+          <span className="text-text-muted/40">&middot;</span>
+          <span className="tabular-nums">
+            {posInCategory}/{catQuestionScreens.length}
+          </span>
         </span>
         {onSummary && (
-          <button type="button" onClick={onSummary} className="text-text-muted hover:text-accent">
+          <button
+            type="button"
+            onClick={onSummary}
+            className="text-xs font-medium text-text-muted hover:text-accent transition-colors"
+          >
             Progress
           </button>
         )}
@@ -88,9 +104,16 @@ export function QuestionCard({
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         Question {posInCategory} of {catQuestionScreens.length}, {category?.label}
       </div>
-      {/* Question text + description — fixed height zone so buttons don't jump */}
-      <div className="min-h-[6rem] mb-2">
-        <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-bold leading-tight outline-none">
+      {/* Question text + description — fixed height zone so buttons don't jump.
+          Keyed on screen.key so each question fades in individually, giving the
+          flow a gentle "turning the page" rhythm instead of content swapping in
+          place. */}
+      <div key={screen.key} className="animate-in min-h-[6rem] mb-2">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-[1.65rem] font-bold leading-[1.2] tracking-tight outline-none text-balance"
+        >
           {screen.displayText}
         </h2>
         {screen.question.description && (
@@ -98,13 +121,13 @@ export function QuestionCard({
             type="button"
             onClick={onToggleDescription}
             aria-expanded={showDescription}
-            className="text-sm text-text-muted mt-3 block"
+            className="text-sm text-text-muted/80 mt-3 inline-flex items-center gap-1 hover:text-accent transition-colors"
           >
             {UI.question.whatsThis} {showDescription ? "\u25B4" : "\u25BE"}
           </button>
         )}
         {showDescription && screen.question.description && (
-          <p className="text-sm text-text-muted mt-2 leading-relaxed">{screen.question.description}</p>
+          <p className="text-sm text-text-muted mt-2 leading-relaxed animate-in">{screen.question.description}</p>
         )}
       </div>
       {/* Timing sub-question */}
@@ -151,17 +174,26 @@ export function QuestionCard({
           </svg>
         </button>
       </div>
-      {/* Progress bar + sync */}
+      {/* Progress bar + sync — gradient fill warms as it grows, subtle
+          inset shadow gives the track a little depth without feeling heavy. */}
       <div
-        className="mt-6 h-1.5 bg-surface rounded-full overflow-hidden"
+        className="mt-8 h-1.5 rounded-full overflow-hidden"
         role="progressbar"
         aria-valuenow={totalAnswered}
         aria-valuemax={totalQuestions}
         aria-label="Overall progress"
+        style={{
+          background: "color-mix(in oklab, var(--color-surface) 85%, var(--color-border))",
+          boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.06)",
+        }}
       >
         <div
-          className="h-full bg-accent rounded-full transition-all duration-300"
-          style={{ width: `${totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0}%` }}
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{
+            width: `${progressPct}%`,
+            background: "linear-gradient(90deg, var(--color-accent-light) 0%, var(--color-accent) 100%)",
+            boxShadow: progressPct > 0 ? "0 0 8px rgba(208, 128, 88, 0.35)" : "none",
+          }}
         />
       </div>
       <div className="mt-1 h-4 flex justify-end">

@@ -13,13 +13,47 @@ import {
 import { mergeJournal } from "../lib/merge-journal.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
-const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
-  "green-light": { bg: "bg-accent/15", label: "Go for it" },
-  match: { bg: "bg-accent-light/15", label: "Match" },
-  "both-maybe": { bg: "bg-surface", label: "Worth discussing" },
-  possible: { bg: "bg-surface", label: "Possible" },
-  fantasy: { bg: "bg-surface", label: "Shared fantasy" },
-  hidden: { bg: "", label: "" },
+/**
+ * Visual treatment per match type. "Go for it" is the celebratory tier:
+ * solid accent gradient, bright label. Everything else steps down in
+ * temperature so the eye can sort the page at a glance without effort.
+ *
+ * Every answer is equal, but discovering a mutual "yes + now" is the
+ * payoff this app exists for — it earns a distinctive treatment.
+ */
+const MATCH_STYLES: Record<MatchType, { container: string; badge: string; label: string; labelStyle: string }> = {
+  "green-light": {
+    container:
+      "bg-gradient-to-br from-accent/20 via-accent-light/15 to-accent/10 border border-accent/25 shadow-sm shadow-accent/10",
+    badge: "bg-accent text-accent-fg",
+    label: "Go for it",
+    labelStyle: "font-semibold",
+  },
+  match: {
+    container: "bg-accent-light/20 border border-accent-light/30",
+    badge: "bg-accent-light text-accent-fg",
+    label: "Match",
+    labelStyle: "font-medium",
+  },
+  "both-maybe": {
+    container: "bg-surface/80 border border-border/50",
+    badge: "bg-neutral/15 text-text-muted",
+    label: "Worth discussing",
+    labelStyle: "font-medium",
+  },
+  possible: {
+    container: "bg-surface/60 border border-border/40",
+    badge: "bg-neutral/10 text-text-muted",
+    label: "Possible",
+    labelStyle: "font-medium",
+  },
+  fantasy: {
+    container: "bg-surface/50 border border-dashed border-border/60",
+    badge: "bg-neutral/10 text-text-muted",
+    label: "Shared fantasy",
+    labelStyle: "font-medium italic",
+  },
+  hidden: { container: "", badge: "", label: "", labelStyle: "" },
 };
 
 /**
@@ -162,12 +196,35 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <h1 className="text-3xl font-bold text-center">Your results</h1>
+    <div className="relative min-h-screen px-4 py-10 sm:py-14 overflow-hidden">
+      {/* Atmospheric backdrop — same technique as Landing but softer, so
+          /results feels like a destination, not just another form screen. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div
+          className="float-a absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl opacity-25"
+          style={{ background: "radial-gradient(circle, #e4b898 0%, transparent 65%)" }}
+        />
+      </div>
+
+      <div className="max-w-2xl mx-auto space-y-10">
+        <header className="text-center space-y-3">
+          <p className="stagger-1 text-xs font-medium uppercase tracking-[0.2em] text-accent/80">Everyone's done</p>
+          <h1 className="stagger-2 text-[2.75rem] sm:text-[3.25rem] font-bold leading-[0.95] tracking-[-0.02em]">
+            Your matches
+          </h1>
+          <div className="stagger-3 inline-flex items-center gap-3 pt-1">
+            <span className="h-px w-10 bg-accent/30" />
+            <p className="text-sm text-text-muted italic">
+              {memberAnswers.length > 2
+                ? `${memberAnswers.length} people, one shared space`
+                : "Two people, one shared space"}
+            </p>
+            <span className="h-px w-10 bg-accent/30" />
+          </div>
+        </header>
 
         {showTabs && (
-          <div className="flex gap-2 justify-center flex-wrap" role="tablist" aria-label="Pair results">
+          <div className="stagger-4 flex gap-2 justify-center flex-wrap" role="tablist" aria-label="Pair results">
             {pairs.map(({ a, b }) => {
               const pk = pairKey(a, b);
               const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
@@ -180,8 +237,10 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
                   aria-controls="pair-tabpanel"
                   id={`tab-${pk}`}
                   onClick={() => setActivePairKey(pk)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    isActive ? "bg-accent text-white" : "bg-surface text-text-muted hover:text-text"
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-accent text-accent-fg shadow-sm shadow-accent/20"
+                      : "bg-surface/80 text-text-muted hover:text-text hover:bg-surface"
                   }`}
                 >
                   {a.name} & {b.name}
@@ -191,35 +250,50 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
           </div>
         )}
 
-        {visiblePair && showTabs && (
-          <div role="tabpanel" id="pair-tabpanel" aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}>
+        <div className="stagger-5">
+          {visiblePair && showTabs && (
+            <div role="tabpanel" id="pair-tabpanel" aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}>
+              <PairComparison
+                key={`${visiblePair.a.id}-${visiblePair.b.id}`}
+                a={visiblePair.a}
+                b={visiblePair.b}
+                questions={questions}
+                categories={categories}
+                categoryOrder={categoryOrder}
+                questionOrder={questionOrder}
+                showHeading={false}
+              />
+            </div>
+          )}
+          {visiblePair && !showTabs && (
             <PairComparison
-              key={`${visiblePair.a.id}-${visiblePair.b.id}`}
               a={visiblePair.a}
               b={visiblePair.b}
               questions={questions}
               categories={categories}
               categoryOrder={categoryOrder}
               questionOrder={questionOrder}
-              showHeading={false}
+              showHeading
             />
-          </div>
-        )}
-        {visiblePair && !showTabs && (
-          <PairComparison
-            a={visiblePair.a}
-            b={visiblePair.b}
-            questions={questions}
-            categories={categories}
-            categoryOrder={categoryOrder}
-            questionOrder={questionOrder}
-            showHeading
-          />
-        )}
+          )}
+        </div>
 
         {onBack && (
-          <div className="text-center pt-4">
-            <button type="button" onClick={onBack} className="text-text-muted hover:text-text underline text-sm">
+          <div className="text-center pt-6">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 text-text-muted hover:text-accent transition-colors text-sm"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" role="presentation">
+                <path
+                  d="M11.333 2.667L2 12l.667 1.333L12 4M9.333 2L14 6.667"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
               Change my answers
             </button>
           </div>
@@ -263,8 +337,14 @@ function PairComparison({
   // Sort categories and questions in the same order as the question flow
   const sortedCategories = categoryOrder.filter((id) => grouped[id]);
 
+  // Headline: how many green-lights and total non-hidden matches. Gives the
+  // user a one-glance sense of the page before they start reading. This is
+  // the payoff moment of the app — announce it.
+  const greenLightCount = pairMatches.filter((m) => m.matchType === "green-light").length;
+  const totalMatches = pairMatches.length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {showHeading && (
         <h2 className="text-xl font-bold text-center">
           {a.name} & {b.name}
@@ -272,36 +352,75 @@ function PairComparison({
       )}
 
       {sortedCategories.length === 0 ? (
-        <p className="text-center text-text-muted">No matches found — but that's OK.</p>
+        <div className="py-16 text-center space-y-4">
+          <p className="text-base text-text-muted italic">
+            No overlaps this time — but that's part of the conversation too.
+          </p>
+          <p className="text-xs text-text-muted/70">Try the "Change my answers" button to explore more.</p>
+        </div>
       ) : (
-        sortedCategories.map((catId) => {
-          const group = grouped[catId];
-          return (
-            <div key={catId}>
-              <h3 className="text-sm font-medium text-text-muted mb-2">{group.label}</h3>
-              <div className="space-y-2">
-                {group.matches
-                  .sort((x, y) => (questionOrder[x.questionId] ?? 0) - (questionOrder[y.questionId] ?? 0))
-                  .map((match) => {
-                    const style = MATCH_STYLES[match.matchType];
-                    return (
-                      <div
-                        key={`${match.questionId}-${match.displayText}`}
-                        className={`px-4 py-3 rounded-lg ${style.bg}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`font-medium ${match.matchType === "fantasy" ? "italic" : ""}`}>
-                            {match.displayText}
-                          </span>
-                          <span className="text-sm text-text-muted shrink-0 ml-3">{style.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+        <>
+          {/* Summary strip — tabular-nums so the digits don't dance on resize. */}
+          <div
+            className="flex items-baseline justify-center gap-6 py-4 px-6 bg-surface/50 rounded-[var(--radius-lg)] border border-border/40"
+            data-testid="match-summary"
+          >
+            <div className="text-center">
+              <div className="text-2xl font-bold text-accent tabular-nums" data-testid="green-light-count">
+                {greenLightCount}
               </div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted mt-0.5">Go for it</div>
             </div>
-          );
-        })
+            <div className="w-px h-10 bg-border/60" />
+            <div className="text-center">
+              <div className="text-2xl font-bold tabular-nums" data-testid="total-matches-count">
+                {totalMatches}
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted mt-0.5">Total matches</div>
+            </div>
+          </div>
+
+          {sortedCategories.map((catId) => {
+            const group = grouped[catId];
+            return (
+              <section key={catId} className="space-y-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
+                  <span className="w-1 h-1 rounded-full bg-accent" />
+                  {group.label}
+                  <span className="flex-1 h-px bg-border/40 ml-1" />
+                  <span className="tabular-nums text-text-muted/60 normal-case tracking-normal text-[11px]">
+                    {group.matches.length}
+                  </span>
+                </h3>
+                <div className="space-y-2">
+                  {group.matches
+                    .sort((x, y) => (questionOrder[x.questionId] ?? 0) - (questionOrder[y.questionId] ?? 0))
+                    .map((match) => {
+                      const style = MATCH_STYLES[match.matchType];
+                      return (
+                        <div
+                          key={`${match.questionId}-${match.displayText}`}
+                          className={`px-4 py-3 rounded-[var(--radius-md)] transition-all ${style.container}`}
+                          data-testid="match-row"
+                          data-match-type={match.matchType}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className={`${style.labelStyle}`}>{match.displayText}</span>
+                            <span
+                              className={`text-[10px] uppercase tracking-wider font-semibold shrink-0 px-2 py-0.5 rounded-full ${style.badge}`}
+                              data-testid="match-badge"
+                            >
+                              {style.label}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </section>
+            );
+          })}
+        </>
       )}
     </div>
   );
