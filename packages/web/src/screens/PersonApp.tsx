@@ -7,7 +7,7 @@ import {
 } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
@@ -15,18 +15,18 @@ import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
-import { useTRPC, wsClient } from "../lib/trpc.js";
+import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
+import { Comparison } from "./Comparison.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
 import { Invite } from "./Invite.js";
 import { Question } from "./Question.js";
 import { Review } from "./Review.js";
 import { Summary } from "./Summary.js";
-
-const Comparison = lazy(() => import("./Comparison.js").then((m) => ({ default: m.Comparison })));
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type GroupStatus = NonNullable<RouterOutputs["groups"]["status"]>;
@@ -74,7 +74,23 @@ export function PersonApp() {
 
   const { status, refresh: refreshStatus } = useLiveStatus(token);
   const trpcProxy = useTRPC();
+  const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
+
+  // Pre-warm the Comparison cache the moment allComplete flips to true,
+  // so the /results render doesn't have to wait for the HTTP fetch +
+  // decryption on the critical path. This covers both sides of the
+  // markComplete broadcast: the user who clicked (own mutation onSuccess
+  // invalidates status → useLiveStatus refetches → allComplete flips) and
+  // the partner (WS push → setQueryData → allComplete flips). By the time
+  // the guard redirects to /results, the journal is either already in
+  // cache or in flight.
+  const allComplete = status && "members" in status ? status.members.every((m) => m.isCompleted) : false;
+  useEffect(() => {
+    if (allComplete && !queryClient.getQueryData(JOURNAL_QUERY_KEY)) {
+      prefetchJournal(queryClient, trpcClient).catch((err) => console.error("Journal prefetch failed:", err));
+    }
+  }, [allComplete, queryClient, trpcClient]);
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
   // Mutations share onSuccess: invalidate groups.status so the guard
@@ -116,7 +132,6 @@ export function PersonApp() {
     );
   }
 
-  const allComplete = status.members.every((m) => m.isCompleted);
   const defaultRoute = resolveRoute(status.person, status.group, allComplete);
 
   // Universal guard: if current route doesn't match resolved state, redirect.
@@ -216,15 +231,7 @@ export function PersonApp() {
           </Route>
 
           <Route path="/results">
-            <Suspense
-              fallback={
-                <Card>
-                  <div className="pt-32 text-center text-text-muted">Loading results...</div>
-                </Card>
-              }
-            >
-              <Comparison onBack={() => navigate("/questions")} />
-            </Suspense>
+            <Comparison onBack={() => navigate("/questions")} />
           </Route>
 
           <Route>

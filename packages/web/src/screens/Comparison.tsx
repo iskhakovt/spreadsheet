@@ -1,57 +1,17 @@
-import type { Answer } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useMemo, useRef, useState } from "react";
 import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
-import { unwrapSensitive } from "../lib/crypto.js";
-import { replayJournal } from "../lib/journal.js";
-import { type JournalEntry, mergeJournal } from "../lib/merge-journal.js";
+import {
+  type CachedJournal,
+  JOURNAL_QUERY_KEY,
+  type MemberAnswers,
+  makeJournalQueryFn,
+  replayMembers,
+} from "../lib/journal-query.js";
+import { mergeJournal } from "../lib/merge-journal.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
-
-interface MemberAnswers {
-  id: string;
-  name: string;
-  anatomy: string | null;
-  answers: Record<string, Answer>;
-}
-
-/**
- * Shape stored in the TanStack cache for `sync.journal`.
- *
- * The queryFn decrypts + replays the raw server response into `members`
- * (with plaintext names + per-question answer state) so that Comparison
- * can render synchronously on first mount — no async useEffect cycle
- * between "data arrived" and "content visible", which was adding ~500ms
- * of latency on the critical render path under parallel E2E load.
- *
- * The raw `entries` are retained alongside the derived `members` so the
- * subscription can dedup incremental appends by `id` against the current
- * cache state before re-replaying.
- */
-interface CachedJournal {
-  members: MemberAnswers[];
-  entries: JournalEntry[];
-  cursor: number | null;
-}
-
-/** Decrypt + replay the raw journal response into MemberAnswers[]. */
-async function replayMembers(
-  members: { id: string; name: string; anatomy: string | null }[],
-  entries: JournalEntry[],
-): Promise<MemberAnswers[]> {
-  return Promise.all(
-    members.map(async (m) => {
-      const memberEntries = entries.filter((e) => e.personId === m.id);
-      return {
-        id: m.id,
-        name: await unwrapSensitive(m.name),
-        anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
-        answers: await replayJournal(memberEntries),
-      };
-    }),
-  );
-}
 
 const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
   "green-light": { bg: "bg-accent/15", label: "Go for it" },
@@ -122,19 +82,14 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   // queryFn we skip the old "render → useEffect → async replay → setState
   // → re-render" cycle entirely. The cache stores the decrypted shape,
   // so on first paint Comparison already has memberAnswers.
-  // Use the tRPC proxy's queryKey so cache lookups match, but write our own
-  // queryFn that fetches via the vanilla client and decrypts + replays before
-  // returning. The cache stores the derived shape (CachedJournal), so on the
-  // first paint Comparison already has memberAnswers — no extra useEffect
-  // cycle between "data arrived" and "content visible".
-  const journalQueryKey = trpc.sync.journal.queryKey({ sinceId: null });
+  //
+  // The queryFn + JOURNAL_QUERY_KEY are shared with `prefetchJournal` in
+  // useLiveStatus, which pre-warms this cache entry the moment the WS push
+  // signals allComplete. On the receiver side (Alice seeing Bob's complete),
+  // by the time this component mounts the data is usually already ready.
   const { data: journal } = useSuspenseQuery({
-    queryKey: journalQueryKey,
-    queryFn: async ({ signal }): Promise<CachedJournal> => {
-      const raw = await trpcClient.sync.journal.query({ sinceId: null }, { signal });
-      const members = await replayMembers(raw.members, raw.entries);
-      return { members, entries: raw.entries, cursor: raw.cursor };
-    },
+    queryKey: JOURNAL_QUERY_KEY,
+    queryFn: makeJournalQueryFn(trpcClient),
   });
 
   // Cursor seeded from the HTTP backfill so the subscription doesn't re-fetch
@@ -165,7 +120,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
           if (entries.length === 0) return;
           const mySeq = ++seqRef.current;
           try {
-            const current = queryClient.getQueryData<CachedJournal>(journalQueryKey);
+            const current = queryClient.getQueryData<CachedJournal>(JOURNAL_QUERY_KEY);
             if (!current) return;
             // Dedup + append via the pure helper
             const mergedRaw = mergeJournal({ ...current }, entries);
@@ -173,7 +128,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
             const members = await replayMembers(current.members, mergedRaw.entries);
             // Drop if a newer push already landed while we were replaying
             if (mySeq !== seqRef.current) return;
-            queryClient.setQueryData(journalQueryKey, {
+            queryClient.setQueryData(JOURNAL_QUERY_KEY, {
               members,
               entries: mergedRaw.entries,
               cursor: mergedRaw.cursor,
