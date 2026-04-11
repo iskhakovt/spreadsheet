@@ -231,7 +231,7 @@ export function PersonApp() {
           </Route>
 
           <Route path="/results">
-            <Comparison onBack={() => navigate("/questions")} />
+            <Comparison viewerId={status.person.id} onBack={() => navigate("/questions")} />
           </Route>
 
           <Route>

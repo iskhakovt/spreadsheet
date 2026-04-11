@@ -77,7 +77,7 @@ const MATCH_STYLES: Record<MatchType, { container: string; badge: string; label:
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ onBack }: { onBack?: () => void }) {
+export function Comparison({ viewerId, onBack }: { viewerId: string; onBack?: () => void }) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -180,10 +180,14 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
     ),
   );
 
-  const memberAnswers = journal.members;
+  const memberAnswers = useMemo(() => {
+    const viewer = journal.members.find((m) => m.id === viewerId);
+    const others = journal.members.filter((m) => m.id !== viewerId).sort((a, b) => a.name.localeCompare(b.name));
+    return viewer ? [viewer, ...others] : others;
+  }, [journal.members, viewerId]);
+
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
-  // Build pairwise comparisons
   const pairs: { a: MemberAnswers; b: MemberAnswers }[] = [];
   for (let i = 0; i < memberAnswers.length; i++) {
     for (let j = i + 1; j < memberAnswers.length; j++) {
@@ -194,6 +198,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
   const showTabs = pairs.length > 1;
   const pairKey = (a: MemberAnswers, b: MemberAnswers) => `${a.id}-${b.id}`;
   const visiblePair = pairs.find((p) => pairKey(p.a, p.b) === activePairKey) ?? pairs[0];
+  const displayName = (m: MemberAnswers) => (m.id === viewerId ? "You" : m.name);
 
   return (
     <div className="relative min-h-screen px-4 py-10 sm:py-14 overflow-hidden">
@@ -243,7 +248,7 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
                       : "bg-surface/80 text-text-muted hover:text-text hover:bg-surface"
                   }`}
                 >
-                  {a.name} & {b.name}
+                  {displayName(a)} & {displayName(b)}
                 </button>
               );
             })}
@@ -257,6 +262,8 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
                 key={`${visiblePair.a.id}-${visiblePair.b.id}`}
                 a={visiblePair.a}
                 b={visiblePair.b}
+                aDisplayName={displayName(visiblePair.a)}
+                bDisplayName={displayName(visiblePair.b)}
                 questions={questions}
                 categories={categories}
                 categoryOrder={categoryOrder}
@@ -269,6 +276,8 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
             <PairComparison
               a={visiblePair.a}
               b={visiblePair.b}
+              aDisplayName={displayName(visiblePair.a)}
+              bDisplayName={displayName(visiblePair.b)}
               questions={questions}
               categories={categories}
               categoryOrder={categoryOrder}
@@ -306,6 +315,8 @@ export function Comparison({ onBack }: { onBack?: () => void }) {
 function PairComparison({
   a,
   b,
+  aDisplayName,
+  bDisplayName,
   questions,
   categories,
   categoryOrder,
@@ -314,13 +325,18 @@ function PairComparison({
 }: {
   a: MemberAnswers;
   b: MemberAnswers;
+  aDisplayName: string;
+  bDisplayName: string;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
   categoryOrder: string[];
   questionOrder: Record<string, number>;
   showHeading?: boolean;
 }) {
-  const pairMatches = buildPairMatches(a.answers, b.answers, questions, a.name);
+  // buildPairMatches uses a.name internally for its own match-text
+  // labelling (e.g. "Alice wants X"). Pass aDisplayName so labels read
+  // as "You want X" when the viewer is a.
+  const pairMatches = buildPairMatches(a.answers, b.answers, questions, aDisplayName);
 
   // Group matches by category
   const grouped: Record<string, { label: string; matches: typeof pairMatches }> = {};
@@ -347,7 +363,7 @@ function PairComparison({
     <div className="space-y-8">
       {showHeading && (
         <h2 className="text-xl font-bold text-center">
-          {a.name} & {b.name}
+          {aDisplayName} & {bDisplayName}
         </h2>
       )}
 

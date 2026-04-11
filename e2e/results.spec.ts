@@ -22,7 +22,7 @@ test.describe("results display", () => {
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
-    await expect(bob.getByText("Alice & Bob")).toBeVisible();
+    await expect(bob.getByText("You & Alice")).toBeVisible();
 
     // All should be green-light matches (both yes + both now). Target the
     // data-match-type attribute on match rows so we don't collide with the

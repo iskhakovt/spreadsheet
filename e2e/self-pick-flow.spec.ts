@@ -64,6 +64,6 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
 
     // Both complete → Bob sees results
     await expect(bob.getByText("Your matches")).toBeVisible();
-    await expect(bob.getByText("Alice & Bob")).toBeVisible();
+    await expect(bob.getByText("You & Alice")).toBeVisible();
   });
 });
