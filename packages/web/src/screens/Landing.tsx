@@ -1,5 +1,6 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
@@ -7,7 +8,7 @@ import { Card } from "../components/Card.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
-import { trpc } from "../lib/trpc.js";
+import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
   const [, navigate] = useLocation();
@@ -42,35 +43,32 @@ export function Landing() {
 }
 
 function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
+  const trpc = useTRPC();
   const [encrypted, setEncrypted] = useState(false);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
   const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
   const [anatomyPicker, setAnatomyPicker] = useState<AnatomyPicker>("admin");
-  const [loading, setLoading] = useState(false);
+
+  const createMutation = useMutation(trpc.groups.create.mutationOptions());
 
   const isFiltered = questionMode === "filtered";
+  const loading = createMutation.isPending;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const groupKey = encrypted ? await generateGroupKey() : null;
-
-      const result = await trpc.groups.create.mutate({
-        encrypted,
-        questionMode,
-        showTiming,
-        anatomyLabels: isFiltered ? anatomyLabels : null,
-        anatomyPicker: isFiltered ? anatomyPicker : null,
-      });
-      if (groupKey) {
-        onCreated(`${result.adminToken}#key=${groupKey}`);
-      } else {
-        onCreated(result.adminToken);
-      }
-    } finally {
-      setLoading(false);
+    const groupKey = encrypted ? await generateGroupKey() : null;
+    const result = await createMutation.mutateAsync({
+      encrypted,
+      questionMode,
+      showTiming,
+      anatomyLabels: isFiltered ? anatomyLabels : null,
+      anatomyPicker: isFiltered ? anatomyPicker : null,
+    });
+    if (groupKey) {
+      onCreated(`${result.adminToken}#key=${groupKey}`);
+    } else {
+      onCreated(result.adminToken);
     }
   }
 

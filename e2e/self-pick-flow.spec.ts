@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, setCategories } from "./helpers.js";
+import { answerAllQuestions, narrowToCategory } from "./helpers.js";
 
 test.describe("filtered mode — self-pick anatomy flow", () => {
   test("both players pick anatomy, wait for each other, then answer", async ({ browser }) => {
@@ -55,15 +55,15 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     // WS push delivers the group-ready broadcast → guard redirects to /intro
     await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
 
-    // Both go through intro → answer questions → complete
-    await setCategories(alice, ["group"]);
+    // Both go through intro → narrow via Summary UI → answer → complete
     await alice.getByText("Let's go").click();
+    await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
-    await setCategories(bob, ["group"]);
     await bob.getByText("Let's go").click();
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 

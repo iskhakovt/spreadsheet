@@ -1,10 +1,11 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
-import { trpc } from "../lib/trpc.js";
+import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
 interface Partner {
@@ -20,22 +21,29 @@ interface GroupSetupProps {
     anatomyPicker: string | null;
     encrypted: boolean;
   };
-  onDone: () => void | Promise<void>;
 }
 
-export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
+export function GroupSetup({ adminToken, group }: GroupSetupProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [myName, setMyName] = useState("");
   const [myAnatomy, setMyAnatomy] = useState<Anatomy | "">("");
   const [partners, setPartners] = useState<Partner[]>([{ name: "", anatomy: "" }]);
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
   const { copiedIndex: copied, copy: handleCopy } = useCopy();
-  const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // NOTE: no onSuccess invalidation here — we want the "You're all set"
+  // intermediate screen to stay visible until the user clicks "Start filling
+  // out". That click triggers the invalidation, which updates status, which
+  // makes PersonApp's guard route away from /setup.
+  const setupMutation = useMutation(trpc.groups.setupAdmin.mutationOptions());
 
   const isFiltered = group.questionMode === "filtered";
   const adminPicksAnatomy = isFiltered && group.anatomyPicker === "admin";
   const anatomyLabelKey = (group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
+  const loading = setupMutation.isPending;
 
   const canSubmit =
     myName && (!adminPicksAnatomy || myAnatomy) && partners.every((p) => p.name && (!adminPicksAnatomy || p.anatomy));
@@ -55,38 +63,33 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
 
   async function handleSubmit() {
     if (!canSubmit) return;
-    setLoading(true);
-    try {
-      const groupKey = getGroupKeyFromUrl();
+    const groupKey = getGroupKeyFromUrl();
 
-      const encName = await wrapSensitive(myName);
-      const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
-      const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : null;
+    const encName = await wrapSensitive(myName);
+    const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
+    const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : null;
 
-      const encPartners = await Promise.all(
-        partners.map(async (p) => {
-          const pRawAnatomy = adminPicksAnatomy ? (p.anatomy as string) : null;
-          return {
-            name: await wrapSensitive(p.name),
-            anatomy: pRawAnatomy ? await wrapSensitive(pRawAnatomy) : null,
-          };
-        }),
-      );
+    const encPartners = await Promise.all(
+      partners.map(async (p) => {
+        const pRawAnatomy = adminPicksAnatomy ? (p.anatomy as string) : null;
+        return {
+          name: await wrapSensitive(p.name),
+          anatomy: pRawAnatomy ? await wrapSensitive(pRawAnatomy) : null,
+        };
+      }),
+    );
 
-      const result = await trpc.groups.setupAdmin.mutate({
-        adminToken,
-        name: encName,
-        anatomy: encAnatomy,
-        partners: encPartners,
-      });
+    const result = await setupMutation.mutateAsync({
+      adminToken,
+      name: encName,
+      anatomy: encAnatomy,
+      partners: encPartners,
+    });
 
-      const keyFragment = groupKey ? `#key=${groupKey}` : "";
-      const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
-      setGeneratedLinks(links);
-      setDone(true);
-    } finally {
-      setLoading(false);
-    }
+    const keyFragment = groupKey ? `#key=${groupKey}` : "";
+    const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
+    setGeneratedLinks(links);
+    setDone(true);
   }
 
   // After submission — show links and continue button
@@ -125,12 +128,7 @@ export function GroupSetup({ adminToken, group, onDone }: GroupSetupProps) {
             </div>
           ))}
 
-          <Button
-            fullWidth
-            onClick={async () => {
-              await onDone();
-            }}
-          >
+          <Button fullWidth onClick={() => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() })}>
             Start filling out
           </Button>
         </div>

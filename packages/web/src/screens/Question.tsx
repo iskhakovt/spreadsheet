@@ -1,27 +1,25 @@
 import type { Answer, CategoryData, OperationPayload, QuestionData, Rating, Timing } from "@spreadsheet/shared";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
-import { mergeAfterRejection } from "../lib/journal.js";
 import {
   addPendingOp,
-  clearPendingOps,
   getAnswers,
   getCurrentScreenKey,
   getPendingOps,
   getSelectedCategories,
   getSelectedTier,
-  getStoken,
   setAnswer,
-  setAnswers,
   setCurrentScreenKey,
   setSelectedCategories,
-  setStoken,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
-import { trpc } from "../lib/trpc.js";
+import { useTRPC } from "../lib/trpc.js";
+import { useSyncQueue } from "../lib/use-sync-queue.js";
 import { QuestionCard } from "./QuestionCard.js";
 import { WelcomeScreen } from "./WelcomeScreen.js";
 
@@ -36,42 +34,55 @@ interface QuestionProps {
 }
 
 export function Question({ person, group, members, onDone, onSummary, startKey, onStartKeyConsumed }: QuestionProps) {
-  const [questions, setQuestions] = useState<QuestionData[]>([]);
-  const [categoryMap, setCategoryMap] = useState<Record<string, CategoryData>>({});
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
+  const questions = questionsData.questions as QuestionData[];
+  const categoryMap = useMemo(() => {
+    const map: Record<string, CategoryData> = {};
+    for (const c of questionsData.categories as CategoryData[]) map[c.id] = c;
+    return map;
+  }, [questionsData.categories]);
+
   const [index, setIndex] = useState(0);
   const [showDescription, setShowDescription] = useState(false);
   const [showTiming, setShowTiming] = useState(false);
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [showSyncIndicator, setShowSyncIndicator] = useState(false);
-  const syncingRef = useRef(false);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const syncIndicatorTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const handleSyncRef = useRef<() => Promise<void>>(undefined);
-  const handleRatingRef = useRef<(rating: Rating) => void>(undefined);
-  const handleTimingRef = useRef<(timing: Timing) => void>(undefined);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusHeading = useRef(false);
   const answers = getAnswers();
   const pendingOps = getPendingOps();
 
-  // Load questions + auto-select categories + sync pending ops from previous session
-  useEffect(() => {
-    trpc.questions.list.query().then((data) => {
-      setQuestions(data.questions as QuestionData[]);
-      const map: Record<string, CategoryData> = {};
-      for (const c of data.categories as CategoryData[]) map[c.id] = c;
-      setCategoryMap(map);
-      if (!getSelectedCategories()) {
-        setSelectedCategories((data.categories as CategoryData[]).map((c) => c.id));
-      }
-      if (getPendingOps().length > 0) {
-        setTimeout(() => handleSyncRef.current?.(), 500);
-      }
-    });
-  }, []);
+  const markCompleteMutation = useMutation(
+    trpc.sync.markComplete.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
+    }),
+  );
 
-  const selectedCategories = getSelectedCategories() ?? [];
+  // Selected categories are React state (not a plain localStorage read) so
+  // the first-mount default propagates through a re-render. Prior pattern
+  // read localStorage each render + wrote defaults in an effect — but
+  // effects don't trigger re-renders by themselves, so a fresh user with
+  // no stored categories would see an empty "No questions for your selected
+  // categories" screen until something else re-rendered the component.
+  //
+  // Storage contract:
+  //   null  → first-time user, default to all categories (and persist)
+  //   []    → user explicitly unchecked everything via Summary; respect it
+  //            (the empty-state Card below is the intended outcome)
+  //   [...] → use the stored list as-is
+  //
+  // The lazy initializer both returns the value for the first render AND
+  // persists the default to localStorage so the scoped storage contract
+  // (cross-tab, survives reload) is unchanged.
+  const [selectedCategories] = useState<string[]>(() => {
+    const stored = getSelectedCategories();
+    if (stored !== null) return stored;
+    const all = (questionsData.categories as CategoryData[]).map((c) => c.id);
+    setSelectedCategories(all);
+    return all;
+  });
   const maxTier = getSelectedTier();
   const otherAnatomies = useMemo(
     () =>
@@ -98,6 +109,19 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
+
+  // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
+  const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length);
+
+  // Flush any leftover pendingOps from a previous session after a short
+  // delay so the sync machinery is ready. (Category default-selection is
+  // handled by the useState initializer above.)
+  useEffect(() => {
+    if (getPendingOps().length > 0) {
+      setTimeout(handleSync, 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Navigate to startKey, saved position, or first unanswered
   useEffect(() => {
@@ -133,7 +157,12 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     }
   }, [index]);
 
-  // Keyboard navigation: arrows + number keys for ratings
+  // Keyboard navigation: arrows + number keys for ratings. The handlers
+  // themselves are defined later in the function (they close over state
+  // that changes per render), so we keep stable refs and update them on
+  // every render to avoid tearing down the listener.
+  const handleRatingRef = useRef<(rating: Rating) => void>(undefined);
+  const handleTimingRef = useRef<(timing: Timing) => void>(undefined);
   const keyRatingMap: Record<string, Rating> = {
     "1": "yes",
     "2": "if-partner-wants",
@@ -163,30 +192,18 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [screens.length, showTiming]);
 
-  // Auto-sync 3s after last answer, show indicator after 5s
+  // Auto-sync scheduled whenever the pending-ops count changes. The hook
+  // owns the 3s debounce timer + the 5s indicator delay internally.
+  //
+  // Dep is `pendingOps.length` specifically (not just `pendingOps`, which
+  // is a fresh localStorage read per render). Without a dep the effect
+  // would re-run on every render, which could defer the debounce
+  // indefinitely if an unrelated parent re-renders us more often than 3s.
   useEffect(() => {
-    clearTimeout(syncTimerRef.current);
-    clearTimeout(syncIndicatorTimerRef.current);
-    if (pendingOps.length === 0) {
-      setShowSyncIndicator(false);
-      return;
-    }
-    syncTimerRef.current = setTimeout(() => handleSyncRef.current?.(), 3000);
-    syncIndicatorTimerRef.current = setTimeout(() => setShowSyncIndicator(true), 5000);
-    return () => {
-      clearTimeout(syncTimerRef.current);
-      clearTimeout(syncIndicatorTimerRef.current);
-    };
-  });
+    scheduleSync(pendingOps.length);
+  }, [pendingOps.length, scheduleSync]);
 
-  // --- Loading / empty states ---
-  if (questions.length === 0) {
-    return (
-      <Card>
-        <div className="pt-32 text-center text-text-muted">Loading questions...</div>
-      </Card>
-    );
-  }
+  // --- Empty state (no matching questions for selected categories) ---
   if (qScreens.length === 0) {
     return (
       <Card>
@@ -234,50 +251,15 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     );
   }
 
-  // --- Sync logic ---
-  async function pushOps(ops: string[], stoken: string | null) {
-    const progress = await encodeValue({ answered: Object.keys(getAnswers()).length, total: qScreens.length });
-    return trpc.sync.push.mutate({ stoken, operations: ops, progress });
-  }
-
-  async function handleConflict(ops: string[], serverStoken: string | null, serverEntries: string[]) {
-    const merged = await mergeAfterRejection(getAnswers(), ops, serverEntries);
-    setAnswers(merged);
-    const retryProgress = await encodeValue({ answered: Object.keys(merged).length, total: qScreens.length });
-    const retry = await trpc.sync.push.mutate({ stoken: serverStoken, operations: ops, progress: retryProgress });
-    setStoken(retry.stoken);
-    if (!retry.pushRejected) {
-      clearPendingOps();
-    } else {
-      console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
-    }
-  }
-
-  async function handleSync() {
-    const ops = getPendingOps();
-    if (ops.length === 0 || syncingRef.current) return;
-    syncingRef.current = true;
-    setSyncing(true);
-    try {
-      const result = await pushOps(ops, getStoken());
-      setStoken(result.stoken);
-      if (!result.pushRejected) {
-        clearPendingOps();
-      } else {
-        await handleConflict(ops, result.stoken, result.entries);
-      }
-    } finally {
-      setSyncing(false);
-      syncingRef.current = false;
-    }
-  }
-
-  handleSyncRef.current = handleSync;
-
+  // --- Mark complete: flush pending writes, mark, then navigate to /waiting ---
+  // Explicit navigation is needed because /questions is in the free routes
+  // list (so the guard doesn't kick marked-complete users out of editing),
+  // which means it also won't auto-redirect from /questions to /waiting.
   async function handleMarkComplete() {
     await handleSync();
-    await trpc.sync.markComplete.mutate();
+    await markCompleteMutation.mutateAsync();
     await onDone();
+    navigate("/waiting");
   }
 
   // --- Answer handlers ---
@@ -296,6 +278,8 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
     setPendingRating(null);
   }
 
+  // Update the stable refs that the keyboard effect reads, so keystrokes
+  // always dispatch against the latest closure (index, pendingRating, etc.)
   handleRatingRef.current = handleRating;
   handleTimingRef.current = handleTiming;
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { groupEvents } from "../../events.js";
+import { groupEvents, journalEvents } from "../../events.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -8,6 +8,7 @@ const createCaller = createCallerFactory(appRouter);
 
 afterEach(() => {
   groupEvents.removeAllListeners();
+  journalEvents.removeAllListeners();
 });
 
 function mockCtx(
@@ -32,7 +33,13 @@ function mockCtx(
       getStatus: vi.fn(),
       ...overrides.groups,
     },
-    sync: { push: vi.fn(), markComplete: vi.fn(), unmarkComplete: vi.fn(), compare: vi.fn(), ...overrides.sync },
+    sync: {
+      push: vi.fn(),
+      markComplete: vi.fn(),
+      unmarkComplete: vi.fn(),
+      journalSince: vi.fn(),
+      ...overrides.sync,
+    },
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
     person: overrides.person ?? null,
     group: overrides.group ?? null,
@@ -53,6 +60,14 @@ const group = {
   anatomyPicker: null,
 };
 
+/** Shared test fixture: what a successful sync.push store call returns. */
+const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
+  stoken: "s1",
+  entries: [],
+  committedEntries: entries,
+  pushRejected: false as const,
+});
+
 describe("sync.push", () => {
   it("validates opaque format before calling store", async () => {
     const ctx = mockCtx({ person, group });
@@ -63,7 +78,7 @@ describe("sync.push", () => {
   });
 
   it("passes valid operations to store", async () => {
-    const push = vi.fn().mockResolvedValue({ stoken: "s1", entries: [], pushRejected: false });
+    const push = vi.fn().mockResolvedValue(pushOk());
     const ctx = mockCtx({ person, group, sync: { push } });
     const caller = createCaller(ctx);
     await caller.sync.push({
@@ -83,6 +98,89 @@ describe("sync.push", () => {
     await expect(caller.sync.push({ stoken: null, operations: [], progress: null })).rejects.toThrow(
       "Invalid or missing person token",
     );
+  });
+
+  it("strips committedEntries from the wire response", async () => {
+    const committedEntries = [{ id: 1, personId: "p1", operation: "p:1:blob" }];
+    const push = vi.fn().mockResolvedValue(pushOk(committedEntries));
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    const result = await caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
+    expect("committedEntries" in result).toBe(false);
+  });
+});
+
+describe("sync.push journal bus emission", () => {
+  it("emits journal:<groupId> with committed entries on success", async () => {
+    const committedEntries = [
+      { id: 1, personId: "p1", operation: "p:1:blob1" },
+      { id: 2, personId: "p1", operation: "p:1:blob2" },
+    ];
+    const push = vi.fn().mockResolvedValue(pushOk(committedEntries));
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(committedEntries);
+  });
+
+  it("does NOT emit on rejected push", async () => {
+    const push = vi.fn().mockResolvedValue({
+      stoken: "s1",
+      entries: ["p:1:serverEntry"],
+      committedEntries: [],
+      pushRejected: true as const,
+    });
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: "stale-stoken", operations: [], progress: null });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit on validation error (invalid op format)", async () => {
+    const push = vi.fn();
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await expect(caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: null })).rejects.toThrow(
+      "Invalid operation format",
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when committedEntries is empty (progress-only push)", async () => {
+    const push = vi.fn().mockResolvedValue(pushOk([]));
+    const handler = vi.fn();
+    journalEvents.on("journal:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: null, operations: [], progress: 'p:1:{"answered":5,"total":10}' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit a groupEvents update on successful push (no status broadcast)", async () => {
+    const push = vi.fn().mockResolvedValue(pushOk([{ id: 1, personId: "p1", operation: "p:1:blob" }]));
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await caller.sync.push({ stoken: null, operations: [], progress: null });
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 
@@ -142,34 +240,43 @@ describe("sync.markComplete / unmarkComplete", () => {
   });
 });
 
-describe("sync.push (no broadcast)", () => {
-  it("does NOT emit a group event after successful push", async () => {
-    const push = vi.fn().mockResolvedValue({ stoken: "s1", entries: [], pushRejected: false });
-    const handler = vi.fn();
-    groupEvents.on("group:g1", handler);
-    const ctx = mockCtx({ person, group, sync: { push } });
-    const caller = createCaller(ctx);
-    await caller.sync.push({ stoken: null, operations: [], progress: null });
-    expect(push).toHaveBeenCalled();
-    expect(handler).not.toHaveBeenCalled();
-  });
-});
-
-describe("sync.compare", () => {
+describe("sync.journal", () => {
   it("returns data when store succeeds", async () => {
-    const data = { members: [{ id: "p1", name: "A", anatomy: "afab" }], entries: [] };
-    const compare = vi.fn().mockResolvedValue(data);
-    const ctx = mockCtx({ person, group, sync: { compare } });
+    const data = {
+      members: [{ id: "p1", name: "A", anatomy: "afab" }],
+      entries: [],
+      cursor: null,
+    };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
-    const result = await caller.sync.compare();
+    const result = await caller.sync.journal({ sinceId: null });
     expect(result).toEqual(data);
-    expect(compare).toHaveBeenCalledWith("g1");
+    expect(journalSince).toHaveBeenCalledWith("g1", null);
+  });
+
+  it("passes sinceId through to the store", async () => {
+    const data = { members: [], entries: [], cursor: 42 };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    await caller.sync.journal({ sinceId: 42 });
+    expect(journalSince).toHaveBeenCalledWith("g1", 42);
+  });
+
+  it("defaults sinceId to null when input is omitted", async () => {
+    const data = { members: [], entries: [], cursor: null };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    await caller.sync.journal();
+    expect(journalSince).toHaveBeenCalledWith("g1", null);
   });
 
   it("throws when store returns not_all_complete", async () => {
-    const compare = vi.fn().mockResolvedValue({ error: "not_all_complete" });
-    const ctx = mockCtx({ person, group, sync: { compare } });
+    const journalSince = vi.fn().mockResolvedValue({ error: "not_all_complete" });
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
-    await expect(caller.sync.compare()).rejects.toThrow("All group members must mark complete");
+    await expect(caller.sync.journal({ sinceId: null })).rejects.toThrow("All group members must mark complete");
   });
 });

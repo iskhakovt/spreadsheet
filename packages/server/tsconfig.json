@@ -5,10 +5,7 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "skipLibCheck": true,
-    "outDir": "dist",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
+    "noEmit": true,
     "types": ["node"]
   },
   "include": ["src"]

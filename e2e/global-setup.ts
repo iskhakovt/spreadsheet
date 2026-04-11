@@ -9,7 +9,39 @@ let container: StartedPostgreSqlContainer;
 let serverProcess: ChildProcess;
 
 export default async function globalSetup() {
-  // Start Postgres
+  // Build the web bundle FIRST. The Hono server we're about to start
+  // serves `packages/web/dist` as a static root; if we skip this step,
+  // E2E runs against whatever stale bundle happens to be in dist/ —
+  // which silently hides source changes and produces false pass/fail
+  // signals.
+  //
+  // Why build here rather than in `webServer.command` (the Playwright
+  // idiom): our server needs a dynamic `DATABASE_URL` from a
+  // testcontainer that's resolved later in this same globalSetup.
+  // `webServer.command` runs in a subshell with env snapshotted at
+  // Playwright startup, so the testcontainer URL can't reach it. The
+  // build-in-globalSetup pattern is the pragmatic fit for this stack.
+  //
+  // Escape hatch for local iteration: set SKIP_E2E_BUILD=1 when you
+  // KNOW the bundle is already fresh (e.g. you just ran `vite build`
+  // manually, or you're iterating on test logic without touching
+  // packages/web source). CI should always do a fresh build, so
+  // SKIP_E2E_BUILD must never be set in CI env.
+  if (process.env.SKIP_E2E_BUILD === "1") {
+    console.log("[global-setup] SKIP_E2E_BUILD=1 — reusing existing packages/web/dist");
+  } else {
+    const webDir = resolve(import.meta.dirname, "../packages/web");
+    console.log("[global-setup] building packages/web...");
+    const buildStart = Date.now();
+    execSync("pnpm exec vite build", {
+      cwd: webDir,
+      stdio: "inherit",
+    });
+    console.log(`[global-setup] build done in ${Date.now() - buildStart}ms`);
+  }
+
+  // Start Postgres. The container URL is returned dynamically and
+  // plumbed into both the setup subcommand and the server's env.
   container = await new PostgreSqlContainer("postgres:17").start();
   const url = container.getConnectionUri();
 
@@ -31,7 +63,6 @@ export default async function globalSetup() {
       STOKEN_SECRET: "e2e-test-secret",
       STATIC_ROOT: staticRoot,
       PORT: "0",
-      POLL_MS: "1000",
     },
     stdio: "pipe",
   });

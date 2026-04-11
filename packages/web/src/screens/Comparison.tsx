@@ -1,18 +1,17 @@
-import type { Answer } from "@spreadsheet/shared";
-import { useEffect, useState } from "react";
-import { Card } from "../components/Card.js";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useSubscription } from "@trpc/tanstack-react-query";
+import { useMemo, useRef, useState } from "react";
 import { buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
-import { unwrapSensitive } from "../lib/crypto.js";
-import { replayJournal } from "../lib/journal.js";
-import { trpc } from "../lib/trpc.js";
-
-interface MemberAnswers {
-  id: string;
-  name: string;
-  anatomy: string | null;
-  answers: Record<string, Answer>;
-}
+import {
+  type CachedJournal,
+  JOURNAL_QUERY_KEY,
+  type MemberAnswers,
+  makeJournalQueryFn,
+  rebuildMemberAnswers,
+} from "../lib/journal-query.js";
+import { mergeJournal } from "../lib/merge-journal.js";
+import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
 const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
   "green-light": { bg: "bg-accent/15", label: "Go for it" },
@@ -23,75 +22,132 @@ const MATCH_STYLES: Record<MatchType, { bg: string; label: string }> = {
   hidden: { bg: "", label: "" },
 };
 
+/**
+ * Compares answers between pairs of group members on /results.
+ *
+ * Data flow:
+ * 1. `useSuspenseQuery(trpc.sync.journal, { sinceId: null })` fetches the
+ *    initial backfill via HTTP and suspends until it lands.
+ * 2. `useSubscription(trpc.sync.onJournalChange, { lastEventId })` opens
+ *    a tRPC v11 tracked subscription over WS. The initial `lastEventId`
+ *    is seeded from the HTTP query's cursor so the subscription starts
+ *    streaming only new entries.
+ * 3. Each subscription push's `onData` merges the new entries into the
+ *    same TanStack cache entry via `setQueryData` — the query and the
+ *    subscription share one source of truth.
+ * 4. A `useEffect` keyed on `journal.entries` runs async decryption and
+ *    replay per member, producing `memberAnswers` which drives the UI.
+ *
+ * Reconnect is lossless by construction: wsLink auto-reconnects and
+ * re-sends the subscription message with the latest tracked id, so the
+ * server's generator replays entries > lastEventId. See Step 4's
+ * sync.journal-subscription.integration.test.ts for the full contract.
+ */
 export function Comparison({ onBack }: { onBack?: () => void }) {
-  const [memberAnswers, setMemberAnswers] = useState<MemberAnswers[] | null>(null);
-  const [questions, setQuestions] = useState<Record<string, QuestionInfo>>({});
-  const [categories, setCategories] = useState<Record<string, string>>({});
-  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
-  const [questionOrder, setQuestionOrder] = useState<Record<string, number>>({});
-  const [error, setError] = useState<string | null>(null);
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+
+  // Questions list — cached session-wide, feeds the category/question lookup tables.
+  const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
+
+  const questions = useMemo(() => {
+    const qMap: Record<string, QuestionInfo> = {};
+    for (const q of questionsData.questions) {
+      qMap[q.id] = { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText };
+    }
+    return qMap;
+  }, [questionsData.questions]);
+
+  const categories = useMemo(() => {
+    const cMap: Record<string, string> = {};
+    for (const c of questionsData.categories) {
+      cMap[c.id] = c.label;
+    }
+    return cMap;
+  }, [questionsData.categories]);
+
+  const categoryOrder = useMemo(() => questionsData.categories.map((c) => c.id), [questionsData.categories]);
+
+  const questionOrder = useMemo(() => {
+    const qOrder: Record<string, number> = {};
+    for (let i = 0; i < questionsData.questions.length; i++) {
+      qOrder[questionsData.questions[i].id] = i;
+    }
+    return qOrder;
+  }, [questionsData.questions]);
+
+  // Initial journal backfill — suspends until server responds AND the
+  // per-member replay + decryption finishes. By doing this inside the
+  // queryFn we skip the old "render → useEffect → async replay → setState
+  // → re-render" cycle entirely. The cache stores the decrypted shape,
+  // so on first paint Comparison already has memberAnswers.
+  //
+  // The queryFn + JOURNAL_QUERY_KEY are shared with `prefetchJournal` in
+  // useLiveStatus, which pre-warms this cache entry the moment the WS push
+  // signals allComplete. On the receiver side (Alice seeing Bob's complete),
+  // by the time this component mounts the data is usually already ready.
+  const { data: journal } = useSuspenseQuery({
+    queryKey: JOURNAL_QUERY_KEY,
+    queryFn: makeJournalQueryFn(trpcClient),
+  });
+
+  // Cursor seeded from the HTTP backfill so the subscription doesn't re-fetch
+  // the same entries. Captured once on mount via useState's lazy initializer;
+  // the subscription advances its own tracked cursor from here. Re-renders do
+  // not recompute this value, so the subscription input stays stable.
+  const [initialLastEventId] = useState<string | null>(() => {
+    const last = journal.entries[journal.entries.length - 1];
+    return last ? String(last.id) : null;
+  });
+
+  // Monotonic sequence counter: if two subscription updates arrive in quick
+  // succession and their async replays interleave, drop stale applies.
+  const seqRef = useRef(0);
+
+  // Live updates via tracked subscription. onData merges the new raw entries
+  // into the cached raw set, re-replays members over the merged entries,
+  // and writes the derived shape back via setQueryData.
+  //
+  // tRPC v11 tracked subscriptions deliver `{ id, data }` to onData, where
+  // `data` is the payload the server yielded via `tracked(id, data)`.
+  useSubscription(
+    trpc.sync.onJournalChange.subscriptionOptions(
+      { lastEventId: initialLastEventId },
+      {
+        onData: async (msg) => {
+          const entries = msg.data.entries;
+          if (entries.length === 0) return;
+          const mySeq = ++seqRef.current;
+          try {
+            const current = queryClient.getQueryData<CachedJournal>(JOURNAL_QUERY_KEY);
+            if (!current) return;
+            // Dedup + append via the pure helper
+            const mergedRaw = mergeJournal({ ...current }, entries);
+            // Rebuild only the per-person `answers` from the merged entries.
+            // Names/anatomy were already decrypted in the initial queryFn and
+            // haven't changed, so we don't re-run unwrapSensitive on them.
+            const members = await rebuildMemberAnswers(current.members, mergedRaw.entries);
+            // Drop if a newer push already landed while we were replaying
+            if (mySeq !== seqRef.current) return;
+            queryClient.setQueryData(JOURNAL_QUERY_KEY, {
+              members,
+              entries: mergedRaw.entries,
+              cursor: mergedRaw.cursor,
+            });
+          } catch (err) {
+            console.error("Failed to merge journal update:", err);
+          }
+        },
+        onError: (err) => {
+          console.error("Journal subscription error:", err);
+        },
+      },
+    ),
+  );
+
+  const memberAnswers = journal.members;
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([trpc.sync.compare.query(), trpc.questions.list.query()])
-      .then(async ([compareData, questionsData]) => {
-        // Build question lookup
-        const qMap: typeof questions = {};
-        for (const q of questionsData.questions) {
-          qMap[q.id] = { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText };
-        }
-        setQuestions(qMap);
-
-        const cMap: Record<string, string> = {};
-        for (const c of questionsData.categories) {
-          cMap[c.id] = c.label;
-        }
-        setCategories(cMap);
-        setCategoryOrder(questionsData.categories.map((c) => c.id));
-
-        const qOrder: Record<string, number> = {};
-        for (let i = 0; i < questionsData.questions.length; i++) {
-          qOrder[questionsData.questions[i].id] = i;
-        }
-        setQuestionOrder(qOrder);
-
-        // Replay each member's journal
-        const members: MemberAnswers[] = await Promise.all(
-          compareData.members.map(async (m) => {
-            const memberEntries = compareData.entries.filter((e) => e.personId === m.id);
-            return {
-              id: m.id,
-              name: await unwrapSensitive(m.name as string),
-              anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
-              answers: await replayJournal(memberEntries),
-            };
-          }),
-        );
-        setMemberAnswers(members);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load comparison");
-      });
-  }, []);
-
-  if (error) {
-    return (
-      <Card>
-        <div className="pt-16 text-center space-y-4">
-          <h1 className="text-2xl font-bold">Can't compare yet</h1>
-          <p className="text-text-muted">{error}</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!memberAnswers) {
-    return (
-      <Card>
-        <div className="pt-32 text-center text-text-muted">Loading results...</div>
-      </Card>
-    );
-  }
 
   // Build pairwise comparisons
   const pairs: { a: MemberAnswers; b: MemberAnswers }[] = [];

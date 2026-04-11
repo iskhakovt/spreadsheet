@@ -36,16 +36,21 @@ export class SyncStore {
         return {
           stoken: currentHead > 0 ? encodeStoken(currentHead) : null,
           entries: entries.map((e) => e.operation),
+          committedEntries: [],
           pushRejected: true as const,
         };
       }
 
+      // The ops this call is about to commit — captured so the route can
+      // propagate them to the journal event bus after the transaction commits.
+      let committedEntries: { id: number; personId: string; operation: string }[] = [];
       let lastId = currentHead;
       if (input.operations.length > 0) {
         const inserted = await tx
           .insert(journalEntries)
           .values(input.operations.map((operation) => ({ personId, operation })))
-          .returning({ id: journalEntries.id });
+          .returning({ id: journalEntries.id, operation: journalEntries.operation });
+        committedEntries = inserted.map((r) => ({ id: r.id, personId, operation: r.operation }));
         lastId = inserted[inserted.length - 1].id;
       }
 
@@ -57,6 +62,7 @@ export class SyncStore {
       return {
         stoken: lastId > 0 ? encodeStoken(lastId) : null,
         entries: entries.map((e) => e.operation),
+        committedEntries,
         pushRejected: false as const,
       };
     });
@@ -74,10 +80,28 @@ export class SyncStore {
     });
   }
 
-  async compare(groupId: string): Promise<
+  /**
+   * Fetch the group's journal entries, optionally filtered by a cursor.
+   *
+   * - `sinceId: null` returns all entries for all members of the group.
+   * - `sinceId: N` returns only entries with `id > N`.
+   *
+   * Precondition: all group members must have `isCompleted = true`. Returns
+   * `{ error: "not_all_complete" }` otherwise. This gates the `/results` view
+   * so partial journals can't leak while someone is still answering.
+   *
+   * The returned `cursor` is the highest entry id in this response, or the
+   * input `sinceId` if the response is empty (so a polled/repeated caller
+   * doesn't lose its cursor on an empty delta).
+   */
+  async journalSince(
+    groupId: string,
+    sinceId: number | null,
+  ): Promise<
     | {
         members: { id: string; name: string; anatomy: string | null }[];
-        entries: { personId: string; operation: string }[];
+        entries: { id: number; personId: string; operation: string }[];
+        cursor: number | null;
       }
     | { error: "not_all_complete" }
   > {
@@ -89,15 +113,27 @@ export class SyncStore {
       }
 
       const memberIds = members.map((m) => m.id);
-      const entries = await tx
-        .select({ personId: journalEntries.personId, operation: journalEntries.operation })
+      const whereClause =
+        sinceId !== null
+          ? and(inArray(journalEntries.personId, memberIds), gt(journalEntries.id, sinceId))
+          : inArray(journalEntries.personId, memberIds);
+
+      const rows = await tx
+        .select({
+          id: journalEntries.id,
+          personId: journalEntries.personId,
+          operation: journalEntries.operation,
+        })
         .from(journalEntries)
-        .where(inArray(journalEntries.personId, memberIds))
+        .where(whereClause)
         .orderBy(journalEntries.id);
+
+      const cursor = rows.length > 0 ? rows[rows.length - 1].id : sinceId;
 
       return {
         members: members.map((m) => ({ id: m.id, name: m.name, anatomy: m.anatomy })),
-        entries: entries.map((e) => ({ personId: e.personId, operation: e.operation })),
+        entries: rows,
+        cursor,
       };
     });
   }

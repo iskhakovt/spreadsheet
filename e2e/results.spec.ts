@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, setCategories } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("results display", () => {
   test("shows correct match labels for different answer combinations", async ({ browser }) => {
@@ -8,12 +8,10 @@ test.describe("results display", () => {
 
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
-    // Use "group" category (small) — answer with a specific pattern
-    await setCategories(alice, ["group"]);
+    // Alice: answer all questions as Yes + Now (showTiming enabled)
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
-
-    // Alice: answer all questions as Yes + Now (showTiming enabled)
+    await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
@@ -23,8 +21,8 @@ test.describe("results display", () => {
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
@@ -37,7 +35,7 @@ test.describe("results display", () => {
     expect(goForItCount).toBeGreaterThan(0);
 
     // No other match types should appear
-    await expect(bob.getByText("Match")).not.toBeVisible();
+    await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
     await expect(bob.getByText("Worth discussing")).not.toBeVisible();
     await expect(bob.getByText("Possible")).not.toBeVisible();
 
@@ -50,9 +48,9 @@ test.describe("results display", () => {
     const alice = await aliceCtx.newPage();
 
     const { partnerLink } = await createGroupAndSetup(alice);
-    await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
+    await narrowToCategory(alice, "Group & External");
 
     // Alice: answer all as Maybe
     await answerAllQuestions(alice, "maybe");
@@ -64,8 +62,8 @@ test.describe("results display", () => {
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "maybe");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
@@ -77,7 +75,7 @@ test.describe("results display", () => {
 
     // No "Go for it" or "Match"
     await expect(bob.getByText("Go for it")).not.toBeVisible();
-    await expect(bob.getByText("Match")).not.toBeVisible();
+    await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
 
     await aliceCtx.close();
     await bobCtx.close();
@@ -88,9 +86,9 @@ test.describe("results display", () => {
     const alice = await aliceCtx.newPage();
 
     const { partnerLink } = await createGroupAndSetup(alice);
-    await setCategories(alice, ["group"]);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
+    await narrowToCategory(alice, "Group & External");
 
     // Alice: all No
     await answerAllQuestions(alice, "no");
@@ -102,8 +100,8 @@ test.describe("results display", () => {
     const bobCtx = await browser.newContext();
     const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
-    await setCategories(bob, ["group"]);
     await goThroughIntro(bob);
+    await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done" }).click();
 

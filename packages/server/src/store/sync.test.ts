@@ -120,8 +120,8 @@ describe("SyncStore.markComplete / unmarkComplete", () => {
   });
 });
 
-describe("SyncStore.compare", () => {
-  it("returns entries when all complete", async () => {
+describe("SyncStore.journalSince", () => {
+  async function setupCompleteGroup() {
     const [group] = await db
       .insert(groups)
       .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
@@ -148,7 +148,11 @@ describe("SyncStore.compare", () => {
         isCompleted: true,
       })
       .returning();
+    return { group, alice, bob };
+  }
 
+  it("returns all entries when sinceId is null", async () => {
+    const { group, alice, bob } = await setupCompleteGroup();
     await store.push(alice.id, {
       stoken: null,
       operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
@@ -160,12 +164,79 @@ describe("SyncStore.compare", () => {
       progress: null,
     });
 
-    const result = await store.compare(group.id);
+    const result = await store.journalSince(group.id, null);
     expect("members" in result && result.members).toHaveLength(2);
     expect("entries" in result && result.entries).toHaveLength(2);
+    // cursor is the highest id in the response
+    if ("entries" in result) {
+      expect(result.cursor).toBe(result.entries[result.entries.length - 1].id);
+      // every entry carries its numeric id
+      for (const e of result.entries) {
+        expect(typeof e.id).toBe("number");
+      }
+    }
   });
 
-  it("returns error when not all complete", async () => {
+  it("returns only entries with id > sinceId when sinceId is set", async () => {
+    const { group, alice, bob } = await setupCompleteGroup();
+    await store.push(alice.id, {
+      stoken: null,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    const firstFetch = await store.journalSince(group.id, null);
+    if (!("entries" in firstFetch)) throw new Error("expected entries");
+    const cursorAfterFirst = firstFetch.cursor;
+
+    // Now a second write
+    await store.push(bob.id, {
+      stoken: null,
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
+      progress: null,
+    });
+
+    const delta = await store.journalSince(group.id, cursorAfterFirst);
+    expect("entries" in delta).toBe(true);
+    if ("entries" in delta) {
+      expect(delta.entries).toHaveLength(1);
+      expect(delta.entries[0].personId).toBe(bob.id);
+      expect(delta.cursor).toBe(delta.entries[0].id);
+      expect(delta.cursor).toBeGreaterThan(cursorAfterFirst ?? 0);
+    }
+  });
+
+  it("returns empty delta with cursor unchanged when nothing new", async () => {
+    const { group, alice } = await setupCompleteGroup();
+    await store.push(alice.id, {
+      stoken: null,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+      progress: null,
+    });
+    const first = await store.journalSince(group.id, null);
+    if (!("entries" in first)) throw new Error("expected entries");
+
+    // Re-fetch with the current cursor — nothing new
+    const repeat = await store.journalSince(group.id, first.cursor);
+    expect("entries" in repeat).toBe(true);
+    if ("entries" in repeat) {
+      expect(repeat.entries).toHaveLength(0);
+      // cursor echoes the input on empty delta, so repeat calls don't regress
+      expect(repeat.cursor).toBe(first.cursor);
+    }
+  });
+
+  it("populates members list even when delta is empty", async () => {
+    const { group } = await setupCompleteGroup();
+    // No pushes — journal is empty
+    const result = await store.journalSince(group.id, null);
+    expect("members" in result && result.members).toHaveLength(2);
+    if ("entries" in result) {
+      expect(result.entries).toHaveLength(0);
+      expect(result.cursor).toBe(null);
+    }
+  });
+
+  it("returns error when not all members are complete", async () => {
     const [group] = await db
       .insert(groups)
       .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
@@ -187,7 +258,24 @@ describe("SyncStore.compare", () => {
       isCompleted: false,
     });
 
-    const result = await store.compare(group.id);
+    const result = await store.journalSince(group.id, null);
+    expect(result).toEqual({ error: "not_all_complete" });
+  });
+
+  it("returns error when not all complete, even with sinceId set", async () => {
+    const [group] = await db
+      .insert(groups)
+      .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
+      .returning();
+    await db.insert(persons).values({
+      groupId: group.id,
+      name: "Alice",
+      anatomy: "afab",
+      token: `a-${Math.random()}`,
+      isAdmin: true,
+      isCompleted: false,
+    });
+    const result = await store.journalSince(group.id, 42);
     expect(result).toEqual({ error: "not_all_complete" });
   });
 });

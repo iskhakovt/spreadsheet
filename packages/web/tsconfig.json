@@ -1,4 +1,19 @@
 {
+  // Web includes the server's tRPC router source directly (rather than via
+  // project references with composite + declaration emit). The project-
+  // reference setup was abandoned because `tsc --build` emitting declarations
+  // for the sync router's `tracked()` subscription triggered TS2883 — the
+  // inferred type cannot be named without a reference to an `unstable-core-
+  // do-not-import` path in @trpc/server's internal module.
+  //
+  // With `noEmit: true` on both packages and the server router in web's
+  // `include`, TypeScript resolves `AppRouter` directly from source during
+  // web's typecheck. Slight extra compile work, but avoids the declaration-
+  // emit quirk and keeps the tRPC `tracked()` pattern working.
+  //
+  // Tradeoff: this couples web's typecheck to a specific server file path.
+  // If `src/trpc/router.ts` moves, update the include below plus the four
+  // `import type { AppRouter }` sites — mechanical and cheap.
   "compilerOptions": {
     "target": "ES2025",
     "module": "ESNext",
@@ -9,6 +24,5 @@
     "noEmit": true,
     "lib": ["ES2025", "DOM", "DOM.Iterable"]
   },
-  "include": ["src"],
-  "references": [{ "path": "../server" }]
+  "include": ["src", "../server/src/trpc/router.ts"]
 }
