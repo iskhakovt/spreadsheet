@@ -1,4 +1,4 @@
-import { type Logger, type LoggerOptions, pino } from "pino";
+import { type Logger, type LoggerOptions, pino, stdSerializers } from "pino";
 
 const isProduction = process.env.NODE_ENV === "production";
 const version = process.env.VERSION ?? "dev";
@@ -20,6 +20,12 @@ const baseOptions: LoggerOptions = {
       "*.password",
     ],
     censor: "[REDACTED]",
+  },
+  // Pino does not log enumerable properties of Error objects by default —
+  // without this serializer, `logger.error({ err }, ...)` drops the message
+  // and stack entirely.
+  serializers: {
+    err: stdSerializers.err,
   },
   formatters: {
     level(label) {
@@ -47,9 +53,9 @@ export function createSilentLogger(): Logger {
   return pino({ level: "silent" });
 }
 
-export type HonoLoggerEnv = {
+export interface HonoLoggerEnv {
   Variables: {
     logger: Logger;
     reqId: string;
   };
-};
+}

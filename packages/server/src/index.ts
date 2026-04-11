@@ -122,7 +122,10 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 process.on("SIGTERM", () => {
-  logger.info("SIGTERM received — broadcasting WS reconnect");
+  logger.info("SIGTERM received — shutting down");
   wssHandler.broadcastReconnectNotification();
   wss.close();
+  server.close(() => {
+    logger.info("http server closed");
+  });
 });

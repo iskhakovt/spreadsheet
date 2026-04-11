@@ -53,12 +53,16 @@ export default async function globalSetup() {
     stdio: "pipe",
   });
 
-  // Start the server on a random port
+  // Start the server on a random port. NODE_ENV=production gives us pino's
+  // JSON logger (the dev path uses pino-pretty, which emits multiline colored
+  // output that's awkward to grep for the assigned port). It also better
+  // mirrors the prod startup we ship.
   const staticRoot = resolve(import.meta.dirname, "../packages/web/dist");
   serverProcess = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
     cwd: serverDir,
     env: {
       ...process.env,
+      NODE_ENV: "production",
       DATABASE_URL: url,
       STOKEN_SECRET: "e2e-test-secret",
       STATIC_ROOT: staticRoot,
@@ -67,14 +71,27 @@ export default async function globalSetup() {
     stdio: "pipe",
   });
 
-  // Wait for server to report its actual port
+  // Wait for server to report its actual port. Pino emits one JSON object per
+  // line; chunks may carry multiple lines, so split and try-parse each.
   const assignedPort = await new Promise<number>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Server startup timeout")), 30_000);
+    let buffer = "";
     serverProcess.stdout?.on("data", (data: Buffer) => {
-      const match = data.toString().match(/listening on :(\d+)/);
-      if (match) {
-        clearTimeout(timeout);
-        resolve(Number(match[1]));
+      buffer += data.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const log = JSON.parse(line) as { msg?: string; port?: number };
+          if (log.msg === "server listening" && typeof log.port === "number") {
+            clearTimeout(timeout);
+            resolve(log.port);
+            return;
+          }
+        } catch {
+          // not JSON — ignore (e.g. tsx warnings)
+        }
       }
     });
     serverProcess.stderr?.on("data", (data: Buffer) => {

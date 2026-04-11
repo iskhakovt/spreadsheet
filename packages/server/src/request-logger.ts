@@ -3,6 +3,14 @@ import type { MiddlewareHandler } from "hono";
 import type { Logger } from "pino";
 import type { HonoLoggerEnv } from "./logger.js";
 
+// Tokens appear in URL paths via the wouter `/p/:token` client route — the SPA
+// fallback serves these on the server, so the raw path would otherwise leak
+// the auth token to logs. Both per-person tokens and pre-setup admin tokens
+// share this same URL shape.
+export function sanitizePath(path: string): string {
+  return path.replace(/^\/p\/[^/]+/, "/p/[REDACTED]");
+}
+
 export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerEnv> {
   return async (c, next) => {
     const reqId = randomUUID();
@@ -14,8 +22,18 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     await next();
     const durationMs = Math.round(performance.now() - start);
 
+    // Hono's compose catches handler throws, sets `c.error`, and routes the
+    // error through the app's onError handler — `await next()` does NOT
+    // rethrow. Inspect `c.error` to detect downstream failures.
     const status = c.res.status;
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
-    child[level]({ method: c.req.method, path: c.req.path, status, durationMs }, "request");
+    const fields: Record<string, unknown> = {
+      method: c.req.method,
+      path: sanitizePath(c.req.path),
+      status,
+      durationMs,
+    };
+    if (c.error) fields.err = c.error;
+    child[level](fields, "request");
   };
 }
