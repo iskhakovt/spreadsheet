@@ -2,10 +2,7 @@ import { expect, test } from "./fixtures.js";
 import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("results display", () => {
-  test("shows correct match labels for different answer combinations", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
-
+  test("shows correct match labels for different answer combinations", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
     // Alice: answer all questions as Yes + Now (showTiming enabled)
@@ -18,8 +15,6 @@ test.describe("results display", () => {
     await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -38,15 +33,9 @@ test.describe("results display", () => {
     await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
     await expect(bob.getByText("Worth discussing")).not.toBeVisible();
     await expect(bob.getByText("Possible")).not.toBeVisible();
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 
-  test("mixed answers produce varied match types", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
-
+  test("mixed answers produce varied match types", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
@@ -59,8 +48,6 @@ test.describe("results display", () => {
     await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: answer all as Maybe too
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -76,15 +63,9 @@ test.describe("results display", () => {
     // No "Go for it" or "Match"
     await expect(bob.getByText("Go for it")).not.toBeVisible();
     await expect(bob.getByText("Match", { exact: true })).not.toBeVisible();
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 
-  test("one says no — question hidden from results", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
-
+  test("one says no — question hidden from results", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
     await alice.getByText("Start filling out").click();
     await goThroughIntro(alice);
@@ -97,8 +78,6 @@ test.describe("results display", () => {
     await expect(alice.getByText("Done")).toBeVisible();
 
     // Bob: all Yes
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -109,8 +88,5 @@ test.describe("results display", () => {
 
     // No matches should appear — all hidden because Alice said No
     await expect(bob.getByText("No matches found")).toBeVisible();
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 });

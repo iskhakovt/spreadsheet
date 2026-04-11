@@ -1,10 +1,43 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { test as base, expect } from "@playwright/test";
+import { type BrowserContext, test as base, expect, type Page } from "@playwright/test";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 
-export const test = base.extend({
+/**
+ * Named per-role fixtures for multi-context tests.
+ *
+ * Playwright's built-in `page` / `context` fixtures are test-scoped and
+ * automatically disposed. But tests that simulate multiple users need
+ * multiple BrowserContexts — one per person, so localStorage and cookies
+ * are isolated — and Playwright does NOT auto-dispose contexts created
+ * manually via `browser.newContext()`. Leaked contexts starve worker
+ * memory and produce incomplete traces when a test fails mid-flow.
+ *
+ * We expose three named fixtures so every test signature is both
+ * self-documenting and leak-proof:
+ *
+ *   - `alice` / `bob` — each provides a Page inside its own fresh
+ *     BrowserContext. Used by two-user tests like `two-player.spec.ts`.
+ *     Laziness at the fixture level means a test that only destructures
+ *     `{ alice }` never creates a Bob context.
+ *
+ *   - `multiTab` — a single shared BrowserContext plus a pre-created
+ *     admin Page. Used only by `multi-tab.spec.ts`, which intentionally
+ *     tests cross-tab localStorage isolation within one browser
+ *     profile. The test creates additional pages via `ctx.newPage()`.
+ *
+ * Single-user tests keep using the built-in `page` fixture — no change,
+ * already idiomatic.
+ *
+ * Cleanup runs in `use()` teardown regardless of pass/fail, and swallows
+ * individual close errors so a partial teardown doesn't suppress others.
+ */
+export const test = base.extend<{
+  alice: Page;
+  bob: Page;
+  multiTab: { ctx: BrowserContext; admin: Page };
+}>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixture convention — {} means no dependencies
   baseURL: async ({}, use) => {
     let port: string;
@@ -17,6 +50,24 @@ export const test = base.extend({
       throw new Error(`Invalid port in ${PORT_FILE}: "${port}"`);
     }
     await use(`http://localhost:${port}`);
+  },
+  alice: async ({ browser }, use) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await use(page);
+    await ctx.close().catch(() => {});
+  },
+  bob: async ({ browser }, use) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await use(page);
+    await ctx.close().catch(() => {});
+  },
+  multiTab: async ({ browser }, use) => {
+    const ctx = await browser.newContext();
+    const admin = await ctx.newPage();
+    await use({ ctx, admin });
+    await ctx.close().catch(() => {});
   },
 });
 

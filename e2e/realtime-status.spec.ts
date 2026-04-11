@@ -2,9 +2,7 @@ import { expect, test } from "./fixtures.js";
 import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("realtime status (WebSocket)", () => {
-  test("Alice's waiting screen updates instantly when Bob completes (WS path)", async ({ browser }) => {
-    const aliceCtx = await browser.newContext();
-    const alice = await aliceCtx.newPage();
+  test("Alice's waiting screen updates instantly when Bob completes (WS path)", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     // Alice answers and marks done
@@ -16,8 +14,6 @@ test.describe("realtime status (WebSocket)", () => {
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob joins and goes all the way through
-    const bobCtx = await browser.newContext();
-    const bob = await bobCtx.newPage();
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
@@ -37,8 +33,5 @@ test.describe("realtime status (WebSocket)", () => {
     if (elapsed > 2000) {
       console.warn(`WS push took ${elapsed}ms — slower than expected`);
     }
-
-    await aliceCtx.close();
-    await bobCtx.close();
   });
 });
