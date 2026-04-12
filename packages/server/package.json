@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/main.ts --format esm --splitting --outDir dist",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js"
   },
