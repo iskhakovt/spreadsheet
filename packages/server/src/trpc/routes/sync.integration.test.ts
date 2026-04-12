@@ -22,23 +22,25 @@ async function createGroupWithMembers() {
   const caller = createCaller(anonCtx(db));
 
   const { adminToken } = await caller.groups.create(defaultCreate());
-  const { partnerTokens } = await caller.groups.setupAdmin({
+  const { partnerTokens, adminAuthToken } = await caller.groups.setupAdmin({
     adminToken,
     name: "Alice",
     anatomy: null,
     partners: [{ name: "Bob", anatomy: null }],
   });
-  const bobToken = partnerTokens[0];
 
-  const aliceStatus = await caller.groups.status({ token: adminToken });
-  const aliceCtx = authedCtx(db, aliceStatus!, adminToken);
+  // Claim Bob's invite token to get his auth token
+  const { authToken: bobAuthToken } = await caller.groups.claim({ inviteToken: partnerTokens[0] });
 
-  const bobStatus = await caller.groups.status({ token: bobToken });
-  const bobCtx = authedCtx(db, bobStatus!, bobToken);
+  const aliceStatus = await caller.groups.status({ token: adminAuthToken });
+  const aliceCtx = authedCtx(db, aliceStatus!, adminAuthToken);
+
+  const bobStatus = await caller.groups.status({ token: bobAuthToken });
+  const bobCtx = authedCtx(db, bobStatus!, bobAuthToken);
 
   return {
-    alice: { token: adminToken, caller: createCaller(aliceCtx) },
-    bob: { token: bobToken, caller: createCaller(bobCtx) },
+    alice: { token: adminAuthToken, caller: createCaller(aliceCtx) },
+    bob: { token: bobAuthToken, caller: createCaller(bobCtx) },
   };
 }
 
@@ -150,19 +152,19 @@ describe("full sync flow (real Postgres)", () => {
     const caller = createCaller(anonCtx(db));
 
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
-    await caller.groups.setupAdmin({
+    const { adminAuthToken } = await caller.groups.setupAdmin({
       adminToken,
       name: "e:1:encryptedAlice",
       anatomy: "e:1:encryptedAfab",
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
+    const status = await caller.groups.status({ token: adminAuthToken });
     expect(status!.group.encrypted).toBe(true);
     expect(status!.person!.name).toBe("e:1:encryptedAlice");
     expect(status!.person!.anatomy).toBe("e:1:encryptedAfab");
 
-    const ctx = authedCtx(db, status!, adminToken);
+    const ctx = authedCtx(db, status!, adminAuthToken);
     const encCaller = createCaller(ctx);
 
     const result = await encCaller.sync.push({

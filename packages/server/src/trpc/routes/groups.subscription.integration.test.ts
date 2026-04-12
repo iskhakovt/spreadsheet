@@ -57,29 +57,31 @@ async function openSubscription<T>(
 async function setupAliceAndBob() {
   const caller = createCaller(anonCtx(db));
   const { adminToken } = await caller.groups.create(defaultCreate());
-  const { partnerTokens } = await caller.groups.setupAdmin({
+  const { partnerTokens, adminAuthToken } = await caller.groups.setupAdmin({
     adminToken,
     name: "Alice",
     anatomy: null,
     partners: [{ name: "Bob", anatomy: null }],
   });
-  const bobToken = partnerTokens[0];
 
-  const aliceStatus = await caller.groups.status({ token: adminToken });
-  const bobStatus = await caller.groups.status({ token: bobToken });
+  // Claim Bob's invite token to get his auth token
+  const { authToken: bobAuthToken } = await caller.groups.claim({ inviteToken: partnerTokens[0] });
+
+  const aliceStatus = await caller.groups.status({ token: adminAuthToken });
+  const bobStatus = await caller.groups.status({ token: bobAuthToken });
 
   return {
     alice: {
-      token: adminToken,
+      token: adminAuthToken,
       status: aliceStatus!,
-      ctx: authedCtx(db, aliceStatus!, adminToken),
-      caller: createCaller(authedCtx(db, aliceStatus!, adminToken)),
+      ctx: authedCtx(db, aliceStatus!, adminAuthToken),
+      caller: createCaller(authedCtx(db, aliceStatus!, adminAuthToken)),
     },
     bob: {
-      token: bobToken,
+      token: bobAuthToken,
       status: bobStatus!,
-      ctx: authedCtx(db, bobStatus!, bobToken),
-      caller: createCaller(authedCtx(db, bobStatus!, bobToken)),
+      ctx: authedCtx(db, bobStatus!, bobAuthToken),
+      caller: createCaller(authedCtx(db, bobStatus!, bobAuthToken)),
     },
   };
 }
@@ -188,15 +190,15 @@ describe("groups.onStatus subscription (real Postgres)", () => {
   it("delivers encrypted blobs unchanged for encrypted groups", async () => {
     const caller = createCaller(anonCtx(db));
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
-    await caller.groups.setupAdmin({
+    const { adminAuthToken } = await caller.groups.setupAdmin({
       adminToken,
       name: "e:1:encryptedAlice",
       anatomy: "e:1:encryptedAfab",
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
-    const ctx = authedCtx(db, status!, adminToken);
+    const status = await caller.groups.status({ token: adminAuthToken });
+    const ctx = authedCtx(db, status!, adminAuthToken);
 
     const sub = await openSubscription((signal) => createCaller(ctx, { signal }).groups.onStatus());
     const first = await sub.next(1000);

@@ -6,6 +6,7 @@ import { Card } from "./components/Card.js";
 import { handleError, RootErrorFallback } from "./components/ErrorFallback.js";
 import { initSentry } from "./lib/sentry.js";
 import { AppProviders } from "./lib/trpc-providers.js";
+import { JoinRoute } from "./screens/JoinRoute.js";
 import { Landing } from "./screens/Landing.js";
 import { PersonApp } from "./screens/PersonApp.js";
 import "./index.css";
@@ -29,6 +30,9 @@ function App() {
         <Suspense fallback={<LoadingCard />}>
           <Router>
             <Switch>
+              <Route path="/join/:token">
+                <JoinRoute />
+              </Route>
               <Route path="/p/:token" nest>
                 <PersonApp />
               </Route>

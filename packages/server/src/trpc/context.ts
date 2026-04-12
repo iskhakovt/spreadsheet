@@ -41,7 +41,7 @@ async function buildContext(stores: Stores, token: string | null, log: Logger): 
     return { ...stores, person: null, group: null, personToken: null, logger: log };
   }
 
-  const person = await stores.groups.getPersonByToken(token);
+  const person = await stores.groups.getPersonByAuthToken(token);
   if (!person) {
     // Token might be an admin token (pre-setup, before setupAdmin creates the
     // person record). Public procedures like `groups.status` and the

@@ -67,7 +67,7 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
       isAdmin,
     });
     const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const link = `${window.location.origin}/p/${result.token}${keyFragment}`;
+    const link = `${window.location.origin}/join/${result.inviteToken}${keyFragment}`;
     setGeneratedLink(link);
     setName("");
     setAnatomy("");

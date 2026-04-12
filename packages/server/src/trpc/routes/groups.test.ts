@@ -29,7 +29,8 @@ function mockCtx(
       removePerson: vi.fn(),
       setProfile: vi.fn(),
       markReady: vi.fn(),
-      getPersonByToken: vi.fn(),
+      getPersonByAuthToken: vi.fn(),
+      claimInvite: vi.fn(),
       getGroupById: vi.fn(),
       getStatus: vi.fn(),
       ...overrides.groups,
@@ -119,9 +120,9 @@ describe("groups.setupAdmin", () => {
     );
   });
 
-  it("returns partnerTokens on success", async () => {
+  it("returns partnerTokens and adminAuthToken on success", async () => {
     const ctx = mockCtx({
-      groups: { setupAdmin: vi.fn().mockResolvedValue({ partnerTokens: ["t1"] }) },
+      groups: { setupAdmin: vi.fn().mockResolvedValue({ partnerTokens: ["t1"], adminAuthToken: "auth-admin" }) },
     });
     const caller = createCaller(ctx);
     const result = await caller.groups.setupAdmin({
@@ -131,6 +132,34 @@ describe("groups.setupAdmin", () => {
       partners: [{ name: "B", anatomy: null }],
     });
     expect(result.partnerTokens).toEqual(["t1"]);
+    expect(result.adminAuthToken).toBe("auth-admin");
+  });
+});
+
+describe("groups.claim", () => {
+  it("returns authToken on success", async () => {
+    const ctx = mockCtx({
+      groups: { claimInvite: vi.fn().mockResolvedValue({ authToken: "auth-bob" }) },
+    });
+    const caller = createCaller(ctx);
+    const result = await caller.groups.claim({ inviteToken: "invite-bob" });
+    expect(result.authToken).toBe("auth-bob");
+  });
+
+  it("maps not_found to NOT_FOUND TRPCError", async () => {
+    const ctx = mockCtx({
+      groups: { claimInvite: vi.fn().mockResolvedValue({ error: "not_found" }) },
+    });
+    const caller = createCaller(ctx);
+    await expect(caller.groups.claim({ inviteToken: "bogus" })).rejects.toThrow("Invalid invite token");
+  });
+
+  it("maps already_claimed to CONFLICT TRPCError", async () => {
+    const ctx = mockCtx({
+      groups: { claimInvite: vi.fn().mockResolvedValue({ error: "already_claimed" }) },
+    });
+    const caller = createCaller(ctx);
+    await expect(caller.groups.claim({ inviteToken: "taken" })).rejects.toThrow("already been activated");
   });
 });
 
@@ -144,11 +173,11 @@ describe("groups.addPerson", () => {
   });
 
   it("calls store when group is not ready", async () => {
-    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", token: "t2" });
+    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", inviteToken: "t2" });
     const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });
     const caller = createCaller(ctx);
     const result = await caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false });
-    expect(result.token).toBe("t2");
+    expect(result.inviteToken).toBe("t2");
     expect(addPerson).toHaveBeenCalledWith("g1", { name: "Bob", anatomy: null, isAdmin: false });
   });
 
@@ -247,7 +276,7 @@ describe("broadcasting middleware", () => {
   });
 
   it("emits group event after successful addPerson", async () => {
-    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", token: "t2" });
+    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", inviteToken: "t2" });
     const handler = vi.fn();
     groupEvents.on("group:g1", handler);
     const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });

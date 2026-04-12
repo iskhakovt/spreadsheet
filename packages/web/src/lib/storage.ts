@@ -110,3 +110,13 @@ export function getCurrentScreenKey(): string | null {
 export function setCurrentScreenKey(key: string): void {
   setRaw("currentScreen", key);
 }
+
+/** Get the cached auth token (set after a successful claim or setupAdmin). */
+export function getStoredAuthToken(): string | null {
+  return getRaw("authToken");
+}
+
+/** Cache the auth token in localStorage so subsequent page loads skip the claim call. */
+export function setStoredAuthToken(authToken: string): void {
+  setRaw("authToken", authToken);
+}

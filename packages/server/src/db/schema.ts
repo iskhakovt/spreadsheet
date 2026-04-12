@@ -28,7 +28,8 @@ export const persons = pgTable(
       .references(() => groups.id),
     name: text().notNull(),
     anatomy: text(), // nullable — null until self-picked or set by admin
-    token: text().notNull().unique(),
+    inviteToken: text("invite_token").notNull().unique(),
+    authToken: text("auth_token"),
     isAdmin: boolean().notNull(),
     isCompleted: boolean().notNull(),
     progress: text(),

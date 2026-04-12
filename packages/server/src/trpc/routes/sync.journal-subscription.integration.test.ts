@@ -56,18 +56,20 @@ async function openSubscription<T>(
 async function setupCompletedPair() {
   const caller = createCaller(anonCtx(db));
   const { adminToken } = await caller.groups.create(defaultCreate());
-  const { partnerTokens } = await caller.groups.setupAdmin({
+  const { partnerTokens, adminAuthToken } = await caller.groups.setupAdmin({
     adminToken,
     name: "Alice",
     anatomy: null,
     partners: [{ name: "Bob", anatomy: null }],
   });
-  const bobToken = partnerTokens[0];
 
-  const aliceStatus0 = await caller.groups.status({ token: adminToken });
-  const aliceCaller0 = createCaller(authedCtx(db, aliceStatus0!, adminToken));
-  const bobStatus0 = await caller.groups.status({ token: bobToken });
-  const bobCaller0 = createCaller(authedCtx(db, bobStatus0!, bobToken));
+  // Claim Bob's invite token to get his auth token
+  const { authToken: bobAuthToken } = await caller.groups.claim({ inviteToken: partnerTokens[0] });
+
+  const aliceStatus0 = await caller.groups.status({ token: adminAuthToken });
+  const aliceCaller0 = createCaller(authedCtx(db, aliceStatus0!, adminAuthToken));
+  const bobStatus0 = await caller.groups.status({ token: bobAuthToken });
+  const bobCaller0 = createCaller(authedCtx(db, bobStatus0!, bobAuthToken));
 
   // Each pushes one journal entry, then both mark complete.
   const alicePush = await aliceCaller0.sync.push({
@@ -86,22 +88,22 @@ async function setupCompletedPair() {
 
   // Re-read status so `isCompleted` is reflected in the contexts used for
   // opening the journal subscription (whose precondition checks allComplete).
-  const aliceStatus = await caller.groups.status({ token: adminToken });
-  const bobStatus = await caller.groups.status({ token: bobToken });
+  const aliceStatus = await caller.groups.status({ token: adminAuthToken });
+  const bobStatus = await caller.groups.status({ token: bobAuthToken });
 
   return {
     alice: {
-      token: adminToken,
+      token: adminAuthToken,
       status: aliceStatus!,
-      ctx: authedCtx(db, aliceStatus!, adminToken),
-      caller: createCaller(authedCtx(db, aliceStatus!, adminToken)),
+      ctx: authedCtx(db, aliceStatus!, adminAuthToken),
+      caller: createCaller(authedCtx(db, aliceStatus!, adminAuthToken)),
       stoken: alicePush.stoken,
     },
     bob: {
-      token: bobToken,
+      token: bobAuthToken,
       status: bobStatus!,
-      ctx: authedCtx(db, bobStatus!, bobToken),
-      caller: createCaller(authedCtx(db, bobStatus!, bobToken)),
+      ctx: authedCtx(db, bobStatus!, bobAuthToken),
+      caller: createCaller(authedCtx(db, bobStatus!, bobAuthToken)),
       stoken: bobPush.stoken,
     },
   };
@@ -295,15 +297,15 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
   it("throws PRECONDITION_FAILED when not all members are complete", async () => {
     const caller = createCaller(anonCtx(db));
     const { adminToken } = await caller.groups.create(defaultCreate());
-    await caller.groups.setupAdmin({
+    const { adminAuthToken } = await caller.groups.setupAdmin({
       adminToken,
       name: "Alice",
       anatomy: null,
       partners: [{ name: "Bob", anatomy: null }],
     });
 
-    const aliceStatus = await caller.groups.status({ token: adminToken });
-    const aliceCtx = authedCtx(db, aliceStatus!, adminToken);
+    const aliceStatus = await caller.groups.status({ token: adminAuthToken });
+    const aliceCtx = authedCtx(db, aliceStatus!, adminAuthToken);
 
     await expect(async () => {
       const iter = await createCaller(aliceCtx).sync.onJournalChange({ lastEventId: null });
@@ -347,15 +349,15 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
   it("delivers encrypted entries as-is (server does not decrypt)", async () => {
     const caller = createCaller(anonCtx(db));
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
-    await caller.groups.setupAdmin({
+    const { adminAuthToken } = await caller.groups.setupAdmin({
       adminToken,
       name: "e:1:encryptedAlice",
       anatomy: null,
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
-    const ctx = authedCtx(db, status!, adminToken);
+    const status = await caller.groups.status({ token: adminAuthToken });
+    const ctx = authedCtx(db, status!, adminAuthToken);
     const aliceCaller = createCaller(ctx);
 
     const opaqueBlob = "e:1:someEncryptedJournalBlob";
@@ -367,8 +369,8 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await aliceCaller.sync.markComplete();
 
     // Re-read status after markComplete so the subscription ctx sees completion
-    const updatedStatus = await caller.groups.status({ token: adminToken });
-    const updatedCtx = authedCtx(db, updatedStatus!, adminToken);
+    const updatedStatus = await caller.groups.status({ token: adminAuthToken });
+    const updatedCtx = authedCtx(db, updatedStatus!, adminAuthToken);
 
     const sub = await openSubscription(journalSub(updatedCtx));
     const first = await sub.next(1000);

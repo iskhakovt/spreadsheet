@@ -58,7 +58,25 @@ export const groupsRouter = router({
         }
       }
 
-      return { partnerTokens: result.partnerTokens };
+      return { partnerTokens: result.partnerTokens, adminAuthToken: result.adminAuthToken };
+    }),
+
+  claim: publicProcedure
+    .input(z.object({ inviteToken: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.groups.claimInvite(input.inviteToken);
+      if ("error" in result) {
+        switch (result.error) {
+          case "not_found":
+            throw new TRPCError({ code: "NOT_FOUND", message: "Invalid invite token" });
+          case "already_claimed":
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This invite link has already been activated in another browser",
+            });
+        }
+      }
+      return { authToken: result.authToken };
     }),
 
   addPerson: broadcastingAdminProcedure

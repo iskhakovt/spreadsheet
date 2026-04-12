@@ -66,50 +66,82 @@ export class GroupStore {
         }
       }
 
+      // Admin person: adminToken becomes the invite token, generate a fresh auth token
+      const adminAuthToken = generateToken();
       await tx.insert(persons).values({
         groupId: group.id,
         name: input.name,
         anatomy: input.anatomy,
-        token: adminToken,
+        inviteToken: adminToken,
+        authToken: adminAuthToken,
         isAdmin: true,
         isCompleted: false,
       });
 
+      // Partners: generate invite tokens only, auth token is null until claimed
       const partnerTokens: string[] = [];
       for (const partner of input.partners) {
-        const token = generateToken();
+        const inviteToken = generateToken();
         await tx.insert(persons).values({
           groupId: group.id,
           name: partner.name,
           anatomy: partner.anatomy,
-          token,
+          inviteToken,
           isAdmin: false,
           isCompleted: false,
         });
-        partnerTokens.push(token);
+        partnerTokens.push(inviteToken);
       }
 
       await tx.update(groups).set({ isReady: true, adminToken: null }).where(eq(groups.id, group.id));
 
-      return { partnerTokens };
+      return { partnerTokens, adminAuthToken };
     });
   }
 
   async addPerson(groupId: string, input: { name: string; anatomy: string | null; isAdmin: boolean }) {
     return this.#tx(async (tx) => {
-      const token = generateToken();
+      const inviteToken = generateToken();
       const [person] = await tx
         .insert(persons)
         .values({
           groupId,
           name: input.name,
           anatomy: input.anatomy,
-          token,
+          inviteToken,
           isAdmin: input.isAdmin,
           isCompleted: false,
         })
         .returning();
-      return { personId: person.id, token };
+      return { personId: person.id, inviteToken };
+    });
+  }
+
+  /**
+   * Exchange an invite token for an auth token. One-shot: succeeds once,
+   * returns `already_claimed` on subsequent attempts. This prevents the admin
+   * (who knows partner invite tokens) from claiming them to read answers.
+   */
+  async claimInvite(inviteToken: string) {
+    return this.#tx(async (tx) => {
+      const person = await tx
+        .select()
+        .from(persons)
+        .where(eq(persons.inviteToken, inviteToken))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (!person) return { error: "not_found" as const };
+
+      // Already claimed — refuse. The original claimant has the auth token
+      // cached in localStorage; a second caller is either the admin snooping
+      // or the same user on a different device (who must use their original).
+      if (person.authToken) return { error: "already_claimed" as const };
+
+      // First claim — generate and persist auth token
+      const authToken = generateToken();
+      await tx.update(persons).set({ authToken }).where(eq(persons.id, person.id));
+      return { authToken };
     });
   }
 
@@ -149,12 +181,13 @@ export class GroupStore {
     });
   }
 
-  async getPersonByToken(token: string) {
+  /** Look up a person by their auth token (used for API authentication). */
+  async getPersonByAuthToken(authToken: string) {
     return this.#tx(async (tx) => {
       return tx
         .select()
         .from(persons)
-        .where(eq(persons.token, token))
+        .where(eq(persons.authToken, authToken))
         .limit(1)
         .then((rows) => rows[0] ?? null);
     });
@@ -171,12 +204,13 @@ export class GroupStore {
     });
   }
 
-  async getStatus(token: string) {
+  /** Get full group status for a person identified by auth token (or admin token pre-setup). */
+  async getStatus(authToken: string) {
     return this.#tx(async (tx) => {
       const person = await tx
         .select()
         .from(persons)
-        .where(eq(persons.token, token))
+        .where(eq(persons.authToken, authToken))
         .limit(1)
         .then((rows) => rows[0] ?? null);
 
@@ -185,7 +219,7 @@ export class GroupStore {
         const group = await tx
           .select()
           .from(groups)
-          .where(eq(groups.adminToken, token))
+          .where(eq(groups.adminToken, authToken))
           .limit(1)
           .then((rows) => rows[0] ?? null);
 

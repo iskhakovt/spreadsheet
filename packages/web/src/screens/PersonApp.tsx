@@ -16,7 +16,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
-import { setSession } from "../lib/session.js";
+import { setAuthToken, setScope } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
 import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
@@ -47,33 +47,34 @@ function resolveRoute(person: Person, group: Group, allComplete: boolean): strin
 }
 
 export function PersonApp() {
-  const { token } = useParams<{ token: string }>();
-  const [location, navigate] = useLocation();
+  const { token: urlToken } = useParams<{ token: string }>();
   const queryClient = useQueryClient();
 
-  // Set session synchronously — must happen before any tRPC call or storage read this render.
-  setSession(token);
+  // On /p/:token, the URL token is always the auth token (or admin token
+  // pre-setup). Invite tokens land on /join/:token instead.
+  setScope(urlToken);
+  setAuthToken(urlToken);
 
-  // On token change (rare — normally a fresh page load), close the WS so
-  // the new token gets a clean auth handshake via connectionParams, and
-  // invalidate any cached server state that isn't token-keyed (so the new
-  // person doesn't read the previous person's data). Fixes the PR #8 caveat
-  // where wsLink kept the old auth context after in-tab navigation between
-  // two /p/:token URLs.
-  //
-  // Queries keyed by `{ token }` (like groups.status) naturally segregate
-  // by cache key so no extra work is needed for them.
-  const prevTokenRef = useRef(token);
+  // On URL token change (rare — in-tab navigation between /p/ URLs), close WS
+  // for clean auth handshake and invalidate non-token-keyed caches.
+  const prevTokenRef = useRef(urlToken);
   useEffect(() => {
-    if (prevTokenRef.current !== token) {
+    if (prevTokenRef.current !== urlToken) {
       wsClient.close();
       queryClient.invalidateQueries({ queryKey: [["sync"]] });
       queryClient.invalidateQueries({ queryKey: [["questions"]] });
-      prevTokenRef.current = token;
+      prevTokenRef.current = urlToken;
     }
-  }, [token, queryClient]);
+  }, [urlToken, queryClient]);
 
-  const { status, refresh: refreshStatus } = useLiveStatus(token);
+  return <AuthedPersonApp authToken={urlToken} />;
+}
+
+function AuthedPersonApp({ authToken }: Readonly<{ authToken: string }>) {
+  const [location, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  const { status, refresh: refreshStatus } = useLiveStatus(authToken);
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
@@ -130,7 +131,7 @@ export function PersonApp() {
   if (!status.person) {
     return (
       <ErrorBoundary FallbackComponent={ScreenErrorFallback} onError={handleError} resetKeys={[location]}>
-        <GroupSetup adminToken={token} group={status.group} />
+        <GroupSetup adminToken={authToken} group={status.group} />
       </ErrorBoundary>
     );
   }

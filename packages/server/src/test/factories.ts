@@ -52,17 +52,19 @@ export function defaultCreate(overrides: Record<string, unknown> = {}) {
 export async function createAndSetup(db: Database, overrides: Record<string, unknown> = {}) {
   const caller = createCaller(anonCtx(db));
   const { adminToken } = await caller.groups.create(defaultCreate(overrides));
-  await caller.groups.setupAdmin({
+  const setupResult = await caller.groups.setupAdmin({
     adminToken,
     name: "Alice",
     anatomy: null,
     partners: [],
   });
-  const status = await caller.groups.status({ token: adminToken });
+  if ("error" in setupResult) throw new Error(`setupAdmin failed: ${setupResult.error}`);
+  const { adminAuthToken } = setupResult;
+  const status = await caller.groups.status({ token: adminAuthToken });
   return {
-    token: adminToken,
+    token: adminAuthToken,
     status: status!,
-    ctx: authedCtx(db, status!, adminToken),
+    ctx: authedCtx(db, status!, adminAuthToken),
   };
 }
 
@@ -81,18 +83,20 @@ export async function createGroupDirect(db: Database, overrides: Record<string, 
     })
     .returning();
 
-  const token = `test-${Math.random()}`;
+  const inviteToken = `test-invite-${Math.random()}`;
+  const authToken = `test-auth-${Math.random()}`;
   const [person] = await db
     .insert(persons)
     .values({
       groupId: group.id,
       name: "Alice",
       anatomy: null,
-      token,
+      inviteToken,
+      authToken,
       isAdmin: true,
       isCompleted: false,
     })
     .returning();
 
-  return { token, groupId: group.id, personId: person.id, ctx: authedCtx(db, { person, group }, token) };
+  return { token: authToken, groupId: group.id, personId: person.id, ctx: authedCtx(db, { person, group }, authToken) };
 }

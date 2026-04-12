@@ -5,7 +5,9 @@ import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
-import { useTRPC } from "../lib/trpc.js";
+import { setAuthToken } from "../lib/session.js";
+import { setStoredAuthToken } from "../lib/storage.js";
+import { useTRPC, wsClient } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
 interface Partner {
@@ -86,8 +88,15 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
       partners: encPartners,
     });
 
+    // Cache the admin's auth token. The redirect to /p/:adminAuthToken happens
+    // when the admin clicks "Start filling out" — we need to show the partner
+    // links first. Store it so the redirect can read it.
+    setStoredAuthToken(result.adminAuthToken);
+    setAuthToken(result.adminAuthToken);
+    wsClient.close();
+
     const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
+    const links = result.partnerTokens.map((t) => `${window.location.origin}/join/${t}${keyFragment}`);
     setGeneratedLinks(links);
     setDone(true);
   }
@@ -128,7 +137,21 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
             </div>
           ))}
 
-          <Button fullWidth onClick={() => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() })}>
+          <Button
+            fullWidth
+            onClick={() => {
+              // Redirect to the auth token URL — this gives the admin a bookmarkable
+              // URL with their auth token, not the (now-stale) admin invite token.
+              const storedAuth = getStoredAuthToken();
+              if (storedAuth) {
+                const hash = window.location.hash;
+                window.location.replace(`/p/${storedAuth}${hash}`);
+              } else {
+                // Fallback: just invalidate status (shouldn't happen in practice)
+                queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() });
+              }
+            }}
+          >
             Start filling out
           </Button>
         </div>
