@@ -2,13 +2,7 @@ import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import {
-  GenericContainer,
-  Network,
-  Wait,
-  type StartedNetwork,
-  type StartedTestContainer,
-} from "testcontainers";
+import { GenericContainer, Network, Wait, type StartedNetwork, type StartedTestContainer } from "testcontainers";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 
@@ -44,10 +38,7 @@ async function setupDocker(imageName: string) {
   // Shared network so the app container can reach Postgres by alias
   network = await new Network().start();
 
-  container = await new PostgreSqlContainer("postgres:17")
-    .withNetwork(network)
-    .withNetworkAliases("pg")
-    .start();
+  container = await new PostgreSqlContainer("postgres:17").withNetwork(network).withNetworkAliases("pg").start();
 
   const internalDbUrl = `postgresql://${container.getUsername()}:${container.getPassword()}@pg:5432/${container.getDatabase()}`;
 
@@ -118,7 +109,7 @@ async function setupLocal() {
   });
 
   const staticRoot = resolve(import.meta.dirname, "../packages/web/dist");
-  serverProcess = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
+  const proc = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
     cwd: serverDir,
     env: {
       ...process.env,
@@ -130,11 +121,12 @@ async function setupLocal() {
     },
     stdio: "pipe",
   });
+  serverProcess = proc;
 
   const assignedPort = await new Promise<number>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Server startup timeout")), 30_000);
     let buffer = "";
-    serverProcess!.stdout?.on("data", (data: Buffer) => {
+    proc.stdout?.on("data", (data: Buffer) => {
       buffer += data.toString();
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
@@ -152,11 +144,11 @@ async function setupLocal() {
         }
       }
     });
-    serverProcess!.stderr?.on("data", (data: Buffer) => {
+    proc.stderr?.on("data", (data: Buffer) => {
       console.error("[Server]", data.toString());
     });
-    serverProcess!.on("error", reject);
-    serverProcess!.on("close", (code) => {
+    proc.on("error", reject);
+    proc.on("close", (code) => {
       clearTimeout(timeout);
       reject(new Error(`Server exited with code ${code} before printing port`));
     });
