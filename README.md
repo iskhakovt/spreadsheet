@@ -29,10 +29,11 @@ pnpm test:e2e           # E2E tests (Playwright + Testcontainers)
 pnpm test:visual        # Visual regression (Playwright screenshots, desktop + mobile)
 ```
 
-Visual regression baselines are stored via [Git LFS](https://git-lfs.github.com). Run `git lfs install` after cloning. To update baselines after intentional UI changes:
+Visual regression baselines are stored via [Git LFS](https://git-lfs.github.com). Run `git lfs install` after cloning.
 
 ```bash
-pnpm test:visual -- --update-snapshots=all
+pnpm test:visual:new     # Generate baselines for new tests only
+pnpm test:visual:update  # Regenerate all baselines (after intentional UI changes)
 ```
 
 ## Build
