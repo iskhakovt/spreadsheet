@@ -6,7 +6,7 @@ Mobile-first form app. Primary use: filling out on a phone, reviewing comparison
 
 **Theme:** Peach & Sage — warm peach accent, muted sage neutrals, cream background. Gender-neutral, inviting, not clinical.
 
-**Font:** Lexend — designed for readability and reduced visual stress. ND-friendly by design. Single font throughout.
+**Font:** Lexend (≡ Lexend Deca, the narrowest width variant) — designed for readability and reduced visual stress. ND-friendly by design. Single font throughout. Lexend ships seven width variants (Deca → Zetta, progressively wider spacing); wider variants help struggling/impaired readers, narrower ones suit typical readers. Our audience is literate adults reading carefully, so Deca is the right fit.
 
 **Border radius:** 20px everywhere. Soft, rounded, no sharp edges.
 
