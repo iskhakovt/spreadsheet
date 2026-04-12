@@ -104,11 +104,7 @@ test.describe("3-person group results", () => {
     await expect(carol.getByRole("tabpanel")).toBeVisible();
   });
 
-  test("other-vs-other pair shows parenthetical name on give/receive rows", async ({
-    alice,
-    bob,
-    carol,
-  }) => {
+  test("other-vs-other pair shows parenthetical name on give/receive rows", async ({ alice, bob, carol }) => {
     const { partnerLinks } = await createGroupAndSetup(alice, {
       adminName: "Alice",
       partnerName: "Bob",
