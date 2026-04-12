@@ -123,8 +123,66 @@ jobs:
           CI: true
           TESTCONTAINERS_RYUK_DISABLED: true
 
+  docker:
+    name: Docker Smoke Test
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: spreadsheet
+          POSTGRES_PASSWORD: spreadsheet
+          POSTGRES_DB: spreadsheet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U spreadsheet"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://spreadsheet:spreadsheet@localhost:5432/spreadsheet
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Build image
+        run: docker build -t spreadsheet --build-arg VERSION=ci .
+      - name: Run setup (migrate + seed)
+        run: docker run --rm --network host -e DATABASE_URL spreadsheet setup
+      - name: Start server
+        run: |
+          docker run -d --name spreadsheet --network host \
+            -e DATABASE_URL \
+            -e STOKEN_SECRET=ci-smoke-test-secret-that-is-long-enough \
+            spreadsheet
+      - name: Wait for healthy
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health; then
+              echo ""
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check failed after 30s"
+          docker logs spreadsheet
+          exit 1
+      - name: Verify API responds
+        run: |
+          set -euo pipefail
+          STATUS=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080/trpc/questions.list)
+          echo "questions.list returned HTTP $STATUS"
+          [ "$STATUS" = "200" ]
+      - name: Print logs on failure
+        if: failure()
+        run: docker logs spreadsheet 2>&1 || true
+
   release:
-    needs: [unit, integration, e2e]
+    needs: [unit, integration, e2e, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'iskhakovt/spreadsheet'
     runs-on: ubuntu-latest
     permissions:

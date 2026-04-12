@@ -7,9 +7,9 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --outDir dist",
+    "build": "tsup src/main.ts --format esm --outDir dist",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.13",
