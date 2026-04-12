@@ -17,6 +17,7 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | Database | Postgres (prod + dev), PGlite (unit tests) |
 | Frontend | React + Vite 8 |
 | UI | Tailwind + shadcn/ui (Base UI primitives) |
+| Client data | TanStack Query v5 + `@trpc/tanstack-react-query` |
 | Offline | Service worker (vite-plugin-pwa) + localStorage + Background Sync |
 | Auth | Unique link per person (token in URL) |
 | Dev | Testcontainers (Postgres), pnpm scripts |
@@ -74,6 +75,7 @@ The `/results` screen needs to show edits that happen after a partner marks comp
 - **Two WS subscriptions**: `groups.onStatus` yields full status snapshots (no `tracked()` — snapshot replace semantics, reconnect just yields current state) and `sync.onJournalChange` yields journal entries via `tracked(id, data)` for resume-safe incremental delivery.
 - **Subscribe-before-query invariant**: the subscription resolver attaches the `on(journalEvents, ...)` iterable BEFORE querying the backfill, so any event emitted during the query window is buffered in the iterable and delivered after the backfill without loss.
 - **Reconnect recovery**: `wsLink` automatically stamps the latest `lastEventId` onto the pending subscription message and re-sends it on reconnect. The server's generator queries entries > cursor and replays missed events. "Lost event → stale results forever" is structurally prevented by the protocol.
+- **Client-side state** — all server state flows through TanStack Query v5 via `@trpc/tanstack-react-query`. Reads use `useSuspenseQuery` (top-level `<Suspense>` handles loading), writes use `useMutation` with `onSuccess: () => invalidateQueries(...)` to self-invalidate. WS subscriptions use `useSubscription` with `onData` callbacks that feed updates into the query cache via `setQueryData`, so HTTP-fetched and WS-pushed data share a single cache entry.
 - **No polling fallback** — the previous `groups.status` polling has been removed. Recovery relies on `wsLink` auto-reconnect + `keepAlive` ping/pong (30s ping, 5s pong) + `tracked()` resume. If WS is persistently broken, the app degrades to "reload to fix".
 
 ## Deployment
