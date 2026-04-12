@@ -2,6 +2,14 @@
 
 Single container, single process, single port. Needs a Postgres database.
 
+## Image
+
+Pre-built images are published to GHCR on every release:
+
+```bash
+docker pull ghcr.io/iskhakovt/spreadsheet:<version>
+```
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -9,6 +17,7 @@ Single container, single process, single port. Needs a Postgres database.
 | `DATABASE_URL` | Yes | — | Postgres connection string |
 | `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
+| `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
 | `SENTRY_DSN` | No | — | Sentry/GlitchTip DSN for server errors |
 | `SENTRY_DSN_FRONTEND` | No | `$SENTRY_DSN` | Separate DSN for frontend (injected at runtime) |
 
@@ -17,58 +26,37 @@ Generate `STOKEN_SECRET`:
 openssl rand -base64 32
 ```
 
-## Build
-
-```bash
-docker build -t spreadsheet .
-```
-
 ## First Deploy
 
-Run migrations + seed before starting the server:
-
 ```bash
-# 1. Migrate schema
-docker run --rm \
-  -e DATABASE_URL=postgres://user:pass@host/db \
-  spreadsheet migrate
+IMAGE=ghcr.io/iskhakovt/spreadsheet:<version>
 
-# 2. Seed question bank
-docker run --rm \
-  -e DATABASE_URL=postgres://user:pass@host/db \
-  spreadsheet seed
+# 1. Migrate + seed (one step)
+docker run --rm -e DATABASE_URL=postgres://user:pass@host/db "$IMAGE" setup
 
-# 3. Start server
-docker run -d \
+# 2. Start server
+docker run -d --name spreadsheet \
   -e DATABASE_URL=postgres://user:pass@host/db \
-  -e STOKEN_SECRET=$(openssl rand -base64 32) \
+  -e STOKEN_SECRET="$(openssl rand -base64 32)" \
   -p 8080:8080 \
-  spreadsheet
-```
-
-Or combine migrate + seed in one step:
-
-```bash
-docker run --rm -e DATABASE_URL=... spreadsheet setup
-docker run -d -e DATABASE_URL=... -e STOKEN_SECRET=... -p 8080:8080 spreadsheet
+  "$IMAGE"
 ```
 
 ## Subsequent Deploys
 
 ```bash
-# Migrate (safe to run if no pending migrations)
-docker run --rm -e DATABASE_URL=... spreadsheet migrate
+IMAGE=ghcr.io/iskhakovt/spreadsheet:<version>
 
-# Seed (upserts — safe to re-run, updates question bank)
-docker run --rm -e DATABASE_URL=... spreadsheet seed
+# Migrate + seed (safe to re-run — idempotent)
+docker run --rm -e DATABASE_URL=... "$IMAGE" setup
 
-# Restart server with new image
+# Restart with new image
 docker stop spreadsheet && docker rm spreadsheet
 docker run -d --name spreadsheet \
   -e DATABASE_URL=... \
   -e STOKEN_SECRET=... \
   -p 8080:8080 \
-  spreadsheet
+  "$IMAGE"
 ```
 
 ## Commands
@@ -78,7 +66,7 @@ docker run -d --name spreadsheet \
 | `serve` (default) | Start the HTTP server |
 | `migrate` | Apply pending database migrations |
 | `seed` | Upsert question bank data |
-| `setup` | migrate + seed (convenience for first deploy / CI) |
+| `setup` | migrate + seed (convenience) |
 
 ## Health Check
 
@@ -87,10 +75,28 @@ curl http://localhost:8080/health
 # {"status":"ok"}
 ```
 
+## Logging
+
+The server outputs newline-delimited JSON (pino) in production. Each line is a structured object with `level`, `time`, `msg`, and request context. Pipe to `jq` for local debugging, or ship directly to a log aggregator (Loki, ELK, CloudWatch).
+
+```bash
+docker logs spreadsheet | jq .
+```
+
+Set `LOG_LEVEL=debug` for verbose output during troubleshooting.
+
 ## Notes
 
-- **Migrations are not run on server start.** Run `migrate` explicitly before `serve`. This prevents race conditions with multiple replicas.
+- **Migrations are not run on server start.** Run `setup` (or `migrate`) explicitly before `serve`. This prevents race conditions with multiple replicas.
 - **Seed is idempotent.** `ON CONFLICT DO UPDATE` — safe to run on every deploy to pick up new/updated questions.
 - **STOKEN_SECRET must be stable.** Changing it invalidates all active sync tokens. Users will need to re-sync (happens automatically on next answer).
 - **Distroless image** — no shell, no package manager. Debug with `docker logs`, not `docker exec`.
 - **Static assets** are embedded in the image (`/app/web/`). No separate web server needed.
+
+## Building from Source
+
+For air-gapped or custom builds:
+
+```bash
+docker build -t spreadsheet --build-arg VERSION=custom .
+```
