@@ -16,22 +16,12 @@ export default defineConfig({
           name: "integration",
           environment: "node",
           include: ["packages/*/src/**/*.integration.test.ts"],
-          exclude: ["packages/*/src/docker.integration.test.ts"],
           globalSetup: "./packages/server/src/test/integration-setup.ts",
           testTimeout: 60_000,
           hookTimeout: 600_000,
           // Integration tests share a single Postgres container; running test
           // files in parallel causes TRUNCATE / FK deadlocks.
           fileParallelism: false,
-        },
-      },
-      {
-        test: {
-          name: "docker",
-          environment: "node",
-          include: ["packages/*/src/docker.integration.test.ts"],
-          testTimeout: 30_000,
-          hookTimeout: 600_000,
         },
       },
     ],

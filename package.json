@@ -13,7 +13,6 @@
     "lint:css": "stylelint 'packages/web/src/**/*.css'",
     "test": "vitest run",
     "test:integration": "vitest run --project integration",
-    "test:docker": "vitest run --project docker",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "prepare": "husky"

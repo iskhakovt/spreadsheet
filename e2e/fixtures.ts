@@ -42,16 +42,16 @@ export const test = base.extend<{
 }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixture convention — {} means no dependencies
   baseURL: async ({}, use) => {
-    let port: string;
+    let hostPort: string;
     try {
-      port = readFileSync(PORT_FILE, "utf-8").trim();
+      hostPort = readFileSync(PORT_FILE, "utf-8").trim();
     } catch {
       throw new Error(`E2E port file not found at ${PORT_FILE} — did globalSetup run?`);
     }
-    if (!port || !/^\d+$/.test(port)) {
-      throw new Error(`Invalid port in ${PORT_FILE}: "${port}"`);
+    if (!hostPort) {
+      throw new Error(`Empty port file at ${PORT_FILE}`);
     }
-    await use(`http://localhost:${port}`);
+    await use(`http://${hostPort}`);
   },
   alice: async ({ browser }, use) => {
     const ctx = await browser.newContext();

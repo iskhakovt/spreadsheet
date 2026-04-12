@@ -146,9 +146,9 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 | **route** `trpc/routes/*.test.ts` | Mocked stores | Auth, validation, error mapping, business rules |
 | **pure** `lib/*.test.ts`, `stoken.test.ts` | None | Crypto, journal replay, screen building, match classification |
 | **integration** `.integration.test.ts` | Postgres (testcontainers) | Full round-trips, seed data |
-| **e2e** `e2e/*.spec.ts` | Playwright + Postgres | Full user flows |
+| **e2e** `e2e/*.spec.ts` | Playwright + Docker image (CI) or tsx (local) | Full user flows against the shipped artifact |
 
-Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite build` first).
+Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web + runs tsx; CI: runs against Docker image via `E2E_IMAGE`).
 
 ### Test helpers
 
@@ -174,7 +174,10 @@ After making changes, run:
 
 ```bash
 pnpm -r typecheck && pnpm test
-# For E2E: cd packages/web && pnpm exec vite build && cd ../.. && pnpm test:e2e
+# For E2E (local — builds web + runs tsx):
+pnpm test:e2e
+# For E2E against Docker image:
+docker build -t spreadsheet:ci . && E2E_IMAGE=spreadsheet:ci pnpm test:e2e
 ```
 
 ## Working with Tools
