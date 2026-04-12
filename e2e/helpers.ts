@@ -69,7 +69,7 @@ export async function scopedSet(page: Page, key: string, value: string): Promise
   await page.evaluate(({ p, k, v }) => localStorage.setItem(p + k, v), { p: prefix, k: key, v: value });
 }
 
-/** Create a group (all-questions mode by default), set up admin + one partner. Returns Bob's link. */
+/** Create a group (all-questions mode by default), set up admin + partners. Returns partner links. */
 export async function createGroupAndSetup(
   page: Page,
   opts: {
@@ -78,9 +78,18 @@ export async function createGroupAndSetup(
     showTiming?: boolean;
     adminName?: string;
     partnerName?: string;
+    /** Additional partner names beyond the first. Creates a 3+ person group. */
+    extraPartners?: string[];
   } = {},
 ) {
-  const { mode = "all", encrypted = false, showTiming = false, adminName = "Alice", partnerName = "Bob" } = opts;
+  const {
+    mode = "all",
+    encrypted = false,
+    showTiming = false,
+    adminName = "Alice",
+    partnerName = "Bob",
+    extraPartners = [],
+  } = opts;
 
   await page.goto("/");
   await page.getByText("Get started").click();
@@ -101,13 +110,29 @@ export async function createGroupAndSetup(
   await expect(page.getByText("Set up your group")).toBeVisible();
   await page.getByPlaceholder("Enter your name").fill(adminName);
   await page.getByPlaceholder("Partner's name").fill(partnerName);
+
+  // Add extra partners via the "+ Add another person" button
+  for (const name of extraPartners) {
+    await page.getByText("+ Add another person").click();
+    // Fill the last (newly added) partner name input
+    const partnerInputs = page.getByPlaceholder("Partner's name");
+    await partnerInputs.last().fill(name);
+  }
+
   await page.getByText("Create & get links").click();
 
   await expect(page.getByText("You're all set")).toBeVisible();
 
-  const partnerLink = await page.locator("input[readonly]").inputValue();
+  // Collect all partner links from the readonly inputs
+  const linkInputs = page.locator("input[readonly]");
+  const linkCount = await linkInputs.count();
+  const partnerLinks: string[] = [];
+  for (let i = 0; i < linkCount; i++) {
+    partnerLinks.push(await linkInputs.nth(i).inputValue());
+  }
 
-  return { partnerLink };
+  // Backwards-compatible: return first link as `partnerLink` plus full array
+  return { partnerLink: partnerLinks[0], partnerLinks };
 }
 
 /** Navigate through intro screen. */

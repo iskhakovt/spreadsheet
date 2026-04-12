@@ -36,6 +36,7 @@ const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 export const test = base.extend<{
   alice: Page;
   bob: Page;
+  carol: Page;
   multiTab: { ctx: BrowserContext; admin: Page };
 }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixture convention — {} means no dependencies
@@ -58,6 +59,12 @@ export const test = base.extend<{
     await ctx.close().catch(() => {});
   },
   bob: async ({ browser }, use) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await use(page);
+    await ctx.close().catch(() => {});
+  },
+  carol: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await use(page);
