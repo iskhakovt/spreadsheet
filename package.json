@@ -13,7 +13,10 @@
     "lint:css": "stylelint 'packages/web/src/**/*.css'",
     "test": "vitest run",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=e2e",
+    "test:visual": "playwright test --project=visual-desktop --project=visual-mobile",
+    "test:visual:update": "playwright test --project=visual-desktop --project=visual-mobile --update-snapshots=all",
+    "test:visual:new": "playwright test --project=visual-desktop --project=visual-mobile --update-snapshots=missing",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "prepare": "husky"
   },

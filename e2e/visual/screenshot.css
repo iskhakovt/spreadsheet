@@ -1,0 +1,20 @@
+/* Suppress all animations and transitions for deterministic screenshots.
+   Playwright's `animations: "disabled"` handles most CSS animations, but
+   infinite animations (float-a, float-b blobs) and staggered entrances
+   can cause instability between the two screenshots Playwright takes to
+   verify the page is stable. This stylesheet forces everything to a
+   settled state. */
+
+*, *::before, *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
+/* Hide the feTurbulence grain overlay — SVG noise filters produce
+   non-deterministic pixel values across captures, preventing Playwright
+   from establishing a stable baseline. */
+body::before {
+  display: none !important;
+}

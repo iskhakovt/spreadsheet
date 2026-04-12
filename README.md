@@ -26,6 +26,14 @@ pnpm dev
 pnpm test               # Unit tests (PGlite, no Docker needed)
 pnpm test:integration   # Integration tests (Testcontainers, needs Docker)
 pnpm test:e2e           # E2E tests (Playwright + Testcontainers)
+pnpm test:visual        # Visual regression (Playwright screenshots, desktop + mobile)
+```
+
+Visual regression baselines are stored via [Git LFS](https://git-lfs.github.com). Run `git lfs install` after cloning.
+
+```bash
+pnpm test:visual:new     # Generate baselines for new tests only
+pnpm test:visual:update  # Regenerate all baselines (after intentional UI changes)
 ```
 
 ## Deploy

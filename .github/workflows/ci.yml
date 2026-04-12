@@ -123,8 +123,58 @@ jobs:
           CI: true
           TESTCONTAINERS_RYUK_DISABLED: true
 
+  visual:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          lfs: true
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @spreadsheet/shared build
+      - run: pnpm --filter @spreadsheet/server run typecheck
+      - run: pnpm --filter @spreadsheet/web run build
+      - run: pnpm --filter @spreadsheet/server run build
+      - name: Get Playwright version
+        id: pw-version
+        run: |
+          set -euo pipefail
+          PW_VERSION=$(npx playwright --version)
+          echo "Playwright: $PW_VERSION"
+          [[ "$PW_VERSION" =~ ^Version\ [0-9]+\.[0-9]+ ]] || { echo "Unexpected format: $PW_VERSION"; exit 1; }
+          echo "version=$PW_VERSION" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ steps.pw-version.outputs.version }}
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Install Chromium OS deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64
+      - run: pnpm test:visual
+        env:
+          CI: true
+          TESTCONTAINERS_RYUK_DISABLED: true
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-diff
+          path: test-results/
+          retention-days: 7
+
   release:
-    needs: [unit, integration, e2e]
+    needs: [unit, integration, e2e, visual]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'iskhakovt/spreadsheet'
     runs-on: ubuntu-latest
     permissions:
