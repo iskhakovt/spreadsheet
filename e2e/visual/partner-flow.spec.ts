@@ -25,7 +25,7 @@ test.describe("non-admin partner flow", () => {
 
     // --- Waiting screen (non-admin) — no "View group members" button ---
     await expect(bob.getByText("Waiting for everyone")).toBeVisible();
-    await expect(bob.getByText("View group members")).not.toBeVisible();
+    await expect(bob.getByRole("button", { name: "View group members" })).toHaveCount(0);
     await expect(bob).toHaveScreenshot("waiting-non-admin.png");
   });
 

@@ -55,15 +55,7 @@ test.describe("admin 2-person flow", () => {
     await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
     await expect(alice).toHaveScreenshot("question-unanswered.png");
 
-    // Answer a few with different ratings for the review screenshot
-    await alice.getByRole("radio", { name: "Yes" }).click();
-    await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
-    await alice.getByRole("radio", { name: "Maybe" }).click();
-    await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
-    await alice.getByRole("radio", { name: "No" }).click();
-    await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
-
-    // Answer the rest with yes
+    // Answer all with yes (review screenshot gets variety from give/receive role labels)
     await answerAllQuestions(alice, "yes");
 
     // --- End of questions (all answered) ---
@@ -115,11 +107,9 @@ test.describe("admin 2-person flow", () => {
     await page.getByRole("button", { name: "Start" }).click();
     await expect(page.getByText("Yes", { exact: true })).toBeVisible();
 
-    // Answer yes → should show timing question
+    // Answer yes → timing sub-question must appear
     await page.getByRole("radio", { name: "Yes" }).click();
-    const nowBtn = page.getByRole("button", { name: "Now" });
-    if (await nowBtn.isVisible().catch(() => false)) {
-      await expect(page).toHaveScreenshot("question-timing.png");
-    }
+    await expect(page.getByRole("button", { name: "Now" })).toBeVisible();
+    await expect(page).toHaveScreenshot("question-timing.png");
   });
 });
