@@ -1,5 +1,5 @@
 import { mergeAfterRejection } from "./journal.js";
-import { clearPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
+import { getAnswers, getPendingOps, getStoken, setAnswers, setPendingOps, setStoken } from "./storage.js";
 
 type PushInput = {
   stoken: string | null;
@@ -31,17 +31,23 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  *
  * Handles conflict-merge retry once. If the retry also rejects, ops
  * remain in the queue for the next invocation to retry.
+ *
+ * Clearing: after a successful push we remove only the ops we sent
+ * (a prefix of the queue), not the entire queue. If the user answered
+ * another question while the push was in flight, that newer op was
+ * appended after our snapshot and must survive.
  */
 export async function flushPendingOps(push: PushFn, getProgress: () => Promise<string | null>): Promise<void> {
   const ops = getPendingOps();
   if (ops.length === 0) return;
+  const sentCount = ops.length;
 
   const progress = await getProgress();
   const result = await push({ stoken: getStoken(), operations: ops, progress });
   setStoken(result.stoken);
 
   if (!result.pushRejected) {
-    clearPendingOps();
+    drainSent(sentCount);
     return;
   }
 
@@ -60,8 +66,21 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
   });
   setStoken(retry.stoken);
   if (!retry.pushRejected) {
-    clearPendingOps();
+    drainSent(sentCount);
     return;
   }
   console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
+}
+
+/**
+ * Remove the first `count` entries from the pending-ops queue, keeping
+ * any that were appended while the push was in flight.
+ */
+function drainSent(count: number): void {
+  const current = getPendingOps();
+  if (current.length <= count) {
+    setPendingOps([]);
+  } else {
+    setPendingOps(current.slice(count));
+  }
 }

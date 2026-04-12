@@ -30,17 +30,24 @@ export function useMarkComplete(): () => Promise<void> {
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
   const markCompleteMutation = useMutation(trpc.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }));
 
+  const inFlightRef = useRef(false);
   const pushRef = useRef(pushMutation);
   pushRef.current = pushMutation;
   const markCompleteRef = useRef(markCompleteMutation);
   markCompleteRef.current = markCompleteMutation;
 
   return useCallback(async () => {
-    await flushPendingOps(
-      (input) => pushRef.current.mutateAsync(input),
-      async () => null,
-    );
-    await markCompleteRef.current.mutateAsync();
-    navigate("/waiting");
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    try {
+      await flushPendingOps(
+        (input) => pushRef.current.mutateAsync(input),
+        async () => null,
+      );
+      await markCompleteRef.current.mutateAsync();
+      navigate("/waiting");
+    } finally {
+      inFlightRef.current = false;
+    }
   }, [navigate]);
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { getPendingOps } from "./storage.js";
+import { addPendingOp, getPendingOps } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 // Minimal in-memory localStorage stub for the node test env.
@@ -40,7 +40,7 @@ describe("flushPendingOps", () => {
       progress: "p:1:progress",
     });
     // pendingOps cleared
-    expect(localStorage.getItem("pendingOps")).toBeNull();
+    expect(getPendingOps()).toEqual([]);
     // stoken persisted
     expect(localStorage.getItem("stoken")).toBe("new-stoken");
   });
@@ -59,7 +59,7 @@ describe("flushPendingOps", () => {
     await flushPendingOps(push, async () => null);
 
     expect(push).toHaveBeenCalledWith(expect.objectContaining({ progress: null }));
-    expect(localStorage.getItem("pendingOps")).toBeNull();
+    expect(getPendingOps()).toEqual([]);
   });
 
   test("does not clear pending ops if push throws", async () => {
@@ -70,6 +70,25 @@ describe("flushPendingOps", () => {
 
     // Ops must still be in the queue so the next retry picks them up.
     expect(JSON.parse(localStorage.getItem("pendingOps") ?? "[]")).toEqual(["op1"]);
+  });
+
+  test("preserves ops enqueued during in-flight push", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+
+    // The push mock simulates a user answering another question while
+    // the network request is in flight: when push is called, we append
+    // "op3" to the queue before resolving.
+    const push = vi.fn().mockImplementation(async () => {
+      addPendingOp("op3");
+      return { stoken: "s", pushRejected: false, entries: [] };
+    });
+
+    await flushPendingOps(push, async () => null);
+
+    // Only op1 + op2 were sent; op3 was enqueued after the snapshot
+    // and must survive in the queue for the next sync cycle.
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: ["op1", "op2"] }));
+    expect(getPendingOps()).toEqual(["op3"]);
   });
 
   test("retries once on conflict and clears on retry success", async () => {
@@ -92,7 +111,7 @@ describe("flushPendingOps", () => {
     await flushPendingOps(push, async () => "p:1:progress");
 
     expect(push).toHaveBeenCalledTimes(2);
-    expect(localStorage.getItem("pendingOps")).toBeNull();
+    expect(getPendingOps()).toEqual([]);
     expect(localStorage.getItem("stoken")).toBe("s2");
   });
 });
@@ -183,5 +202,38 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     expect(markComplete).not.toHaveBeenCalled();
     // Ops are still in the queue for retry
     expect(getPendingOps()).toEqual(["op1"]);
+  });
+
+  test("concurrent double-click: second call is a no-op via external guard", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+
+    // Simulate the inFlightRef guard that useMarkComplete uses.
+    // The first call holds the lock; the second bails immediately.
+    let inFlight = false;
+    const push = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ stoken: "s", pushRejected: false, entries: [] }), 50);
+        }),
+    );
+    const markComplete = vi.fn();
+
+    async function guardedMarkComplete() {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        await flushPendingOps(push, async () => null);
+        await markComplete();
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    // Fire two concurrent calls (simulates rapid double-click)
+    await Promise.all([guardedMarkComplete(), guardedMarkComplete()]);
+
+    // push + markComplete each called exactly once
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(markComplete).toHaveBeenCalledTimes(1);
   });
 });
