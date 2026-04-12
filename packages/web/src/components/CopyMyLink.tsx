@@ -43,10 +43,9 @@ export function CopyMyLink({ encrypted }: Readonly<{ encrypted: boolean }>) {
   if (!encrypted) return null;
 
   function handleCopy() {
-    // getAuthToken() is always set — CopyMyLink only renders inside PersonApp
-    // which calls setSession(token) synchronously before any child renders.
     const token = getAuthToken();
-    if (token) copy(buildPersonLink(token));
+    if (!token) throw new Error("CopyMyLink rendered outside PersonApp — no auth token");
+    copy(buildPersonLink(token));
   }
 
   return (
