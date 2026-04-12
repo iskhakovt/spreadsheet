@@ -41,7 +41,14 @@ async function setupDocker(imageName: string) {
 
   container = await new PostgreSqlContainer("postgres:17").withNetwork(network).withNetworkAliases("pg").start();
 
-  const internalDbUrl = `postgresql://${container.getUsername()}:${container.getPassword()}@pg:5432/${container.getDatabase()}`;
+  // Use URL constructor to properly encode username/password
+  const dbUrl = new URL("", "postgresql://");
+  dbUrl.hostname = "pg";
+  dbUrl.port = "5432";
+  dbUrl.pathname = container.getDatabase();
+  dbUrl.username = container.getUsername();
+  dbUrl.password = container.getPassword();
+  const internalDbUrl = dbUrl.toString();
 
   // Run setup (migrate + seed) as a one-shot container
   const setupContainer = await new GenericContainer(imageName)
@@ -72,7 +79,9 @@ async function setupDocker(imageName: string) {
   console.log(`[global-setup] server ready at http://${host}:${port}`);
 
   return async () => {
-    await Promise.allSettled([appContainer?.stop(), container?.stop()]);
+    // Stop app first (closes DB connections), then Postgres, then network
+    await appContainer?.stop().catch(() => {});
+    await container?.stop().catch(() => {});
     await network?.stop().catch(() => {});
     try {
       unlinkSync(PORT_FILE);
