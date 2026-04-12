@@ -17,7 +17,10 @@ export function createDatabase(url: string): Database {
   return drizzle(client, { schema }) as any;
 }
 
-const MIGRATIONS_DIR = resolve(import.meta.dirname, "../../migrations");
+// In dev (tsx), import.meta.dirname is src/db/ — two levels up is the package root.
+// In production (bundled), all chunks are in dist/ — process.cwd() is the package root.
+// Using process.cwd() works for both since we always run from the package root.
+const MIGRATIONS_DIR = resolve(process.cwd(), "migrations");
 
 export async function runMigrations(db: Database) {
   // biome-ignore lint/suspicious/noExplicitAny: migrate expects driver-specific db type
