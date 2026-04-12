@@ -6,12 +6,12 @@ export function AnatomyPicker({
   onSelect,
   labels,
   unselectedClass = "bg-surface border-border text-text-muted",
-}: {
+}: Readonly<{
   selected: Anatomy | "";
   onSelect: (value: Anatomy) => void;
   labels: Record<Anatomy, string>;
   unselectedClass?: string;
-}) {
+}>) {
   const [showMore, setShowMore] = useState(false);
   const options: Anatomy[] = showMore ? ["amab", "afab", "both", "none"] : ["amab", "afab"];
 

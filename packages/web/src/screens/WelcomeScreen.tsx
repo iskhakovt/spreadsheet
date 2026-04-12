@@ -31,7 +31,7 @@ export function WelcomeScreen({
   pendingCount,
   onSync,
   onSummary,
-}: WelcomeScreenProps) {
+}: Readonly<WelcomeScreenProps>) {
   const cat = categoryMap[screen.categoryId];
   return (
     <Card>

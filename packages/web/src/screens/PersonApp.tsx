@@ -247,7 +247,7 @@ export function PersonApp() {
   );
 }
 
-function NonAdminOnboarding({ status }: { status: GroupStatus }) {
+function NonAdminOnboarding({ status }: Readonly<{ status: GroupStatus }>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const setProfileMutation = useMutation(
@@ -269,7 +269,7 @@ function NonAdminOnboarding({ status }: { status: GroupStatus }) {
   );
 }
 
-function PendingScreen({ status }: { status: GroupStatus & { person: Person } }) {
+function PendingScreen({ status }: Readonly<{ status: GroupStatus & { person: Person } }>) {
   const waitingForAnatomy = status.group.isAdminReady && !status.group.isReady;
   const others = status.members.filter((m) => m.id !== status.person.id);
 
@@ -304,11 +304,11 @@ function WaitingScreen({
   status,
   allComplete,
   navigate,
-}: {
+}: Readonly<{
   status: GroupStatus & { person: Person };
   allComplete: boolean;
   navigate: (to: string) => void;
-}) {
+}>) {
   const others = status.members.filter((m) => m.id !== status.person.id);
   return (
     <Card>
@@ -349,7 +349,7 @@ function WaitingScreen({
   );
 }
 
-function PickAnatomyScreen({ status }: { status: GroupStatus & { person: Person } }) {
+function PickAnatomyScreen({ status }: Readonly<{ status: GroupStatus & { person: Person } }>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const setProfileMutation = useMutation(
@@ -387,11 +387,11 @@ function OnboardingForm({
   showAnatomy,
   labels,
   onSubmit,
-}: {
+}: Readonly<{
   showAnatomy: boolean;
   labels: Record<Anatomy, string>;
   onSubmit: (name: string, anatomy: string | null) => void;
-}) {
+}>) {
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
 

@@ -85,7 +85,7 @@ export function Landing() {
   );
 }
 
-function CreateGroup({ onCreated }: { onCreated: (token: string) => void }) {
+function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => void }>) {
   const trpc = useTRPC();
   const [encrypted, setEncrypted] = useState(false);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");

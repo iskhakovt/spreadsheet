@@ -19,7 +19,7 @@ export function ToggleGroup<T extends string>({
   onChange,
   size = "md",
   "aria-label": ariaLabel,
-}: ToggleGroupProps<T>) {
+}: Readonly<ToggleGroupProps<T>>) {
   return (
     <div role="radiogroup" aria-label={ariaLabel} className="flex gap-2">
       {options.map((opt) => (

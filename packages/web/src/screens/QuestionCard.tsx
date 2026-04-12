@@ -66,7 +66,7 @@ export function QuestionCard({
   onToggleDescription,
   onSync,
   onSummary,
-}: QuestionCardProps) {
+}: Readonly<QuestionCardProps>) {
   const category = categoryMap[screen.categoryId];
   const catQuestionScreens = allQuestionScreens.filter((s) => s.categoryId === screen.categoryId);
   const posInCategory = catQuestionScreens.indexOf(screen) + 1;
@@ -207,10 +207,10 @@ export function QuestionCard({
 function RatingGroup({
   existingAnswer,
   onRating,
-}: {
+}: Readonly<{
   existingAnswer: Answer | undefined;
   onRating: (r: Rating) => void;
-}) {
+}>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
   const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);

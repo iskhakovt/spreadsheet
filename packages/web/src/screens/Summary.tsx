@@ -29,7 +29,7 @@ export function Summary({
   onBack,
   onReview,
   onViewGroup,
-}: SummaryProps) {
+}: Readonly<SummaryProps>) {
   const answers = getAnswers();
   const [selected, setSelected] = useState(() => new Set(getSelectedCategories() ?? []));
   const [tier, setTier] = useState(getSelectedTier);

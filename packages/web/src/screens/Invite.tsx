@@ -30,7 +30,7 @@ interface InviteProps {
   onStartFilling: () => void;
 }
 
-export function Invite({ members, group, onGroupReady, onStartFilling }: InviteProps) {
+export function Invite({ members, group, onGroupReady, onStartFilling }: Readonly<InviteProps>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);

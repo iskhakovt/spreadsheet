@@ -23,7 +23,7 @@ interface GroupSetupProps {
   };
 }
 
-export function GroupSetup({ adminToken, group }: GroupSetupProps) {
+export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [myName, setMyName] = useState("");
