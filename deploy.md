@@ -37,7 +37,7 @@ docker run --rm -e DATABASE_URL=postgres://user:pass@host/db "$IMAGE" setup
 # 2. Start server
 docker run -d --name spreadsheet \
   -e DATABASE_URL=postgres://user:pass@host/db \
-  -e STOKEN_SECRET=$(openssl rand -base64 32) \
+  -e STOKEN_SECRET="$(openssl rand -base64 32)" \
   -p 8080:8080 \
   "$IMAGE"
 ```
