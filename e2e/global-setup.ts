@@ -1,4 +1,5 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
+import { once } from "node:events";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -156,7 +157,10 @@ async function setupLocal() {
   writeFileSync(PORT_FILE, `localhost:${assignedPort}`);
 
   return async () => {
-    serverProcess?.kill();
+    if (serverProcess) {
+      serverProcess.kill();
+      await once(serverProcess, "close", { signal: AbortSignal.timeout(5_000) }).catch(() => {});
+    }
     await container?.stop();
     try {
       unlinkSync(PORT_FILE);
