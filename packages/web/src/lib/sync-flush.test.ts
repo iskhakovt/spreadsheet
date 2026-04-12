@@ -91,6 +91,30 @@ describe("flushPendingOps", () => {
     expect(getPendingOps()).toEqual(["op3"]);
   });
 
+  test("both pushes rejected — ops preserved, stoken updated to latest", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+    const push = vi
+      .fn()
+      .mockResolvedValueOnce({
+        stoken: "s1",
+        pushRejected: true,
+        entries: [],
+      })
+      .mockResolvedValueOnce({
+        stoken: "s2",
+        pushRejected: true,
+        entries: [],
+      });
+
+    await flushPendingOps(push, async () => "p:1:progress");
+
+    expect(push).toHaveBeenCalledTimes(2);
+    // Ops stay in the queue for the next sync cycle
+    expect(getPendingOps()).toEqual(["op1", "op2"]);
+    // Stoken advanced to the latest server response
+    expect(localStorage.getItem("stoken")).toBe("s2");
+  });
+
   test("retries once on conflict and clears on retry success", async () => {
     localStorage.setItem("pendingOps", JSON.stringify(["opA"]));
     // First response: rejected with a conflict + empty server entries
