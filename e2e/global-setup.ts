@@ -2,6 +2,7 @@ import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { GenericContainer, Network, type StartedNetwork, type StartedTestContainer, Wait } from "testcontainers";
 
@@ -133,24 +134,19 @@ async function setupLocal() {
   serverProcess = proc;
 
   const assignedPort = await new Promise<number>((resolve, reject) => {
+    if (!proc.stdout) return reject(new Error("Server stdout not available"));
     const timeout = setTimeout(() => reject(new Error("Server startup timeout")), 30_000);
-    let buffer = "";
-    proc.stdout?.on("data", (data: Buffer) => {
-      buffer += data.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const log = JSON.parse(line) as { msg?: string; port?: number };
-          if (log.msg === "server listening" && typeof log.port === "number") {
-            clearTimeout(timeout);
-            resolve(log.port);
-            return;
-          }
-        } catch {
-          // not JSON — ignore (e.g. tsx warnings)
+    const rl = createInterface({ input: proc.stdout });
+    rl.on("line", (line) => {
+      try {
+        const log = JSON.parse(line) as { msg?: string; port?: number };
+        if (log.msg === "server listening" && typeof log.port === "number") {
+          clearTimeout(timeout);
+          rl.close();
+          resolve(log.port);
         }
+      } catch {
+        // not JSON — ignore (e.g. tsx warnings)
       }
     });
     proc.stderr?.on("data", (data: Buffer) => {
