@@ -71,9 +71,8 @@ async function setupDocker(imageName: string) {
   console.log(`[global-setup] server ready at http://${host}:${port}`);
 
   return async () => {
-    await appContainer?.stop();
-    await container?.stop();
-    await network?.stop();
+    await Promise.allSettled([appContainer?.stop(), container?.stop()]);
+    await network?.stop().catch(() => {});
     try {
       unlinkSync(PORT_FILE);
     } catch {}
