@@ -31,6 +31,11 @@ interface MatchStyle {
 
 interface ComparisonProps {
   viewerId: string;
+  /** Whether the group was set up with the "now/later" timing sub-question.
+   *  Controls visibility of the `Go for it` summary (green-light count) —
+   *  without timing mode, the green-light tier is unreachable so the column
+   *  would always display 0, which is just noise. */
+  showTiming: boolean;
   onBack?: () => void;
 }
 
@@ -43,6 +48,7 @@ interface PairComparisonProps {
    *  get a parenthetical ("(Bob)" when Bob is A in an other-vs-other pair,
    *  nothing when A is the viewer because the rows already read from A). */
   aIsViewer: boolean;
+  showTiming: boolean;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
   categoryOrder: string[];
@@ -106,7 +112,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, onBack }: ComparisonProps) {
+export function Comparison({ viewerId, showTiming, onBack }: ComparisonProps) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -328,6 +334,7 @@ export function Comparison({ viewerId, onBack }: ComparisonProps) {
                   aDisplayName={displayName(visiblePair.a)}
                   bDisplayName={displayName(visiblePair.b)}
                   aIsViewer={visiblePair.a.id === viewerId}
+                  showTiming={showTiming}
                   questions={questions}
                   categories={categories}
                   categoryOrder={categoryOrder}
@@ -380,6 +387,7 @@ function PairComparison({
   aDisplayName,
   bDisplayName,
   aIsViewer,
+  showTiming,
   questions,
   categories,
   categoryOrder,
@@ -416,18 +424,26 @@ function PairComparison({
         </div>
       ) : (
         <>
-          {/* Summary strip — tabular-nums so the digits don't dance on resize. */}
+          {/* Summary strip — tabular-nums so the digits don't dance on resize.
+              The `Go for it` column is hidden when timing mode is off,
+              because the green-light tier requires both users to answer
+              `now`, which is only collected in timing mode. Showing a
+              permanent `0` in a non-timing group is just noise. */}
           <div
             className="flex items-baseline justify-center gap-6 py-4 px-6 bg-surface/50 rounded-[var(--radius-lg)] border border-border/40"
             data-testid="match-summary"
           >
-            <div className="text-center">
-              <div className="text-2xl font-bold text-accent tabular-nums" data-testid="green-light-count">
-                {greenLightCount}
-              </div>
-              <div className="text-[10px] uppercase tracking-wider text-text-muted mt-0.5">Go for it</div>
-            </div>
-            <div className="w-px h-10 bg-border/60" />
+            {showTiming && (
+              <>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-accent tabular-nums" data-testid="green-light-count">
+                    {greenLightCount}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-muted mt-0.5">Go for it</div>
+                </div>
+                <div className="w-px h-10 bg-border/60" />
+              </>
+            )}
             <div className="text-center">
               <div className="text-2xl font-bold tabular-nums" data-testid="total-matches-count">
                 {totalMatches}

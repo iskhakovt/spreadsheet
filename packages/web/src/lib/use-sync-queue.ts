@@ -1,52 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { encodeValue } from "./crypto.js";
-import { mergeAfterRejection } from "./journal.js";
-import { clearPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
+import { getAnswers } from "./storage.js";
+import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
 
 /**
  * Debounced sync queue for journal writes.
  *
  * Owns the 3-second debounce timer, the sync-indicator delay, and the
- * conflict-merge retry loop. Wraps `trpc.sync.push` via `useMutation` so
- * `isPending` replaces the previous `syncingRef` pattern and callers can
- * read live status from React state instead of juggling ref chains.
+ * push round-trip. The actual push + conflict-merge logic is in
+ * `sync-flush.ts#flushPendingOps`, shared with `useMarkComplete` so
+ * there is exactly one code path that clears the pending-ops queue.
  *
- * The pending-ops queue and sync cursor stay in scoped localStorage —
- * `useSyncQueue` only provides the transport layer.
- *
- * Identity stability
- * ------------------
- * `handleSync` and `scheduleSync` are exposed with stable references for
- * the entire lifetime of the hook. This matters because Question.tsx uses
- * `scheduleSync` as a `useEffect` dependency — if the identity churned on
- * every render, the effect would clear+reschedule the debounce every
- * render, deferring the sync indefinitely if external renders (e.g. WS
- * pushes in a sibling hook) kept firing faster than 3s.
- *
- * To achieve this, the mutable inputs (`totalQuestions`, `pushMutation`)
- * are kept in refs so the `useCallback` closures don't re-create when
- * those values change. `pushMutation` in particular gets a new object
- * reference on every render because `useMutation`'s result isn't stable
- * in the same way `useQuery`'s `data` is — so we read through a ref and
- * call `mutateAsync` via the ref's current value.
- *
- * Usage:
- * ```tsx
- * const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(totalQuestions);
- *
- * // When a new answer lands, call scheduleSync. If nothing else lands
- * // within 3s, the debounce fires handleSync automatically.
- * useEffect(() => scheduleSync(pendingOps.length), [pendingOps.length, scheduleSync]);
- *
- * // For "mark complete" — flush pending writes first, then call the
- * // markComplete mutation.
- * async function handleMarkComplete() {
- *   await handleSync();
- *   await markCompleteMutation.mutateAsync();
- * }
- * ```
+ * `handleSync` and `scheduleSync` are exposed with stable references
+ * (empty dep array). `pushMutation` changes identity every render
+ * so it's accessed through a ref.
  */
 export function useSyncQueue(totalQuestions: number) {
   const trpc = useTRPC();
@@ -72,44 +41,17 @@ export function useSyncQueue(totalQuestions: number) {
 
   // Stable across the hook's lifetime — empty dep array.
   const handleSync = useCallback(async (): Promise<void> => {
-    const ops = getPendingOps();
-    if (ops.length === 0 || inFlightRef.current) return;
+    if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
-      const progress = await encodeValue({
-        answered: Object.keys(getAnswers()).length,
-        total: totalQuestionsRef.current,
-      });
-      const result = await pushMutationRef.current.mutateAsync({
-        stoken: getStoken(),
-        operations: ops,
-        progress,
-      });
-      setStoken(result.stoken);
-
-      if (!result.pushRejected) {
-        clearPendingOps();
-        return;
-      }
-
-      // Conflict: merge server entries with local, retry once with fresh stoken
-      const merged = await mergeAfterRejection(getAnswers(), ops, result.entries);
-      setAnswers(merged);
-      const retryProgress = await encodeValue({
-        answered: Object.keys(merged).length,
-        total: totalQuestionsRef.current,
-      });
-      const retry = await pushMutationRef.current.mutateAsync({
-        stoken: result.stoken,
-        operations: ops,
-        progress: retryProgress,
-      });
-      setStoken(retry.stoken);
-      if (!retry.pushRejected) {
-        clearPendingOps();
-      } else {
-        console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
-      }
+      await flushPendingOps(
+        (input) => pushMutationRef.current.mutateAsync(input),
+        async () =>
+          encodeValue({
+            answered: Object.keys(getAnswers()).length,
+            total: totalQuestionsRef.current,
+          }),
+      );
     } finally {
       inFlightRef.current = false;
     }

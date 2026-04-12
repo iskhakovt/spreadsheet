@@ -1,4 +1,5 @@
 import { decodeOpaque, encodeOpaque } from "@spreadsheet/shared";
+import { getScope } from "./session.js";
 
 const ALGO = "AES-GCM";
 const KEY_LENGTH = 256;
@@ -96,21 +97,39 @@ export async function decodeValue<T = unknown>(opaque: string, groupKey?: string
  * - A full page reload clears in-memory state
  * sessionStorage survives reloads but not new tabs (each tab needs its own key from the URL).
  */
+// Module-level cache keyed by the session scope. Scoping is what prevents
+// the "earlier encrypted group's key leaks into a later unrelated group"
+// bug — without it, navigating from `/p/TOKEN_A#key=...` to a later
+// `/p/TOKEN_B` in the same tab would return TOKEN_A's key for TOKEN_B,
+// and TOKEN_B's unencrypted data would silently be wrapped with TOKEN_A's
+// key (observed as `e:1:` payloads on a `group.encrypted = false` row).
 let cachedGroupKey: string | null = null;
+let cachedScope: string | null = null;
 
 export function getGroupKeyFromUrl(): string | null {
   if (typeof window === "undefined") return cachedGroupKey;
+
+  const scope = getScope();
+  // Invalidate the module cache when the token has changed — otherwise
+  // the previous group's key stays cached and gets returned for the new
+  // group. sessionStorage is also scope-prefixed below so the fallback
+  // read can't cross-contaminate either.
+  if (cachedScope !== scope) {
+    cachedGroupKey = null;
+    cachedScope = scope;
+  }
+
   const hash = window.location.hash;
   if (hash) {
     const params = new URLSearchParams(hash.slice(1));
     const key = params.get("key");
     if (key) {
       cachedGroupKey = key;
-      sessionStorage.setItem("groupKey", key);
+      sessionStorage.setItem(`${scope}groupKey`, key);
     }
   }
   if (!cachedGroupKey) {
-    cachedGroupKey = sessionStorage.getItem("groupKey");
+    cachedGroupKey = sessionStorage.getItem(`${scope}groupKey`);
   }
   return cachedGroupKey;
 }
