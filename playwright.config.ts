@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -15,4 +15,39 @@ export default defineConfig({
     timeout: 10_000,
   },
   globalSetup: "./e2e/global-setup.ts",
+  projects: [
+    {
+      name: "e2e",
+      testIgnore: /visual\//,
+    },
+    {
+      name: "visual",
+      testMatch: /visual\/.+\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 480, height: 900 },
+        deviceScaleFactor: 1,
+        colorScheme: "light",
+        reducedMotion: "reduce",
+        launchOptions: {
+          args: [
+            "--font-render-hinting=none",
+            "--disable-skia-runtime-opts",
+            "--disable-font-subpixel-positioning",
+            "--disable-lcd-text",
+            "--force-color-profile=srgb",
+          ],
+        },
+      },
+      expect: {
+        toHaveScreenshot: {
+          animations: "disabled",
+          caret: "hide",
+          scale: "css",
+          threshold: 0.2,
+          maxDiffPixelRatio: 0.01,
+        },
+      },
+    },
+  ],
 });
