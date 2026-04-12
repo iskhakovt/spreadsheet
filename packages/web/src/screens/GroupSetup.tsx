@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
+import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
@@ -63,7 +63,6 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
 
   async function handleSubmit() {
     if (!canSubmit) return;
-    const groupKey = getGroupKeyFromUrl();
 
     const encName = await wrapSensitive(myName);
     const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
@@ -86,20 +85,64 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
       partners: encPartners,
     });
 
-    const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
+    const links = result.partnerTokens.map((t) => buildPersonLink(t));
     setGeneratedLinks(links);
     setDone(true);
   }
 
   // After submission — show links and continue button
   if (done && generatedLinks.length > 0) {
+    const myLink = buildPersonLink(adminToken);
+
     return (
       <Card>
         <div className="animate-in space-y-6">
           <div>
             <h1 className="text-2xl font-bold">You're all set</h1>
-            <p className="text-sm text-text-muted mt-1">Share these links with your partners</p>
+            <p className="text-sm text-text-muted mt-1">Save your link and share the others with your partners</p>
+          </div>
+
+          <div className="p-4 bg-surface rounded-lg space-y-2 border border-border/40">
+            <div className="flex items-center gap-2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                role="presentation"
+                className="text-accent shrink-0"
+              >
+                <path
+                  d="M6.5 9.5L9.5 6.5M5.5 11.5L4 13a2.12 2.12 0 0 1-3-3l1.5-1.5M10.5 4.5L12 3a2.12 2.12 0 0 1 3 3l-1.5 1.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <p className="text-sm font-medium">Your link</p>
+            </div>
+            <p className="text-xs text-text-muted">Save this to access your group from another device</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={myLink}
+                aria-label="Your invite link"
+                className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
+              />
+              <button
+                type="button"
+                onClick={() => handleCopy(myLink, 0)}
+                aria-label="Copy your link"
+                className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
+              >
+                {copied === 0 ? "Copied!" : "Copy"}
+              </button>
+              <span className="sr-only" aria-live="polite">
+                {copied === 0 ? "Copied to clipboard" : ""}
+              </span>
+            </div>
           </div>
 
           {partners.map((partner, i) => (
@@ -111,18 +154,19 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   readOnly
                   value={generatedLinks[i]}
                   aria-label={`${partner.name}'s invite link`}
+                  data-testid="partner-link"
                   className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
                 />
                 <button
                   type="button"
-                  onClick={() => handleCopy(generatedLinks[i], i)}
+                  onClick={() => handleCopy(generatedLinks[i], i + 1)}
                   aria-label={`Copy ${partner.name}'s link`}
                   className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
                 >
-                  {copied === i ? "Copied!" : "Copy"}
+                  {copied === i + 1 ? "Copied!" : "Copy"}
                 </button>
                 <span className="sr-only" aria-live="polite">
-                  {copied === i ? "Copied to clipboard" : ""}
+                  {copied === i + 1 ? "Copied to clipboard" : ""}
                 </span>
               </div>
             </div>

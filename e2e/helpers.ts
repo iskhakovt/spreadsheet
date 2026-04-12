@@ -130,8 +130,8 @@ export async function createGroupAndSetup(
 
   await expect(page.getByText("You're all set")).toBeVisible();
 
-  // Collect all partner links from the readonly inputs
-  const linkInputs = page.locator("input[readonly]");
+  // Collect partner links only (not the admin's own link on encrypted groups)
+  const linkInputs = page.locator('[data-testid="partner-link"]');
   const linkCount = await linkInputs.count();
   const partnerLinks: string[] = [];
   for (let i = 0; i < linkCount; i++) {

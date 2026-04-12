@@ -14,7 +14,9 @@ import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { CopyMyLink } from "../components/CopyMyLink.js";
+import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { getGroupKeyFromUrl } from "../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
@@ -126,6 +128,12 @@ export function PersonApp() {
     );
   }
 
+  // Guard: encrypted group opened without the #key= fragment.
+  // Prevents both unreadable encrypted data AND accidental plaintext writes.
+  if (status.group.encrypted && !getGroupKeyFromUrl()) {
+    return <MissingKeyScreen />;
+  }
+
   // Admin token — group exists but no person yet
   if (!status.person) {
     return (
@@ -234,6 +242,7 @@ export function PersonApp() {
             <Comparison
               viewerId={status.person.id}
               showTiming={status.group.showTiming}
+              encrypted={status.group.encrypted}
               onBack={() => navigate("/questions")}
             />
           </Route>
@@ -295,6 +304,7 @@ function PendingScreen({ status }: Readonly<{ status: GroupStatus & { person: Pe
           ))}
         </div>
         <p className="text-xs text-text-muted">Only matches are revealed. Checking automatically...</p>
+        <CopyMyLink encrypted={status.group.encrypted} />
       </div>
     </Card>
   );
@@ -344,6 +354,7 @@ function WaitingScreen({
             View group members
           </button>
         )}
+        <CopyMyLink encrypted={status.group.encrypted} />
       </div>
     </Card>
   );

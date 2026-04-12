@@ -1,6 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useMemo, useRef, useState } from "react";
+import { CopyMyLink } from "../components/CopyMyLink.js";
 import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import {
@@ -36,6 +37,7 @@ interface ComparisonProps {
    *  without timing mode, the green-light tier is unreachable so the column
    *  would always display 0, which is just noise. */
   showTiming: boolean;
+  encrypted: boolean;
   onBack?: () => void;
 }
 
@@ -112,7 +114,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, showTiming, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly<ComparisonProps>) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -376,6 +378,8 @@ export function Comparison({ viewerId, showTiming, onBack }: Readonly<Comparison
             </button>
           </div>
         )}
+
+        <CopyMyLink encrypted={encrypted} />
       </div>
     </div>
   );

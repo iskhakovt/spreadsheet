@@ -157,6 +157,16 @@ export async function unwrapSensitive(value: string, groupKey?: string | null): 
   return value;
 }
 
+/**
+ * Build a full person link including the #key= fragment when a group key
+ * is available. Works for any token — the current user's or a partner's.
+ */
+export function buildPersonLink(token: string): string {
+  const groupKey = getGroupKeyFromUrl();
+  const keyFragment = groupKey ? `#key=${groupKey}` : "";
+  return `${window.location.origin}/p/${token}${keyFragment}`;
+}
+
 // --- base64url helpers (no padding) ---
 
 function base64urlEncode(bytes: Uint8Array): string {

@@ -26,7 +26,7 @@ test.describe("admin 2-person flow", () => {
     await expect(alice).toHaveScreenshot("setup-links.png");
 
     // Grab the partner link for Bob and the base path
-    const partnerLink = await alice.locator("input[readonly]").inputValue();
+    const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
     const base = personBase(alice.url());
 
     // --- Invite screen ---
