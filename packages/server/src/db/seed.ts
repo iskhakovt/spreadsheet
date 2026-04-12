@@ -28,8 +28,11 @@ const SeedDataSchema = z.object({
 });
 
 function loadSeedData(): SeedData {
-  const yamlPath = resolve(import.meta.dirname, "questions.yml");
-  const raw = readFileSync(yamlPath, "utf-8");
+  // In dev/tests: tsx doesn't bundle, import.meta.dirname is src/db/.
+  // In Docker: tsup bundles to a single dist/main.js, so
+  // import.meta.dirname is dist/. The Dockerfile copies questions.yml
+  // into dist/ to match. Same resolve() works for both.
+  const raw = readFileSync(resolve(import.meta.dirname, "questions.yml"), "utf-8");
   const parsed = YAML.parse(raw);
   return SeedDataSchema.parse(parsed);
 }

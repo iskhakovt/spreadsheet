@@ -1,32 +1,100 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
+import { once } from "node:events";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { GenericContainer, Network, type StartedNetwork, type StartedTestContainer, Wait } from "testcontainers";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 
 let container: StartedPostgreSqlContainer;
-let serverProcess: ChildProcess;
+let serverProcess: ChildProcess | undefined;
+let appContainer: StartedTestContainer | undefined;
+let network: StartedNetwork | undefined;
 
+/**
+ * When E2E_IMAGE is set (CI), the app runs from the pre-built Docker
+ * image — the actual artifact that ships. This catches packaging bugs
+ * (wrong entrypoint, missing static assets, distroless issues).
+ *
+ * Locally, it falls back to `tsx` for fast iteration without a Docker
+ * build. Set SKIP_E2E_BUILD=1 to reuse an existing web bundle.
+ */
 export default async function globalSetup() {
-  // Build the web bundle FIRST. The Hono server we're about to start
-  // serves `packages/web/dist` as a static root; if we skip this step,
-  // E2E runs against whatever stale bundle happens to be in dist/ —
-  // which silently hides source changes and produces false pass/fail
-  // signals.
-  //
-  // Why build here rather than in `webServer.command` (the Playwright
-  // idiom): our server needs a dynamic `DATABASE_URL` from a
-  // testcontainer that's resolved later in this same globalSetup.
-  // `webServer.command` runs in a subshell with env snapshotted at
-  // Playwright startup, so the testcontainer URL can't reach it. The
-  // build-in-globalSetup pattern is the pragmatic fit for this stack.
-  //
-  // Escape hatch for local iteration: set SKIP_E2E_BUILD=1 when you
-  // KNOW the bundle is already fresh (e.g. you just ran `vite build`
-  // manually, or you're iterating on test logic without touching
-  // packages/web source). CI should always do a fresh build, so
-  // SKIP_E2E_BUILD must never be set in CI env.
+  const e2eImage = process.env.E2E_IMAGE;
+
+  if (e2eImage) {
+    return setupDocker(e2eImage);
+  }
+  return setupLocal();
+}
+
+// ---------------------------------------------------------------------------
+// Docker path — tests the real image (CI)
+// ---------------------------------------------------------------------------
+
+async function setupDocker(imageName: string) {
+  console.log(`[global-setup] using Docker image: ${imageName}`);
+
+  // Shared network so the app container can reach Postgres by alias
+  network = await new Network().start();
+
+  container = await new PostgreSqlContainer("postgres:17").withNetwork(network).withNetworkAliases("pg").start();
+
+  // Use URL constructor to properly encode username/password
+  const dbUrl = new URL("", "postgresql://");
+  dbUrl.hostname = "pg";
+  dbUrl.port = "5432";
+  dbUrl.pathname = container.getDatabase();
+  dbUrl.username = container.getUsername();
+  dbUrl.password = container.getPassword();
+  const internalDbUrl = dbUrl.toString();
+
+  // Run setup (migrate + seed) as a one-shot container
+  const setupContainer = await new GenericContainer(imageName)
+    .withNetwork(network)
+    .withCommand(["setup"])
+    .withEnvironment({ DATABASE_URL: internalDbUrl })
+    .withWaitStrategy(Wait.forOneShotStartup())
+    .withStartupTimeout(30_000)
+    .start();
+  await setupContainer.stop();
+
+  // Start the server
+  appContainer = await new GenericContainer(imageName)
+    .withNetwork(network)
+    .withExposedPorts(8080)
+    .withCommand(["serve"])
+    .withEnvironment({
+      DATABASE_URL: internalDbUrl,
+      STOKEN_SECRET: "e2e-test-secret",
+    })
+    .withWaitStrategy(Wait.forHttp("/health", 8080).forStatusCode(200))
+    .withStartupTimeout(30_000)
+    .start();
+
+  const host = appContainer.getHost();
+  const port = appContainer.getMappedPort(8080);
+  writeFileSync(PORT_FILE, `${host}:${port}`);
+  console.log(`[global-setup] server ready at http://${host}:${port}`);
+
+  return async () => {
+    // Stop app first (closes DB connections), then Postgres, then network
+    await appContainer?.stop().catch(() => {});
+    await container?.stop().catch(() => {});
+    await network?.stop().catch(() => {});
+    try {
+      unlinkSync(PORT_FILE);
+    } catch {}
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Local path — fast iteration with tsx (no Docker build needed)
+// ---------------------------------------------------------------------------
+
+async function setupLocal() {
   if (process.env.SKIP_E2E_BUILD === "1") {
     console.log("[global-setup] SKIP_E2E_BUILD=1 — reusing existing packages/web/dist");
   } else {
@@ -40,12 +108,9 @@ export default async function globalSetup() {
     console.log(`[global-setup] build done in ${Date.now() - buildStart}ms`);
   }
 
-  // Start Postgres. The container URL is returned dynamically and
-  // plumbed into both the setup subcommand and the server's env.
   container = await new PostgreSqlContainer("postgres:17").start();
   const url = container.getConnectionUri();
 
-  // Run migrations + seed
   const serverDir = resolve(import.meta.dirname, "../packages/server");
   execSync("pnpm exec tsx src/main.ts setup", {
     cwd: serverDir,
@@ -53,12 +118,8 @@ export default async function globalSetup() {
     stdio: "pipe",
   });
 
-  // Start the server on a random port. NODE_ENV=production gives us pino's
-  // JSON logger (the dev path uses pino-pretty, which emits multiline colored
-  // output that's awkward to grep for the assigned port). It also better
-  // mirrors the prod startup we ship.
   const staticRoot = resolve(import.meta.dirname, "../packages/web/dist");
-  serverProcess = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
+  const proc = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
     cwd: serverDir,
     env: {
       ...process.env,
@@ -70,45 +131,41 @@ export default async function globalSetup() {
     },
     stdio: "pipe",
   });
+  serverProcess = proc;
 
-  // Wait for server to report its actual port. Pino emits one JSON object per
-  // line; chunks may carry multiple lines, so split and try-parse each.
   const assignedPort = await new Promise<number>((resolve, reject) => {
+    if (!proc.stdout) return reject(new Error("Server stdout not available"));
     const timeout = setTimeout(() => reject(new Error("Server startup timeout")), 30_000);
-    let buffer = "";
-    serverProcess.stdout?.on("data", (data: Buffer) => {
-      buffer += data.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const log = JSON.parse(line) as { msg?: string; port?: number };
-          if (log.msg === "server listening" && typeof log.port === "number") {
-            clearTimeout(timeout);
-            resolve(log.port);
-            return;
-          }
-        } catch {
-          // not JSON — ignore (e.g. tsx warnings)
+    const rl = createInterface({ input: proc.stdout });
+    rl.on("line", (line) => {
+      try {
+        const log = JSON.parse(line) as { msg?: string; port?: number };
+        if (log.msg === "server listening" && typeof log.port === "number") {
+          clearTimeout(timeout);
+          rl.close();
+          resolve(log.port);
         }
+      } catch {
+        // not JSON — ignore (e.g. tsx warnings)
       }
     });
-    serverProcess.stderr?.on("data", (data: Buffer) => {
+    proc.stderr?.on("data", (data: Buffer) => {
       console.error("[Server]", data.toString());
     });
-    serverProcess.on("error", reject);
-    serverProcess.on("close", (code) => {
+    proc.on("error", reject);
+    proc.on("close", (code) => {
       clearTimeout(timeout);
       reject(new Error(`Server exited with code ${code} before printing port`));
     });
   });
 
-  // Write port for Playwright fixtures to read
-  writeFileSync(PORT_FILE, String(assignedPort));
+  writeFileSync(PORT_FILE, `localhost:${assignedPort}`);
 
   return async () => {
-    serverProcess?.kill();
+    if (serverProcess) {
+      serverProcess.kill();
+      await once(serverProcess, "close", { signal: AbortSignal.timeout(5_000) }).catch(() => {});
+    }
     await container?.stop();
     try {
       unlinkSync(PORT_FILE);

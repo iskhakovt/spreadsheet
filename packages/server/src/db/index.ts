@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -17,9 +16,11 @@ export function createDatabase(url: string): Database {
   return drizzle(client, { schema }) as any;
 }
 
-const MIGRATIONS_DIR = resolve(import.meta.dirname, "../../migrations");
-
+// CWD-relative because import.meta.dirname changes after bundling (tsup
+// flattens to dist/, so the dev-time ../../migrations path won't exist).
+// All callers run from the package root: Docker (WORKDIR /app), local dev
+// (pnpm --filter sets CWD), integration tests (cwd: serverDir in execSync).
 export async function runMigrations(db: Database) {
   // biome-ignore lint/suspicious/noExplicitAny: migrate expects driver-specific db type
-  await migrate(db as any, { migrationsFolder: MIGRATIONS_DIR });
+  await migrate(db as any, { migrationsFolder: "./migrations" });
 }

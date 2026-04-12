@@ -53,6 +53,8 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 ```
 packages/server/src/
+  main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Built as the Docker entrypoint.
+  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
   db/         ← schema, migrations, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
@@ -138,7 +140,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Pure function tests** — no mocks, no DB (crypto, journal, build-screens, stoken)
 - Test contracts, not internals. If it's hard to test, fix the design.
 
-### Three tiers
+### Test tiers
 
 | Tier | Infra | What it tests |
 |-|-|-|
@@ -146,9 +148,10 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 | **route** `trpc/routes/*.test.ts` | Mocked stores | Auth, validation, error mapping, business rules |
 | **pure** `lib/*.test.ts`, `stoken.test.ts` | None | Crypto, journal replay, screen building, match classification |
 | **integration** `.integration.test.ts` | Postgres (testcontainers) | Full round-trips, seed data |
-| **e2e** `e2e/*.spec.ts` | Playwright + Postgres | Full user flows |
+| **e2e** `e2e/*.spec.ts` | Playwright + Docker image (CI) or tsx (local) | Full user flows against the shipped artifact |
+| **visual** `e2e/visual/*.spec.ts` | Playwright (desktop 1280×800 + mobile 390×664, 2x DPR) | Screenshot baselines for every screen and conditional rendering path |
 
-Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite build` first).
+Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web + runs tsx; CI: runs against Docker image via `E2E_IMAGE`), `pnpm test:visual` (screenshot comparison). Visual baselines stored via Git LFS.
 
 ### Test helpers
 
@@ -158,13 +161,13 @@ Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite buil
 - **Subscription integration tests** use `createCaller(ctx, { signal })` with a real `AbortController`, and an `openSubscription(factory)` helper (see `e2e/groups.subscription.integration.test.ts` and `sync.journal-subscription.integration.test.ts`) that wraps the async iterable with timeout + cancel. For `tracked()` subscriptions the caller receives the raw tuple `[id, data, symbol]` — destructure via `unwrap()` helpers; the HTTP/WS adapter unwraps to `{id, data}` on the wire but `createCaller` passes the tuple through.
 - Integration tests have `fileParallelism: false` in `vitest.config.ts` because they share a single Postgres container — running multiple `.integration.test.ts` files in parallel deadlocks on TRUNCATE.
 - `e2e/fixtures.ts` — custom Playwright fixture with dynamic `baseURL` (random port via `.e2e-port` file)
-- `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `setCategories`, `scopedGet`, `scopedSet`
+- `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `answerQuestionsCycling`, `personBase`, `scopedGet`, `scopedSet`
 
 ### E2E patterns
 
 - Tests parameterized with `for (const encrypted of [false, true])` where encryption matters
-- Single category (`setCategories(page, ["group"])`) for speed — uses scoped localStorage via `fnv1a` hash
-- `answerAllQuestions` handles welcome screens automatically
+- Single category via `narrowToCategory(page, "Group & External")` — exercises the real Summary UI
+- `answerAllQuestions` handles welcome screens automatically; `answerQuestionsCycling` rotates through all 5 ratings
 - Sync-conflict test polls scoped `pendingOps` via `scopedGet` instead of clicking hidden UI
 - Multi-tab tests use `context.newPage()` (shared localStorage) to verify scoped storage isolation
 
@@ -174,7 +177,12 @@ After making changes, run:
 
 ```bash
 pnpm -r typecheck && pnpm test
-# For E2E: cd packages/web && pnpm exec vite build && cd ../.. && pnpm test:e2e
+# For E2E (local — builds web + runs tsx):
+pnpm test:e2e
+# For E2E against Docker image:
+docker build -t spreadsheet:ci . && E2E_IMAGE=spreadsheet:ci pnpm test:e2e
+# Visual regression:
+pnpm test:visual
 ```
 
 ## Working with Tools

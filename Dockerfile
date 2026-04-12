@@ -37,6 +37,8 @@ WORKDIR /app
 COPY --from=build /app/deployed/node_modules node_modules/
 COPY --from=build /app/deployed/package.json ./
 COPY --from=build /app/packages/server/dist/ dist/
+COPY --from=build /app/packages/server/src/db/questions.yml dist/questions.yml
+COPY --from=build /app/packages/server/migrations/ migrations/
 COPY --from=build /app/packages/web/dist/ web/
 
 ARG VERSION
@@ -46,5 +48,5 @@ ENV PORT=8080
 ENV STATIC_ROOT=./web
 EXPOSE 8080
 
-ENTRYPOINT ["dist/main.js"]
+ENTRYPOINT ["/nodejs/bin/node", "dist/main.js"]
 CMD ["serve"]
