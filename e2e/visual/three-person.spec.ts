@@ -1,5 +1,11 @@
 import { expect, test } from "../fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "../helpers.js";
+import {
+  answerAllQuestions,
+  answerQuestionsCycling,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+} from "../helpers.js";
 
 /** Extract the /p/{token} base path from a full URL. */
 function personBase(url: string): string {
@@ -35,18 +41,18 @@ test.describe("3-person comparison", () => {
     // --- Waiting with 3 members (partial completion) ---
     await expect(alice).toHaveScreenshot("waiting-3p-partial.png");
 
-    // Bob completes (answers yes)
+    // Bob: mixed answers for match type variety in Alice&Bob pair
     await bob.goto(partnerLinks[0]);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
-    await answerAllQuestions(bob, "yes");
+    await answerQuestionsCycling(bob, ["yes", "maybe", "fantasy", "yes", "no"]);
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    // Carol answers with "maybe" for variety in match types
+    // Carol: different mix for variety across all pairs
     await carol.goto(partnerLinks[1]);
     await goThroughIntro(carol);
     await narrowToCategory(carol, "Group & External");
-    await answerAllQuestions(carol, "maybe");
+    await answerQuestionsCycling(carol, ["maybe", "yes", "fantasy", "no", "yes"]);
     await carol.getByRole("button", { name: "I'm done" }).click();
 
     // --- Results with 3 people: pair tabs ---

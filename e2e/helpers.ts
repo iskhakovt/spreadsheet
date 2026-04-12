@@ -198,6 +198,63 @@ function doneLocator(page: Page) {
   return page.getByText("All done!").or(page.getByText("That's the last one"));
 }
 
+type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
+
+/** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically. */
+export async function answerQuestionsCycling(page: Page, ratings: Rating[]) {
+  let i = 0;
+  for (let guard = 0; guard < 200; guard++) {
+    if (
+      await doneLocator(page)
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
+
+    const startBtn = page.getByRole("button", { name: "Start" });
+    const ratingLabel = page.getByText("Yes", { exact: true });
+    await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
+
+    if (
+      await doneLocator(page)
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
+
+    if (await startBtn.isVisible().catch(() => false)) {
+      if (!(await ratingLabel.isVisible().catch(() => false))) {
+        await startBtn.click();
+        continue;
+      }
+    }
+
+    const rating = ratings[i % ratings.length];
+    i++;
+
+    if (rating === "yes") {
+      await page.getByRole("radio", { name: "Yes" }).click();
+    } else if (rating === "if-partner-wants") {
+      await page.getByRole("radio", { name: "If partner wants" }).click();
+    } else if (rating === "maybe") {
+      await page.getByRole("radio", { name: "Maybe" }).click();
+    } else if (rating === "fantasy") {
+      await page.getByRole("radio", { name: "Fantasy" }).click();
+    } else {
+      await page.getByRole("radio", { name: "No" }).click();
+    }
+
+    // Dismiss timing if it appears (yes and if-partner-wants trigger it)
+    if (rating === "yes" || rating === "if-partner-wants") {
+      const nowBtn = page.getByRole("button", { name: "Now" });
+      if (await nowBtn.isVisible().catch(() => false)) {
+        await nowBtn.click();
+      }
+    }
+  }
+  await expect(doneLocator(page)).toBeVisible();
+}
+
 /** Answer all visible questions until done. Handles welcome screens automatically. */
 export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "maybe" = "yes") {
   for (let i = 0; i < 200; i++) {

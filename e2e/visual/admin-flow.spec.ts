@@ -1,5 +1,5 @@
 import { expect, test } from "../fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "../helpers.js";
+import { answerQuestionsCycling, createGroupAndSetup, goThroughIntro, narrowToCategory } from "../helpers.js";
 
 /** Extract the /p/{token} base path from a full URL. */
 function personBase(url: string): string {
@@ -55,24 +55,24 @@ test.describe("admin 2-person flow", () => {
     await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
     await expect(alice).toHaveScreenshot("question-unanswered.png");
 
-    // Answer all with yes (review screenshot gets variety from give/receive role labels)
-    await answerAllQuestions(alice, "yes");
+    // Answer with mixed ratings for review variety
+    await answerQuestionsCycling(alice, ["yes", "if-partner-wants", "maybe", "fantasy", "no"]);
 
-    // --- End of questions (all answered) ---
-    await expect(alice.getByText("All done!")).toBeVisible();
-    await expect(alice).toHaveScreenshot("end-all-answered.png");
+    // --- End of questions (all answered — some skipped via "no") ---
+    await expect(alice.getByText("All done!").or(alice.getByText("That's the last one"))).toBeVisible();
+    await expect(alice).toHaveScreenshot("end-of-questions.png");
 
     // Mark complete → waiting
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
-    // --- Summary screen (via "Edit my answers" → navigate to /summary) ---
+    // --- Summary screen with partial progress ---
     await alice.getByText("Edit my answers").click();
     await alice.goto(base + "/summary");
     await expect(alice.getByText("Your progress")).toBeVisible();
     await expect(alice).toHaveScreenshot("summary.png");
 
-    // --- Review screen ---
+    // --- Review screen with mixed ratings ---
     await alice.getByRole("button", { name: "Review answers" }).click();
     await expect(alice.getByText("Review your answers")).toBeVisible();
     await expect(alice).toHaveScreenshot("review.png");
@@ -82,15 +82,21 @@ test.describe("admin 2-person flow", () => {
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
     await expect(alice).toHaveScreenshot("waiting-admin.png");
 
-    // --- Bob completes to trigger results ---
+    // --- Bob answers with complementary mix for match type variety ---
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
-    await answerAllQuestions(bob, "yes");
+    // Bob: yes, maybe, yes, fantasy, yes — produces:
+    //   Q1: Alice=yes  Bob=yes        → match
+    //   Q2: Alice=ipw  Bob=maybe      → possible
+    //   Q3: Alice=maybe Bob=yes       → possible
+    //   Q4: Alice=fantasy Bob=fantasy  → fantasy
+    //   Q5: Alice=no  Bob=yes         → hidden
+    //   ...cycles repeat
+    await answerQuestionsCycling(bob, ["yes", "maybe", "yes", "fantasy", "yes"]);
     await bob.getByRole("button", { name: "I'm done" }).click();
 
-    // --- Results / Comparison (2 people) ---
-    // After Bob completes, Alice auto-redirects to /results via WS push + route guard
+    // --- Results with match type variety (no timing → no green-light column) ---
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
     await expect(alice).toHaveScreenshot("results-2p.png");
   });
