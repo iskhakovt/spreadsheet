@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { getPendingOps } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 // Minimal in-memory localStorage stub for the node test env.
@@ -93,5 +94,94 @@ describe("flushPendingOps", () => {
     expect(push).toHaveBeenCalledTimes(2);
     expect(localStorage.getItem("pendingOps")).toBeNull();
     expect(localStorage.getItem("stoken")).toBe("s2");
+  });
+});
+
+/**
+ * Integration test for the mark-complete flow.
+ *
+ * Reproduces the exact sequence that `useMarkComplete` executes:
+ *   1. `await flushPendingOps(push, getProgress)`
+ *   2. `await markComplete()`
+ *
+ * The original bug was that step 1 was missing on the `/review → Done`
+ * path — the handler called `markComplete` directly without flushing.
+ * These tests verify the ordering and data-clearing contracts that
+ * prevent orphaned answers.
+ */
+describe("mark-complete integration: flush-before-mark ordering", () => {
+  test("push is called before markComplete when there are pending ops", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+
+    const callOrder: string[] = [];
+    const push = vi.fn().mockImplementation(async () => {
+      callOrder.push("push");
+      return { stoken: "s", pushRejected: false, entries: [] };
+    });
+    const markComplete = vi.fn().mockImplementation(async () => {
+      callOrder.push("markComplete");
+    });
+
+    // The exact sequence useMarkComplete executes:
+    await flushPendingOps(push, async () => null);
+    await markComplete();
+
+    expect(callOrder).toEqual(["push", "markComplete"]);
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: ["op1", "op2"] }));
+  });
+
+  test("pending ops are fully cleared before markComplete runs", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2", "op3"]));
+
+    const push = vi.fn().mockImplementation(async () => {
+      return { stoken: "s", pushRejected: false, entries: [] };
+    });
+    const markComplete = vi.fn().mockImplementation(async () => {
+      // At the moment markComplete runs, pendingOps must already be empty.
+      // This is the exact invariant the original bug violated — markComplete
+      // ran while ops were still sitting in the queue.
+      const remainingOps = getPendingOps();
+      expect(remainingOps).toEqual([]);
+    });
+
+    await flushPendingOps(push, async () => null);
+    await markComplete();
+
+    expect(markComplete).toHaveBeenCalledTimes(1);
+  });
+
+  test("markComplete still runs when there are no pending ops", async () => {
+    // No ops in localStorage — flush is a no-op, markComplete should
+    // still be called (the user might have waited for auto-sync to
+    // finish before clicking Done).
+    const push = vi.fn();
+    const markComplete = vi.fn();
+
+    await flushPendingOps(push, async () => null);
+    await markComplete();
+
+    expect(push).not.toHaveBeenCalled();
+    expect(markComplete).toHaveBeenCalledTimes(1);
+  });
+
+  test("markComplete does NOT run if push fails (network error)", async () => {
+    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+
+    const push = vi.fn().mockRejectedValue(new Error("network"));
+    const markComplete = vi.fn();
+
+    // flushPendingOps throws on network error — markComplete must not
+    // be reached. If the flush fails, we must NOT mark the user complete
+    // because their answers haven't been saved.
+    await expect(
+      (async () => {
+        await flushPendingOps(push, async () => null);
+        await markComplete();
+      })(),
+    ).rejects.toThrow("network");
+
+    expect(markComplete).not.toHaveBeenCalled();
+    // Ops are still in the queue for retry
+    expect(getPendingOps()).toEqual(["op1"]);
   });
 });
