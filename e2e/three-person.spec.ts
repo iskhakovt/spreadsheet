@@ -141,7 +141,11 @@ test.describe("3-person group results", () => {
     // questions like "Giving a sensual massage (Alice)" to disambiguate whose
     // perspective the row is from.
     const tabpanel = carol.getByRole("tabpanel");
-    await expect(tabpanel.getByText(/\(Alice\)/)).toBeVisible();
+    // Multiple rows carry the parenthetical — assert at least one is visible
+    // and count the total to confirm the pattern applies broadly.
+    const parentheticalRows = tabpanel.getByText(/\(Alice\)/);
+    await expect(parentheticalRows.first()).toBeVisible();
+    expect(await parentheticalRows.count()).toBeGreaterThan(1);
 
     // Verify viewer's own pair does NOT have parentheticals
     await tabList.getByRole("tab", { name: /You & Alice/ }).click();
