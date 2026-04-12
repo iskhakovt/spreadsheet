@@ -96,14 +96,17 @@ export function Review({
 
         {grouped.map((group) => (
           <div key={group.category.id}>
-            <h3 className="text-sm font-medium text-text-muted mb-2">{group.category.label}</h3>
-            <div className="space-y-1">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-text-muted/80 mb-2">
+              <span className="w-1 h-1 rounded-full bg-accent/60" />
+              {group.category.label}
+            </h3>
+            <div className="space-y-0.5">
               {group.items.map((item) => (
                 <button
                   type="button"
                   key={item.key}
                   onClick={() => onEditQuestion(item.key)}
-                  className="w-full text-left flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  className="w-full text-left flex items-center justify-between px-4 py-2.5 rounded-[var(--radius-sm)] hover:bg-surface/70 transition-colors duration-200"
                 >
                   <span className="text-sm truncate mr-4">{item.label}</span>
                   {item.answer ? (
@@ -112,7 +115,7 @@ export function Review({
                       {item.answer.timing ? ` (${item.answer.timing})` : ""}
                     </span>
                   ) : (
-                    <span className="text-sm text-text-muted/50 shrink-0">—</span>
+                    <span className="text-sm text-text-muted/40 shrink-0">&mdash;</span>
                   )}
                 </button>
               ))}

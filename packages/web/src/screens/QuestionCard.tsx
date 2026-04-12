@@ -16,10 +16,28 @@ const RATING_OPTIONS: readonly { rating: Rating; label: string; variant: string;
 ];
 
 const variantStyles: Record<string, string> = {
-  accent: "bg-accent text-accent-fg shadow-sm hover:shadow-md hover:brightness-105",
-  "accent-light": "bg-accent-light text-accent-fg shadow-sm hover:shadow-md hover:brightness-105",
-  neutral: "bg-neutral text-neutral-fg shadow-sm hover:brightness-105",
-  outline: "bg-transparent text-neutral border-2 border-neutral/60 hover:border-neutral hover:bg-neutral/5",
+  accent: [
+    "bg-gradient-to-b from-accent to-[#c47048] text-accent-fg",
+    "shadow-[0_1px_2px_rgb(58_48_40/0.08),0_2px_8px_rgb(208_128_88/0.2),inset_0_1px_0_rgb(255_255_255/0.12)]",
+    "hover:shadow-[0_2px_4px_rgb(58_48_40/0.1),0_4px_14px_rgb(208_128_88/0.28),inset_0_1px_0_rgb(255_255_255/0.12)]",
+    "hover:brightness-[1.04]",
+  ].join(" "),
+  "accent-light": [
+    "bg-gradient-to-b from-accent-light to-[#d8a880] text-accent-fg",
+    "shadow-[0_1px_2px_rgb(58_48_40/0.06),0_2px_6px_rgb(228_184_152/0.2),inset_0_1px_0_rgb(255_255_255/0.15)]",
+    "hover:shadow-[0_2px_4px_rgb(58_48_40/0.08),0_4px_12px_rgb(228_184_152/0.25),inset_0_1px_0_rgb(255_255_255/0.15)]",
+    "hover:brightness-[1.04]",
+  ].join(" "),
+  neutral: [
+    "bg-gradient-to-b from-neutral to-[#9a928a] text-neutral-fg",
+    "shadow-[0_1px_2px_rgb(58_48_40/0.06),inset_0_1px_0_rgb(255_255_255/0.1)]",
+    "hover:shadow-[0_2px_6px_rgb(58_48_40/0.1),inset_0_1px_0_rgb(255_255_255/0.1)]",
+    "hover:brightness-[1.04]",
+  ].join(" "),
+  outline: [
+    "bg-transparent text-neutral border-2 border-neutral/50",
+    "hover:border-neutral/70 hover:bg-neutral/5",
+  ].join(" "),
 };
 
 interface QuestionCardProps {
@@ -75,18 +93,19 @@ export function QuestionCard({
 
   return (
     <Card>
-      {/* Header — category pill on the left, Progress link on the right.
-          The pill groups category label + position inside the category so
-          the eye reads "where am I" as one unit. */}
+      {/* Header — category pill + position, Progress link on the right. */}
       <div className="flex items-center justify-between mb-8">
         <span className="inline-flex items-center gap-2 text-xs font-medium text-text-muted tracking-wide">
           <span className="relative flex items-center justify-center">
-            <span className="absolute w-2 h-2 rounded-full bg-accent/40 animate-ping" />
+            <span
+              className="absolute w-2 h-2 rounded-full bg-accent/30"
+              style={{ animation: "gentle-pulse 2.5s ease-in-out infinite" }}
+            />
             <span className="relative w-1.5 h-1.5 rounded-full bg-accent" />
           </span>
-          <span className="uppercase">{category?.label}</span>
-          <span className="text-text-muted/40">&middot;</span>
-          <span className="tabular-nums">
+          <span className="uppercase tracking-[0.08em]">{category?.label}</span>
+          <span className="text-text-muted/30">&middot;</span>
+          <span className="tabular-nums text-text-muted/60">
             {posInCategory}/{catQuestionScreens.length}
           </span>
         </span>
@@ -94,7 +113,7 @@ export function QuestionCard({
           <button
             type="button"
             onClick={onSummary}
-            className="text-xs font-medium text-text-muted hover:text-accent transition-colors"
+            className="text-xs font-medium text-text-muted/70 hover:text-accent transition-colors duration-200"
           >
             Progress
           </button>
@@ -104,15 +123,13 @@ export function QuestionCard({
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         Question {posInCategory} of {catQuestionScreens.length}, {category?.label}
       </div>
-      {/* Question text + description — fixed height zone so buttons don't jump.
-          Keyed on screen.key so each question fades in individually, giving the
-          flow a gentle "turning the page" rhythm instead of content swapping in
-          place. */}
+      {/* Question text + description — keyed on screen.key for per-question
+          fade-in, giving the flow a page-turning rhythm. */}
       <div key={screen.key} className="animate-in min-h-[6rem] mb-2">
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className="text-[1.65rem] font-bold leading-[1.2] tracking-tight outline-none text-balance"
+          className="text-[1.65rem] font-bold leading-[1.18] tracking-[-0.015em] outline-none text-balance"
         >
           {screen.displayText}
         </h2>
@@ -121,13 +138,23 @@ export function QuestionCard({
             type="button"
             onClick={onToggleDescription}
             aria-expanded={showDescription}
-            className="text-sm text-text-muted/80 mt-3 inline-flex items-center gap-1 hover:text-accent transition-colors"
+            className="text-sm text-text-muted/70 mt-3 inline-flex items-center gap-1.5 hover:text-accent transition-colors duration-200"
           >
-            {UI.question.whatsThis} {showDescription ? "\u25B4" : "\u25BE"}
+            {UI.question.whatsThis}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              fill="none"
+              role="presentation"
+              className={cn("transition-transform duration-200", showDescription && "rotate-180")}
+            >
+              <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
         )}
         {showDescription && screen.question.description && (
-          <p className="text-sm text-text-muted mt-2 leading-relaxed animate-in">{screen.question.description}</p>
+          <p className="text-sm text-text-muted mt-2.5 leading-relaxed animate-in">{screen.question.description}</p>
         )}
       </div>
       {/* Timing sub-question */}
@@ -142,7 +169,7 @@ export function QuestionCard({
               {UI.question.later}
             </Button>
           </div>
-          <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1 or 2</p>
+          <p className="text-xs text-text-muted/60 text-center mt-2 hidden sm:block">Press 1 or 2</p>
         </div>
       ) : (
         <RatingGroup existingAnswer={existingAnswer} onRating={onRating} />
@@ -155,7 +182,7 @@ export function QuestionCard({
           onClick={onBack}
           disabled={index === 0}
           aria-label="Previous question"
-          className="flex items-center gap-1 text-text-muted disabled:opacity-50"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted disabled:opacity-40 transition-colors duration-200"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -166,7 +193,7 @@ export function QuestionCard({
           type="button"
           onClick={onSkip}
           aria-label="Skip question"
-          className="flex items-center gap-1 text-text-muted"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted transition-colors duration-200"
         >
           {UI.question.skip}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
@@ -174,8 +201,8 @@ export function QuestionCard({
           </svg>
         </button>
       </div>
-      {/* Progress bar + sync — gradient fill warms as it grows, subtle
-          inset shadow gives the track a little depth without feeling heavy. */}
+      {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
+          gives the track depth. */}
       <div
         className="mt-8 h-1.5 rounded-full overflow-hidden"
         role="progressbar"
@@ -184,7 +211,7 @@ export function QuestionCard({
         aria-label="Overall progress"
         style={{
           background: "color-mix(in oklab, var(--color-surface) 85%, var(--color-border))",
-          boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.06)",
+          boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.05)",
         }}
       >
         <div
@@ -192,11 +219,11 @@ export function QuestionCard({
           style={{
             width: `${progressPct}%`,
             background: "linear-gradient(90deg, var(--color-accent-light) 0%, var(--color-accent) 100%)",
-            boxShadow: progressPct > 0 ? "0 0 8px rgba(208, 128, 88, 0.35)" : "none",
+            boxShadow: progressPct > 0 ? "0 0 10px rgba(208, 128, 88, 0.3)" : "none",
           }}
         />
       </div>
-      <div className="mt-1 h-4 flex justify-end">
+      <div className="mt-1.5 h-4 flex justify-end">
         <SyncIndicator syncing={syncing} show={showSyncIndicator} pendingCount={pendingCount} onSync={onSync} />
       </div>
     </Card>
@@ -248,17 +275,17 @@ function RatingGroup({
             "flex items-center justify-center w-full",
             "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
             "transition-all duration-200 ease-out",
-            "active:scale-[0.97] active:shadow-none",
+            "active:scale-[0.975] active:brightness-[0.97]",
             "cursor-pointer select-none",
             variantStyles[opt.variant],
             opt.italic && "italic",
-            existingAnswer?.rating === opt.rating && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
+            existingAnswer?.rating === opt.rating && "ring-2 ring-accent/60 ring-offset-2 ring-offset-bg scale-[1.01]",
           )}
         >
           {opt.label}
         </button>
       ))}
-      <p className="text-xs text-text-muted text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
+      <p className="text-xs text-text-muted/50 text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
     </div>
   );
 }

@@ -34,8 +34,8 @@ export function ToggleGroup<T extends string>({
             "flex-1 border text-sm font-medium transition-all duration-200",
             size === "md" ? "px-4 py-3 rounded-[var(--radius-md)]" : "px-3 py-2.5 rounded-[var(--radius-sm)]",
             opt.value === value
-              ? "bg-accent text-accent-fg border-accent shadow-sm"
-              : "bg-surface border-border text-text-muted hover:border-accent/30",
+              ? "bg-gradient-to-b from-accent to-[#c47048] text-accent-fg border-accent shadow-[0_1px_3px_rgb(208_128_88/0.2),inset_0_1px_0_rgb(255_255_255/0.12)]"
+              : "bg-surface border-border text-text-muted hover:border-accent/25 hover:bg-surface/80",
           )}
         >
           {opt.label}

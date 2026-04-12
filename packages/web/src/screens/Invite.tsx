@@ -81,18 +81,25 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
 
         {/* Members list */}
         <div>
-          <h3 className="text-sm font-medium text-text-muted mb-3">{UI.invite.members}</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-text-muted/80 mb-3">
+            {UI.invite.members}
+          </h3>
           <div className="space-y-2">
             {members.map((m) => (
-              <div key={m.name} className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
+              <div
+                key={m.name}
+                className="flex items-center justify-between px-4 py-3 bg-surface/60 rounded-[var(--radius-sm)] border border-border/30"
+              >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{m.name}</span>
                   {m.isAdmin && (
-                    <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">admin</span>
+                    <span className="text-[10px] uppercase tracking-[0.08em] bg-accent/10 text-accent font-semibold px-2 py-0.5 rounded-full">
+                      admin
+                    </span>
                   )}
                 </div>
                 {group.isReady && (
-                  <span className={`text-sm ${m.isCompleted ? "text-accent" : "text-text-muted"}`}>
+                  <span className={`text-sm ${m.isCompleted ? "text-accent font-medium" : "text-text-muted/70"}`}>
                     {m.isCompleted
                       ? "Done"
                       : group.questionMode === "filtered" && !m.anatomy
@@ -107,19 +114,19 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
 
         {/* Generated link */}
         {generatedLink && (
-          <div className="p-4 bg-surface rounded-lg space-y-3">
+          <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-3">
             <p className="text-sm text-text-muted">Share this link with your partner:</p>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={generatedLink}
-                className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
+                className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
               />
               <button
                 type="button"
                 onClick={() => copy(generatedLink)}
-                className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
+                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-[#c47048] text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
               >
                 {copiedIndex !== null ? UI.invite.copied : UI.invite.copyLink}
               </button>
@@ -129,9 +136,12 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
 
         {/* Add person form */}
         {showAdd ? (
-          <form onSubmit={handleAddPerson} className="space-y-4 p-4 bg-surface rounded-lg">
+          <form
+            onSubmit={handleAddPerson}
+            className="space-y-4 p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30"
+          >
             <div>
-              <label htmlFor="invite-name" className="block text-sm font-medium mb-1 text-text-muted">
+              <label htmlFor="invite-name" className="block text-sm font-medium mb-1.5 text-text-muted">
                 Name
               </label>
               <input
@@ -140,21 +150,21 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Partner's name"
-                className="w-full px-4 py-3 rounded-lg bg-bg border border-border text-text placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                className="w-full px-4 py-3 rounded-[var(--radius-md)] bg-bg/80 border border-border/40 text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/30 transition-all duration-200"
               />
             </div>
 
             {/* Anatomy picker — only shown in admin-picks + filtered mode */}
             {needsAnatomy && (
               <div>
-                <label htmlFor="invite-body-type" className="block text-sm font-medium mb-1 text-text-muted">
+                <label htmlFor="invite-body-type" className="block text-sm font-medium mb-1.5 text-text-muted">
                   Body type
                 </label>
                 <AnatomyPicker
                   selected={anatomy}
                   onSelect={setAnatomy}
                   labels={labels}
-                  unselectedClass="bg-bg border-border text-text-muted"
+                  unselectedClass="bg-bg/80 border-border/40 text-text-muted"
                 />
               </div>
             )}

@@ -12,8 +12,9 @@ export function Card({ children, className }: Readonly<CardProps>) {
       <div
         className={cn(
           "w-full max-w-[480px] bg-bg/80 backdrop-blur-sm",
-          "sm:border sm:border-border/40 sm:rounded-[var(--radius-lg)]",
-          "sm:shadow-lg sm:shadow-accent/5 sm:px-8 sm:py-10",
+          "sm:bg-bg/70 sm:backdrop-blur-md sm:backdrop-saturate-[1.1]",
+          "sm:border sm:border-border/30 sm:rounded-[var(--radius-lg)]",
+          "sm:shadow-warm-lg sm:px-8 sm:py-10",
           className,
         )}
       >

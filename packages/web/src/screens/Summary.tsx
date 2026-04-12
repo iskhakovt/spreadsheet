@@ -70,6 +70,7 @@ export function Summary({
 
   const totalAnswered = grouped.reduce((sum, g) => sum + g.answered, 0);
   const totalQuestions = grouped.filter((g) => g.enabled).reduce((sum, g) => sum + g.total, 0);
+  const overallPct = totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0;
 
   return (
     <Card>
@@ -83,28 +84,38 @@ export function Summary({
 
         {/* Overall progress bar */}
         <div
-          className="h-2 bg-surface rounded-full overflow-hidden"
+          className="h-2 rounded-full overflow-hidden"
           role="progressbar"
           aria-valuenow={totalAnswered}
           aria-valuemax={totalQuestions}
           aria-label="Overall progress"
+          style={{
+            background: "color-mix(in oklab, var(--color-surface) 85%, var(--color-border))",
+            boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.05)",
+          }}
         >
           <div
-            className="h-full bg-accent rounded-full transition-all duration-300"
-            style={{ width: `${totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0}%` }}
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${overallPct}%`,
+              background: "linear-gradient(90deg, var(--color-accent-light) 0%, var(--color-accent) 100%)",
+              boxShadow: overallPct > 0 ? "0 0 8px rgba(208, 128, 88, 0.3)" : "none",
+            }}
           />
         </div>
 
         {/* Tier selector */}
-        <fieldset className="flex gap-1 p-1 bg-surface rounded-lg">
+        <fieldset className="flex gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
           <legend className="sr-only">Question depth</legend>
           {([1, 2, 3] as const).map((t) => {
             const info = UI.intro.tiers[t];
             return (
               <label
                 key={t}
-                className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium text-center cursor-pointer transition-colors ${
-                  tier === t ? "bg-accent text-white" : "text-text-muted hover:text-text"
+                className={`flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200 ${
+                  tier === t
+                    ? "bg-gradient-to-b from-accent to-[#c47048] text-white shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                    : "text-text-muted hover:text-text"
                 }`}
               >
                 <input
@@ -123,51 +134,63 @@ export function Summary({
 
         {/* Category list */}
         <div className="space-y-2">
-          {grouped.map(({ category, total, answered, enabled }) => (
-            <div
-              key={category.id}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
-                enabled ? "bg-surface border-border" : "bg-bg border-border/50 opacity-50"
-              }`}
-            >
-              {/* Toggle */}
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={() => toggleCategory(category.id)}
-                aria-label={`Include ${category.label}`}
-              />
-
-              {/* Category info + jump */}
-              <button
-                type="button"
-                onClick={() => enabled && onNavigateToCategory(category.id)}
-                className="flex-1 text-left"
-                disabled={!enabled}
+          {grouped.map(({ category, total, answered, enabled }) => {
+            const catPct = total > 0 ? (answered / total) * 100 : 0;
+            return (
+              <div
+                key={category.id}
+                className={`flex items-center gap-3 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200 ${
+                  enabled ? "bg-surface/60 border-border/40 hover:bg-surface/80" : "bg-bg border-border/30 opacity-45"
+                }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{category.label}</span>
-                  <span className="text-xs text-text-muted">
-                    {answered}/{total}
-                  </span>
-                </div>
-                {enabled && total > 0 && (
-                  <div
-                    className="mt-1.5 h-1 bg-bg rounded-full overflow-hidden"
-                    role="progressbar"
-                    aria-valuenow={answered}
-                    aria-valuemax={total}
-                    aria-label={`${category.label} progress`}
-                  >
-                    <div
-                      className="h-full bg-accent/60 rounded-full transition-all duration-300"
-                      style={{ width: `${(answered / total) * 100}%` }}
-                    />
+                {/* Toggle */}
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={() => toggleCategory(category.id)}
+                  aria-label={`Include ${category.label}`}
+                />
+
+                {/* Category info + jump */}
+                <button
+                  type="button"
+                  onClick={() => enabled && onNavigateToCategory(category.id)}
+                  className="flex-1 text-left"
+                  disabled={!enabled}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{category.label}</span>
+                    <span className="text-xs text-text-muted/70 tabular-nums">
+                      {answered}/{total}
+                    </span>
                   </div>
-                )}
-              </button>
-            </div>
-          ))}
+                  {enabled && total > 0 && (
+                    <div
+                      className="mt-1.5 h-1 rounded-full overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={answered}
+                      aria-valuemax={total}
+                      aria-label={`${category.label} progress`}
+                      style={{
+                        background: "color-mix(in oklab, var(--color-bg) 90%, var(--color-border))",
+                      }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${catPct}%`,
+                          background:
+                            catPct === 100
+                              ? "var(--color-accent)"
+                              : "color-mix(in srgb, var(--color-accent) 50%, var(--color-accent-light))",
+                        }}
+                      />
+                    </div>
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="space-y-3 pt-2">
@@ -181,7 +204,7 @@ export function Summary({
             <button
               type="button"
               onClick={onViewGroup}
-              className="w-full text-sm text-text-muted hover:text-accent py-2"
+              className="w-full text-sm text-text-muted/70 hover:text-accent py-2 transition-colors duration-200"
             >
               Group members
             </button>

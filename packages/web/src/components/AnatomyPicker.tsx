@@ -5,7 +5,7 @@ export function AnatomyPicker({
   selected,
   onSelect,
   labels,
-  unselectedClass = "bg-surface border-border text-text-muted",
+  unselectedClass = "bg-surface/60 border-border/40 text-text-muted",
 }: Readonly<{
   selected: Anatomy | "";
   onSelect: (value: Anatomy) => void;
@@ -26,8 +26,10 @@ export function AnatomyPicker({
             role="radio"
             aria-checked={selected === a}
             onClick={() => onSelect(a)}
-            className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${
-              selected === a ? "bg-accent text-accent-fg border-accent" : unselectedClass
+            className={`flex-1 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200 ${
+              selected === a
+                ? "bg-gradient-to-b from-accent to-[#c47048] text-accent-fg border-accent shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                : unselectedClass
             }`}
           >
             {labels[a]}
@@ -38,7 +40,7 @@ export function AnatomyPicker({
         type="button"
         onClick={() => setShowMore((v) => !v)}
         aria-expanded={showMore}
-        className="text-xs text-text-muted mt-1"
+        className="text-xs text-text-muted/70 mt-1.5 hover:text-accent transition-colors duration-200"
       >
         {showMore ? "Show fewer options" : "Show more options"}
       </button>

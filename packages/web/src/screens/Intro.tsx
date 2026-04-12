@@ -15,8 +15,8 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
         <h1 className="text-2xl font-bold">{UI.intro.title}</h1>
         <ol className="space-y-4">
           {UI.intro.steps.map((step, i) => (
-            <li key={i} className="flex items-center gap-3">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-surface flex items-center justify-center text-sm font-medium text-text-muted">
+            <li key={i} className="flex items-center gap-3.5">
+              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-surface/80 border border-border/30 flex items-center justify-center text-sm font-medium text-text-muted">
                 {i + 1}
               </span>
               <span className="text-text-muted leading-relaxed">{step}</span>
@@ -36,7 +36,7 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
             ))}
           </dl>
           {showTiming && (
-            <div className="pt-2 border-t border-border">
+            <div className="pt-3 border-t border-border/40">
               <p className="text-sm font-medium mb-1.5">{UI.intro.timingTitle}</p>
               <dl className="space-y-1.5">
                 {Object.values(UI.intro.timing).map(([label, desc]) => (
@@ -65,13 +65,15 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setTier(t)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
-                    selected ? "border-accent bg-accent/10" : "border-border bg-surface hover:border-border/80"
+                  className={`w-full text-left px-4 py-3.5 rounded-[var(--radius-md)] border-2 transition-all duration-200 ${
+                    selected
+                      ? "border-accent bg-accent/[0.06] shadow-[0_0_0_1px_rgb(208_128_88/0.1)]"
+                      : "border-border/60 bg-surface/50 hover:border-border hover:bg-surface/70"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{info.label}</span>
-                    <span className="text-xs text-text-muted">{TIER_QUESTIONS[t]} questions</span>
+                    <span className="text-xs text-text-muted/70 tabular-nums">{TIER_QUESTIONS[t]} questions</span>
                   </div>
                   <p className="text-sm text-text-muted mt-0.5">{info.description}</p>
                 </button>
