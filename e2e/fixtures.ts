@@ -14,13 +14,14 @@ const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
  * manually via `browser.newContext()`. Leaked contexts starve worker
  * memory and produce incomplete traces when a test fails mid-flow.
  *
- * We expose three named fixtures so every test signature is both
+ * We expose named fixtures so every test signature is both
  * self-documenting and leak-proof:
  *
- *   - `alice` / `bob` — each provides a Page inside its own fresh
- *     BrowserContext. Used by two-user tests like `two-player.spec.ts`.
- *     Laziness at the fixture level means a test that only destructures
- *     `{ alice }` never creates a Bob context.
+ *   - `alice` / `bob` / `carol` — each provides a Page inside its own
+ *     fresh BrowserContext. Used by multi-user tests like
+ *     `two-player.spec.ts` (alice + bob) and `three-person.spec.ts`
+ *     (all three). Laziness at the fixture level means a test that only
+ *     destructures `{ alice }` never creates unused contexts.
  *
  *   - `multiTab` — a single shared BrowserContext plus a pre-created
  *     admin Page. Used only by `multi-tab.spec.ts`, which intentionally
