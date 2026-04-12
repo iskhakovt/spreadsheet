@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   pr-title:
     name: PR Title
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
