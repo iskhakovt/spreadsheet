@@ -11,6 +11,8 @@
 !packages/server/
 !packages/web/
 
-# Exclude build artifacts and deps inside packages
+# Exclude build artifacts, deps, and secrets inside packages
 packages/*/node_modules
 packages/*/dist
+**/.env
+**/.env.*
