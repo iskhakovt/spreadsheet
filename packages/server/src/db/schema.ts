@@ -1,3 +1,7 @@
+// Note: indices use plain CREATE INDEX (not CONCURRENTLY) because drizzle's
+// migrator wraps migrations in a transaction (drizzle-orm#860). Safe for our
+// single-container deploy where downtime is inherent. For zero-downtime
+// deploys, apply indices out-of-band with CONCURRENTLY before migrating.
 import { bigserial, boolean, index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const targetEnum = pgEnum("target", ["all", "amab", "afab"]);
