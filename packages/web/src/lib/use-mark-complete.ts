@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
@@ -17,6 +18,9 @@ import { useTRPC } from "./trpc.js";
  * Use this hook from every component that calls markComplete. Do not
  * roll your own mark-complete flow: the whole point is that every
  * mark-complete goes through the same flush.
+ *
+ * The returned callback is identity-stable (same pattern as useSyncQueue:
+ * mutations are read through refs so the useCallback dep array is empty).
  */
 export function useMarkComplete(): () => Promise<void> {
   const trpc = useTRPC();
@@ -26,12 +30,17 @@ export function useMarkComplete(): () => Promise<void> {
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
   const markCompleteMutation = useMutation(trpc.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }));
 
-  return async () => {
+  const pushRef = useRef(pushMutation);
+  pushRef.current = pushMutation;
+  const markCompleteRef = useRef(markCompleteMutation);
+  markCompleteRef.current = markCompleteMutation;
+
+  return useCallback(async () => {
     await flushPendingOps(
-      (input) => pushMutation.mutateAsync(input),
+      (input) => pushRef.current.mutateAsync(input),
       async () => null,
     );
-    await markCompleteMutation.mutateAsync();
+    await markCompleteRef.current.mutateAsync();
     navigate("/waiting");
-  };
+  }, [navigate]);
 }

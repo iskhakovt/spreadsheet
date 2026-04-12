@@ -45,6 +45,11 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
     return;
   }
 
+  // Merge reconciles the local answer cache with what the server has.
+  // The retry re-sends the same `ops` array (not re-read from storage)
+  // because ops are append-only journal entries — they don't change
+  // after a merge, only the local answers map does. The fresh stoken
+  // tells the server "I've seen your latest state, apply these."
   const merged = await mergeAfterRejection(getAnswers(), ops, result.entries);
   setAnswers(merged);
   const retryProgress = await getProgress();
