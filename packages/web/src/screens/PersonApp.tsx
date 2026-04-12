@@ -20,6 +20,7 @@ import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
 import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
+import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { Comparison } from "./Comparison.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
@@ -103,9 +104,11 @@ export function PersonApp() {
   // kept as a safety valve for future admin tools.
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
   const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
-  const markCompleteMutation = useMutation(
-    trpcProxy.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }),
-  );
+
+  // Single unified mark-complete flow — always flushes pending ops first.
+  // See lib/use-mark-complete.ts for why this matters (orphaned-answers bug
+  // when navigating `/questions → /summary → /review → Done`).
+  const markComplete = useMarkComplete();
 
   // Loading is handled by the top-level <Suspense> boundary in main.tsx
   // via useLiveStatus → useSuspenseQuery. Errors propagate to the nearest
@@ -214,10 +217,7 @@ export function PersonApp() {
             <Review
               questions={questionsData.questions as QuestionData[]}
               categories={questionsData.categories as CategoryData[]}
-              onMarkComplete={async () => {
-                await markCompleteMutation.mutateAsync();
-                navigate("/waiting");
-              }}
+              onMarkComplete={markComplete}
               onViewProgress={() => navigate("/summary")}
               onEditQuestion={(key) => {
                 setStartKey(key);
@@ -231,7 +231,11 @@ export function PersonApp() {
           </Route>
 
           <Route path="/results">
-            <Comparison viewerId={status.person.id} onBack={() => navigate("/questions")} />
+            <Comparison
+              viewerId={status.person.id}
+              showTiming={status.group.showTiming}
+              onBack={() => navigate("/questions")}
+            />
           </Route>
 
           <Route>

@@ -1,7 +1,6 @@
 import type { Answer, CategoryData, OperationPayload, QuestionData, Rating, Timing } from "@spreadsheet/shared";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
@@ -19,6 +18,7 @@ import {
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
+import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { useSyncQueue } from "../lib/use-sync-queue.js";
 import { QuestionCard } from "./QuestionCard.js";
 import { WelcomeScreen } from "./WelcomeScreen.js";
@@ -35,8 +35,6 @@ interface QuestionProps {
 
 export function Question({ person, group, members, onDone, onSummary, startKey, onStartKeyConsumed }: QuestionProps) {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
   const questions = questionsData.questions as QuestionData[];
   const categoryMap = useMemo(() => {
@@ -54,11 +52,10 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   const answers = getAnswers();
   const pendingOps = getPendingOps();
 
-  const markCompleteMutation = useMutation(
-    trpc.sync.markComplete.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
-    }),
-  );
+  // Mark-complete is the unified hook — it always flushes pending ops
+  // before calling sync.markComplete and then navigates to /waiting.
+  // Do not roll your own; see lib/use-mark-complete.ts.
+  const markComplete = useMarkComplete();
 
   // Selected categories are React state (not a plain localStorage read) so
   // the first-mount default propagates through a re-render. Prior pattern
@@ -199,7 +196,15 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
   // is a fresh localStorage read per render). Without a dep the effect
   // would re-run on every render, which could defer the debounce
   // indefinitely if an unrelated parent re-renders us more often than 3s.
+  //
+  // The prev-count ref deduplicates consecutive calls with the same
+  // value, which saves us from re-scheduling when React re-runs the
+  // effect for reasons unrelated to pendingOps (StrictMode double-mount,
+  // sibling state changes forcing a re-render with the same count).
+  const lastScheduledCountRef = useRef<number | null>(null);
   useEffect(() => {
+    if (lastScheduledCountRef.current === pendingOps.length) return;
+    lastScheduledCountRef.current = pendingOps.length;
     scheduleSync(pendingOps.length);
   }, [pendingOps.length, scheduleSync]);
 
@@ -227,7 +232,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
           <h1 className="text-2xl font-bold">{allAnswered ? "All done!" : "That's the last one"}</h1>
           <p className="text-text-muted">{UI.review.answered(answeredCount, qScreens.length)}</p>
           {allAnswered ? (
-            <Button fullWidth onClick={handleMarkComplete}>
+            <Button fullWidth onClick={markComplete}>
               {UI.review.done}
             </Button>
           ) : (
@@ -241,7 +246,7 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
               >
                 Answer remaining questions
               </Button>
-              <Button variant="ghost" fullWidth onClick={handleMarkComplete}>
+              <Button variant="ghost" fullWidth onClick={markComplete}>
                 {UI.review.done}
               </Button>
             </>
@@ -249,17 +254,6 @@ export function Question({ person, group, members, onDone, onSummary, startKey, 
         </div>
       </Card>
     );
-  }
-
-  // --- Mark complete: flush pending writes, mark, then navigate to /waiting ---
-  // Explicit navigation is needed because /questions is in the free routes
-  // list (so the guard doesn't kick marked-complete users out of editing),
-  // which means it also won't auto-redirect from /questions to /waiting.
-  async function handleMarkComplete() {
-    await handleSync();
-    await markCompleteMutation.mutateAsync();
-    await onDone();
-    navigate("/waiting");
   }
 
   // --- Answer handlers ---
