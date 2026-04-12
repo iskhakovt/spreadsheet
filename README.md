@@ -28,18 +28,9 @@ pnpm test:integration   # Integration tests (Testcontainers, needs Docker)
 pnpm test:e2e           # E2E tests (Playwright + Testcontainers)
 ```
 
-## Build
+## Deploy
 
-```bash
-# Docker image
-docker build -t spreadsheet .
-
-# Run
-docker run -p 8080:8080 \
-  -e DATABASE_URL="postgresql://..." \
-  -e STOKEN_SECRET="..." \
-  spreadsheet
-```
+See [deploy.md](deploy.md) for self-hosting — pre-built images, environment variables, migrations, and production notes.
 
 ## Architecture
 
