@@ -1,5 +1,25 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const visualArgs = [
+  "--font-render-hinting=none",
+  "--disable-skia-runtime-opts",
+  "--disable-font-subpixel-positioning",
+  "--disable-lcd-text",
+  "--force-color-profile=srgb",
+];
+
+const visualExpect = {
+  toHaveScreenshot: {
+    animations: "disabled" as const,
+    caret: "hide" as const,
+    scale: "device" as const,
+    threshold: 0.2,
+    maxDiffPixelRatio: 0.01,
+    stylePath: "./e2e/visual/screenshot.css",
+    timeout: 15_000,
+  },
+};
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
@@ -21,33 +41,31 @@ export default defineConfig({
       testIgnore: /visual\//,
     },
     {
-      name: "visual",
+      name: "visual-desktop",
       testMatch: /visual\/.+\.spec\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
-        viewport: { width: 480, height: 900 },
-        deviceScaleFactor: 1,
+        viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 2,
         colorScheme: "light",
         reducedMotion: "reduce",
-        launchOptions: {
-          args: [
-            "--font-render-hinting=none",
-            "--disable-skia-runtime-opts",
-            "--disable-font-subpixel-positioning",
-            "--disable-lcd-text",
-            "--force-color-profile=srgb",
-          ],
-        },
+        launchOptions: { args: visualArgs },
       },
-      expect: {
-        toHaveScreenshot: {
-          animations: "disabled",
-          caret: "hide",
-          scale: "css",
-          threshold: 0.2,
-          maxDiffPixelRatio: 0.01,
-        },
+      expect: visualExpect,
+    },
+    {
+      name: "visual-mobile",
+      testMatch: /visual\/.+\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 664 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        colorScheme: "light",
+        reducedMotion: "reduce",
+        launchOptions: { args: visualArgs },
       },
+      expect: visualExpect,
     },
   ],
 });
