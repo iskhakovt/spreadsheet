@@ -46,5 +46,5 @@ ENV PORT=8080
 ENV STATIC_ROOT=./web
 EXPOSE 8080
 
-ENTRYPOINT ["dist/main.js"]
+ENTRYPOINT ["/nodejs/bin/node", "dist/main.js"]
 CMD ["serve"]
