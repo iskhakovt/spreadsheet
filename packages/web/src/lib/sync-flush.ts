@@ -1,17 +1,17 @@
 import { mergeAfterRejection } from "./journal.js";
 import { getAnswers, getPendingOps, getStoken, setAnswers, setPendingOps, setStoken } from "./storage.js";
 
-type PushInput = {
+interface PushInput {
   stoken: string | null;
   operations: string[];
   progress: string | null;
-};
+}
 
-type PushResult = {
+interface PushResult {
   stoken: string | null;
   pushRejected: boolean;
   entries: string[];
-};
+}
 
 type PushFn = (input: PushInput) => Promise<PushResult>;
 
