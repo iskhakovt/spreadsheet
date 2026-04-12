@@ -32,14 +32,14 @@ openssl rand -base64 32
 IMAGE=ghcr.io/iskhakovt/spreadsheet:<version>
 
 # 1. Migrate + seed (one step)
-docker run --rm -e DATABASE_URL=postgres://user:pass@host/db $IMAGE setup
+docker run --rm -e DATABASE_URL=postgres://user:pass@host/db "$IMAGE" setup
 
 # 2. Start server
 docker run -d --name spreadsheet \
   -e DATABASE_URL=postgres://user:pass@host/db \
   -e STOKEN_SECRET=$(openssl rand -base64 32) \
   -p 8080:8080 \
-  $IMAGE
+  "$IMAGE"
 ```
 
 ## Subsequent Deploys
@@ -48,7 +48,7 @@ docker run -d --name spreadsheet \
 IMAGE=ghcr.io/iskhakovt/spreadsheet:<version>
 
 # Migrate + seed (safe to re-run — idempotent)
-docker run --rm -e DATABASE_URL=... $IMAGE setup
+docker run --rm -e DATABASE_URL=... "$IMAGE" setup
 
 # Restart with new image
 docker stop spreadsheet && docker rm spreadsheet
@@ -56,7 +56,7 @@ docker run -d --name spreadsheet \
   -e DATABASE_URL=... \
   -e STOKEN_SECRET=... \
   -p 8080:8080 \
-  $IMAGE
+  "$IMAGE"
 ```
 
 ## Commands
