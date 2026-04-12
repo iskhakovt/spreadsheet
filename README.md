@@ -41,6 +41,8 @@ docker run -p 8080:8080 \
   spreadsheet
 ```
 
+See [deploy.md](deploy.md) for migrations, seed data, environment variables, and production notes.
+
 ## Architecture
 
 See [DESIGN.md](DESIGN.md) for the full design — schema, sync protocol, encryption, UI.
