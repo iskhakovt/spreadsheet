@@ -1,5 +1,6 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "lucide-react";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
@@ -104,22 +105,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
 
           <div className="p-4 bg-surface rounded-lg space-y-2 border border-border/40">
             <div className="flex items-center gap-2">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                role="presentation"
-                className="text-accent shrink-0"
-              >
-                <path
-                  d="M6.5 9.5L9.5 6.5M5.5 11.5L4 13a2.12 2.12 0 0 1-3-3l1.5-1.5M10.5 4.5L12 3a2.12 2.12 0 0 1 3 3l-1.5 1.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Link size={14} strokeWidth={1.5} className="text-accent shrink-0" />
               <p className="text-sm font-medium">Your link</p>
             </div>
             <p className="text-xs text-text-muted">Save this to access your group from another device</p>

@@ -1,5 +1,6 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
+import { Pencil } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { CopyMyLink } from "../components/CopyMyLink.js";
 import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
@@ -365,15 +366,7 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
               onClick={onBack}
               className="inline-flex items-center gap-1.5 text-text-muted hover:text-accent transition-colors text-sm"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" role="presentation">
-                <path
-                  d="M11 3L13 5L5 13L2 14L3 11ZM9 5L11 7"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Pencil size={14} strokeWidth={1.5} />
               Change my answers
             </button>
           </div>

@@ -92,6 +92,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **No mutable state across boundaries** — return defensive copies, use `Readonly<T>` where practical.
 - **Use the stack** — Zod for validation, Drizzle for queries, tRPC for API contracts. Don't reinvent.
 - **Inject dependencies** — pass db/services as parameters, don't hard-import. Keeps tests clean.
+- **Icons** — use `lucide-react` for all icons. Never write inline `<svg>` icons by hand. Import the named icon component and set `size` and `strokeWidth` props: `<Pencil size={14} strokeWidth={1.5} />`. Browse available icons at https://lucide.dev/icons/.
 
 ## Commits
 

@@ -1,34 +1,7 @@
+import { Check, Link } from "lucide-react";
 import { buildPersonLink } from "../lib/crypto.js";
 import { getAuthToken } from "../lib/session.js";
 import { useCopy } from "../lib/use-copy.js";
-
-function LinkIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
-      <path
-        d="M6.5 9.5L9.5 6.5M5.5 11.5L4 13a2.12 2.12 0 0 1-3-3l1.5-1.5M10.5 4.5L12 3a2.12 2.12 0 0 1 3 3l-1.5 1.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
-      <path
-        d="M3.5 8.5L6.5 11.5L12.5 4.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 /**
  * Subtle "Copy my link" button for encrypted groups.
@@ -57,7 +30,7 @@ export function CopyMyLink({ encrypted }: Readonly<{ encrypted: boolean }>) {
           copied ? "text-match-green" : "text-text-muted/70 hover:text-accent"
         }`}
       >
-        {copied ? <CheckIcon /> : <LinkIcon />}
+        {copied ? <Check size={12} strokeWidth={1.5} /> : <Link size={12} strokeWidth={1.5} />}
         {copied ? "Link copied!" : "Copy my link"}
       </button>
     </div>
