@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 const command = process.argv[2] ?? "serve";
 
 switch (command) {
@@ -9,7 +11,7 @@ switch (command) {
     const { createDatabase, runMigrations } = await import("./db/index.js");
     const db = createDatabase(requireEnv("DATABASE_URL"));
     await runMigrations(db);
-    console.log("Migrations applied");
+    logger.info("migrations applied");
     process.exit(0);
     break;
   }
@@ -20,7 +22,7 @@ switch (command) {
     const { seed } = await import("./db/seed.js");
     const db = createDatabase(requireEnv("DATABASE_URL"));
     await seed(new QuestionStore(db));
-    console.log("Seed complete");
+    logger.info("seed complete");
     process.exit(0);
     break;
   }
@@ -31,15 +33,15 @@ switch (command) {
     const { seed } = await import("./db/seed.js");
     const db = createDatabase(requireEnv("DATABASE_URL"));
     await runMigrations(db);
-    console.log("Migrations applied");
+    logger.info("migrations applied");
     await seed(new QuestionStore(db));
-    console.log("Seed complete");
+    logger.info("seed complete");
     process.exit(0);
     break;
   }
 
   default:
-    console.error("Usage: main.ts [serve|migrate|seed|setup]");
+    logger.fatal({ command }, "usage: main.ts [serve|migrate|seed|setup]");
     process.exit(1);
 }
 

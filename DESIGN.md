@@ -23,7 +23,7 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | Package manager | pnpm |
 | Linter/formatter | Biome |
 | Testing | Vitest |
-| Logging | Hono built-in (v1), Pino available |
+| Logging | Pino — structured JSON (pino-pretty in dev) |
 
 ## Glossary
 

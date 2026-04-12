@@ -79,6 +79,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 ## Code Style
 
+- **Inclusive language (mandatory)** — use `allowlist`/`denylist`, not `whitelist`/`blacklist`; `main`, not `master`; `primary`/`replica`, not `master`/`slave`. Applies to code, comments, docs, commit messages, and PR descriptions. If you encounter legacy terms while editing nearby code, fix them in the same change.
 - **Idiomatic TypeScript** — use interfaces for object shapes, generics for reusable components.
 - **`function` declarations for named exports** — `function foo()` not `const foo = () => {}`. Arrow functions for callbacks and inline lambdas only.
 - **Naming** — lowercase-hyphenated filenames (`category-picker.tsx`), `.test.ts` suffix for tests. PascalCase for types/interfaces/components, camelCase for functions/variables.
@@ -108,6 +109,8 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 
 **Key gotcha**: `style` in Angular's conventional-commits vocabulary means **code formatting**, not visual design. A UI polish that users can see is `feat`, because it ships changes to production and users experience them. Using `style` for a visual refresh silently suppresses the release — users won't see the new design until some unrelated `feat`/`fix` lands later.
 
+**Bringing `main` forward into a feature branch — use `git merge`, not `git rebase`.** Rebase rewrites published commits, which forces a push, breaks the PR review's commit-level discussion threading, and invalidates any local clones. Merge is reversible and preserves the branch's history. The squash-merge at PR-close collapses everything anyway, so the linear-history argument for rebase doesn't apply here.
+
 ## Architecture Rules
 
 - **All DB access goes through stores.** Routes never use `ctx.db` directly. Stores enforce transactions via `#tx`.
@@ -117,6 +120,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Human-friendly language in user-facing text** — use natural terms people actually say ("eating out", "blowjob", "going down on") in `give_text`/`receive_text` and UI copy. Clinical terms (`cunnilingus`, `fellatio`) for IDs, schema, and docs only.
 - **Upsert seed data** — question bank is seeded via `ON CONFLICT DO UPDATE`. Adding/renaming questions is a deploy, not a migration.
 - **Postgres everywhere** — no SQLite, no dialect switching. PGlite for unit tests, real Postgres for dev/integration/prod.
+- **Don't log secrets.** Tokens (`adminToken`, `partnerTokens`, person `token`), passwords, and auth headers (`x-person-token`, `authorization`, `cookie`) must never be passed to the logger. Log only the fields you need; sanitize at the call site. There's a redact safety net in `packages/server/src/logger.ts` (covered by `logger.test.ts`), but pino's `*` wildcard is single-level only — anything nested deeper than one level leaks. Treat the redact list as belt-and-suspenders, not primary defense.
 - **Graceful local data migrations** — the service worker auto-updates the app without user interaction. New code can load against old localStorage data at any time. Rules:
   - Operation format is versioned (`p:1:`, `e:1:`) — new code must read all old versions, not just the current one.
   - localStorage schema changes must detect the old shape on load and migrate in place.

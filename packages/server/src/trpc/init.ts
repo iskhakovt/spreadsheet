@@ -5,10 +5,32 @@ import type { TrpcContext } from "./context.js";
 const t = initTRPC.context<TrpcContext>().create();
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
 export const createCallerFactory = t.createCallerFactory;
 
-export const authedProcedure = t.procedure.use(({ ctx, next }) => {
+const loggingMiddleware = t.middleware(async ({ ctx, path, type, next }) => {
+  const start = performance.now();
+  const result = await next();
+  const durationMs = Math.round(performance.now() - start);
+  if (result.ok) {
+    ctx.logger.debug({ trpcPath: path, trpcType: type, durationMs }, "trpc ok");
+  } else {
+    ctx.logger.warn(
+      {
+        trpcPath: path,
+        trpcType: type,
+        durationMs,
+        code: result.error.code,
+        message: result.error.message,
+      },
+      "trpc error",
+    );
+  }
+  return result;
+});
+
+export const publicProcedure = t.procedure.use(loggingMiddleware);
+
+export const authedProcedure = publicProcedure.use(({ ctx, next }) => {
   if (!ctx.person || !ctx.group || !ctx.personToken) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid or missing person token" });
   }
