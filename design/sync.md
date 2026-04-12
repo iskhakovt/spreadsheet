@@ -280,13 +280,16 @@ This is the "propagate live, never mutate status implicitly" pattern: navigation
 
 ### Client logic
 
+Sync is driven by `useSyncQueue` (`lib/use-sync-queue.ts`), which wraps `useMutation(trpc.sync.push)` with a 3-second debounce after the last answer change and automatic conflict-merge retry on `pushRejected`.
+
 ```
 On each answer tap:
   1. Update local answer state (localStorage)
   2. Add operation to pending queue (localStorage)
+  3. Reset the 3s debounce timer
 
-On sync button press:
-  1. POST /api/sync { stoken, operations: pendingQueue }
+When the debounce fires (or user taps sync manually):
+  1. useMutation calls sync.push { stoken, operations: pendingQueue }
   2. If success:
      - Apply returned entries to local state (replay)
      - Clear pending queue
@@ -294,7 +297,7 @@ On sync button press:
   3. If pushRejected:
      - Apply returned entries to local state
      - Keep pending queue (these ops weren't applied)
-     - Retry push with new stoken
+     - Retry push with new stoken (automatic via conflict-merge retry)
 ```
 
 ## Service Worker & Offline
@@ -367,14 +370,19 @@ This is deterministic, clock-independent, and requires no server-side knowledge 
 
 ## Client Local Storage
 
-```typescript
-interface LocalState {
-  answers: Record<string, { rating: string; timing: string | null }>  // current state
-  pendingOps: string[]    // operations not yet synced (opaque strings)
-  stoken: string | null   // last sync cursor (signed, from server)
-  questions: Question[]   // cached from server
-  categories: Category[]  // cached from server
-}
+Client-authored state lives in localStorage (scoped by FNV-1a hash of person token). Server state lives in the TanStack Query cache (in-memory, per-tab).
+
+```
+localStorage (scoped per person):
+  answers      — current answer state (Record<string, { rating, timing }>)
+  pendingOps   — operations not yet synced (opaque strings)
+  stoken       — last sync cursor (signed, from server)
+  UI prefs     — selected categories, etc.
+
+TanStack Query cache (in-memory):
+  groups.status     — group membership, completion state, progress
+  questions.list    — question bank (staleTime: Infinity, fetched once)
+  sync.journal      — journal entries (fed by both HTTP query and WS subscription)
 ```
 
 In encrypted mode, `pendingOps` contains encrypted strings. In plaintext mode, JSON strings. The client code that manages the queue doesn't care — it's all strings.
@@ -390,5 +398,7 @@ If the journal grows large, a snapshot is just a special journal entry containin
 WS-first via the tRPC `groups.onStatus` subscription. The server emits on the `groupEvents` bus whenever any broadcasting mutation (`markComplete`, `setProfile`, `markReady`, `addPerson`, `removePerson`) successfully runs; the subscription generator re-reads `getStatus(token)` on each event and yields the fresh snapshot.
 
 Reconnect recovery is handled at the transport layer: `wsLink` auto-reconnects with exponential backoff, and on reconnect the subscription generator runs fresh and yields the initial state — no cursor needed because status is snapshot-based (the latest snapshot replaces any missed intermediates). There is no polling fallback; if the WebSocket is persistently broken the app degrades to "reload to fix".
+
+On the client, the `useSubscription(trpc.groups.onStatus)` hook feeds each snapshot into the TanStack Query cache via `setQueryData` in its `onData` callback, so the subscription and the initial HTTP fetch (`useSuspenseQuery(trpc.groups.status)`) share a single cache entry. The same pattern applies to `sync.onJournalChange` — subscription updates merge into the `sync.journal` cache that the HTTP query populated.
 
 For the journal read path, see the "Reading the journal" section above.
