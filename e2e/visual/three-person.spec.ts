@@ -5,14 +5,8 @@ import {
   createGroupAndSetup,
   goThroughIntro,
   narrowToCategory,
+  personBase,
 } from "../helpers.js";
-
-/** Extract the /p/{token} base path from a full URL. */
-function personBase(url: string): string {
-  const match = url.match(/(\/p\/[^/#?]+)/);
-  if (!match) throw new Error(`Can't extract person base from URL: ${url}`);
-  return match[1];
-}
 
 test.describe("3-person comparison", () => {
   test("pair tabs and switching pairs", async ({ alice, bob, carol }) => {

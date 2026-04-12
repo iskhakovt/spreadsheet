@@ -57,6 +57,11 @@ export default defineConfig({
       name: "visual-mobile",
       testMatch: /visual\/.+\.spec\.ts$/,
       use: {
+        // Desktop Chrome with a mobile viewport — NOT iPhone/WebKit. We use
+        // Chromium for both projects so the deterministic rendering args
+        // (font-render-hinting, force-color-profile, etc.) apply uniformly.
+        // The mobile viewport is what matters for layout regression; the UA
+        // string is irrelevant (no server-side mobile detection).
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 664 },
         deviceScaleFactor: 2,

@@ -44,6 +44,13 @@ function tokenFromUrl(url: string): string {
   return match[1];
 }
 
+/** Extract the /p/{token} base path from a full URL. */
+export function personBase(url: string): string {
+  const match = url.match(/(\/p\/[^/#?]+)/);
+  if (!match) throw new Error(`Can't extract person base from URL: ${url}`);
+  return match[1];
+}
+
 /**
  * Read a scoped localStorage key for the current page's person.
  *

@@ -1,12 +1,11 @@
 import { expect, test } from "../fixtures.js";
-import { answerQuestionsCycling, createGroupAndSetup, goThroughIntro, narrowToCategory } from "../helpers.js";
-
-/** Extract the /p/{token} base path from a full URL. */
-function personBase(url: string): string {
-  const match = url.match(/(\/p\/[^/#?]+)/);
-  if (!match) throw new Error(`Can't extract person base from URL: ${url}`);
-  return match[1];
-}
+import {
+  answerQuestionsCycling,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  personBase,
+} from "../helpers.js";
 
 test.describe("admin 2-person flow", () => {
   test("setup → invite → intro → questions → summary → review → waiting → results", async ({ alice, bob }) => {
