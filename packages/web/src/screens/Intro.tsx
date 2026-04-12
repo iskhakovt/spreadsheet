@@ -6,7 +6,7 @@ import { UI } from "../lib/strings.js";
 
 const TIER_QUESTIONS: Record<number, string> = { 1: "~65", 2: "~150", 3: "~190" };
 
-export function Intro({ showTiming, onDone }: { showTiming: boolean; onDone: () => void }) {
+export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; onDone: () => void }>) {
   const [tier, setTier] = useState(getSelectedTier);
 
   return (

@@ -5,12 +5,12 @@ export function SyncIndicator({
   show,
   pendingCount,
   onSync,
-}: {
+}: Readonly<{
   syncing: boolean;
   show: boolean;
   pendingCount: number;
   onSync: () => void;
-}) {
+}>) {
   const visible = syncing || (show && pendingCount > 0);
   return (
     <span role="status" aria-live="polite">

@@ -6,7 +6,7 @@ interface CardProps {
   className?: string;
 }
 
-export function Card({ children, className }: CardProps) {
+export function Card({ children, className }: Readonly<CardProps>) {
   return (
     <div className="min-h-screen flex items-start justify-center px-4 py-8 sm:py-12">
       <div

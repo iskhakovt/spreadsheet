@@ -80,6 +80,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 ## Code Style
 
 - **Inclusive language (mandatory)** — use `allowlist`/`denylist`, not `whitelist`/`blacklist`; `main`, not `master`; `primary`/`replica`, not `master`/`slave`. Applies to code, comments, docs, commit messages, and PR descriptions. If you encounter legacy terms while editing nearby code, fix them in the same change.
+- **Readonly props** — wrap component props in `Readonly<>` at the function signature: `function Foo({ x }: Readonly<FooProps>)` for named types, `function Bar({ x }: Readonly<{ x: string }>)` for inline types. Follows the Next.js convention. No lint rule enforces this — it's a manual convention.
 - **Idiomatic TypeScript** — use interfaces for object shapes, generics for reusable components.
 - **`function` declarations for named exports** — `function foo()` not `const foo = () => {}`. Arrow functions for callbacks and inline lambdas only.
 - **Naming** — lowercase-hyphenated filenames (`category-picker.tsx`), `.test.ts` suffix for tests. PascalCase for types/interfaces/components, camelCase for functions/variables.

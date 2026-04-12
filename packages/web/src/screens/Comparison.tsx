@@ -112,7 +112,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, showTiming, onBack }: ComparisonProps) {
+export function Comparison({ viewerId, showTiming, onBack }: Readonly<ComparisonProps>) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -393,7 +393,7 @@ function PairComparison({
   categoryOrder,
   questionOrder,
   showHeading = true,
-}: PairComparisonProps) {
+}: Readonly<PairComparisonProps>) {
   const pairMatches = buildPairMatches(a.answers, b.answers, questions, {
     aName: aDisplayName,
     aIsViewer,

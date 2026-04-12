@@ -33,7 +33,15 @@ interface QuestionProps {
   onStartKeyConsumed?: () => void;
 }
 
-export function Question({ person, group, members, onDone, onSummary, startKey, onStartKeyConsumed }: QuestionProps) {
+export function Question({
+  person,
+  group,
+  members,
+  onDone,
+  onSummary,
+  startKey,
+  onStartKeyConsumed,
+}: Readonly<QuestionProps>) {
   const trpc = useTRPC();
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
   const questions = questionsData.questions as QuestionData[];

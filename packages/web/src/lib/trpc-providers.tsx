@@ -19,7 +19,7 @@ const ReactQueryDevtools = import.meta.env.DEV
  * stability across renders. A new `QueryClient` on every render would wipe
  * the cache; a new `trpcClient` would reset the WebSocket connection.
  */
-export function AppProviders({ children }: { children: ReactNode }) {
+export function AppProviders({ children }: Readonly<{ children: ReactNode }>) {
   const [queryClient] = useState(() => makeQueryClient());
   const [trpcClient] = useState(() => makeTrpcClient());
 

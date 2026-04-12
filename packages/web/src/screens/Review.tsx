@@ -36,7 +36,13 @@ function ratingStyle(rating: string): string {
   }
 }
 
-export function Review({ questions, categories, onMarkComplete, onViewProgress, onEditQuestion }: ReviewProps) {
+export function Review({
+  questions,
+  categories,
+  onMarkComplete,
+  onViewProgress,
+  onEditQuestion,
+}: Readonly<ReviewProps>) {
   const answers = getAnswers();
   const selectedCategories = getSelectedCategories() ?? [];
 
