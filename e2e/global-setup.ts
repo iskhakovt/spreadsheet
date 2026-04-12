@@ -2,7 +2,7 @@ import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { GenericContainer, Network, Wait, type StartedNetwork, type StartedTestContainer } from "testcontainers";
+import { GenericContainer, Network, type StartedNetwork, type StartedTestContainer, Wait } from "testcontainers";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
 
