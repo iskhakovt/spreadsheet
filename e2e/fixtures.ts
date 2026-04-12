@@ -48,8 +48,8 @@ export const test = base.extend<{
     } catch {
       throw new Error(`E2E port file not found at ${PORT_FILE} — did globalSetup run?`);
     }
-    if (!hostPort) {
-      throw new Error(`Empty port file at ${PORT_FILE}`);
+    if (!hostPort || !/^[\w.-]+:\d+$/.test(hostPort)) {
+      throw new Error(`Invalid host:port in ${PORT_FILE}: "${hostPort}"`);
     }
     await use(`http://${hostPort}`);
   },

@@ -59,7 +59,7 @@ async function setupDocker(imageName: string) {
     .withCommand(["serve"])
     .withEnvironment({
       DATABASE_URL: internalDbUrl,
-      STOKEN_SECRET: "e2e-test-secret-that-is-long-enough",
+      STOKEN_SECRET: "e2e-test-secret",
     })
     .withWaitStrategy(Wait.forHttp("/health", 8080).forStatusCode(200))
     .withStartupTimeout(30_000)

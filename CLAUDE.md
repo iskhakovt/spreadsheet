@@ -53,6 +53,8 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 ```
 packages/server/src/
+  main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Built as the Docker entrypoint.
+  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
   db/         ← schema, migrations, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
