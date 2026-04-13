@@ -1,6 +1,6 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -94,6 +94,22 @@ async function setupDocker(imageName: string) {
 // Local path — fast iteration with tsx (no Docker build needed)
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve a bin from node_modules/.bin, falling back to `pnpm exec <name>`.
+ * Inside the Playwright Docker container there is no pnpm — only the
+ * monorepo's node_modules tree mounted from the host. pnpm may hoist the
+ * bin to the root or keep it in a package-specific node_modules, so check
+ * all likely locations.
+ */
+function resolveBin(name: string): string {
+  const monorepoRoot = resolve(import.meta.dirname, "..");
+  for (const dir of ["", "packages/server", "packages/web"]) {
+    const candidate = resolve(monorepoRoot, dir, `node_modules/.bin/${name}`);
+    if (existsSync(candidate)) return candidate;
+  }
+  return `pnpm exec ${name}`;
+}
+
 async function setupLocal() {
   if (process.env.SKIP_E2E_BUILD === "1") {
     console.log("[global-setup] SKIP_E2E_BUILD=1 — reusing existing packages/web/dist");
@@ -101,7 +117,8 @@ async function setupLocal() {
     const webDir = resolve(import.meta.dirname, "../packages/web");
     console.log("[global-setup] building packages/web...");
     const buildStart = Date.now();
-    execSync("pnpm exec vite build", {
+    const vite = resolveBin("vite");
+    execSync(`${vite} build`, {
       cwd: webDir,
       stdio: "inherit",
     });
@@ -112,14 +129,15 @@ async function setupLocal() {
   const url = container.getConnectionUri();
 
   const serverDir = resolve(import.meta.dirname, "../packages/server");
-  execSync("pnpm exec tsx src/main.ts setup", {
+  const tsx = resolveBin("tsx");
+  execSync(`${tsx} src/main.ts setup`, {
     cwd: serverDir,
     env: { ...process.env, DATABASE_URL: url },
     stdio: "pipe",
   });
 
   const staticRoot = resolve(import.meta.dirname, "../packages/web/dist");
-  const proc = spawn("pnpm", ["exec", "tsx", "src/main.ts", "serve"], {
+  const proc = spawn(tsx, ["src/main.ts", "serve"], {
     cwd: serverDir,
     env: {
       ...process.env,

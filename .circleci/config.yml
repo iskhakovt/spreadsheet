@@ -19,14 +19,14 @@ executors:
       - image: cimg/node:24.13
     resource_class: small
 
-  # Full VM with Docker socket — required for testcontainers and for
-  # `docker run` + localhost networking (E2E).
+  # Full VM with Docker socket — required for `docker run` + localhost
+  # networking (E2E, visual-docker).
   #
   # CircleCI's Docker executor + `setup_remote_docker` has a network
   # boundary: containers started via `docker run` bind ports on the
-  # remote Docker host, NOT on localhost. Testcontainers and Playwright
-  # E2E both need localhost access to dynamically-started containers.
-  # The machine executor runs everything on one VM — no boundary.
+  # remote Docker host, NOT on localhost. E2E needs localhost access to
+  # the app container; visual-docker needs `docker run --network=host`
+  # with volume mounts. The machine executor runs everything on one VM.
   # Same cost as Docker medium at 10 credits/min.
   vm:
     machine:
@@ -37,18 +37,22 @@ executors:
 commands:
   pnpm-install:
     description: Enable corepack + install with pnpm store cache
+    parameters:
+      cache-prefix:
+        type: string
+        default: docker
     steps:
       - restore_cache:
           keys:
-            - v1-pnpm-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
-            - v1-pnpm-{{ arch }}-
+            - v1-pnpm-<< parameters.cache-prefix >>-{{ checksum "pnpm-lock.yaml" }}
+            - v1-pnpm-<< parameters.cache-prefix >>-
       - run:
           name: Install dependencies
           command: |
             corepack enable
             pnpm install --frozen-lockfile
       - save_cache:
-          key: v1-pnpm-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
+          key: v1-pnpm-<< parameters.cache-prefix >>-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - ~/.local/share/pnpm/store/v3
 
@@ -74,9 +78,10 @@ commands:
           command: |
             PW_VERSION=$(npx playwright --version | tr ' ' '-')
             echo "export PW_VERSION=$PW_VERSION" >> "$BASH_ENV"
+            echo "$PW_VERSION" > /tmp/pw-version.txt
       - restore_cache:
           keys:
-            - v1-playwright-{{ arch }}-${PW_VERSION}
+            - v1-playwright-vm-{{ checksum "/tmp/pw-version.txt" }}
       - run:
           name: Install Playwright Chromium (if not cached)
           command: |
@@ -84,7 +89,7 @@ commands:
               npx playwright install chromium
             fi
       - save_cache:
-          key: v1-playwright-{{ arch }}-${PW_VERSION}
+          key: v1-playwright-vm-{{ checksum "/tmp/pw-version.txt" }}
           paths:
             - ~/.cache/ms-playwright
       - run:
@@ -99,9 +104,9 @@ jobs:
     steps:
       - checkout
       - pnpm-install
-      - run: pnpm --filter @spreadsheet/shared build
-      - run: pnpm --filter @spreadsheet/server run typecheck
-      - run: pnpm -r typecheck
+      - run:
+          name: Typecheck all packages
+          command: pnpm typecheck
       - run: pnpm lint
 
   # PR title validation (Conventional Commits)
@@ -213,7 +218,8 @@ jobs:
           name: Load Docker image
           command: docker load -i /tmp/workspace/image.tar
       - setup-node-vm
-      - pnpm-install
+      - pnpm-install:
+          cache-prefix: vm
       - install-playwright
       - run:
           name: E2E tests
@@ -223,8 +229,12 @@ jobs:
             E2E_IMAGE: spreadsheet:ci
             TESTCONTAINERS_RYUK_DISABLED: "true"
 
-  # Visual regression tests — Playwright, no Docker image needed.
-  # Uses machine executor for Chromium system deps.
+  # Visual regression tests — runs inside the official Playwright Docker
+  # image for deterministic screenshots (same fonts, libraries, Chromium
+  # across dev machines and CI). Uses scripts/visual-docker.sh.
+  #
+  # Needs machine executor: the script does `docker run --network=host`
+  # with volume mounts, which requires a real Docker socket.
   visual:
     executor: vm
     steps:
@@ -233,18 +243,19 @@ jobs:
           name: Fetch Git LFS files
           command: git lfs pull
       - setup-node-vm
-      - pnpm-install
+      - pnpm-install:
+          cache-prefix: vm
       - run:
           name: Build packages
+          command: pnpm build
+      - run:
+          name: Pull Playwright Docker image
           command: |
-            pnpm --filter @spreadsheet/shared build
-            pnpm --filter @spreadsheet/server run typecheck
-            pnpm --filter @spreadsheet/web run build
-            pnpm --filter @spreadsheet/server run build
-      - install-playwright
+            PW_IMAGE=$(grep '^IMAGE=' scripts/visual-docker.sh | cut -d'"' -f2)
+            docker pull "$PW_IMAGE"
       - run:
           name: Visual regression tests
-          command: pnpm test:visual
+          command: pnpm test:visual:docker
           environment:
             CI: "true"
             TESTCONTAINERS_RYUK_DISABLED: "true"
@@ -286,9 +297,12 @@ jobs:
   # (packages:write, contents:read) stored in the `ghcr` restricted
   # context. This is the only long-lived credential in the pipeline.
   publish:
-    executor: vm
+    executor: node
+    resource_class: medium
     steps:
       - checkout
+      - setup_remote_docker:
+          version: docker24
       - run:
           name: Derive version
           command: |
@@ -300,7 +314,9 @@ jobs:
           command: echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
       - run:
           name: Set up Docker Buildx
-          command: docker buildx create --use --name ci-builder
+          command: |
+            docker buildx create --use --name ci-builder
+            docker buildx inspect --bootstrap
       - run:
           name: Build and push
           command: |

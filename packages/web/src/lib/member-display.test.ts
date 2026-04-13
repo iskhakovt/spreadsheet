@@ -90,6 +90,18 @@ describe("sortMembersViewerFirst", () => {
     sortMembersViewerFirst(input, "alice");
     expect(input).toEqual(snapshot);
   });
+
+  it("works with plain {id, name} objects (status members)", () => {
+    const members = [
+      { id: "c", name: "Carol", extra: true },
+      { id: "a", name: "Alice", extra: false },
+      { id: "b", name: "Bob", extra: true },
+    ];
+    const result = sortMembersViewerFirst(members, "b");
+    expect(result.map((x) => x.name)).toEqual(["Bob", "Alice", "Carol"]);
+    // Extra fields preserved
+    expect(result[0]).toHaveProperty("extra", true);
+  });
 });
 
 describe("viewerDisplayName", () => {

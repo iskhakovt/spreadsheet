@@ -17,7 +17,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Admin answers one question with "No"
     await admin.getByText("Start filling out").click();
@@ -78,7 +78,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Open Bob's link in a second tab first (the risky action order that
     // used to cause "admin marks Bob complete" cross-contamination bugs)
@@ -115,7 +115,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByText("Create & get links").click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice answers and completes
     await admin.getByText("Start filling out").click();

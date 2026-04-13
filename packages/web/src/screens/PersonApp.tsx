@@ -14,8 +14,11 @@ import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { handleError, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { CopyMyLink } from "../components/copy-my-link.js";
+import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { getGroupKeyFromUrl } from "../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
+import { sortMembersViewerFirst } from "../lib/member-display.js";
 import { setSession } from "../lib/session.js";
 import { getHasSeenIntro } from "../lib/storage.js";
 import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
@@ -126,6 +129,12 @@ export function PersonApp() {
     );
   }
 
+  // Guard: encrypted group opened without the #key= fragment.
+  // Prevents both unreadable encrypted data AND accidental plaintext writes.
+  if (status.group.encrypted && !getGroupKeyFromUrl()) {
+    return <MissingKeyScreen />;
+  }
+
   // Admin token — group exists but no person yet
   if (!status.person) {
     return (
@@ -134,6 +143,10 @@ export function PersonApp() {
       </ErrorBoundary>
     );
   }
+
+  // Self first, then others alphabetically by name. Sorted once here so
+  // all child screens (Invite, Pending, Waiting, Question) get consistent order.
+  const sortedMembers = sortMembersViewerFirst(status.members, status.person.id);
 
   const defaultRoute = resolveRoute(status.person, status.group, allComplete);
 
@@ -163,12 +176,12 @@ export function PersonApp() {
           </Route>
 
           <Route path="/pending">
-            <PendingScreen status={status} />
+            <PendingScreen status={status} sortedMembers={sortedMembers} />
           </Route>
 
           <Route path="/invite">
             <Invite
-              members={status.members}
+              members={sortedMembers}
               group={status.group}
               onGroupReady={() => markReadyMutation.mutate()}
               onStartFilling={() => {
@@ -190,7 +203,7 @@ export function PersonApp() {
             <Question
               person={status.person}
               group={status.group}
-              members={status.members}
+              members={sortedMembers}
               onDone={refreshStatus}
               onSummary={() => navigate("/summary")}
               startKey={startKey}
@@ -227,13 +240,19 @@ export function PersonApp() {
           </Route>
 
           <Route path="/waiting">
-            <WaitingScreen status={status} allComplete={allComplete} navigate={navigate} />
+            <WaitingScreen
+              status={status}
+              sortedMembers={sortedMembers}
+              allComplete={allComplete}
+              navigate={navigate}
+            />
           </Route>
 
           <Route path="/results">
             <Comparison
               viewerId={status.person.id}
               showTiming={status.group.showTiming}
+              encrypted={status.group.encrypted}
               onBack={() => navigate("/questions")}
             />
           </Route>
@@ -269,9 +288,12 @@ function NonAdminOnboarding({ status }: Readonly<{ status: GroupStatus }>) {
   );
 }
 
-function PendingScreen({ status }: Readonly<{ status: GroupStatus & { person: Person } }>) {
+function PendingScreen({
+  status,
+  sortedMembers,
+}: Readonly<{ status: GroupStatus & { person: Person }; sortedMembers: GroupStatus["members"] }>) {
   const waitingForAnatomy = status.group.isAdminReady && !status.group.isReady;
-  const others = status.members.filter((m) => m.id !== status.person.id);
+  const others = sortedMembers.filter((m) => m.id !== status.person.id);
 
   return (
     <Card>
@@ -295,6 +317,7 @@ function PendingScreen({ status }: Readonly<{ status: GroupStatus & { person: Pe
           ))}
         </div>
         <p className="text-xs text-text-muted">Only matches are revealed. Checking automatically...</p>
+        <CopyMyLink encrypted={status.group.encrypted} />
       </div>
     </Card>
   );
@@ -302,14 +325,16 @@ function PendingScreen({ status }: Readonly<{ status: GroupStatus & { person: Pe
 
 function WaitingScreen({
   status,
+  sortedMembers,
   allComplete,
   navigate,
 }: Readonly<{
   status: GroupStatus & { person: Person };
+  sortedMembers: GroupStatus["members"];
   allComplete: boolean;
   navigate: (to: string) => void;
 }>) {
-  const others = status.members.filter((m) => m.id !== status.person.id);
+  const others = sortedMembers.filter((m) => m.id !== status.person.id);
   return (
     <Card>
       <div className="text-center pt-16 space-y-6">
@@ -344,6 +369,7 @@ function WaitingScreen({
             View group members
           </button>
         )}
+        <CopyMyLink encrypted={status.group.encrypted} />
       </div>
     </Card>
   );

@@ -1,6 +1,15 @@
 import { decodeOpaque, encodeOpaque } from "@spreadsheet/shared";
 import { getScope } from "./session.js";
 
+/** Thrown when encrypted data is encountered but no group key is available. */
+export class MissingKeyError extends Error {
+  readonly code = "MISSING_GROUP_KEY" as const;
+  constructor() {
+    super("Cannot decrypt without group key");
+    this.name = "MissingKeyError";
+  }
+}
+
 const ALGO = "AES-GCM";
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12; // 96 bits — recommended for AES-GCM
@@ -80,7 +89,7 @@ export async function decodeValue<T = unknown>(opaque: string, groupKey?: string
   }
   const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
   if (!resolvedKey) {
-    throw new Error("Cannot decrypt without group key");
+    throw new MissingKeyError();
   }
   const key = await importKey(resolvedKey);
   const json = await decryptRaw(payload, key);
@@ -155,6 +164,16 @@ export async function unwrapSensitive(value: string, groupKey?: string | null): 
     return decodeValue<string>(value, groupKey);
   }
   return value;
+}
+
+/**
+ * Build a full person link including the #key= fragment when a group key
+ * is available. Works for any token — the current user's or a partner's.
+ */
+export function buildPersonLink(token: string): string {
+  const groupKey = getGroupKeyFromUrl();
+  const keyFragment = groupKey ? `#key=${groupKey}` : "";
+  return `${window.location.origin}/p/${token}${keyFragment}`;
 }
 
 // --- base64url helpers (no padding) ---
