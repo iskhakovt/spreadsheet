@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { NonRetriableError } from "./errors.js";
 
 /**
  * Factory for the app-wide QueryClient.
@@ -20,7 +21,7 @@ export function makeQueryClient(): QueryClient {
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retry(failureCount, error) {
-          if (error instanceof Error && "retry" in error && error.retry === false) return false;
+          if (error instanceof NonRetriableError) return false;
           return failureCount < 2;
         },
       },

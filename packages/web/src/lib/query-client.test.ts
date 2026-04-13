@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MissingKeyError } from "./crypto.js";
+import { NonRetriableError } from "./errors.js";
 import { makeQueryClient } from "./query-client.js";
 
 function getRetryFn() {
@@ -10,10 +11,10 @@ function getRetryFn() {
 }
 
 describe("makeQueryClient retry", () => {
-  it("does not retry errors with retry: false", () => {
+  it("does not retry NonRetriableError subclasses", () => {
     const retry = getRetryFn();
-    const error = new MissingKeyError();
-    expect(retry(0, error)).toBe(false);
+    expect(retry(0, new MissingKeyError())).toBe(false);
+    expect(retry(0, new NonRetriableError("boom"))).toBe(false);
   });
 
   it("retries normal errors up to 2 times", () => {
