@@ -16,7 +16,7 @@ function LoadingCard() {
   return (
     <Card>
       <div className="flex items-center justify-center pt-32">
-        <p className="text-text-muted">Loading...</p>
+        <p className="text-text-muted/60">Loading...</p>
       </div>
     </Card>
   );

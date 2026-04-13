@@ -16,6 +16,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { cn } from "../lib/cn.js";
 import { getGroupKeyFromUrl } from "../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
 import { sortMembersViewerFirst } from "../lib/member-display.js";
@@ -306,17 +307,20 @@ function PendingScreen({
         </p>
         <div className="space-y-2">
           {others.map((m) => (
-            <div key={m.id} className="flex items-center justify-between px-4 py-2 bg-surface rounded-lg text-sm">
+            <div
+              key={m.id}
+              className="flex items-center justify-between px-4 py-2.5 bg-surface/60 rounded-[var(--radius-sm)] border border-border/30 text-sm"
+            >
               <span>{m.name}</span>
               {waitingForAnatomy && (
-                <span className={`text-xs ${m.anatomy ? "text-accent" : "text-text-muted"}`}>
+                <span className={cn("text-xs", m.anatomy ? "text-accent font-medium" : "text-text-muted/70")}>
                   {m.anatomy ? "Ready" : "Setting up..."}
                 </span>
               )}
             </div>
           ))}
         </div>
-        <p className="text-xs text-text-muted">Only matches are revealed. Checking automatically...</p>
+        <p className="text-xs text-text-muted/70">Only matches are revealed. Checking automatically...</p>
         <CopyMyLink encrypted={status.group.encrypted} />
       </div>
     </Card>
@@ -339,33 +343,40 @@ function WaitingScreen({
     <Card>
       <div className="text-center pt-16 space-y-6">
         <h1 className="text-2xl font-bold">{allComplete ? "Everyone is done!" : "Waiting for everyone..."}</h1>
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {others.map((m) => (
-            <div key={m.id} className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
-              <span>{m.name}</span>
-              <span className={m.isCompleted ? "text-accent" : "text-text-muted"}>
+            <div
+              key={m.id}
+              className="flex items-center justify-between px-4 py-3 bg-surface/60 rounded-[var(--radius-sm)] border border-border/30"
+            >
+              <span className="font-medium">{m.name}</span>
+              <span className={cn("text-sm", m.isCompleted ? "text-accent font-medium" : "text-text-muted/70")}>
                 {m.isCompleted ? "Done" : "In progress..."}
               </span>
             </div>
           ))}
         </div>
         {allComplete && (
-          <button
-            type="button"
-            onClick={() => navigate("/results")}
-            className="w-full px-6 py-4 rounded-lg bg-accent text-accent-fg font-medium"
-          >
+          <Button fullWidth onClick={() => navigate("/results")}>
             View results
-          </button>
+          </Button>
         )}
         {/* Escape hatch back to editing. Navigates only — does NOT unmark
             completion state, so partners on /results aren't kicked out. Any
             new answers sync normally and propagate via the journal stream. */}
-        <button type="button" onClick={() => navigate("/questions")} className="text-sm text-text-muted underline">
+        <button
+          type="button"
+          onClick={() => navigate("/questions")}
+          className="text-sm text-text-muted/70 hover:text-accent transition-colors duration-200 underline underline-offset-2"
+        >
           Edit my answers
         </button>
         {status.person.isAdmin && (
-          <button type="button" onClick={() => navigate("/invite")} className="text-sm text-text-muted block mx-auto">
+          <button
+            type="button"
+            onClick={() => navigate("/invite")}
+            className="text-sm text-text-muted/70 hover:text-accent transition-colors duration-200 block mx-auto"
+          >
             View group members
           </button>
         )}
@@ -441,7 +452,7 @@ function OnboardingForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your name"
-            className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface border border-border text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-shadow"
+            className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface/60 border border-border/40 text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/30 transition-all duration-200"
           />
         </div>
 
