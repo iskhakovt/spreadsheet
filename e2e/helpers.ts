@@ -209,9 +209,10 @@ function doneLocator(page: Page) {
 
 type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
 
-/** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically. */
-export async function answerQuestionsCycling(page: Page, ratings: Rating[]) {
-  let i = 0;
+/** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically.
+ *  `offset` shifts the starting index — useful for making two people answer differently with the same array. */
+export async function answerQuestionsCycling(page: Page, ratings: Rating[], offset = 0) {
+  let i = offset;
   for (let guard = 0; guard < 200; guard++) {
     if (
       await doneLocator(page)
