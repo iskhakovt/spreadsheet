@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
+import { cn } from "../lib/cn.js";
 import {
   type CachedJournal,
   JOURNAL_QUERY_KEY,
@@ -275,11 +276,12 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
                   id={`tab-${pk}`}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setActivePairKey(pk)}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  className={cn(
+                    "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
                     isActive
                       ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md"
-                      : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface"
-                  }`}
+                      : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface",
+                  )}
                 >
                   {displayName(a)} & {displayName(b)}
                 </button>
@@ -419,14 +421,20 @@ function PairComparison({
                   return (
                     <div
                       key={`${match.questionId}-${match.displayText}`}
-                      className={`px-4 py-3 rounded-[var(--radius-md)] transition-all duration-200 ${style.container}`}
+                      className={cn(
+                        "px-4 py-3 rounded-[var(--radius-md)] transition-all duration-200",
+                        style.container,
+                      )}
                       data-testid="match-row"
                       data-match-type={match.matchType}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className={`${style.labelStyle}`}>{match.displayText}</span>
+                        <span className={cn(style.labelStyle)}>{match.displayText}</span>
                         <span
-                          className={`text-[10px] uppercase tracking-[0.08em] font-semibold shrink-0 px-2.5 py-0.5 rounded-full ${style.badge}`}
+                          className={cn(
+                            "text-[10px] uppercase tracking-[0.08em] font-semibold shrink-0 px-2.5 py-0.5 rounded-full",
+                            style.badge,
+                          )}
                           data-testid="match-badge"
                         >
                           {style.label}

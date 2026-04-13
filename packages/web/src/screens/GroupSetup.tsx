@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { CopyLinkField } from "../components/copy-link-field.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -109,52 +110,24 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
               <p className="text-sm font-medium">Your link</p>
             </div>
             <p className="text-xs text-text-muted">Save this to access your group from another device</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={myLink}
-                aria-label="Your invite link"
-                className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
-              />
-              <button
-                type="button"
-                onClick={() => handleCopy(myLink, 0)}
-                aria-label="Copy your link"
-                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
-              >
-                {copied === 0 ? "Copied!" : "Copy"}
-              </button>
-              <span className="sr-only" aria-live="polite">
-                {copied === 0 ? "Copied to clipboard" : ""}
-              </span>
-            </div>
+            <CopyLinkField
+              value={myLink}
+              label="Your invite link"
+              copied={copied === 0}
+              onCopy={() => handleCopy(myLink, 0)}
+            />
           </div>
 
           {partners.map((partner, i) => (
             <div key={i} className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-2">
               <p className="text-sm font-medium">{partner.name}'s link</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={generatedLinks[i]}
-                  aria-label={`${partner.name}'s invite link`}
-                  data-testid="partner-link"
-                  className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCopy(generatedLinks[i], i + 1)}
-                  aria-label={`Copy ${partner.name}'s link`}
-                  className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
-                >
-                  {copied === i + 1 ? "Copied!" : "Copy"}
-                </button>
-                <span className="sr-only" aria-live="polite">
-                  {copied === i + 1 ? "Copied to clipboard" : ""}
-                </span>
-              </div>
+              <CopyLinkField
+                value={generatedLinks[i]}
+                label={`${partner.name}'s invite link`}
+                copied={copied === i + 1}
+                onCopy={() => handleCopy(generatedLinks[i], i + 1)}
+                data-testid="partner-link"
+              />
             </div>
           ))}
 

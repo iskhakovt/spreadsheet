@@ -4,7 +4,9 @@ import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
+import { cn } from "../lib/cn.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -97,7 +99,7 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
                   )}
                 </div>
                 {group.isReady && (
-                  <span className={`text-sm ${m.isCompleted ? "text-accent font-medium" : "text-text-muted/70"}`}>
+                  <span className={cn("text-sm", m.isCompleted ? "text-accent font-medium" : "text-text-muted/70")}>
                     {m.isCompleted
                       ? "Done"
                       : group.questionMode === "filtered" && !m.anatomy
@@ -114,21 +116,12 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
         {generatedLink && (
           <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-3">
             <p className="text-sm text-text-muted">Share this link with your partner:</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={generatedLink}
-                className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
-              />
-              <button
-                type="button"
-                onClick={() => copy(generatedLink)}
-                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
-              >
-                {copiedIndex !== null ? UI.invite.copied : UI.invite.copyLink}
-              </button>
-            </div>
+            <CopyLinkField
+              value={generatedLink}
+              label="Partner's invite link"
+              copied={copiedIndex !== null}
+              onCopy={() => copy(generatedLink)}
+            />
           </div>
         )}
 

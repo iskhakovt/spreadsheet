@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { cn } from "../lib/cn.js";
 import { getSelectedTier, setHasSeenIntro, setSelectedTier } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
@@ -65,11 +66,12 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setTier(t)}
-                  className={`w-full text-left px-4 py-3.5 rounded-[var(--radius-md)] border-2 transition-all duration-200 ${
+                  className={cn(
+                    "w-full text-left px-4 py-3.5 rounded-[var(--radius-md)] border-2 transition-all duration-200",
                     selected
                       ? "border-accent bg-accent/[0.06] shadow-[0_0_0_1px_rgb(208_128_88/0.1)]"
-                      : "border-border/60 bg-surface/50 hover:border-border hover:bg-surface/70"
-                  }`}
+                      : "border-border/60 bg-surface/50 hover:border-border hover:bg-surface/70",
+                  )}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{info.label}</span>

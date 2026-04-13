@@ -2,6 +2,7 @@ import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { cn } from "../lib/cn.js";
 import { getAnswers, getSelectedCategories } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
@@ -110,7 +111,7 @@ export function Review({
                 >
                   <span className="text-sm truncate mr-4">{item.label}</span>
                   {item.answer ? (
-                    <span className={`text-sm shrink-0 ${ratingStyle(item.answer.rating)}`}>
+                    <span className={cn("text-sm shrink-0", ratingStyle(item.answer.rating))}>
                       {RATING_LABELS[item.answer.rating]}
                       {item.answer.timing ? ` (${item.answer.timing})` : ""}
                     </span>

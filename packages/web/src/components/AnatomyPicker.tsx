@@ -1,5 +1,6 @@
 import type { Anatomy } from "@spreadsheet/shared";
 import { useState } from "react";
+import { cn } from "../lib/cn.js";
 
 export function AnatomyPicker({
   selected,
@@ -26,11 +27,12 @@ export function AnatomyPicker({
             role="radio"
             aria-checked={selected === a}
             onClick={() => onSelect(a)}
-            className={`flex-1 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200 ${
+            className={cn(
+              "flex-1 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200",
               selected === a
                 ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg border-accent shadow-accent-sm"
-                : unselectedClass
-            }`}
+                : unselectedClass,
+            )}
           >
             {labels[a]}
           </button>

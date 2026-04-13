@@ -16,6 +16,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../components/ErrorFallback.js";
+import { cn } from "../lib/cn.js";
 import { getGroupKeyFromUrl } from "../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
 import { sortMembersViewerFirst } from "../lib/member-display.js";
@@ -312,7 +313,7 @@ function PendingScreen({
             >
               <span>{m.name}</span>
               {waitingForAnatomy && (
-                <span className={`text-xs ${m.anatomy ? "text-accent font-medium" : "text-text-muted/70"}`}>
+                <span className={cn("text-xs", m.anatomy ? "text-accent font-medium" : "text-text-muted/70")}>
                   {m.anatomy ? "Ready" : "Setting up..."}
                 </span>
               )}
@@ -349,7 +350,7 @@ function WaitingScreen({
               className="flex items-center justify-between px-4 py-3 bg-surface/60 rounded-[var(--radius-sm)] border border-border/30"
             >
               <span className="font-medium">{m.name}</span>
-              <span className={`text-sm ${m.isCompleted ? "text-accent font-medium" : "text-text-muted/70"}`}>
+              <span className={cn("text-sm", m.isCompleted ? "text-accent font-medium" : "text-text-muted/70")}>
                 {m.isCompleted ? "Done" : "In progress..."}
               </span>
             </div>

@@ -1,4 +1,5 @@
 import { Check, Link } from "lucide-react";
+import { cn } from "../lib/cn.js";
 import { buildPersonLink } from "../lib/crypto.js";
 import { getAuthToken } from "../lib/session.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -30,9 +31,10 @@ export function CopyMyLink({ encrypted }: Readonly<CopyMyLinkProps>) {
       <button
         type="button"
         onClick={handleCopy}
-        className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
-          copied ? "text-match-green" : "text-text-muted/70 hover:text-accent"
-        }`}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-xs transition-colors",
+          copied ? "text-match-green" : "text-text-muted/70 hover:text-accent",
+        )}
       >
         {copied ? <Check size={12} strokeWidth={1.5} /> : <Link size={12} strokeWidth={1.5} />}
         {copied ? "Link copied!" : "Copy my link"}

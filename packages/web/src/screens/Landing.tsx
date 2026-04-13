@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -152,11 +153,12 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
                       role="radio"
                       aria-checked={anatomyLabels === style}
                       onClick={() => setAnatomyLabels(style)}
-                      className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200 ${
+                      className={cn(
+                        "px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200",
                         anatomyLabels === style
                           ? "bg-accent text-accent-fg border-accent shadow-accent-md"
-                          : "bg-surface border-border text-text-muted hover:border-accent/25"
-                      }`}
+                          : "bg-surface border-border text-text-muted hover:border-accent/25",
+                      )}
                     >
                       {ANATOMY_LABEL_PRESETS[style].amab} / {ANATOMY_LABEL_PRESETS[style].afab}
                     </button>

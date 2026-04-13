@@ -108,11 +108,12 @@ export function Summary({
             return (
               <label
                 key={t}
-                className={`flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200 ${
+                className={cn(
+                  "flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200",
                   tier === t
                     ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-accent-sm"
-                    : "text-text-muted hover:text-text"
-                }`}
+                    : "text-text-muted hover:text-text",
+                )}
               >
                 <input
                   type="radio"
@@ -135,9 +136,10 @@ export function Summary({
             return (
               <div
                 key={category.id}
-                className={`flex items-center gap-3 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200 ${
-                  enabled ? "bg-surface/60 border-border/40 hover:bg-surface/80" : "bg-bg border-border/30 opacity-45"
-                }`}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200",
+                  enabled ? "bg-surface/60 border-border/40 hover:bg-surface/80" : "bg-bg border-border/30 opacity-45",
+                )}
               >
                 {/* Toggle */}
                 <input
