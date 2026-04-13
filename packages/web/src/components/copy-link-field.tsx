@@ -3,13 +3,21 @@ import { cn } from "../lib/cn.js";
 interface CopyLinkFieldProps {
   value: string;
   label: string;
+  copyLabel?: string;
   copied: boolean;
   onCopy: () => void;
   "data-testid"?: string;
 }
 
 /** Readonly link input + gradient copy button + screen-reader announcement. */
-export function CopyLinkField({ value, label, copied, onCopy, "data-testid": testId }: Readonly<CopyLinkFieldProps>) {
+export function CopyLinkField({
+  value,
+  label,
+  copyLabel,
+  copied,
+  onCopy,
+  "data-testid": testId,
+}: Readonly<CopyLinkFieldProps>) {
   return (
     <div className="flex gap-2">
       <input
@@ -23,7 +31,7 @@ export function CopyLinkField({ value, label, copied, onCopy, "data-testid": tes
       <button
         type="button"
         onClick={onCopy}
-        aria-label={`Copy ${label}`}
+        aria-label={copyLabel ?? `Copy ${label}`}
         className={cn(
           "px-4 py-2 rounded-[var(--radius-sm)] text-sm font-medium shrink-0",
           "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-sm",

@@ -113,6 +113,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
             <CopyLinkField
               value={myLink}
               label="Your invite link"
+              copyLabel="Copy your link"
               copied={copied === 0}
               onCopy={() => handleCopy(myLink, 0)}
             />
