@@ -5,7 +5,7 @@ import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
 import type { Screen } from "../lib/build-screens.js";
 
-interface WelcomeScreenProps {
+interface CategoryWelcomeScreenProps {
   screen: Extract<Screen, { type: "welcome" }>;
   categoryMap: Record<string, CategoryData>;
   screens: Screen[];
@@ -19,7 +19,7 @@ interface WelcomeScreenProps {
   onSummary?: () => void;
 }
 
-export function WelcomeScreen({
+export function CategoryWelcomeScreen({
   screen,
   categoryMap,
   screens,
@@ -31,7 +31,7 @@ export function WelcomeScreen({
   pendingCount,
   onSync,
   onSummary,
-}: Readonly<WelcomeScreenProps>) {
+}: Readonly<CategoryWelcomeScreenProps>) {
   const cat = categoryMap[screen.categoryId];
   return (
     <Card>

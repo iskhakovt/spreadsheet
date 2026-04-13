@@ -68,11 +68,6 @@ export const UI = {
     done: "I'm done",
     answered: (n: number, total: number) => `${n} of ${total} answered`,
   },
-  waiting: {
-    title: "Waiting for everyone",
-    partnerDone: "Everyone is done!",
-    viewResults: "View results",
-  },
   invite: {
     title: "Invite your partner",
     copyLink: "Copy link",
