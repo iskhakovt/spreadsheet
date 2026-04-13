@@ -34,6 +34,25 @@ Two accent shades + one neutral. Three visual groups, not five colors:
 - **ND-friendly** — Lexend font, clear progress, consistent layout, breaks OK, skip OK
 - **Two people, one app** — gender-neutral colors that both partners feel at home with
 
+### Design system tokens
+
+All visual tokens are defined as CSS custom properties in `packages/web/src/index.css` under `@theme`:
+
+- **Palette** — `--color-bg`, `--color-surface`, `--color-border`, `--color-text`, `--color-accent` (+ `-light`, `-dark`), `--color-neutral`, `--color-match-green`, `--color-match-blue`
+- **Shape** — `--radius-lg: 20px`, `--radius-md: 16px`, `--radius-sm: 12px`
+- **Motion** — `--ease-spring: cubic-bezier(0.22, 1, 0.36, 1)` used for every transition and keyframe
+- **Depth** — `--shadow-accent-sm/md`, `--inset-highlight` for tactile emboss on filled buttons; `.shadow-warm`, `.shadow-warm-lg` utility classes for cards
+- **Texture** — a fixed fractal-noise SVG overlay at 2.5% opacity in `body::before` gives the cream background a paper-like quality; three radial washes (peach + sage) layer behind it for "natural lighting" feel
+
+**Animations** declared globally:
+- `.animate-in` — 400ms fade + slide-up entrance on the spring curve
+- `.stagger` — sibling entrance with per-element `--stagger-index` driving a 120ms step delay
+- `.float-a` / `.float-b` — 20s/26s drift for decorative background blobs (different periods to avoid settling)
+- `.celebrate` — one-shot scale + accent-color ring pulse for mark-complete moments
+- `@media (prefers-reduced-motion: reduce)` disables all of these
+
+The `stagger` class uses an inline `--stagger-index` prop rather than CSS `sibling-index()` because Firefox doesn't ship it yet — tracked in [../todo.md](../todo.md).
+
 ## Screens
 
 ### 1. Landing
@@ -74,7 +93,7 @@ Waiting room for non-admin users. Two states:
 - **"The group is being set up"** — admin hasn't marked ready yet. Shows member names.
 - **"Waiting for everyone to finish setting up"** — admin marked ready, but some members haven't picked anatomy. Shows per-member status (Ready / Setting up...).
 
-Auto-advances via universal guard when `group.isReady` becomes true (5s fast poll on transitional screens).
+Auto-advances via universal guard when `group.isReady` becomes true. Updates arrive via the `groups.onStatus` WebSocket subscription — no polling.
 
 ### 7. Intro
 
@@ -148,9 +167,9 @@ Shows all answered questions grouped by category. Tap any answer to jump back an
 After marking done. Shows member status list (Done / In progress).
 - Updates live via tRPC WebSocket subscription (`groups.onStatus`)
 - Auto-redirects to Results when all complete (declarative route guard)
-- **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see any subsequent edits live via the journal subscription; they are NOT kicked to `/waiting`.
+- **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see the subsequent edits live via the journal subscription; their route doesn't change because `isCompleted` is unchanged.
 
-### 13. Comparison (lazy-loaded)
+### 13. Comparison
 
 Available once all members mark complete. Grouped by category, sorted by match quality.
 
@@ -165,7 +184,7 @@ Available once all members mark complete. Grouped by category, sorted by match q
 
 **Live updates**: if any group member edits an answer after marking complete, their changes propagate to everyone viewing `/results` via the `sync.onJournalChange` WebSocket subscription (using tRPC v11's `tracked()` for reconnect-safe delivery). The comparison updates in place without a page reload.
 
-**"Change my answers" button**: navigates to `/questions` without calling `unmarkComplete`. Same semantics as the `/waiting` "Edit my answers" button — no one else is kicked out of their results view.
+**"Change my answers" button**: navigates to `/questions` without calling `unmarkComplete`. Same semantics as the `/waiting` "Edit my answers" button — `isCompleted` stays true for everyone, so route guards don't redirect.
 
 ## Layout
 
@@ -186,13 +205,13 @@ URL-based routing via wouter (nested under `/p/:token`):
 /p/:token/summary   → progress / category management
 /p/:token/review    → review answers
 /p/:token/waiting   → waiting for others (declarative guard)
-/p/:token/results   → comparison (lazy-loaded)
+/p/:token/results   → comparison
 ```
 
 **Navigation patterns**:
-- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt.
-- **`/questions` is a free route** so marked-complete users can edit their answers without unmarking. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
-- **Mutations self-invalidate** via TanStack Query's `useMutation({ onSuccess: invalidateQueries })` — always return the invalidation promise so the mutation stays pending until the refetch completes. No more manual `refreshStatus()` threading.
+- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
+- **`/questions` is a free route** so marked-complete users can edit their answers without unmarking. Because the guard doesn't route them off `/questions` once `isCompleted` flips, `handleMarkComplete` explicitly calls `navigate("/waiting")` after the mutation.
+- **Mutations self-invalidate** via TanStack Query's `useMutation({ onSuccess: invalidateQueries })`. The handler returns the invalidation promise so the mutation stays pending until the refetch completes — callers don't need to thread a separate refresh call.
 
 **Admin token pre-setup**: Before `setupAdmin`, the URL `/p/{adminToken}` resolves via the group's `admin_token` field. PersonApp detects `status.person === null` and renders GroupSetup directly (outside the router).
 
