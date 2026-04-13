@@ -152,7 +152,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 | **e2e** `e2e/*.spec.ts` | Playwright + Docker image (CI) or tsx (local) | Full user flows against the shipped artifact |
 | **visual** `e2e/visual/*.spec.ts` | Playwright (desktop 1280×800 + mobile 390×664, 2x DPR) | Screenshot baselines for every screen and conditional rendering path |
 
-Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web + runs tsx; CI: runs against Docker image via `E2E_IMAGE`), `pnpm test:visual` (screenshot comparison). Visual baselines stored via Git LFS.
+Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web + runs tsx; CI: runs against Docker image via `E2E_IMAGE`), `pnpm test:visual` (screenshot comparison). Visual baselines stored via Git LFS. **Visual tests run inside the official Playwright Docker image** (`mcr.microsoft.com/playwright:v1.59.1-noble`) for deterministic rendering across dev machines and CI. Always use `pnpm test:visual:docker` locally and `pnpm test:visual:docker:update` to regenerate baselines — never use the bare `pnpm test:visual:update` or screenshots will differ on CI.
 
 ### Test helpers
 
@@ -182,8 +182,10 @@ pnpm -r typecheck && pnpm test
 pnpm test:e2e
 # For E2E against Docker image:
 docker build -t spreadsheet:ci . && E2E_IMAGE=spreadsheet:ci pnpm test:e2e
-# Visual regression:
-pnpm test:visual
+# Visual regression (must use Docker for deterministic rendering):
+pnpm build && pnpm test:visual:docker
+# Update visual baselines:
+pnpm build && pnpm test:visual:docker:update
 ```
 
 ## Working with Tools
