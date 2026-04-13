@@ -114,7 +114,7 @@ export function Summary({
                 key={t}
                 className={`flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200 ${
                   tier === t
-                    ? "bg-gradient-to-b from-accent to-[#c47048] text-white shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                    ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
                     : "text-text-muted hover:text-text"
                 }`}
               >

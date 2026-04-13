@@ -15,7 +15,7 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
         <h1 className="text-2xl font-bold">{UI.intro.title}</h1>
         <ol className="space-y-4">
           {UI.intro.steps.map((step, i) => (
-            <li key={i} className="flex items-center gap-3.5">
+            <li key={step} className="flex items-center gap-3.5">
               <span className="flex-shrink-0 w-8 h-8 rounded-full bg-surface/80 border border-border/30 flex items-center justify-center text-sm font-medium text-text-muted">
                 {i + 1}
               </span>

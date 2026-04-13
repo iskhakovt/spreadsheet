@@ -2,6 +2,7 @@
 
 @theme {
   --font-sans: "Lexend", sans-serif;
+  --ease-spring: var(--ease-spring);
   --radius-lg: 20px;
   --radius-md: 16px;
   --radius-sm: 12px;
@@ -13,9 +14,12 @@
   --color-text: #3a3028;
   --color-text-muted: #7d6e5e;
   --color-accent: #d08058;
+  --color-accent-dark: #c47048;
   --color-accent-light: #e4b898;
+  --color-accent-light-dark: #d8a880;
   --color-accent-fg: #fff;
   --color-neutral: #a8a098;
+  --color-neutral-dark: #9a928a;
   --color-neutral-fg: #fff;
   --color-match-green: #7aab8e;
   --color-match-blue: #7a9ab8;
@@ -81,13 +85,13 @@ body::before {
 }
 
 .animate-in {
-  animation: fade-slide-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-slide-in 0.4s var(--ease-spring) both;
 }
 
 /* Staggered entrance — each sibling animates in sequence with a spring
    ease. Set --stagger-index via inline style for per-element delay. */
 .stagger {
-  animation: fade-slide-in 0.5s calc(var(--stagger-index, 0) * 120ms + 80ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-slide-in 0.5s calc(var(--stagger-index, 0) * 120ms + 80ms) var(--ease-spring) both;
 }
 
 /* Gentle drift for decorative background blobs. Two variants with
@@ -132,7 +136,7 @@ body::before {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
   }
 }
-.celebrate { animation: celebrate 1.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.celebrate { animation: celebrate 1.4s var(--ease-spring); }
 
 /* Gentle pulse for status dots */
 @keyframes gentle-pulse {
@@ -183,9 +187,9 @@ input[type="checkbox"] {
   background: var(--color-surface);
   cursor: pointer;
   transition:
-    background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    background-color 0.2s var(--ease-spring),
+    border-color 0.2s var(--ease-spring),
+    box-shadow 0.2s var(--ease-spring);
   position: relative;
   flex-shrink: 0;
 }
@@ -285,7 +289,7 @@ input[type="checkbox"]:checked::after {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
   }
 }

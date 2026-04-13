@@ -53,13 +53,14 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
       "border border-accent/20",
       "shadow-[0_1px_3px_rgb(208_128_88/0.08),0_0_0_1px_rgb(208_128_88/0.05)]",
     ].join(" "),
-    badge: "bg-gradient-to-b from-accent to-[#c47048] text-accent-fg shadow-[0_1px_3px_rgb(208_128_88/0.25)]",
+    badge: "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-[0_1px_3px_rgb(208_128_88/0.25)]",
     label: "Go for it",
     labelStyle: "font-semibold",
   },
   match: {
     container: "bg-accent-light/15 border border-accent-light/25",
-    badge: "bg-gradient-to-b from-accent-light to-[#d8a880] text-accent-fg shadow-[0_1px_2px_rgb(228_184_152/0.2)]",
+    badge:
+      "bg-gradient-to-b from-accent-light to-accent-light-dark text-accent-fg shadow-[0_1px_2px_rgb(228_184_152/0.2)]",
     label: "Match",
     labelStyle: "font-medium",
   },
@@ -274,7 +275,7 @@ export function Comparison({ viewerId, showTiming, onBack }: Readonly<Comparison
                   onClick={() => setActivePairKey(pk)}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-to-b from-accent to-[#c47048] text-accent-fg shadow-[0_1px_4px_rgb(208_128_88/0.25)]"
+                      ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-[0_1px_4px_rgb(208_128_88/0.25)]"
                       : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface"
                   }`}
                 >
