@@ -211,7 +211,7 @@ type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
 
 /** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically.
  *  `offset` shifts the starting index — useful for making two people answer differently with the same array. */
-export async function answerQuestionsCycling(page: Page, ratings: Rating[], offset = 0) {
+export async function answerQuestionsCycling(page: Page, ratings: readonly Rating[], offset = 0) {
   let i = offset;
   for (let guard = 0; guard < 200; guard++) {
     if (

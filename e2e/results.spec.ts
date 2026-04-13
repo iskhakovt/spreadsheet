@@ -66,14 +66,14 @@ test.describe("results display", () => {
     const aliceRatings = ["yes", "maybe", "maybe", "fantasy", "yes", "no", "if-partner-wants", "maybe"] as const;
     const bobRatings = ["yes", "yes", "maybe", "fantasy", "no", "yes", "maybe", "if-partner-wants"] as const;
 
-    await answerQuestionsCycling(alice, [...aliceRatings]);
+    await answerQuestionsCycling(alice, aliceRatings);
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
-    await answerQuestionsCycling(bob, [...bobRatings]);
+    await answerQuestionsCycling(bob, bobRatings);
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
