@@ -1,0 +1,376 @@
+version: 2.1
+
+# --- Pipeline parameters ---
+# `run-heavy` can be set via:
+#   1. CircleCI GitHub App trigger when `ci:full` label is added to a PR
+#      (configure in Project Settings > Triggers)
+#   2. API: `circleci pipeline trigger --parameter run-heavy=true`
+#   3. Always true on main (see workflow `when:` conditions)
+parameters:
+  run-heavy:
+    type: boolean
+    default: false
+
+# --- Executors ---
+executors:
+  # Fast, cheap — for lint, typecheck, unit tests (no Docker needed).
+  node:
+    docker:
+      - image: cimg/node:24.13
+    resource_class: small
+
+  # Full VM with Docker socket — required for testcontainers and for
+  # `docker run` + localhost networking (E2E).
+  #
+  # CircleCI's Docker executor + `setup_remote_docker` has a network
+  # boundary: containers started via `docker run` bind ports on the
+  # remote Docker host, NOT on localhost. Testcontainers and Playwright
+  # E2E both need localhost access to dynamically-started containers.
+  # The machine executor runs everything on one VM — no boundary.
+  # Same cost as Docker medium at 10 credits/min.
+  vm:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+
+# --- Reusable commands ---
+commands:
+  pnpm-install:
+    description: Enable corepack + install with pnpm store cache
+    steps:
+      - restore_cache:
+          keys:
+            - v1-pnpm-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
+            - v1-pnpm-{{ arch }}-
+      - run:
+          name: Install dependencies
+          command: |
+            corepack enable
+            pnpm install --frozen-lockfile
+      - save_cache:
+          key: v1-pnpm-{{ arch }}-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store/v3
+
+  setup-node-vm:
+    description: Install Node.js on machine executor via nvm
+    parameters:
+      version:
+        type: string
+        default: "24"
+    steps:
+      - run:
+          name: Install Node.js << parameters.version >>
+          command: |
+            nvm install << parameters.version >>
+            nvm alias default << parameters.version >>
+            echo 'nvm use default' >> "$BASH_ENV"
+
+  install-playwright:
+    description: Install Playwright Chromium with cache
+    steps:
+      - run:
+          name: Get Playwright version
+          command: |
+            PW_VERSION=$(npx playwright --version | tr ' ' '-')
+            echo "export PW_VERSION=$PW_VERSION" >> "$BASH_ENV"
+      - restore_cache:
+          keys:
+            - v1-playwright-{{ arch }}-${PW_VERSION}
+      - run:
+          name: Install Playwright Chromium (if not cached)
+          command: |
+            if [ ! -d ~/.cache/ms-playwright ]; then
+              npx playwright install chromium
+            fi
+      - save_cache:
+          key: v1-playwright-{{ arch }}-${PW_VERSION}
+          paths:
+            - ~/.cache/ms-playwright
+      - run:
+          name: Install Chromium OS deps
+          command: npx playwright install-deps chromium
+
+# --- Jobs ---
+jobs:
+  # Lint + typecheck — fast gate, every push
+  check:
+    executor: node
+    steps:
+      - checkout
+      - pnpm-install
+      - run: pnpm --filter @spreadsheet/shared build
+      - run: pnpm --filter @spreadsheet/server run typecheck
+      - run: pnpm -r typecheck
+      - run: pnpm lint
+
+  # PR title validation (Conventional Commits)
+  pr-title:
+    executor: node
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npx-commitlint
+      - run:
+          name: Validate PR title
+          command: |
+            if [ -z "$CIRCLE_PULL_REQUEST" ]; then
+              echo "Not a PR — skipping"
+              exit 0
+            fi
+            PR_NUMBER="${CIRCLE_PULL_REQUEST##*/}"
+            PR_TITLE=$(gh pr view "$PR_NUMBER" --json title -q .title)
+            echo "$PR_TITLE" | npx --yes \
+              -p @commitlint/cli@20.5.0 \
+              -p @commitlint/config-conventional@20.5.0 \
+              commitlint
+      - save_cache:
+          key: v1-npx-commitlint
+          paths:
+            - ~/.npm/_npx
+
+  # Unit tests — PGlite, no Docker needed
+  unit:
+    executor: node
+    resource_class: medium
+    steps:
+      - checkout
+      - pnpm-install
+      - run:
+          name: Unit tests
+          command: pnpm test
+          environment:
+            STOKEN_SECRET: ci-test-secret
+
+  # Integration tests — Postgres sidecar managed by CircleCI.
+  # Cheaper and faster than testcontainers on a machine executor.
+  # integration-setup.ts skips testcontainers when DATABASE_URL is set.
+  integration:
+    docker:
+      - image: cimg/node:24.13
+      - image: cimg/postgres:17.5
+        environment:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: spreadsheet_test
+    resource_class: medium
+    environment:
+      DATABASE_URL: postgres://test:test@localhost:5432/spreadsheet_test
+    steps:
+      - checkout
+      - pnpm-install
+      - run:
+          name: Wait for Postgres
+          command: dockerize -wait tcp://localhost:5432 -timeout 60s
+      - run:
+          name: Integration tests
+          command: pnpm test:integration
+
+  # Docker image build for E2E.
+  # Uses GHCR registry cache — no DLC cost, persists indefinitely.
+  # The Dockerfile's lockfile-first COPY pattern means the pnpm install
+  # layer is cached when pnpm-lock.yaml hasn't changed.
+  docker-build:
+    executor: node
+    resource_class: medium
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: docker24
+      - run:
+          name: Set up Docker Buildx
+          command: |
+            docker buildx create --use --name ci-builder
+            docker buildx inspect --bootstrap
+      - run:
+          name: Build Docker image
+          command: |
+            docker buildx build \
+              --cache-from type=registry,ref=ghcr.io/iskhakovt/spreadsheet:buildcache \
+              --load \
+              -t spreadsheet:ci .
+      - run:
+          name: Save image tarball
+          command: |
+            mkdir -p /tmp/workspace
+            docker save spreadsheet:ci -o /tmp/workspace/image.tar
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - image.tar
+
+  # E2E tests — Playwright against Docker image.
+  # Needs machine executor: `docker run` container must be reachable
+  # on localhost from the Playwright test runner.
+  e2e:
+    executor: vm
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Load Docker image
+          command: docker load -i /tmp/workspace/image.tar
+      - setup-node-vm
+      - pnpm-install
+      - install-playwright
+      - run:
+          name: E2E tests
+          command: pnpm test:e2e
+          environment:
+            CI: "true"
+            E2E_IMAGE: spreadsheet:ci
+            TESTCONTAINERS_RYUK_DISABLED: "true"
+
+  # Visual regression tests — Playwright, no Docker image needed.
+  # Uses machine executor for Chromium system deps.
+  visual:
+    executor: vm
+    steps:
+      - checkout
+      - run:
+          name: Fetch Git LFS files
+          command: git lfs pull
+      - setup-node-vm
+      - pnpm-install
+      - run:
+          name: Build packages
+          command: |
+            pnpm --filter @spreadsheet/shared build
+            pnpm --filter @spreadsheet/server run typecheck
+            pnpm --filter @spreadsheet/web run build
+            pnpm --filter @spreadsheet/server run build
+      - install-playwright
+      - run:
+          name: Visual regression tests
+          command: pnpm test:visual
+          environment:
+            CI: "true"
+            TESTCONTAINERS_RYUK_DISABLED: "true"
+      - store_artifacts:
+          path: test-results/
+          destination: visual-diff
+          when: on_fail
+
+  # Semantic release — creates GitHub release + git tag (e.g. v1.2.3).
+  # The tag push triggers the `publish` workflow below.
+  release:
+    executor: node
+    steps:
+      - checkout
+      - run:
+          name: Fetch full history
+          command: git fetch --unshallow || true
+      - restore_cache:
+          keys:
+            - v1-npx-semantic-release
+      - run:
+          name: Semantic release
+          command: |
+            npx --yes \
+              -p semantic-release@25.0.3 \
+              -p @semantic-release/commit-analyzer@13.0.1 \
+              -p @semantic-release/release-notes-generator@14.1.0 \
+              -p @semantic-release/github@12.0.6 \
+              semantic-release
+      - save_cache:
+          key: v1-npx-semantic-release
+          paths:
+            - ~/.npm/_npx
+
+  # Build & push Docker image to GHCR — triggered by tag only.
+  #
+  # GHCR does not support OIDC from external CI — only GitHub Actions'
+  # built-in GITHUB_TOKEN and classic PATs. We use a fine-grained PAT
+  # (packages:write, contents:read) stored in the `ghcr` restricted
+  # context. This is the only long-lived credential in the pipeline.
+  publish:
+    executor: vm
+    steps:
+      - checkout
+      - run:
+          name: Derive version
+          command: |
+            VERSION=$(pipx run dunamai==1.26.1 from any --style semver)
+            echo "export VERSION=$VERSION" >> "$BASH_ENV"
+            echo "Publishing version: $VERSION"
+      - run:
+          name: Login to GHCR
+          command: echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - run:
+          name: Set up Docker Buildx
+          command: docker buildx create --use --name ci-builder
+      - run:
+          name: Build and push
+          command: |
+            IMAGE="ghcr.io/iskhakovt/spreadsheet:${VERSION}"
+            docker buildx build \
+              --build-arg VERSION="${VERSION}" \
+              --cache-from type=registry,ref=ghcr.io/iskhakovt/spreadsheet:buildcache \
+              --cache-to type=registry,ref=ghcr.io/iskhakovt/spreadsheet:buildcache,mode=max \
+              --push \
+              -t "$IMAGE" .
+
+# --- Workflows ---
+workflows:
+  # ── Always: lint, typecheck, unit tests (every branch push) ──
+  check-and-unit:
+    unless: << pipeline.parameters.run-heavy >>
+    jobs:
+      - check:
+          filters:
+            tags:
+              ignore: /.*/
+      - pr-title:
+          filters:
+            branches:
+              ignore: main
+            tags:
+              ignore: /.*/
+      - unit:
+          requires: [check]
+          filters:
+            tags:
+              ignore: /.*/
+
+  # ── Heavy: integration, Docker build, E2E, visual, release ──
+  # Runs on:
+  #   1. Every push to main (gate for release)
+  #   2. `ci:full` label on PR (configure trigger in CircleCI UI
+  #      to set run-heavy=true on PR label events)
+  #   3. API trigger with run-heavy=true
+  heavy:
+    when:
+      or:
+        - equal: [main, << pipeline.git.branch >>]
+        - << pipeline.parameters.run-heavy >>
+    jobs:
+      - check
+      - unit:
+          requires: [check]
+      - integration:
+          requires: [check]
+      - docker-build:
+          requires: [check]
+      - e2e:
+          requires: [docker-build]
+      - visual:
+          requires: [check]
+      - release:
+          requires: [unit, integration, e2e, visual]
+          context: github-release
+          filters:
+            branches:
+              only: main
+
+  # ── Publish: triggered by semantic-release tag (e.g. v1.2.3) ──
+  publish:
+    jobs:
+      - publish:
+          context: ghcr
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
