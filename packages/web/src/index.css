@@ -2,7 +2,7 @@
 
 @theme {
   --font-sans: "Lexend", sans-serif;
-  --ease-spring: var(--ease-spring);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --radius-lg: 20px;
   --radius-md: 16px;
   --radius-sm: 12px;
