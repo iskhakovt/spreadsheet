@@ -20,8 +20,8 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { useSyncQueue } from "../lib/use-sync-queue.js";
+import { CategoryWelcomeScreen } from "./CategoryWelcomeScreen.js";
 import { QuestionCard } from "./QuestionCard.js";
-import { WelcomeScreen } from "./WelcomeScreen.js";
 
 interface QuestionProps {
   person: { id: string; anatomy: string | null };
@@ -302,7 +302,7 @@ export function Question({
 
   if (current.type === "welcome") {
     return (
-      <WelcomeScreen
+      <CategoryWelcomeScreen
         screen={current}
         categoryMap={categoryMap}
         screens={screens}

@@ -241,12 +241,7 @@ export function PersonApp() {
           </Route>
 
           <Route path="/waiting">
-            <WaitingScreen
-              status={status}
-              sortedMembers={sortedMembers}
-              allComplete={allComplete}
-              navigate={navigate}
-            />
+            <WaitingScreen status={status} sortedMembers={sortedMembers} navigate={navigate} />
           </Route>
 
           <Route path="/results">
@@ -330,19 +325,17 @@ function PendingScreen({
 function WaitingScreen({
   status,
   sortedMembers,
-  allComplete,
   navigate,
 }: Readonly<{
   status: GroupStatus & { person: Person };
   sortedMembers: GroupStatus["members"];
-  allComplete: boolean;
   navigate: (to: string) => void;
 }>) {
   const others = sortedMembers.filter((m) => m.id !== status.person.id);
   return (
     <Card>
       <div className="text-center pt-16 space-y-6">
-        <h1 className="text-2xl font-bold">{allComplete ? "Everyone is done!" : "Waiting for everyone..."}</h1>
+        <h1 className="text-2xl font-bold">Waiting for everyone...</h1>
         <div className="space-y-2.5">
           {others.map((m) => (
             <div
@@ -356,11 +349,6 @@ function WaitingScreen({
             </div>
           ))}
         </div>
-        {allComplete && (
-          <Button fullWidth onClick={() => navigate("/results")}>
-            View results
-          </Button>
-        )}
         {/* Escape hatch back to editing. Navigates only — does NOT unmark
             completion state, so partners on /results aren't kicked out. Any
             new answers sync normally and propagate via the journal stream. */}
