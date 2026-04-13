@@ -10,6 +10,7 @@ test.describe("missing encryption key", () => {
     expect(linkWithoutKey).not.toContain("#key=");
 
     await bob.goto(linkWithoutKey);
+    // MissingKeyError has retry: false — the screen should appear without retry delay
     await expect(bob.getByText("Encryption key missing")).toBeVisible();
     await expect(bob.getByText("the key wasn't included in your link")).toBeVisible();
   });

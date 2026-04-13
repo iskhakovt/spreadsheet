@@ -19,7 +19,10 @@ export function makeQueryClient(): QueryClient {
         refetchOnMount: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
-        retry: 2,
+        retry(failureCount, error) {
+          if (error instanceof Error && "retry" in error && error.retry === false) return false;
+          return failureCount < 2;
+        },
       },
       mutations: {
         retry: false,

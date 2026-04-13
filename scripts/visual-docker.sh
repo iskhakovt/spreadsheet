@@ -16,6 +16,7 @@ IMAGE="mcr.microsoft.com/playwright:v1.59.1-noble"
 
 exec docker run --rm --init --ipc=host \
   --network=host \
+  --user "$(id -u):$(id -g)" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)":/work \
   -w /work \
