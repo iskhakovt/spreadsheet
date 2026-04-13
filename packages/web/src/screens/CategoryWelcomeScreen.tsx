@@ -7,8 +7,8 @@ import type { Screen } from "../lib/build-screens.js";
 
 interface CategoryWelcomeScreenProps {
   screen: Extract<Screen, { type: "welcome" }>;
-  categoryMap: Record<string, CategoryData>;
-  screens: Screen[];
+  categoryMap: Readonly<Record<string, CategoryData>>;
+  screens: readonly Screen[];
   index: number;
   setIndex: (fn: (i: number) => number) => void;
   headingRef?: RefObject<HTMLHeadingElement | null>;
