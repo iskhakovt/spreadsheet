@@ -2,6 +2,7 @@ import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { cn } from "../lib/cn.js";
 import {
   getAnswers,
   getSelectedCategories,
@@ -84,23 +85,18 @@ export function Summary({
 
         {/* Overall progress bar */}
         <div
-          className="h-2 rounded-full overflow-hidden"
+          className="h-2 rounded-full overflow-hidden progress-track"
           role="progressbar"
           aria-valuenow={totalAnswered}
           aria-valuemax={totalQuestions}
           aria-label="Overall progress"
-          style={{
-            background: "color-mix(in oklab, var(--color-surface) 85%, var(--color-border))",
-            boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.05)",
-          }}
         >
           <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${overallPct}%`,
-              background: "linear-gradient(90deg, var(--color-accent-light) 0%, var(--color-accent) 100%)",
-              boxShadow: overallPct > 0 ? "0 0 8px rgba(208, 128, 88, 0.3)" : "none",
-            }}
+            className={cn(
+              "h-full rounded-full transition-all duration-500 ease-out progress-fill",
+              overallPct > 0 && "progress-glow",
+            )}
+            style={{ width: `${overallPct}%` }}
           />
         </div>
 
@@ -114,7 +110,7 @@ export function Summary({
                 key={t}
                 className={`flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200 ${
                   tier === t
-                    ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                    ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-accent-sm"
                     : "text-text-muted hover:text-text"
                 }`}
               >

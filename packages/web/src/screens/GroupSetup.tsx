@@ -121,7 +121,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                 type="button"
                 onClick={() => handleCopy(myLink, 0)}
                 aria-label="Copy your link"
-                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
               >
                 {copied === 0 ? "Copied!" : "Copy"}
               </button>
@@ -147,7 +147,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   type="button"
                   onClick={() => handleCopy(generatedLinks[i], i + 1)}
                   aria-label={`Copy ${partner.name}'s link`}
-                  className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                  className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
                 >
                   {copied === i + 1 ? "Copied!" : "Copy"}
                 </button>

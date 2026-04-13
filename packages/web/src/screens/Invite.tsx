@@ -124,7 +124,7 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
               <button
                 type="button"
                 onClick={() => copy(generatedLink)}
-                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-accent-sm"
               >
                 {copiedIndex !== null ? UI.invite.copied : UI.invite.copyLink}
               </button>

@@ -154,7 +154,7 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
                       onClick={() => setAnatomyLabels(style)}
                       className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200 ${
                         anatomyLabels === style
-                          ? "bg-accent text-accent-fg border-accent shadow-[0_1px_4px_rgb(208_128_88/0.25)]"
+                          ? "bg-accent text-accent-fg border-accent shadow-accent-md"
                           : "bg-surface border-border text-text-muted hover:border-accent/25"
                       }`}
                     >

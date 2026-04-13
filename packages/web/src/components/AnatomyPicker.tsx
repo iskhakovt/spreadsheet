@@ -28,7 +28,7 @@ export function AnatomyPicker({
             onClick={() => onSelect(a)}
             className={`flex-1 px-4 py-3 rounded-[var(--radius-sm)] border transition-all duration-200 ${
               selected === a
-                ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg border-accent shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+                ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg border-accent shadow-accent-sm"
                 : unselectedClass
             }`}
           >

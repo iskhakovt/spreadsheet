@@ -177,23 +177,18 @@ export function QuestionCard({
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
           gives the track depth. */}
       <div
-        className="mt-8 h-1.5 rounded-full overflow-hidden"
+        className="mt-8 h-1.5 rounded-full overflow-hidden progress-track"
         role="progressbar"
         aria-valuenow={totalAnswered}
         aria-valuemax={totalQuestions}
         aria-label="Overall progress"
-        style={{
-          background: "color-mix(in oklab, var(--color-surface) 85%, var(--color-border))",
-          boxShadow: "inset 0 1px 2px rgba(58, 48, 40, 0.05)",
-        }}
       >
         <div
-          className="h-full rounded-full transition-all duration-500 ease-out"
-          style={{
-            width: `${progressPct}%`,
-            background: "linear-gradient(90deg, var(--color-accent-light) 0%, var(--color-accent) 100%)",
-            boxShadow: progressPct > 0 ? "0 0 10px rgba(208, 128, 88, 0.3)" : "none",
-          }}
+          className={cn(
+            "h-full rounded-full transition-all duration-500 ease-out progress-fill",
+            progressPct > 0 && "progress-glow",
+          )}
+          style={{ width: `${progressPct}%` }}
         />
       </div>
       <div className="mt-1.5 h-4 flex justify-end">
