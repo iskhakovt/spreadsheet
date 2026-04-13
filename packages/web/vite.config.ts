@@ -3,10 +3,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { compression } from "vite-plugin-compression2";
 import { VitePWA } from "vite-plugin-pwa";
+import svgr from "vite-plugin-svgr";
 
 export default defineConfig({
   plugins: [
     react(),
+    svgr(),
     tailwindcss(),
     compression({ algorithm: "gzip" }),
     compression({ algorithm: "brotliCompress" }),
