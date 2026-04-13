@@ -1,8 +1,9 @@
 import { decodeOpaque, encodeOpaque } from "@spreadsheet/shared";
+import { NonRetriableError } from "./errors.js";
 import { getScope } from "./session.js";
 
 /** Thrown when encrypted data is encountered but no group key is available. */
-export class MissingKeyError extends Error {
+export class MissingKeyError extends NonRetriableError {
   readonly code = "MISSING_GROUP_KEY" as const;
   constructor() {
     super("Cannot decrypt without group key");

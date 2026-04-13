@@ -14,8 +14,16 @@ set -euo pipefail
 # Pin to the same version as @playwright/test in package.json.
 IMAGE="mcr.microsoft.com/playwright:v1.59.1-noble"
 
+# Run as the host user so files written to bind-mounts (test-results,
+# playwright-report, snapshot updates) aren't owned by root.
+# Add the docker socket's group so testcontainers can still talk to Docker.
+DOCKER_GID="$(ls -ln /var/run/docker.sock 2>/dev/null | awk '{print $4}')"
+DOCKER_GID="${DOCKER_GID:-0}"
+
 exec docker run --rm --init --ipc=host \
   --network=host \
+  --user "$(id -u):$(id -g)" \
+  --group-add "$DOCKER_GID" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)":/work \
   -w /work \
