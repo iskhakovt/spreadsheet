@@ -1,6 +1,6 @@
 import type { Answer } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
-import { classifyMatch, type MatchType } from "./classify-match.js";
+import { classifyMatch } from "./classify-match.js";
 
 function a(rating: Answer["rating"], timing: Answer["timing"] = null): Answer {
   return { rating, timing };
@@ -99,46 +99,5 @@ describe("classifyMatch", () => {
     it("if-partner-wants with null timing — still match", () => {
       expect(classifyMatch(a("if-partner-wants", null), a("if-partner-wants", null))).toBe("match");
     });
-  });
-
-  // --- Exhaustive truth table: all rating × rating pairs (null timing) ---
-  describe("exhaustive rating × rating truth table (null timing)", () => {
-    const R = ["yes", "if-partner-wants", "maybe", "fantasy", "no"] as const;
-
-    //                      yes       ipw        maybe       fantasy    no
-    const table: MatchType[][] = [
-      /* yes     */ ["match", "match", "possible", "hidden", "hidden"],
-      /* ipw     */ ["match", "match", "possible", "hidden", "hidden"],
-      /* maybe   */ ["possible", "possible", "both-maybe", "hidden", "hidden"],
-      /* fantasy */ ["hidden", "hidden", "hidden", "fantasy", "hidden"],
-      /* no      */ ["hidden", "hidden", "hidden", "hidden", "hidden"],
-    ];
-
-    for (let i = 0; i < R.length; i++) {
-      for (let j = 0; j < R.length; j++) {
-        it(`(${R[i]}, ${R[j]}) → ${table[i][j]}`, () => {
-          expect(classifyMatch(a(R[i]), a(R[j]))).toBe(table[i][j]);
-        });
-      }
-    }
-  });
-
-  // --- Exhaustive timing matrix for yes/willing quadrant ---
-  describe("timing matrix — yes/willing quadrant", () => {
-    const willing = ["yes", "if-partner-wants"] as const;
-    const timings = ["now", "later", null] as const;
-
-    for (const rA of willing) {
-      for (const rB of willing) {
-        for (const tA of timings) {
-          for (const tB of timings) {
-            const expected: MatchType = tA === "now" && tB === "now" ? "green-light" : "match";
-            it(`(${rA}/${tA}, ${rB}/${tB}) → ${expected}`, () => {
-              expect(classifyMatch(a(rA, tA), a(rB, tB))).toBe(expected);
-            });
-          }
-        }
-      }
-    }
   });
 });

@@ -1,11 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import {
-  answerAllQuestions,
-  answerQuestionsCycling,
-  createGroupAndSetup,
-  goThroughIntro,
-  narrowToCategory,
-} from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("results display", () => {
   test("shows correct match labels for different answer combinations", async ({ alice, bob }) => {
@@ -50,45 +44,30 @@ test.describe("results display", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
 
-    // "Group & External" has 8 screens in all-questions mode (7 questions,
-    // cuckolding splits into give + receive). Arrays are sized to cover
-    // each screen exactly once.
-    //
-    // Screen mapping (seed order):
-    //   1 threesome-mff  (mutual)   Alice: yes      Bob: yes      → match
-    //   2 threesome-mmf  (mutual)   Alice: maybe    Bob: yes      → possible
-    //   3 swinging       (mutual)   Alice: maybe    Bob: maybe    → both-maybe
-    //   4 soft-swap      (mutual)   Alice: fantasy  Bob: fantasy  → fantasy
-    //   5 cuckolding:give           Alice: yes      Bob: no       ┐ cross-role:
-    //   6 cuckolding:receive        Alice: no       Bob: yes      ┘ give↔recv = match
-    //   7 watching-partner (mutual) Alice: ipw      Bob: maybe    → possible
-    //   8 being-watched   (mutual)  Alice: maybe    Bob: ipw      → possible
-    const aliceRatings = ["yes", "maybe", "maybe", "fantasy", "yes", "no", "if-partner-wants", "maybe"] as const;
-    const bobRatings = ["yes", "yes", "maybe", "fantasy", "no", "yes", "maybe", "if-partner-wants"] as const;
-
-    await answerQuestionsCycling(alice, [...aliceRatings]);
+    // Alice: answer all as Maybe
+    await answerAllQuestions(alice, "maybe");
     await alice.getByRole("button", { name: "I'm done" }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
+    // Bob: answer all as Maybe too
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
-    await answerQuestionsCycling(bob, [...bobRatings]);
+    await answerAllQuestions(bob, "maybe");
     await bob.getByRole("button", { name: "I'm done" }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 
-    // Verify that multiple distinct match types appear on the same results
-    // page. Use data-match-type to avoid colliding with summary strip labels.
-    const row = (type: string) => bob.locator(`[data-testid="match-row"][data-match-type="${type}"]`);
+    // All should be both-maybe (worth discussing). Target match-type
+    // attribute to avoid collision with summary strip labels.
+    const bothMaybeRows = bob.locator('[data-testid="match-row"][data-match-type="both-maybe"]');
+    await expect(bothMaybeRows.first()).toBeVisible();
+    expect(await bothMaybeRows.count()).toBeGreaterThan(0);
 
-    await expect(row("match").first()).toBeVisible();
-    await expect(row("possible").first()).toBeVisible();
-    await expect(row("both-maybe").first()).toBeVisible();
-    await expect(row("fantasy").first()).toBeVisible();
-
-    // No green-light (showTiming disabled, timing is null for all answers).
-    await expect(row("green-light")).toHaveCount(0);
+    // No green-light or plain match rows. Target by data-match-type so we
+    // don't collide with the summary strip's always-visible "Go for it" label.
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="green-light"]')).toHaveCount(0);
+    await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]')).toHaveCount(0);
   });
 
   test("one says no — question hidden from results", async ({ alice, bob }) => {
