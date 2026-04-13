@@ -23,7 +23,7 @@ export function MissingKeyScreen() {
 }
 
 /** Root-level fallback — shown when the entire app crashes */
-export function RootErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+export function RootErrorFallback({ error, resetErrorBoundary }: Readonly<FallbackProps>) {
   if (isMissingKeyError(error)) {
     return <MissingKeyScreen />;
   }
@@ -41,7 +41,7 @@ export function RootErrorFallback({ error, resetErrorBoundary }: FallbackProps) 
 }
 
 /** Screen-level fallback — shown when a single screen crashes */
-export function ScreenErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+export function ScreenErrorFallback({ error, resetErrorBoundary }: Readonly<FallbackProps>) {
   if (isMissingKeyError(error)) {
     return <MissingKeyScreen />;
   }
