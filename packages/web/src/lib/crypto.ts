@@ -1,6 +1,15 @@
 import { decodeOpaque, encodeOpaque } from "@spreadsheet/shared";
 import { getScope } from "./session.js";
 
+/** Thrown when encrypted data is encountered but no group key is available. */
+export class MissingKeyError extends Error {
+  readonly code = "MISSING_GROUP_KEY" as const;
+  constructor() {
+    super("Cannot decrypt without group key");
+    this.name = "MissingKeyError";
+  }
+}
+
 const ALGO = "AES-GCM";
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12; // 96 bits — recommended for AES-GCM
@@ -80,7 +89,7 @@ export async function decodeValue<T = unknown>(opaque: string, groupKey?: string
   }
   const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
   if (!resolvedKey) {
-    throw new Error("Cannot decrypt without group key");
+    throw new MissingKeyError();
   }
   const key = await importKey(resolvedKey);
   const json = await decryptRaw(payload, key);

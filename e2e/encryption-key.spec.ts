@@ -75,20 +75,16 @@ test.describe("copy my link button", () => {
   });
 });
 
-test.describe("admin own link on setup completion", () => {
-  test("shows admin link on non-encrypted group", async ({ page }) => {
-    await createGroupAndSetup(page);
-    // The "You're all set" screen should show the admin's own link
-    await expect(page.getByText("Your link", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Copy your link")).toBeVisible();
+for (const encrypted of [false, true]) {
+  test.describe(`admin own link on setup completion (${encrypted ? "encrypted" : "plaintext"})`, () => {
+    test("shows admin link with copy button", async ({ page }) => {
+      await createGroupAndSetup(page, { encrypted });
+      await expect(page.getByText("Your link", { exact: true })).toBeVisible();
+      await expect(page.getByLabel("Copy your link")).toBeVisible();
+      if (encrypted) {
+        const adminLink = await page.getByLabel("Your invite link").inputValue();
+        expect(adminLink).toContain("#key=");
+      }
+    });
   });
-
-  test("shows admin link with key on encrypted group", async ({ page }) => {
-    await createGroupAndSetup(page, { encrypted: true });
-    await expect(page.getByText("Your link", { exact: true })).toBeVisible();
-    // The admin link input should contain #key=
-    const adminLinkInput = page.getByLabel("Your invite link");
-    const adminLink = await adminLinkInput.inputValue();
-    expect(adminLink).toContain("#key=");
-  });
-});
+}

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { decodeValue, encodeValue, generateGroupKey, unwrapSensitive, wrapSensitive } from "./crypto.js";
+import {
+  decodeValue,
+  encodeValue,
+  generateGroupKey,
+  MissingKeyError,
+  unwrapSensitive,
+  wrapSensitive,
+} from "./crypto.js";
 
 describe("generateGroupKey", () => {
   it("returns a non-empty base64url string", async () => {
@@ -63,7 +70,7 @@ describe("encodeValue / decodeValue", () => {
   it("encrypted mode throws without key", async () => {
     const key = await generateGroupKey();
     const encoded = await encodeValue("test", key);
-    await expect(decodeValue(encoded, null)).rejects.toThrow("Cannot decrypt without group key");
+    await expect(decodeValue(encoded, null)).rejects.toThrow(MissingKeyError);
   });
 
   it("handles complex objects", async () => {

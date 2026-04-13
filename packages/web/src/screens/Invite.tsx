@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { CopyMyLink } from "../components/CopyMyLink.js";
+import { CopyMyLink } from "../components/copy-my-link.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";

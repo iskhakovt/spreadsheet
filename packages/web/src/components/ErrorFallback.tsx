@@ -4,7 +4,10 @@ import { Button } from "./Button.js";
 import { Card } from "./Card.js";
 
 function isMissingKeyError(error: unknown): boolean {
-  return error instanceof Error && error.message === "Cannot decrypt without group key";
+  if (error instanceof Error && "code" in error && (error as { code: string }).code === "MISSING_GROUP_KEY")
+    return true;
+  // Fallback for errors that don't carry the code (e.g., re-thrown by a framework)
+  return error instanceof Error && error.message.includes("decrypt without group key");
 }
 
 /** Shown when an encrypted group is opened without the #key= fragment */

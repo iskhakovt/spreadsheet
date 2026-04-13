@@ -3,13 +3,17 @@ import { buildPersonLink } from "../lib/crypto.js";
 import { getAuthToken } from "../lib/session.js";
 import { useCopy } from "../lib/use-copy.js";
 
+interface CopyMyLinkProps {
+  encrypted: boolean;
+}
+
 /**
  * Subtle "Copy my link" button for encrypted groups.
  * Builds the full URL including the #key= fragment so the user can
  * reopen on another device or save it as a bookmark.
  * Renders nothing when the group is not encrypted.
  */
-export function CopyMyLink({ encrypted }: Readonly<{ encrypted: boolean }>) {
+export function CopyMyLink({ encrypted }: Readonly<CopyMyLinkProps>) {
   const { copiedIndex, copy } = useCopy();
   const copied = copiedIndex !== null;
 

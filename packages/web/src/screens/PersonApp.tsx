@@ -14,7 +14,7 @@ import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { CopyMyLink } from "../components/CopyMyLink.js";
+import { CopyMyLink } from "../components/copy-my-link.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../components/ErrorFallback.js";
 import { getGroupKeyFromUrl } from "../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../lib/journal-query.js";
