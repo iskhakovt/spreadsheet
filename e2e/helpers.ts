@@ -210,7 +210,7 @@ function doneLocator(page: Page) {
 type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
 
 /** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically. */
-export async function answerQuestionsCycling(page: Page, ratings: Rating[]) {
+export async function answerQuestionsCycling(page: Page, ratings: readonly Rating[]) {
   let i = 0;
   for (let guard = 0; guard < 200; guard++) {
     if (
