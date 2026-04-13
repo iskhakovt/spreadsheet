@@ -1,10 +1,11 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "lucide-react";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
+import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
@@ -63,7 +64,6 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
 
   async function handleSubmit() {
     if (!canSubmit) return;
-    const groupKey = getGroupKeyFromUrl();
 
     const encName = await wrapSensitive(myName);
     const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
@@ -86,20 +86,49 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
       partners: encPartners,
     });
 
-    const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
+    const links = result.partnerTokens.map((t) => buildPersonLink(t));
     setGeneratedLinks(links);
     setDone(true);
   }
 
   // After submission — show links and continue button
   if (done && generatedLinks.length > 0) {
+    const myLink = buildPersonLink(adminToken);
+
     return (
       <Card>
         <div className="animate-in space-y-6">
           <div>
             <h1 className="text-2xl font-bold">You're all set</h1>
-            <p className="text-sm text-text-muted mt-1">Share these links with your partners</p>
+            <p className="text-sm text-text-muted mt-1">Save your link and share the others with your partners</p>
+          </div>
+
+          <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-2">
+            <div className="flex items-center gap-2">
+              <Link size={14} strokeWidth={1.5} className="text-accent shrink-0" />
+              <p className="text-sm font-medium">Your link</p>
+            </div>
+            <p className="text-xs text-text-muted">Save this to access your group from another device</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={myLink}
+                aria-label="Your invite link"
+                className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
+              />
+              <button
+                type="button"
+                onClick={() => handleCopy(myLink, 0)}
+                aria-label="Copy your link"
+                className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
+              >
+                {copied === 0 ? "Copied!" : "Copy"}
+              </button>
+              <span className="sr-only" aria-live="polite">
+                {copied === 0 ? "Copied to clipboard" : ""}
+              </span>
+            </div>
           </div>
 
           {partners.map((partner, i) => (
@@ -111,18 +140,19 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   readOnly
                   value={generatedLinks[i]}
                   aria-label={`${partner.name}'s invite link`}
+                  data-testid="partner-link"
                   className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-bg/80 border border-border/40 text-sm text-text font-mono truncate"
                 />
                 <button
                   type="button"
-                  onClick={() => handleCopy(generatedLinks[i], i)}
+                  onClick={() => handleCopy(generatedLinks[i], i + 1)}
                   aria-label={`Copy ${partner.name}'s link`}
                   className="px-4 py-2 rounded-[var(--radius-sm)] bg-gradient-to-b from-accent to-accent-dark text-accent-fg text-sm font-medium shrink-0 shadow-[0_1px_3px_rgb(208_128_88/0.2)]"
                 >
-                  {copied === i ? "Copied!" : "Copy"}
+                  {copied === i + 1 ? "Copied!" : "Copy"}
                 </button>
                 <span className="sr-only" aria-live="polite">
-                  {copied === i ? "Copied to clipboard" : ""}
+                  {copied === i + 1 ? "Copied to clipboard" : ""}
                 </span>
               </div>
             </div>

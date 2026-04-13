@@ -1,4 +1,5 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type RefObject, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -160,9 +161,7 @@ export function QuestionCard({
           aria-label="Previous question"
           className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted disabled:opacity-40 transition-colors duration-200"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
           {UI.question.back}
         </button>
         <button
@@ -172,9 +171,7 @@ export function QuestionCard({
           className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted transition-colors duration-200"
         >
           {UI.question.skip}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" role="presentation" className="shrink-0">
-            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
         </button>
       </div>
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow

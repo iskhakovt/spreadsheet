@@ -130,11 +130,13 @@ export async function createGroupAndSetup(
 
   await expect(page.getByText("You're all set")).toBeVisible();
 
-  // Collect all partner links from the readonly inputs
-  const linkInputs = page.locator("input[readonly]");
-  const linkCount = await linkInputs.count();
+  // Collect partner links only (not the admin's own link on encrypted groups).
+  // Assert the expected count to fail fast with a clear message.
+  const expectedPartnerCount = 1 + extraPartners.length;
+  const linkInputs = page.locator('[data-testid="partner-link"]');
+  await expect(linkInputs).toHaveCount(expectedPartnerCount);
   const partnerLinks: string[] = [];
-  for (let i = 0; i < linkCount; i++) {
+  for (let i = 0; i < expectedPartnerCount; i++) {
     partnerLinks.push(await linkInputs.nth(i).inputValue());
   }
 

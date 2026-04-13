@@ -7,10 +7,9 @@ export interface Pair<T> {
 }
 
 /**
- * Sort members so the current viewer comes first, followed by everyone
- * else alphabetically by name. Drives pair generation in Comparison —
- * all "viewer & X" pairs precede "other & other" pairs because the
- * viewer sits at index 0 after the sort.
+ * Sort any list of members so the current viewer comes first, followed
+ * by everyone else alphabetically by name. Works on any object with
+ * `id` and `name` fields — both status members and journal MemberAnswers.
  *
  * Stability: JavaScript's `Array.prototype.sort` is stable (ES2019+),
  * so members with identical names preserve their input-order relative
@@ -23,7 +22,7 @@ export interface Pair<T> {
  *
  * Does not mutate the input array.
  */
-export function sortMembersViewerFirst(members: MemberAnswers[], viewerId: string): MemberAnswers[] {
+export function sortMembersViewerFirst<T extends { id: string; name: string }>(members: T[], viewerId: string): T[] {
   const viewer = members.find((m) => m.id === viewerId);
   const others = members.filter((m) => m.id !== viewerId).sort((a, b) => a.name.localeCompare(b.name));
   return viewer ? [viewer, ...others] : others;

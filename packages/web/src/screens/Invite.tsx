@@ -4,7 +4,8 @@ import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
+import { CopyMyLink } from "../components/copy-my-link.js";
+import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -56,7 +57,6 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
     e.preventDefault();
     if (!name) return;
     if (needsAnatomy && !anatomy) return;
-    const groupKey = getGroupKeyFromUrl();
     const encName = await wrapSensitive(name);
     const rawAnatomy = needsAnatomy ? (anatomy as string) : null;
     const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : rawAnatomy;
@@ -66,9 +66,7 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
       anatomy: encAnatomy,
       isAdmin,
     });
-    const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const link = `${window.location.origin}/p/${result.token}${keyFragment}`;
-    setGeneratedLink(link);
+    setGeneratedLink(buildPersonLink(result.token));
     setName("");
     setAnatomy("");
     setIsAdmin(false);
@@ -205,6 +203,8 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
             Everyone is added
           </Button>
         )}
+
+        <CopyMyLink encrypted={group.encrypted} />
       </div>
     </Card>
   );
