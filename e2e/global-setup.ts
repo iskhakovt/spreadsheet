@@ -97,11 +97,16 @@ async function setupDocker(imageName: string) {
 /**
  * Resolve a bin from node_modules/.bin, falling back to `pnpm exec <name>`.
  * Inside the Playwright Docker container there is no pnpm — only the
- * monorepo's node_modules tree mounted from the host.
+ * monorepo's node_modules tree mounted from the host. pnpm may hoist the
+ * bin to the root or keep it in a package-specific node_modules, so check
+ * all likely locations.
  */
 function resolveBin(name: string): string {
-  const local = resolve(import.meta.dirname, `../node_modules/.bin/${name}`);
-  if (existsSync(local)) return local;
+  const monorepoRoot = resolve(import.meta.dirname, "..");
+  for (const dir of ["", "packages/server", "packages/web"]) {
+    const candidate = resolve(monorepoRoot, dir, `node_modules/.bin/${name}`);
+    if (existsSync(candidate)) return candidate;
+  }
   return `pnpm exec ${name}`;
 }
 
