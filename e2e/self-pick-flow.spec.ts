@@ -20,7 +20,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(alice.getByText("You're all set")).toBeVisible();
 
     // Extract Bob's link
-    const bobLink = await alice.locator("input[readonly]").inputValue();
+    const bobLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice clicks "Start filling out" → should see anatomy picker (self-pick, her anatomy is null)
     await alice.getByText("Start filling out").click();

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { decodeValue, encodeValue, generateGroupKey, unwrapSensitive, wrapSensitive } from "./crypto.js";
+import {
+  decodeValue,
+  encodeValue,
+  generateGroupKey,
+  MissingKeyError,
+  unwrapSensitive,
+  wrapSensitive,
+} from "./crypto.js";
 
 describe("generateGroupKey", () => {
   it("returns a non-empty base64url string", async () => {
@@ -63,7 +70,7 @@ describe("encodeValue / decodeValue", () => {
   it("encrypted mode throws without key", async () => {
     const key = await generateGroupKey();
     const encoded = await encodeValue("test", key);
-    await expect(decodeValue(encoded, null)).rejects.toThrow("Cannot decrypt without group key");
+    await expect(decodeValue(encoded, null)).rejects.toThrow(MissingKeyError);
   });
 
   it("handles complex objects", async () => {
@@ -201,5 +208,55 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     locationStub.hash = "";
     setSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("KEY_A");
+  });
+});
+
+describe("buildPersonLink", () => {
+  let sessionStoreMap: Map<string, string>;
+  let locationStub: { hash: string; pathname: string; origin: string };
+
+  beforeEach(() => {
+    sessionStoreMap = new Map<string, string>();
+    locationStub = { hash: "", pathname: "/", origin: "https://example.com" };
+    vi.stubGlobal("sessionStorage", {
+      getItem: (k: string) => sessionStoreMap.get(k) ?? null,
+      setItem: (k: string, v: string) => void sessionStoreMap.set(k, v),
+      removeItem: (k: string) => void sessionStoreMap.delete(k),
+      clear: () => sessionStoreMap.clear(),
+    });
+    vi.stubGlobal("window", { location: locationStub });
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function loadModules() {
+    const { buildPersonLink, getGroupKeyFromUrl } = await import("./crypto.js");
+    const { setSession } = await import("./session.js");
+    return { buildPersonLink, getGroupKeyFromUrl, setSession };
+  }
+
+  it("includes #key= fragment when group key is available", async () => {
+    const { buildPersonLink, setSession } = await loadModules();
+    locationStub.hash = "#key=MY_KEY";
+    setSession("TOKEN_A");
+    expect(buildPersonLink("SOME_TOKEN")).toBe("https://example.com/p/SOME_TOKEN#key=MY_KEY");
+  });
+
+  it("omits fragment when no group key", async () => {
+    const { buildPersonLink, setSession } = await loadModules();
+    locationStub.hash = "";
+    setSession("TOKEN_A");
+    expect(buildPersonLink("SOME_TOKEN")).toBe("https://example.com/p/SOME_TOKEN");
+  });
+
+  it("works for a different token than the current session", async () => {
+    const { buildPersonLink, setSession } = await loadModules();
+    locationStub.hash = "#key=SHARED_KEY";
+    setSession("ADMIN_TOKEN");
+    // Build a link for a partner using the admin's key
+    expect(buildPersonLink("PARTNER_TOKEN")).toBe("https://example.com/p/PARTNER_TOKEN#key=SHARED_KEY");
   });
 });

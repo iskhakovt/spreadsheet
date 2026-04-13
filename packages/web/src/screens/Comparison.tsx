@@ -1,6 +1,8 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
+import { Pencil } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { CopyMyLink } from "../components/copy-my-link.js";
 import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import {
@@ -36,6 +38,7 @@ interface ComparisonProps {
    *  without timing mode, the green-light tier is unreachable so the column
    *  would always display 0, which is just noise. */
   showTiming: boolean;
+  encrypted: boolean;
   onBack?: () => void;
 }
 
@@ -112,7 +115,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, showTiming, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly<ComparisonProps>) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -363,19 +366,13 @@ export function Comparison({ viewerId, showTiming, onBack }: Readonly<Comparison
               onClick={onBack}
               className="inline-flex items-center gap-1.5 text-text-muted hover:text-accent transition-colors text-sm"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" role="presentation">
-                <path
-                  d="M11 3L13 5L5 13L2 14L3 11ZM9 5L11 7"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Pencil size={14} strokeWidth={1.5} />
               Change my answers
             </button>
           </div>
         )}
+
+        <CopyMyLink encrypted={encrypted} />
       </div>
     </div>
   );

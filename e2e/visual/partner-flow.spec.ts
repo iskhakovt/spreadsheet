@@ -14,7 +14,7 @@ test.describe("non-admin partner flow", () => {
     await alice.getByPlaceholder("Partner's name").fill("Bob");
     await alice.getByText("Create & get links").click();
     await expect(alice.getByText("You're all set")).toBeVisible();
-    const partnerLink = await alice.locator("input[readonly]").inputValue();
+    const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
     // Bob opens link → goes straight to intro (name already set by admin)
     await bob.goto(partnerLink);
@@ -42,7 +42,7 @@ test.describe("non-admin partner flow", () => {
     await alice.getByPlaceholder("Partner's name").fill("Bob");
     await alice.getByText("Create & get links").click();
     await expect(alice.getByText("You're all set")).toBeVisible();
-    const partnerLink = await alice.locator("input[readonly]").inputValue();
+    const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice starts → picks own anatomy
     await alice.getByText("Start filling out").click();
