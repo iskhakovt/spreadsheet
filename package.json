@@ -15,10 +15,10 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test --project=e2e",
     "test:visual": "playwright test --project=visual-desktop --project=visual-mobile",
-    "test:visual:update": "playwright test --project=visual-desktop --project=visual-mobile --update-snapshots=all",
+    "test:visual:update": "playwright test --project=visual-desktop --project=visual-mobile --update-snapshots=changed",
     "test:visual:new": "playwright test --project=visual-desktop --project=visual-mobile --update-snapshots=missing",
     "test:visual:docker": "scripts/visual-docker.sh",
-    "test:visual:docker:update": "scripts/visual-docker.sh --update-snapshots=all",
+    "test:visual:docker:update": "scripts/visual-docker.sh --update-snapshots=changed",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "prepare": "husky"
   },
