@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
@@ -79,6 +80,10 @@ export function Landing() {
             Encrypted <span className="text-text-muted/20 mx-2">&middot;</span>
             No account needed
           </p>
+
+          <div className="pt-2">
+            <SourceLink />
+          </div>
         </div>
       </div>
     </div>
