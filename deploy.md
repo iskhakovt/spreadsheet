@@ -85,6 +85,17 @@ docker logs spreadsheet | jq .
 
 Set `LOG_LEVEL=debug` for verbose output during troubleshooting.
 
+Tokens and auth headers are redacted at the logger level — see [design/server.md](design/server.md#secret-redaction) for the mechanism and its limitations.
+
+## Monitoring
+
+Sentry/GlitchTip is optional. Two DSNs:
+
+- `SENTRY_DSN` — used by the server. Unset to disable server-side error reporting.
+- `SENTRY_DSN_FRONTEND` — used by the browser bundle. Defaults to `SENTRY_DSN` if unset. Set separately when you want client and server errors to land in different projects.
+
+The frontend DSN is **injected at serve time** into `index.html` as `window.__ENV.SENTRY_DSN`, not baked into the JS bundle. This means the same built image can target multiple environments without rebuilding — changing the env var and restarting is enough.
+
 ## Notes
 
 - **Migrations are not run on server start.** Run `setup` (or `migrate`) explicitly before `serve`. This prevents race conditions with multiple replicas.

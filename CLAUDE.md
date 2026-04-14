@@ -1,6 +1,6 @@
 # Spreadsheet
 
-A yes/no/maybe list for couples and groups to discover shared sexual interests. See [DESIGN.md](DESIGN.md) for full design.
+A yes/no/maybe list for couples and groups to discover shared sexual interests. See [design/](design/) for full design.
 
 ## Stack
 

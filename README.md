@@ -42,7 +42,7 @@ See [deploy.md](deploy.md) for self-hosting — pre-built images, environment va
 
 ## Architecture
 
-See [DESIGN.md](DESIGN.md) for the full design — schema, sync protocol, encryption, UI.
+See [design/](design/) for the full design — schema, sync protocol, encryption, UI, server architecture.
 
 ```
 packages/
