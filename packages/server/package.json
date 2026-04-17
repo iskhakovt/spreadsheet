@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.4.4",
-    "@testcontainers/postgresql": "^11.13.0",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/node": "^25.6.0",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.0",
