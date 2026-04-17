@@ -66,6 +66,15 @@ app.use(
   serveStatic({
     root: staticRoot,
     precompressed: true,
+    onFound: (path, c) => {
+      if (path.includes("/assets/")) {
+        c.header("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (/\/(sw|registerSW|workbox-[^/]+)\.js$|\/manifest\.webmanifest$/.test(path)) {
+        c.header("Cache-Control", "no-cache");
+      } else {
+        c.header("Cache-Control", "public, max-age=3600");
+      }
+    },
   }),
 );
 
@@ -79,6 +88,7 @@ try {
 
 app.get("/*", (c) => {
   if (!indexHtml) return c.text("Not found", 404);
+  c.header("Cache-Control", "no-cache");
   return c.html(indexHtml);
 });
 
