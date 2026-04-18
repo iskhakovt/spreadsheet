@@ -117,4 +117,27 @@ test.describe("admin 2-person flow", () => {
     await expect(page.getByRole("button", { name: "Now" })).toBeVisible();
     await expect(page).toHaveScreenshot("question-timing.png");
   });
+
+  test("question with description + help popover", async ({ page }) => {
+    // `phone-sex` is the first Foundations question with a description;
+    // `dirty-talk` and `sexting` each split into give + receive screens, so
+    // four No clicks advance past them to phone-sex.
+    await createGroupAndSetup(page);
+    await page.getByText("Start filling out").click();
+    await goThroughIntro(page);
+    await narrowToCategory(page, "Foundations");
+    await page.getByRole("button", { name: "Start" }).click();
+    for (let i = 0; i < 4; i++) {
+      await page.getByRole("radio", { name: "No" }).click();
+    }
+
+    await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
+    await expect(page.getByText(/Sexual conversation or erotic audio/)).toBeVisible();
+    await expect(page).toHaveScreenshot("question-with-description.png");
+
+    // Help popover open — verifies the rating-mode glossary
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    await expect(page.getByRole("dialog", { name: "Rating glossary" })).toBeVisible();
+    await expect(page).toHaveScreenshot("question-with-help-popover.png");
+  });
 });

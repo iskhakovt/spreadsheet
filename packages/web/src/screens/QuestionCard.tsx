@@ -1,5 +1,5 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, HelpCircle } from "lucide-react";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -74,10 +74,45 @@ export function QuestionCard({
 
   const progressPct = totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0;
 
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpButtonRef = useRef<HTMLButtonElement>(null);
+  const helpPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside + Escape close the help popover. Window-level so the user
+  // can dismiss from anywhere on the page; the listener tears down with the
+  // component (and is a no-op while closed).
+  useEffect(() => {
+    if (!helpOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setHelpOpen(false);
+    }
+    function onPointerDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (helpPopoverRef.current?.contains(target)) return;
+      if (helpButtonRef.current?.contains(target)) return;
+      setHelpOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [helpOpen]);
+
+  // Close the help popover whenever the answer mode flips (rating ↔ timing)
+  // — otherwise an open popover would briefly show the wrong glossary on the
+  // transition. setState to the same value is a React no-op so the
+  // first-mount call is harmless.
+  useEffect(() => {
+    setHelpOpen(false);
+  }, [showTiming]);
+
   return (
     <Card>
-      {/* Header — category pill + position on the left, Progress chip on the right. */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header — category pill + position on the left, help icon + Progress
+          chip on the right. */}
+      <div className="relative flex items-center justify-between mb-8">
         <span className="inline-flex items-center gap-2 text-xs font-medium text-text-muted tracking-wide">
           <span className="relative flex items-center justify-center">
             <span
@@ -92,14 +127,34 @@ export function QuestionCard({
             {posInCategory}/{catQuestionScreens.length}
           </span>
         </span>
-        {onSummary && (
+        <div className="inline-flex items-center gap-1.5">
           <button
+            ref={helpButtonRef}
             type="button"
-            onClick={onSummary}
-            className="inline-flex items-center text-xs font-medium text-text-muted bg-surface/60 border border-border/40 rounded-full px-3 py-1 hover:text-accent hover:border-accent/35 hover:bg-white transition-all duration-200"
+            onClick={() => setHelpOpen((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={helpOpen}
+            aria-label={showTiming ? "What do these timings mean?" : "What do these ratings mean?"}
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full text-text-muted/75 bg-surface/50 border border-border/70 hover:text-accent hover:border-accent/35 hover:bg-white transition-all duration-200"
           >
-            Progress
+            <HelpCircle size={13} strokeWidth={2} />
           </button>
+          {onSummary && (
+            <button
+              type="button"
+              onClick={onSummary}
+              className="inline-flex items-center text-xs font-medium text-text-muted bg-surface/60 border border-border/40 rounded-full px-3 py-1 hover:text-accent hover:border-accent/35 hover:bg-white transition-all duration-200"
+            >
+              Progress
+            </button>
+          )}
+        </div>
+        {helpOpen && (
+          <HelpPopover
+            ref={helpPopoverRef}
+            mode={showTiming ? "timing" : "rating"}
+            onClose={() => setHelpOpen(false)}
+          />
         )}
       </div>
       {/* Screen reader announcement */}
@@ -357,6 +412,77 @@ function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>
         </Button>
       </div>
       <p className="text-xs text-text-muted/60 text-center mt-2 hidden sm:block">Press 1 or 2</p>
+    </div>
+  );
+}
+
+/**
+ * In-context glossary popover. Anchors below the help icon in the card
+ * header and lists either the rating options (default) or the timing
+ * options (when the user is on the Now/Later sub-question). Strings come
+ * from `UI.intro.answers` / `UI.intro.timing` so the language matches the
+ * intro screen verbatim — recall, not re-explanation.
+ */
+const RATING_HELP: { key: string; label: string; desc: string; labelClass: string }[] = [
+  { key: "yes", label: UI.intro.answers.yes[0], desc: UI.intro.answers.yes[1], labelClass: "text-accent" },
+  {
+    key: "willing",
+    label: UI.intro.answers.willing[0],
+    desc: UI.intro.answers.willing[1],
+    labelClass: "text-accent-light-dark",
+  },
+  { key: "maybe", label: UI.intro.answers.maybe[0], desc: UI.intro.answers.maybe[1], labelClass: "text-text" },
+  {
+    key: "fantasy",
+    label: UI.intro.answers.fantasy[0],
+    desc: UI.intro.answers.fantasy[1],
+    labelClass: "text-text italic",
+  },
+  { key: "no", label: UI.intro.answers.no[0], desc: UI.intro.answers.no[1], labelClass: "text-text-muted" },
+];
+
+const TIMING_HELP: { key: string; label: string; desc: string; labelClass: string }[] = [
+  { key: "now", label: UI.intro.timing.now[0], desc: UI.intro.timing.now[1], labelClass: "text-accent" },
+  { key: "later", label: UI.intro.timing.later[0], desc: UI.intro.timing.later[1], labelClass: "text-text" },
+];
+
+function HelpPopover({
+  ref,
+  mode,
+  onClose,
+}: Readonly<{
+  ref?: RefObject<HTMLDivElement | null>;
+  mode: "rating" | "timing";
+  onClose: () => void;
+}>) {
+  const items = mode === "rating" ? RATING_HELP : TIMING_HELP;
+  const title = mode === "rating" ? "What each rating means" : "What each option means";
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label={mode === "rating" ? "Rating glossary" : "Timing glossary"}
+      className="absolute top-9 right-0 w-72 bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">{title}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="text-text-muted/60 hover:text-accent transition-colors text-base leading-none -mt-1 -mr-1 px-1"
+        >
+          ×
+        </button>
+      </div>
+      <ul className="space-y-2.5">
+        {items.map((item) => (
+          <li key={item.key} className="grid grid-cols-[88px_1fr] gap-3 text-[13px] leading-snug">
+            <span className={cn("font-semibold", item.labelClass)}>{item.label}</span>
+            <span className="text-text-muted">{item.desc}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
