@@ -225,6 +225,15 @@ input[type="checkbox"]:checked::after {
   transform: rotate(45deg);
 }
 
+/* Global focus-visible outline — every interactive element inherits this
+   without per-instance Tailwind classes. Guarantees uniform keyboard-nav
+   feedback app-wide.
+
+   TODO: the React + Tailwind convention (shadcn/ui, Tailwind UI, Vercel
+   starters) is per-component `focus-visible:` utilities rather than a
+   global selector. Worth revisiting if/when the app grows shared
+   components that need per-component focus tuning — trade-off is
+   cross-element consistency (current) vs. per-component customizability. */
 @layer base {
   *:focus-visible {
     outline: 2px solid var(--color-accent-light);
