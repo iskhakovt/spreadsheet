@@ -91,6 +91,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Error handling** — throw `TRPCError` in procedures. Frontend catches via tRPC's error handling. No silent swallows.
 - **No mutable state across boundaries** — return defensive copies, use `Readonly<T>` where practical.
 - **Use the stack** — Zod for validation, Drizzle for queries, tRPC for API contracts. Don't reinvent.
+- **Domain types go in `@spreadsheet/shared`, not `RouterOutputs`** — when a procedure returns a shape the UI names or narrows (e.g. `Person`, `GroupStatus`), define it as a Zod schema in `@spreadsheet/shared/types.ts` and have the procedure `.output(schema)` for runtime validation. The client imports named types directly (`import type { Person } from "@spreadsheet/shared"`) and can use `Pick<Person, "isCompleted">` freely. Reach for `inferRouterOutputs<AppRouter>` / `NonNullable<RouterOutputs[...][...]>` chains only for ad-hoc spots where a shape isn't worth naming.
 - **Inject dependencies** — pass db/services as parameters, don't hard-import. Keeps tests clean.
 - **Conditional classNames** — always use the `cn()` helper (`lib/cn.ts`) for conditional classes: `cn("base", condition && "extra")`. Never use template literals or string concatenation for conditional className assembly.
 - **Icons** — use `lucide-react` for all icons. Never write inline `<svg>` icons by hand. Import the named icon component and set `size` and `strokeWidth` props: `<Pencil size={14} strokeWidth={1.5} />`. Browse available icons at https://lucide.dev/icons/.
