@@ -95,8 +95,8 @@ export function Group({
   return (
     <Card>
       <div className="space-y-8">
-        {/* Back chevron only once the admin has moved past the first-time
-            invite flow — during setup the screen is forward-only. */}
+        {/* Back chevron appears only once the group is ready — during the
+            initial invite/setup flow the screen is forward-only. */}
         {group.isReady && <BackLink onClick={onBack} />}
         <h1 className="text-2xl font-bold">{title}</h1>
 
