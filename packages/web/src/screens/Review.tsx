@@ -1,6 +1,7 @@
 import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo } from "react";
 import { Button } from "../components/Button.js";
+import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { cn } from "../lib/cn.js";
 import { getAnswers, getSelectedCategories } from "../lib/storage.js";
@@ -12,6 +13,7 @@ interface ReviewProps {
   onMarkComplete: () => void;
   onViewProgress: () => void;
   onEditQuestion: (key: string) => void;
+  onBack: () => void;
 }
 
 const RATING_LABELS: Record<string, string> = {
@@ -43,6 +45,7 @@ export function Review({
   onMarkComplete,
   onViewProgress,
   onEditQuestion,
+  onBack,
 }: Readonly<ReviewProps>) {
   const answers = getAnswers();
   const selectedCategories = getSelectedCategories() ?? [];
@@ -90,6 +93,7 @@ export function Review({
   return (
     <Card>
       <div className="space-y-6">
+        <BackLink onClick={onBack} />
         <div>
           <h1 className="text-2xl font-bold">{UI.review.title}</h1>
           <p className="text-text-muted mt-1">{UI.review.answered(totalAnswered, totalQuestions)}</p>

@@ -198,6 +198,7 @@ export function PersonApp() {
                 else navigate("/questions");
               }}
               onViewAnswers={() => navigate("/review")}
+              onBack={() => navigate("/summary")}
             />
           </Route>
 
@@ -246,6 +247,7 @@ export function PersonApp() {
                 setStartKey(key);
                 navigate("/questions");
               }}
+              onBack={() => navigate("/summary")}
             />
           </Route>
 
