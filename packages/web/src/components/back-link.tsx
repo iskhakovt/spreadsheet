@@ -9,8 +9,10 @@ interface BackLinkProps {
 
 /**
  * Top-of-screen back affordance — chevron + label. Used as the universal
- * escape hatch on screens reached intentionally (Summary, Group, Review),
- * mirroring the chevron pattern already in `QuestionCard`'s Back/Skip row.
+ * escape hatch on screens reached intentionally (Summary, Group, Review).
+ * Structurally similar to `QuestionCard`'s Back/Skip row (lucide chevron
+ * + muted text), with hover-to-accent to match the prominence of other
+ * top-level navigation like `source-link.tsx` and `copy-my-link.tsx`.
  */
 export function BackLink({ onClick, label = "Back", className }: Readonly<BackLinkProps>) {
   return (
