@@ -1,6 +1,6 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type RefObject, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
@@ -17,6 +17,16 @@ const RATING_OPTIONS: readonly { rating: Rating; label: string; variant: Variant
   { rating: "no", label: UI.question.no, variant: "outline" },
 ];
 
+const KEY_TO_RATING: Record<string, Rating> = {
+  "1": "yes",
+  "2": "if-partner-wants",
+  "3": "maybe",
+  "4": "fantasy",
+  "5": "no",
+};
+
+const COMMIT_ANIMATION_NAME = "commit-alpha";
+
 interface QuestionCardProps {
   screen: QuestionScreen;
   categoryMap: Record<string, CategoryData>;
@@ -26,7 +36,6 @@ interface QuestionCardProps {
   totalAnswered: number;
   totalQuestions: number;
   showTiming: boolean;
-  showDescription: boolean;
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
@@ -35,7 +44,6 @@ interface QuestionCardProps {
   onTiming: (timing: Timing) => void;
   onBack: () => void;
   onSkip: () => void;
-  onToggleDescription: () => void;
   onSync: () => void;
   onSummary?: () => void;
 }
@@ -49,7 +57,6 @@ export function QuestionCard({
   totalAnswered,
   totalQuestions,
   showTiming,
-  showDescription,
   syncing,
   showSyncIndicator,
   pendingCount,
@@ -58,7 +65,6 @@ export function QuestionCard({
   onTiming,
   onBack,
   onSkip,
-  onToggleDescription,
   onSync,
   onSummary,
 }: Readonly<QuestionCardProps>) {
@@ -70,7 +76,7 @@ export function QuestionCard({
 
   return (
     <Card>
-      {/* Header — category pill + position, Progress link on the right. */}
+      {/* Header — category pill + position on the left, Progress chip on the right. */}
       <div className="flex items-center justify-between mb-8">
         <span className="inline-flex items-center gap-2 text-xs font-medium text-text-muted tracking-wide">
           <span className="relative flex items-center justify-center">
@@ -90,7 +96,7 @@ export function QuestionCard({
           <button
             type="button"
             onClick={onSummary}
-            className="text-xs font-medium text-text-muted/70 hover:text-accent transition-colors duration-200"
+            className="inline-flex items-center text-xs font-medium text-text-muted bg-surface/60 border border-border/40 rounded-full px-3 py-1 hover:text-accent hover:border-accent/35 hover:bg-white transition-all duration-200"
           >
             Progress
           </button>
@@ -100,8 +106,10 @@ export function QuestionCard({
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         Question {posInCategory} of {catQuestionScreens.length}, {category?.label}
       </div>
-      {/* Question text + description — keyed on screen.key for per-question
-          fade-in, giving the flow a page-turning rhythm. */}
+      {/* Question text + reserved description slot — keyed on screen.key for
+          per-question fade-in, giving the flow a page-turning rhythm. The
+          min-h floor on the heading+description block keeps cards uniform
+          regardless of whether the question has a description. */}
       <div key={screen.key} className="animate-in min-h-[6rem] mb-2">
         <h2
           ref={headingRef}
@@ -110,44 +118,19 @@ export function QuestionCard({
         >
           {screen.displayText}
         </h2>
-        {screen.question.description && (
-          <button
-            type="button"
-            onClick={onToggleDescription}
-            aria-expanded={showDescription}
-            className="text-sm text-text-muted/70 mt-3 inline-flex items-center gap-1.5 hover:text-accent transition-colors duration-200"
-          >
-            {UI.question.whatsThis}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              role="presentation"
-              className={cn("transition-transform duration-200", showDescription && "rotate-180")}
-            >
-              <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        )}
-        {showDescription && screen.question.description && (
-          <p className="text-sm text-text-muted mt-2.5 leading-relaxed animate-in">{screen.question.description}</p>
-        )}
-      </div>
-      {/* Timing sub-question */}
-      {showTiming ? (
-        <div className="space-y-3 mb-6">
-          <p className="text-sm text-text-muted">{UI.question.when}</p>
-          <div className="flex gap-3">
-            <Button variant="accent" fullWidth onClick={() => onTiming("now")}>
-              {UI.question.now}
-            </Button>
-            <Button variant="neutral" fullWidth onClick={() => onTiming("later")}>
-              {UI.question.later}
-            </Button>
-          </div>
-          <p className="text-xs text-text-muted/60 text-center mt-2 hidden sm:block">Press 1 or 2</p>
+        <div className="mt-4 min-h-[2.75rem]">
+          {screen.question.description && (
+            <p className="text-sm text-text-muted/90 text-pretty leading-[1.55] border-l-2 border-accent-light/80 pl-3 py-0.5">
+              {screen.question.description}
+            </p>
+          )}
         </div>
+      </div>
+      {/* Answer controls — RatingGroup and TimingButtons both own their
+          keyboard listeners locally (scoped by mount) and their commit
+          animation state (local useState). */}
+      {showTiming ? (
+        <TimingButtons onTiming={onTiming} />
       ) : (
         <RatingGroup existingAnswer={existingAnswer} onRating={onRating} />
       )}
@@ -159,7 +142,7 @@ export function QuestionCard({
           onClick={onBack}
           disabled={index === 0}
           aria-label="Previous question"
-          className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted disabled:opacity-40 transition-colors duration-200"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
         >
           <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
           {UI.question.back}
@@ -168,7 +151,7 @@ export function QuestionCard({
           type="button"
           onClick={onSkip}
           aria-label="Skip question"
-          className="flex items-center gap-1 text-text-muted/70 hover:text-text-muted transition-colors duration-200"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-accent transition-colors duration-200"
         >
           {UI.question.skip}
           <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
@@ -198,7 +181,12 @@ export function QuestionCard({
   );
 }
 
-/** Roving-tabindex radio group — button[role="radio"] pattern (Radix/React Aria style). */
+/**
+ * Roving-tabindex radio group — button[role="radio"] pattern (Radix/React Aria
+ * style). Owns its own number-key listener (1-5) so the shortcut scopes to
+ * exactly when the group is mounted (showTiming=false). Keyboard commits run
+ * through the α animation path; mouse clicks commit instantly.
+ */
 function RatingGroup({
   existingAnswer,
   onRating,
@@ -208,9 +196,28 @@ function RatingGroup({
 }>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
   const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
+  const [committing, setCommitting] = useState<Rating | null>(null);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+  // Number-key shortcut (1-5). Window-scoped so the user doesn't have to
+  // focus the group first. While a commit animation is running, ignore
+  // additional presses to prevent stacking commits. Listener lifetime is
+  // bounded by the component mount — when showTiming flips on, the whole
+  // group unmounts and the listener tears down automatically.
+  useEffect(() => {
+    if (committing) return;
+    function onKey(e: KeyboardEvent) {
+      const rating = KEY_TO_RATING[e.key];
+      if (rating) {
+        e.preventDefault();
+        setCommitting(rating);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [committing]);
+
+  function handleArrowKeyDown(e: React.KeyboardEvent) {
     const len = RATING_OPTIONS.length;
     if (e.key === "ArrowDown" || e.key === "ArrowRight") {
       e.preventDefault();
@@ -225,8 +232,35 @@ function RatingGroup({
     }
   }
 
+  function handleButtonClick(rating: Rating, e: React.MouseEvent<HTMLButtonElement>) {
+    if (committing) return;
+    // event.detail === 0 indicates keyboard activation (Enter/Space on a
+    // focused button); a real mouse click has detail ≥ 1. Route the two
+    // paths differently: keyboard → animated commit; mouse → instant.
+    if (e.detail === 0) {
+      setCommitting(rating);
+    } else {
+      onRating(rating);
+    }
+  }
+
+  function handleAnimationEnd(rating: Rating, e: React.AnimationEvent<HTMLButtonElement>) {
+    // Filter strictly — any other animation running on this element
+    // (e.g. the ambient transition for the selected ring) would otherwise
+    // also fire onAnimationEnd and prematurely commit.
+    if (e.animationName !== COMMIT_ANIMATION_NAME) return;
+    if (committing !== rating) return;
+    setCommitting(null);
+    onRating(rating);
+  }
+
   return (
-    <div role="radiogroup" aria-label="Rate this activity" className="space-y-3 mb-6 mt-6" onKeyDown={handleKeyDown}>
+    <div
+      role="radiogroup"
+      aria-label="Rate this activity"
+      className="space-y-3 mb-6 mt-6"
+      onKeyDown={handleArrowKeyDown}
+    >
       {RATING_OPTIONS.map((opt, i) => (
         // biome-ignore lint/a11y/useSemanticElements: button[role=radio] is the WAI-ARIA APG pattern for custom radio groups (roving tabindex)
         <button
@@ -238,7 +272,8 @@ function RatingGroup({
           role="radio"
           aria-checked={existingAnswer?.rating === opt.rating}
           tabIndex={i === focusIdx ? 0 : -1}
-          onClick={() => onRating(opt.rating)}
+          onClick={(e) => handleButtonClick(opt.rating, e)}
+          onAnimationEnd={(e) => handleAnimationEnd(opt.rating, e)}
           className={cn(
             "flex items-center justify-center w-full",
             "px-6 py-4 rounded-[var(--radius-lg)] font-medium text-base",
@@ -248,12 +283,80 @@ function RatingGroup({
             variantStyles[opt.variant],
             opt.italic && "italic",
             existingAnswer?.rating === opt.rating && "ring-2 ring-accent/60 ring-offset-2 ring-offset-bg scale-[1.01]",
+            committing === opt.rating && "commit-alpha",
           )}
         >
           {opt.label}
         </button>
       ))}
       <p className="text-xs text-text-muted/50 text-center mt-2 hidden sm:block">Press 1–5 to answer</p>
+    </div>
+  );
+}
+
+/**
+ * Timing sub-question (Now / Later) — mirrors RatingGroup's commit pattern
+ * with its own keyboard listener (1/n, 2/l). Only mounts when `showTiming`
+ * is true; listener lifetime is scoped to the mount.
+ */
+function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>) {
+  const [committing, setCommitting] = useState<Timing | null>(null);
+
+  useEffect(() => {
+    if (committing) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "1" || e.key === "n") {
+        e.preventDefault();
+        setCommitting("now");
+      } else if (e.key === "2" || e.key === "l") {
+        e.preventDefault();
+        setCommitting("later");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [committing]);
+
+  function handleClick(timing: Timing, e: React.MouseEvent<HTMLButtonElement>) {
+    if (committing) return;
+    if (e.detail === 0) {
+      setCommitting(timing);
+    } else {
+      onTiming(timing);
+    }
+  }
+
+  function handleAnimationEnd(timing: Timing, e: React.AnimationEvent<HTMLButtonElement>) {
+    if (e.animationName !== COMMIT_ANIMATION_NAME) return;
+    if (committing !== timing) return;
+    setCommitting(null);
+    onTiming(timing);
+  }
+
+  return (
+    <div className="space-y-3 mb-6">
+      <p className="text-sm text-text-muted">{UI.question.when}</p>
+      <div className="flex gap-3">
+        <Button
+          variant="accent"
+          fullWidth
+          onClick={(e) => handleClick("now", e)}
+          onAnimationEnd={(e) => handleAnimationEnd("now", e)}
+          className={cn(committing === "now" && "commit-alpha")}
+        >
+          {UI.question.now}
+        </Button>
+        <Button
+          variant="neutral"
+          fullWidth
+          onClick={(e) => handleClick("later", e)}
+          onAnimationEnd={(e) => handleAnimationEnd("later", e)}
+          className={cn(committing === "later" && "commit-alpha")}
+        >
+          {UI.question.later}
+        </Button>
+      </div>
+      <p className="text-xs text-text-muted/60 text-center mt-2 hidden sm:block">Press 1 or 2</p>
     </div>
   );
 }

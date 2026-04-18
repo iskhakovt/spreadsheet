@@ -15,6 +15,7 @@ interface CategoryWelcomeScreenProps {
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
+  hasAnswersInCategory: boolean;
   onSync: () => void;
   onSummary?: () => void;
 }
@@ -29,6 +30,7 @@ export function CategoryWelcomeScreen({
   syncing,
   showSyncIndicator,
   pendingCount,
+  hasAnswersInCategory,
   onSync,
   onSummary,
 }: Readonly<CategoryWelcomeScreenProps>) {
@@ -36,13 +38,17 @@ export function CategoryWelcomeScreen({
   return (
     <Card>
       <div className="space-y-8 text-center py-8">
-        {/* Eyebrow label — signals this is a category intro, not a question. */}
-        <p
-          className="stagger text-[11px] font-semibold uppercase tracking-[0.25em] text-accent/70"
-          style={{ "--stagger-index": 0 } as React.CSSProperties}
-        >
-          New category
-        </p>
+        {/* Eyebrow label — signals this is a category intro, not a question.
+            Suppressed once the user has answers in this category so returning
+            visitors don't see "New" for something they've already started. */}
+        {!hasAnswersInCategory && (
+          <p
+            className="stagger text-[11px] font-semibold uppercase tracking-[0.25em] text-accent/70"
+            style={{ "--stagger-index": 0 } as React.CSSProperties}
+          >
+            New category
+          </p>
+        )}
 
         <h2
           ref={headingRef}
