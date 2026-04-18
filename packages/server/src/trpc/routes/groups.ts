@@ -1,5 +1,5 @@
 import { on } from "node:events";
-import { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
+import { AnatomyLabels, AnatomyPicker, groupStatusSchema, QuestionMode } from "@spreadsheet/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
@@ -110,9 +110,12 @@ export const groupsRouter = router({
       return { ok: true };
     }),
 
-  status: publicProcedure.input(z.object({ token: z.string() })).query(async ({ ctx, input }) => {
-    return ctx.groups.getStatus(input.token);
-  }),
+  status: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .output(groupStatusSchema.nullable())
+    .query(async ({ ctx, input }) => {
+      return ctx.groups.getStatus(input.token);
+    }),
 
   markReady: broadcastingAdminProcedure.mutation(async ({ ctx }) => {
     if (ctx.group.isReady) {

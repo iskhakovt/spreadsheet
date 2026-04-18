@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { AnatomyLabels, AnatomyPicker, GroupStatus } from "@spreadsheet/shared";
 import { and, count, eq } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
@@ -171,7 +172,7 @@ export class GroupStore {
     });
   }
 
-  async getStatus(token: string) {
+  async getStatus(token: string): Promise<GroupStatus | null> {
     return this.#tx(async (tx) => {
       const person = await tx
         .select()
@@ -200,17 +201,14 @@ export class GroupStore {
             isAdminReady: false,
             questionMode: group.questionMode,
             showTiming: group.showTiming,
-            anatomyLabels: group.anatomyLabels,
-            anatomyPicker: group.anatomyPicker,
+            // Drizzle stores these as raw `text` columns so their row type
+            // is `string | null`, but a DB-level check + seed keeps values
+            // constrained to the enum set. Narrow at the boundary; the
+            // procedure's `.output(groupStatusSchema)` re-validates.
+            anatomyLabels: group.anatomyLabels as AnatomyLabels | null,
+            anatomyPicker: group.anatomyPicker as AnatomyPicker | null,
           },
-          members: [] as {
-            id: string;
-            name: string;
-            anatomy: string | null;
-            isCompleted: boolean;
-            isAdmin: boolean;
-            progress: string | null;
-          }[],
+          members: [],
         };
       }
 
@@ -254,8 +252,8 @@ export class GroupStore {
           isAdminReady: group.isReady,
           questionMode: group.questionMode,
           showTiming: group.showTiming,
-          anatomyLabels: group.anatomyLabels,
-          anatomyPicker: group.anatomyPicker,
+          anatomyLabels: group.anatomyLabels as AnatomyLabels | null,
+          anatomyPicker: group.anatomyPicker as AnatomyPicker | null,
         },
         members,
       };

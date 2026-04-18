@@ -62,3 +62,52 @@ export interface CategoryData {
   description: string;
   sortOrder: number;
 }
+
+/**
+ * Domain schemas for the `groups.status` procedure output — the single
+ * source of truth for Person / Member / Group / GroupStatus shapes.
+ * Server validates its output against these; client imports the inferred
+ * types directly instead of deep-indexing RouterOutputs.
+ *
+ * `name`, `anatomy`, `progress` are plain strings here even though the
+ * wire format may be opaque-encoded (e:1:... / p:1:...) — decoding happens
+ * on the client in `decrypt-status.ts`. The schema is deliberately
+ * permissive on these fields so encrypted payloads round-trip unchanged.
+ */
+export const personSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  anatomy: z.string().nullable(),
+  isAdmin: z.boolean(),
+  isCompleted: z.boolean(),
+});
+export type Person = z.infer<typeof personSchema>;
+
+export const memberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  anatomy: z.string().nullable(),
+  isAdmin: z.boolean(),
+  isCompleted: z.boolean(),
+  progress: z.string().nullable(),
+});
+export type Member = z.infer<typeof memberSchema>;
+
+export const groupSchema = z.object({
+  id: z.string(),
+  encrypted: z.boolean(),
+  isReady: z.boolean(),
+  isAdminReady: z.boolean(),
+  questionMode: QuestionMode,
+  showTiming: z.boolean(),
+  anatomyLabels: AnatomyLabels.nullable(),
+  anatomyPicker: AnatomyPicker.nullable(),
+});
+export type Group = z.infer<typeof groupSchema>;
+
+export const groupStatusSchema = z.object({
+  person: personSchema.nullable(),
+  group: groupSchema,
+  members: z.array(memberSchema),
+});
+export type GroupStatus = z.infer<typeof groupStatusSchema>;

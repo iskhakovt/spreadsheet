@@ -1,4 +1,11 @@
-import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
+import {
+  ANATOMY_LABEL_PRESETS,
+  type Anatomy,
+  type AnatomyLabels,
+  type Group as GroupData,
+  type Member,
+  type Person,
+} from "@spreadsheet/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
@@ -13,26 +20,10 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
-interface Member {
-  name: string;
-  anatomy: string | null;
-  isCompleted: boolean;
-  isAdmin: boolean;
-  progress: string | null;
-}
-
 interface GroupProps {
   members: Member[];
-  person: {
-    isCompleted: boolean;
-  };
-  group: {
-    encrypted: boolean;
-    isReady: boolean;
-    questionMode: string;
-    anatomyLabels: string | null;
-    anatomyPicker: string | null;
-  };
+  person: Pick<Person, "isCompleted">;
+  group: Pick<GroupData, "encrypted" | "isReady" | "questionMode" | "anatomyLabels" | "anatomyPicker">;
   onGroupReady: () => void;
   onStartFilling: () => void;
   onViewAnswers: () => void;
@@ -66,6 +57,11 @@ export function Group({ members, person, group, onGroupReady, onStartFilling, on
   const title = group.isReady ? UI.group.titleReady : UI.group.title;
   const hasAnswers = Object.keys(getAnswers()).length > 0;
   const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
+  const primaryCtaProps = {
+    start: { label: UI.group.startFilling, onClick: onStartFilling },
+    continue: { label: UI.group.continueFilling, onClick: onStartFilling },
+    view: { label: UI.group.viewAnswers, onClick: onViewAnswers },
+  }[primaryCta];
 
   async function handleAddPerson(e: React.FormEvent) {
     e.preventDefault();
@@ -200,12 +196,8 @@ export function Group({ members, person, group, onGroupReady, onStartFilling, on
         ) : null}
 
         {group.isReady ? (
-          <Button fullWidth onClick={primaryCta === "view" ? onViewAnswers : onStartFilling}>
-            {primaryCta === "view"
-              ? UI.group.viewAnswers
-              : primaryCta === "continue"
-                ? UI.group.continueFilling
-                : UI.group.startFilling}
+          <Button fullWidth onClick={primaryCtaProps.onClick}>
+            {primaryCtaProps.label}
           </Button>
         ) : (
           <Button fullWidth onClick={onGroupReady} disabled={members.length < 2}>
@@ -219,15 +211,15 @@ export function Group({ members, person, group, onGroupReady, onStartFilling, on
   );
 }
 
-type PrimaryCta = "start" | "continue" | "view";
+export type PrimaryCta = "start" | "continue" | "view";
 
-function pickPrimaryCta({
+export function pickPrimaryCta({
   isReady,
   person,
   hasAnswers,
 }: {
   isReady: boolean;
-  person: { isCompleted: boolean };
+  person: Pick<Person, "isCompleted">;
   hasAnswers: boolean;
 }): PrimaryCta {
   if (!isReady) return "start";
