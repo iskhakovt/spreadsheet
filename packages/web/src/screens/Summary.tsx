@@ -1,6 +1,7 @@
 import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
+import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { cn } from "../lib/cn.js";
 import {
@@ -76,6 +77,7 @@ export function Summary({
   return (
     <Card>
       <div className="space-y-6">
+        <BackLink onClick={onBack} label="Back to questions" />
         <div>
           <h1 className="text-2xl font-bold">Your progress</h1>
           <p className="text-text-muted mt-1">

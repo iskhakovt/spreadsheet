@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
+import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
@@ -27,9 +28,18 @@ interface GroupProps {
   onGroupReady: () => void;
   onStartFilling: () => void;
   onViewAnswers: () => void;
+  onBack: () => void;
 }
 
-export function Group({ members, person, group, onGroupReady, onStartFilling, onViewAnswers }: Readonly<GroupProps>) {
+export function Group({
+  members,
+  person,
+  group,
+  onGroupReady,
+  onStartFilling,
+  onViewAnswers,
+  onBack,
+}: Readonly<GroupProps>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
@@ -85,6 +95,9 @@ export function Group({ members, person, group, onGroupReady, onStartFilling, on
   return (
     <Card>
       <div className="space-y-8">
+        {/* Back chevron appears only once the group is ready — during the
+            initial invite/setup flow the screen is forward-only. */}
+        {group.isReady && <BackLink onClick={onBack} />}
         <h1 className="text-2xl font-bold">{title}</h1>
 
         {/* Members list */}
