@@ -3,14 +3,15 @@ import {
   type Anatomy,
   type AnatomyLabels,
   type CategoryData,
+  type Group as GroupData,
+  type GroupStatus,
+  type Person,
   type QuestionData,
 } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import type { inferRouterOutputs } from "@trpc/server";
 import { useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
-import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -26,23 +27,23 @@ import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { Comparison } from "./Comparison.js";
+import { Group } from "./Group.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
-import { Invite } from "./Invite.js";
 import { Question } from "./Question.js";
 import { Review } from "./Review.js";
 import { Summary } from "./Summary.js";
 
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type GroupStatus = NonNullable<RouterOutputs["groups"]["status"]>;
-type Person = NonNullable<GroupStatus["person"]>;
-type Group = GroupStatus["group"];
+// Status with `person` narrowed to non-null. PersonApp returns early above
+// when `authedStatus.person === null` (admin token pre-setup path), so every
+// downstream screen takes this narrowed shape.
+type AuthedGroupStatus = Omit<GroupStatus, "person"> & { person: Person };
 
-function resolveRoute(person: Person, group: Group, allComplete: boolean): string {
+function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
   if (!person.name) return "/setup";
   if (allComplete) return "/results";
   if (person.isCompleted) return "/waiting";
-  if (person.isAdmin && !group.isAdminReady) return "/invite";
+  if (person.isAdmin && !group.isAdminReady) return "/group";
   if (!group.isAdminReady && !person.isAdmin) return "/pending";
   if (group.questionMode === "filtered" && group.isAdminReady && person.anatomy === null) return "/anatomy";
   if (!group.isReady) return "/pending";
@@ -145,11 +146,17 @@ export function PersonApp() {
     );
   }
 
-  // Self first, then others alphabetically by name. Sorted once here so
-  // all child screens (Invite, Pending, Waiting, Question) get consistent order.
-  const sortedMembers = sortMembersViewerFirst(status.members, status.person.id);
+  // TS narrows `status.person` to non-null via the guard above but doesn't
+  // carry that narrow to the enclosing object, so when `status` gets passed
+  // down the narrow is lost. Assert the whole object as `AuthedGroupStatus`
+  // — safe here because the early return above rules out the null branch.
+  const authedStatus = status as AuthedGroupStatus;
 
-  const defaultRoute = resolveRoute(status.person, status.group, allComplete);
+  // Self first, then others alphabetically by name. Sorted once here so
+  // all child screens (Group, Pending, Waiting, Question) get consistent order.
+  const sortedMembers = sortMembersViewerFirst(authedStatus.members, authedStatus.person.id);
+
+  const defaultRoute = resolveRoute(authedStatus.person, authedStatus.group, allComplete);
 
   // Universal guard: if current route doesn't match resolved state, redirect.
   // Freely-navigable routes are exempt. /questions is in the list because
@@ -157,7 +164,7 @@ export function PersonApp() {
   // /waiting and /results without triggering an unmark mutation — they keep
   // their completion state, and any new writes land as journal appends that
   // propagate to partners via the sync.onJournalChange subscription.
-  const freeRoutes = ["/invite", "/summary", "/review", "/questions"];
+  const freeRoutes = ["/group", "/summary", "/review", "/questions"];
   const shouldRedirect = location !== "/" && location !== defaultRoute && !freeRoutes.includes(location);
 
   return (
@@ -173,37 +180,39 @@ export function PersonApp() {
           {shouldRedirect && <Redirect to={defaultRoute} replace />}
 
           <Route path="/setup">
-            <NonAdminOnboarding status={status} />
+            <NonAdminOnboarding status={authedStatus} />
           </Route>
 
           <Route path="/pending">
-            <PendingScreen status={status} sortedMembers={sortedMembers} />
+            <PendingScreen status={authedStatus} sortedMembers={sortedMembers} />
           </Route>
 
-          <Route path="/invite">
-            <Invite
+          <Route path="/group">
+            <Group
               members={sortedMembers}
-              group={status.group}
+              person={authedStatus.person}
+              group={authedStatus.group}
               onGroupReady={() => markReadyMutation.mutate()}
               onStartFilling={() => {
                 if (!getHasSeenIntro()) navigate("/intro");
                 else navigate("/questions");
               }}
+              onViewAnswers={() => navigate("/review")}
             />
           </Route>
 
           <Route path="/anatomy">
-            <PickAnatomyScreen status={status} />
+            <PickAnatomyScreen status={authedStatus} />
           </Route>
 
           <Route path="/intro">
-            <Intro showTiming={status.group.showTiming} onDone={() => navigate("/questions")} />
+            <Intro showTiming={authedStatus.group.showTiming} onDone={() => navigate("/questions")} />
           </Route>
 
           <Route path="/questions">
             <Question
-              person={status.person}
-              group={status.group}
+              person={authedStatus.person}
+              group={authedStatus.group}
               members={sortedMembers}
               onDone={refreshStatus}
               onSummary={() => navigate("/summary")}
@@ -216,14 +225,14 @@ export function PersonApp() {
             <Summary
               questions={questionsData.questions as QuestionData[]}
               categories={questionsData.categories as CategoryData[]}
-              isAdmin={status.person.isAdmin}
+              isAdmin={authedStatus.person.isAdmin}
               onNavigateToCategory={(catId) => {
                 setStartKey(`welcome:${catId}`);
                 navigate("/questions");
               }}
               onBack={() => navigate("/questions")}
               onReview={() => navigate("/review")}
-              onViewGroup={() => navigate("/invite")}
+              onViewGroup={() => navigate("/group")}
             />
           </Route>
 
@@ -241,14 +250,14 @@ export function PersonApp() {
           </Route>
 
           <Route path="/waiting">
-            <WaitingScreen status={status} sortedMembers={sortedMembers} navigate={navigate} />
+            <WaitingScreen status={authedStatus} sortedMembers={sortedMembers} navigate={navigate} />
           </Route>
 
           <Route path="/results">
             <Comparison
-              viewerId={status.person.id}
-              showTiming={status.group.showTiming}
-              encrypted={status.group.encrypted}
+              viewerId={authedStatus.person.id}
+              showTiming={authedStatus.group.showTiming}
+              encrypted={authedStatus.group.encrypted}
               onBack={() => navigate("/questions")}
             />
           </Route>
@@ -287,7 +296,7 @@ function NonAdminOnboarding({ status }: Readonly<{ status: GroupStatus }>) {
 function PendingScreen({
   status,
   sortedMembers,
-}: Readonly<{ status: GroupStatus & { person: Person }; sortedMembers: GroupStatus["members"] }>) {
+}: Readonly<{ status: AuthedGroupStatus; sortedMembers: GroupStatus["members"] }>) {
   const waitingForAnatomy = status.group.isAdminReady && !status.group.isReady;
   const others = sortedMembers.filter((m) => m.id !== status.person.id);
 
@@ -327,7 +336,7 @@ function WaitingScreen({
   sortedMembers,
   navigate,
 }: Readonly<{
-  status: GroupStatus & { person: Person };
+  status: AuthedGroupStatus;
   sortedMembers: GroupStatus["members"];
   navigate: (to: string) => void;
 }>) {
@@ -362,7 +371,7 @@ function WaitingScreen({
         {status.person.isAdmin && (
           <button
             type="button"
-            onClick={() => navigate("/invite")}
+            onClick={() => navigate("/group")}
             className="text-sm text-text-muted/70 hover:text-accent transition-colors duration-200 block mx-auto"
           >
             View group members
@@ -374,7 +383,7 @@ function WaitingScreen({
   );
 }
 
-function PickAnatomyScreen({ status }: Readonly<{ status: GroupStatus & { person: Person } }>) {
+function PickAnatomyScreen({ status }: Readonly<{ status: AuthedGroupStatus }>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const setProfileMutation = useMutation(

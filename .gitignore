@@ -9,3 +9,6 @@ build/
 test-results/
 playwright-report/
 e2e/.e2e-port
+
+# Local design mocks / exploration scratch
+design/mocks/

@@ -29,11 +29,11 @@ test.describe("admin 2-person flow", () => {
     const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
     const base = personBase(alice.url());
 
-    // --- Invite screen ---
+    // --- Group screen ---
     await alice.getByText("Start filling out").click();
-    await alice.goto(base + "/invite");
-    await expect(alice.getByText("Invite your partner")).toBeVisible();
-    await expect(alice).toHaveScreenshot("invite-members.png");
+    await alice.goto(base + "/group");
+    await expect(alice.getByText("Your group")).toBeVisible();
+    await expect(alice).toHaveScreenshot("group-members.png");
 
     // --- Intro screen (without timing) ---
     await alice.goto(base + "/intro");

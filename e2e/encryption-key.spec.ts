@@ -38,9 +38,9 @@ test.describe("copy my link button", () => {
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
     await expect(alice.getByText("Copy my link")).toBeVisible();
 
-    // Alice: navigate to invite screen (free route)
+    // Alice: navigate to group screen (free route)
     await alice.getByText("View group members").click();
-    await expect(alice.getByText("Invite your partner")).toBeVisible();
+    await expect(alice.getByText("Your group")).toBeVisible();
     await expect(alice.getByText("Copy my link")).toBeVisible();
 
     // Navigate Alice back to /waiting so the guard can redirect to /results

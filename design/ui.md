@@ -76,12 +76,17 @@ Admin enters their name + partner names. In admin-picks-anatomy mode, anatomy pi
 - Shows partner links with copy buttons
 - "Start filling out" → intro
 
-### 4. Invite / Group Members (admin only)
+### 4. Group (admin only)
 
 Accessible from the Summary screen. Shows member list with status:
 - **Done** — completed questionnaire
 - **Pending setup** — filtered mode, hasn't picked anatomy yet
 - **In progress** — everything else
+
+Primary CTA is state-aware once `group.isReady`:
+- Admin hasn't answered yet → "Start filling out"
+- Admin has local answers but isn't done → "Continue"
+- Admin marked complete → "View my answers" (→ `/review`)
 
 ### 5. Pick Anatomy (self-pick mode)
 
@@ -198,7 +203,7 @@ URL-based routing via wouter (nested under `/p/:token`):
 /p/:token           → catch-all, redirects via resolveRoute()
 /p/:token/setup     → non-admin onboarding
 /p/:token/pending   → waiting for group (declarative guard)
-/p/:token/invite    → admin group management
+/p/:token/group     → admin group management
 /p/:token/anatomy   → body type picker (declarative guard)
 /p/:token/intro     → tutorial
 /p/:token/questions → question flow
@@ -209,7 +214,7 @@ URL-based routing via wouter (nested under `/p/:token`):
 ```
 
 **Navigation patterns**:
-- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
+- **Universal guard**: `<Redirect>` at top of Switch redirects if current route doesn't match `resolveRoute()`. Free routes (`/group`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
 - **`/questions` is a free route** so marked-complete users can edit their answers without unmarking. Because the guard doesn't route them off `/questions` once `isCompleted` flips, `handleMarkComplete` explicitly calls `navigate("/waiting")` after the mutation.
 - **Mutations self-invalidate** via TanStack Query's `useMutation({ onSuccess: invalidateQueries })`. The handler returns the invalidation promise so the mutation stays pending until the refetch completes — callers don't need to thread a separate refresh call.
 
