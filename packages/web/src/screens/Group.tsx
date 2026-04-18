@@ -8,6 +8,7 @@ import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { cn } from "../lib/cn.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
+import { getAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -20,8 +21,11 @@ interface Member {
   progress: string | null;
 }
 
-interface InviteProps {
+interface GroupProps {
   members: Member[];
+  person: {
+    isCompleted: boolean;
+  };
   group: {
     encrypted: boolean;
     isReady: boolean;
@@ -31,9 +35,10 @@ interface InviteProps {
   };
   onGroupReady: () => void;
   onStartFilling: () => void;
+  onViewAnswers: () => void;
 }
 
-export function Invite({ members, group, onGroupReady, onStartFilling }: Readonly<InviteProps>) {
+export function Group({ members, person, group, onGroupReady, onStartFilling, onViewAnswers }: Readonly<GroupProps>) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
@@ -54,6 +59,13 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
   const labels = group.anatomyLabels
     ? ANATOMY_LABEL_PRESETS[group.anatomyLabels as AnatomyLabels]
     : ANATOMY_LABEL_PRESETS.anatomical;
+
+  // Post-isReady: admin may have returned to this screen. Branch the title +
+  // primary CTA by their own progress. `hasAnswers` reads localStorage — the
+  // per-person source of truth for partial answers not yet flushed to server.
+  const title = group.isReady ? UI.group.titleReady : UI.group.title;
+  const hasAnswers = Object.keys(getAnswers()).length > 0;
+  const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
 
   async function handleAddPerson(e: React.FormEvent) {
     e.preventDefault();
@@ -77,12 +89,12 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
   return (
     <Card>
       <div className="space-y-8">
-        <h1 className="text-2xl font-bold">{UI.invite.title}</h1>
+        <h1 className="text-2xl font-bold">{title}</h1>
 
         {/* Members list */}
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-text-muted/80 mb-3">
-            {UI.invite.members}
+            {UI.group.members}
           </h3>
           <div className="space-y-2">
             {members.map((m) => (
@@ -174,7 +186,7 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
             </div>
             <div className="flex gap-3">
               <Button fullWidth type="submit" disabled={!name || (needsAnatomy && !anatomy) || loading}>
-                {UI.invite.addPerson}
+                {UI.group.addPerson}
               </Button>
               <Button variant="ghost" onClick={() => setShowAdd(false)}>
                 Cancel
@@ -183,17 +195,21 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
           </form>
         ) : !group.isReady ? (
           <Button variant="neutral" fullWidth onClick={() => setShowAdd(true)}>
-            {UI.invite.addPerson}
+            {UI.group.addPerson}
           </Button>
         ) : null}
 
         {group.isReady ? (
-          <Button fullWidth onClick={onStartFilling}>
-            {UI.invite.startFilling}
+          <Button fullWidth onClick={primaryCta === "view" ? onViewAnswers : onStartFilling}>
+            {primaryCta === "view"
+              ? UI.group.viewAnswers
+              : primaryCta === "continue"
+                ? UI.group.continueFilling
+                : UI.group.startFilling}
           </Button>
         ) : (
           <Button fullWidth onClick={onGroupReady} disabled={members.length < 2}>
-            Everyone is added
+            {UI.group.everyoneAdded}
           </Button>
         )}
 
@@ -201,4 +217,21 @@ export function Invite({ members, group, onGroupReady, onStartFilling }: Readonl
       </div>
     </Card>
   );
+}
+
+type PrimaryCta = "start" | "continue" | "view";
+
+function pickPrimaryCta({
+  isReady,
+  person,
+  hasAnswers,
+}: {
+  isReady: boolean;
+  person: { isCompleted: boolean };
+  hasAnswers: boolean;
+}): PrimaryCta {
+  if (!isReady) return "start";
+  if (person.isCompleted) return "view";
+  if (hasAnswers) return "continue";
+  return "start";
 }

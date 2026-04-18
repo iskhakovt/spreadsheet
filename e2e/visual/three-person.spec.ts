@@ -18,11 +18,11 @@ test.describe("3-person comparison", () => {
 
     const base = personBase(alice.url());
 
-    // --- Invite screen with 3 members ---
+    // --- Group screen with 3 members ---
     await alice.getByText("Start filling out").click();
-    await alice.goto(base + "/invite");
-    await expect(alice.getByText("Invite your partner")).toBeVisible();
-    await expect(alice).toHaveScreenshot("invite-3-members.png");
+    await alice.goto(base + "/group");
+    await expect(alice.getByText("Your group")).toBeVisible();
+    await expect(alice).toHaveScreenshot("group-3-members.png");
 
     // Complete Alice
     await alice.goto(base + "/intro");

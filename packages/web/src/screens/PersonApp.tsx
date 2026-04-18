@@ -26,9 +26,9 @@ import { useTRPC, useTRPCClient, wsClient } from "../lib/trpc.js";
 import { useLiveStatus } from "../lib/use-live-status.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { Comparison } from "./Comparison.js";
+import { Group } from "./Group.js";
 import { GroupSetup } from "./GroupSetup.js";
 import { Intro } from "./Intro.js";
-import { Invite } from "./Invite.js";
 import { Question } from "./Question.js";
 import { Review } from "./Review.js";
 import { Summary } from "./Summary.js";
@@ -36,13 +36,13 @@ import { Summary } from "./Summary.js";
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type GroupStatus = NonNullable<RouterOutputs["groups"]["status"]>;
 type Person = NonNullable<GroupStatus["person"]>;
-type Group = GroupStatus["group"];
+type GroupData = GroupStatus["group"];
 
-function resolveRoute(person: Person, group: Group, allComplete: boolean): string {
+function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
   if (!person.name) return "/setup";
   if (allComplete) return "/results";
   if (person.isCompleted) return "/waiting";
-  if (person.isAdmin && !group.isAdminReady) return "/invite";
+  if (person.isAdmin && !group.isAdminReady) return "/group";
   if (!group.isAdminReady && !person.isAdmin) return "/pending";
   if (group.questionMode === "filtered" && group.isAdminReady && person.anatomy === null) return "/anatomy";
   if (!group.isReady) return "/pending";
@@ -146,7 +146,7 @@ export function PersonApp() {
   }
 
   // Self first, then others alphabetically by name. Sorted once here so
-  // all child screens (Invite, Pending, Waiting, Question) get consistent order.
+  // all child screens (Group, Pending, Waiting, Question) get consistent order.
   const sortedMembers = sortMembersViewerFirst(status.members, status.person.id);
 
   const defaultRoute = resolveRoute(status.person, status.group, allComplete);
@@ -157,7 +157,7 @@ export function PersonApp() {
   // /waiting and /results without triggering an unmark mutation — they keep
   // their completion state, and any new writes land as journal appends that
   // propagate to partners via the sync.onJournalChange subscription.
-  const freeRoutes = ["/invite", "/summary", "/review", "/questions"];
+  const freeRoutes = ["/group", "/summary", "/review", "/questions"];
   const shouldRedirect = location !== "/" && location !== defaultRoute && !freeRoutes.includes(location);
 
   return (
@@ -180,15 +180,17 @@ export function PersonApp() {
             <PendingScreen status={status} sortedMembers={sortedMembers} />
           </Route>
 
-          <Route path="/invite">
-            <Invite
+          <Route path="/group">
+            <Group
               members={sortedMembers}
+              person={status.person}
               group={status.group}
               onGroupReady={() => markReadyMutation.mutate()}
               onStartFilling={() => {
                 if (!getHasSeenIntro()) navigate("/intro");
                 else navigate("/questions");
               }}
+              onViewAnswers={() => navigate("/review")}
             />
           </Route>
 
@@ -223,7 +225,7 @@ export function PersonApp() {
               }}
               onBack={() => navigate("/questions")}
               onReview={() => navigate("/review")}
-              onViewGroup={() => navigate("/invite")}
+              onViewGroup={() => navigate("/group")}
             />
           </Route>
 
@@ -362,7 +364,7 @@ function WaitingScreen({
         {status.person.isAdmin && (
           <button
             type="button"
-            onClick={() => navigate("/invite")}
+            onClick={() => navigate("/group")}
             className="text-sm text-text-muted/70 hover:text-accent transition-colors duration-200 block mx-auto"
           >
             View group members
