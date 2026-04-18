@@ -16,6 +16,10 @@ interface CategoryWelcomeScreenProps {
   showSyncIndicator: boolean;
   pendingCount: number;
   hasAnswersInCategory: boolean;
+  /** Index of the first unanswered question in this category, or -1 if all
+   *  questions in this category are answered. Used to branch the Start /
+   *  Continue / Review-from-the-start primary button. */
+  firstUnansweredInCategoryIdx: number;
   onSync: () => void;
   onSummary?: () => void;
 }
@@ -31,10 +35,29 @@ export function CategoryWelcomeScreen({
   showSyncIndicator,
   pendingCount,
   hasAnswersInCategory,
+  firstUnansweredInCategoryIdx,
   onSync,
   onSummary,
 }: Readonly<CategoryWelcomeScreenProps>) {
   const cat = categoryMap[screen.categoryId];
+  // First question of this category is always the screen right after the
+  // welcome — buildScreens emits one welcome then contiguous questions.
+  const firstQuestionIdx = index + 1;
+  const hasUnanswered = firstUnansweredInCategoryIdx !== -1;
+
+  const goToFirstUnanswered = () => setIndex(() => firstUnansweredInCategoryIdx);
+  const goToFirstQuestion = () => setIndex(() => firstQuestionIdx);
+
+  // Primary button label mirrors the /group CTA vocabulary:
+  //   fresh (no answers)   → Start
+  //   partial              → Continue → first unanswered
+  //   complete             → Review from the start → first question
+  const primaryLabel = !hasAnswersInCategory ? "Start" : hasUnanswered ? "Continue" : "Review from the start";
+  const primaryHandler = !hasAnswersInCategory
+    ? goToFirstQuestion
+    : hasUnanswered
+      ? goToFirstUnanswered
+      : goToFirstQuestion;
   return (
     <Card>
       <div className="space-y-8 text-center py-8">
@@ -78,9 +101,16 @@ export function CategoryWelcomeScreen({
         </div>
 
         <div className="stagger space-y-3 pt-2" style={{ "--stagger-index": 3 } as React.CSSProperties}>
-          <Button fullWidth onClick={() => setIndex((i) => i + 1)}>
-            Start
+          <Button fullWidth onClick={primaryHandler}>
+            {primaryLabel}
           </Button>
+          {/* Secondary option for partial categories — lets the user revisit
+              answered questions from the top instead of resuming mid-flow. */}
+          {hasAnswersInCategory && hasUnanswered && (
+            <Button variant="ghost" fullWidth onClick={goToFirstQuestion}>
+              Review from the start
+            </Button>
+          )}
           <Button
             variant="ghost"
             fullWidth

@@ -285,6 +285,12 @@ export function Question({
       const q = questions.find((qq) => qq.id === questionId);
       return q?.categoryId === current.categoryId;
     });
+    // First unanswered question in this category drives the welcome's
+    // primary CTA: Start (fresh) / Continue (partial) / Review from the
+    // start (complete). -1 when every question in the category is answered.
+    const firstUnansweredInCategoryIdx = screens.findIndex(
+      (s, i) => i > index && s.type === "question" && s.categoryId === current.categoryId && !answers[s.key],
+    );
     return (
       <CategoryWelcomeScreen
         screen={current}
@@ -297,6 +303,7 @@ export function Question({
         showSyncIndicator={showSyncIndicator}
         pendingCount={pendingOps.length}
         hasAnswersInCategory={hasAnswersInCategory}
+        firstUnansweredInCategoryIdx={firstUnansweredInCategoryIdx}
         onSync={handleSync}
         onSummary={onSummary}
       />
