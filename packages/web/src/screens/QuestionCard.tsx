@@ -120,7 +120,7 @@ export function QuestionCard({
         </h2>
         <div className="mt-4 min-h-[2.75rem]">
           {screen.question.description && (
-            <p className="text-sm text-text-muted/90 text-pretty leading-[1.55] border-l-2 border-accent-light/80 pl-3 py-0.5">
+            <p className="text-sm text-text-muted/85 text-pretty italic leading-[1.55]">
               {screen.question.description}
             </p>
           )}
