@@ -41,29 +41,25 @@ describe("RatingGroup — keyboard → commit-animation → onRating", () => {
     expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
   });
 
-  it("each numeric key 1-5 maps to the correct rating", async () => {
-    const cases: [string, string][] = [
-      ["1", "yes"],
-      ["2", "if-partner-wants"],
-      ["3", "maybe"],
-      ["4", "fantasy"],
-      ["5", "no"],
-    ];
-    for (const [key, rating] of cases) {
-      const onRating = vi.fn();
-      const { unmount } = render(createElement(RatingGroup, { existingAnswer: undefined, onRating }));
+  it.each([
+    ["1", "yes"],
+    ["2", "if-partner-wants"],
+    ["3", "maybe"],
+    ["4", "fantasy"],
+    ["5", "no"],
+  ])("keydown '%s' commits rating '%s' after the commit animation", async (key, rating) => {
+    const onRating = vi.fn();
+    render(createElement(RatingGroup, { existingAnswer: undefined, onRating }));
 
-      act(() => {
-        fireEvent.keyDown(window, { key });
-      });
-      const committingBtn = document.querySelector(`.${COMMIT_ANIMATION_NAME}`);
-      expect(committingBtn).not.toBeNull();
-      act(() => {
-        if (committingBtn) fireEvent.animationEnd(committingBtn, { animationName: COMMIT_ANIMATION_NAME });
-      });
-      expect(onRating).toHaveBeenCalledExactlyOnceWith(rating);
-      unmount();
-    }
+    act(() => {
+      fireEvent.keyDown(window, { key });
+    });
+    const committingBtn = document.querySelector(`.${COMMIT_ANIMATION_NAME}`);
+    expect(committingBtn).not.toBeNull();
+    act(() => {
+      if (committingBtn) fireEvent.animationEnd(committingBtn, { animationName: COMMIT_ANIMATION_NAME });
+    });
+    expect(onRating).toHaveBeenCalledExactlyOnceWith(rating);
   });
 
   it("ignores animationend events with a non-matching animationName", async () => {
