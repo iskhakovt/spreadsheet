@@ -29,7 +29,7 @@ test.describe("tracked() reconnect resume", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob joins — start with WS allowed so he gets the initial subscription
@@ -37,7 +37,7 @@ test.describe("tracked() reconnect resume", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results via the WS push
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
@@ -75,7 +75,7 @@ test.describe("tracked() reconnect resume", () => {
     // --- ALICE EDITS WHILE BOB IS DISCONNECTED ---
     await alice.getByText("Change my answers").click();
     await expect(alice).toHaveURL(/\/questions/);
-    await alice.getByRole("radio", { name: "No" }).click();
+    await alice.getByRole("radio", { name: "No", exact: true }).click();
 
     // Poll Alice's pendingOps via scopedGet (rationale in helpers.ts:
     // sync completion is not observable from the DOM — there's no

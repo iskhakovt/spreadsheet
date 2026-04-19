@@ -12,17 +12,17 @@ for (const encrypted of [false, true]) {
       // Answer a couple of questions so Review has something to show, then
       // navigate: question header → Progress → Summary → Review answers.
       // That's the only UI-reachable way to land on /review.
-      await page.getByRole("button", { name: "Start" }).click();
-      await page.getByRole("radio", { name: "No" }).click();
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
 
-      await page.getByRole("button", { name: "Progress" }).click();
+      await page.getByRole("button", { name: "Progress", exact: true }).click();
       await expect(page.getByText("Your progress")).toBeVisible();
-      await page.getByRole("button", { name: "Review answers" }).click();
+      await page.getByRole("button", { name: "Review answers", exact: true }).click();
       await expect(page.getByText("Review your answers")).toBeVisible();
 
       // Mark complete from Review
-      await page.getByRole("button", { name: "I'm done" }).click();
+      await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Should land on waiting screen
       await expect(page.getByText("Waiting for everyone")).toBeVisible();
@@ -36,7 +36,7 @@ for (const encrypted of [false, true]) {
       await answerAllQuestions(page, "no");
 
       // Mark complete from "All done!" screen
-      await page.getByRole("button", { name: "I'm done" }).click();
+      await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Should land on waiting screen
       await expect(page.getByText("Waiting for everyone")).toBeVisible();
@@ -48,7 +48,7 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       await answerAllQuestions(page, "no");
-      await page.getByRole("button", { name: "I'm done" }).click();
+      await page.getByRole("button", { name: "I'm done", exact: true }).click();
       await expect(page.getByText("Waiting for everyone")).toBeVisible();
 
       // Refresh — should stay on waiting, not bounce back to questions

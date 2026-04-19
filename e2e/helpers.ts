@@ -167,8 +167,8 @@ export async function goThroughIntro(page: Page) {
  */
 export async function narrowToCategory(page: Page, targetLabel: string) {
   // From any category welcome, "View all categories" → Summary
-  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
-  await page.getByRole("button", { name: "View all categories" }).click();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View all categories", exact: true }).click();
 
   await expect(page.getByText("Your progress")).toBeVisible();
 
@@ -199,7 +199,7 @@ export async function narrowToCategory(page: Page, targetLabel: string) {
 
   // We should now be on the target category's welcome screen, ready to
   // click Start.
-  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
 }
 
 /** Check if we've reached the end of questions. */
@@ -220,7 +220,7 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
     )
       break;
 
-    const startBtn = page.getByRole("button", { name: "Start" });
+    const startBtn = page.getByRole("button", { name: "Start", exact: true });
     const ratingLabel = page.getByText("Yes", { exact: true });
     await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
 
@@ -242,20 +242,20 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
     i++;
 
     if (rating === "yes") {
-      await page.getByRole("radio", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes", exact: true }).click();
     } else if (rating === "if-partner-wants") {
-      await page.getByRole("radio", { name: "If partner wants" }).click();
+      await page.getByRole("radio", { name: "If partner wants", exact: true }).click();
     } else if (rating === "maybe") {
-      await page.getByRole("radio", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe", exact: true }).click();
     } else if (rating === "fantasy") {
-      await page.getByRole("radio", { name: "Fantasy" }).click();
+      await page.getByRole("radio", { name: "Fantasy only", exact: true }).click();
     } else {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
     }
 
     // Dismiss timing if it appears (yes and if-partner-wants trigger it)
     if (rating === "yes" || rating === "if-partner-wants") {
-      const nowBtn = page.getByRole("button", { name: "Now" });
+      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
       if (await nowBtn.isVisible().catch(() => false)) {
         await nowBtn.click();
       }
@@ -275,7 +275,7 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
       break;
 
     // Wait for either a welcome screen "Start" or a question rating label
-    const startBtn = page.getByRole("button", { name: "Start" });
+    const startBtn = page.getByRole("button", { name: "Start", exact: true });
     const ratingLabel = page.getByText("Yes", { exact: true });
     await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
 
@@ -295,16 +295,16 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     }
 
     if (rating === "yes") {
-      await page.getByRole("radio", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes", exact: true }).click();
       // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
-      const nowBtn = page.getByRole("button", { name: "Now" });
+      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
       if (await nowBtn.isVisible().catch(() => false)) {
         await nowBtn.click();
       }
     } else if (rating === "no") {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
     } else {
-      await page.getByRole("radio", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe", exact: true }).click();
     }
   }
   await expect(doneLocator(page)).toBeVisible();

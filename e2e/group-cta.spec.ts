@@ -10,32 +10,32 @@ test.describe("admin /group primary CTA — state machine", () => {
     // -- State 1: "Start filling out" (no answers yet) --
     await page.goto(base + "/group");
     await expect(page.getByText("Your group")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start filling out" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start filling out", exact: true })).toBeVisible();
 
     // Click Start filling out → should land on intro (first time) or questions
-    await page.getByRole("button", { name: "Start filling out" }).click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(page.getByText("Here's how it works")).toBeVisible();
     await goThroughIntro(page);
 
     // Narrow to a small category, answer a couple of questions (enough to
     // have local answers but far short of finishing the whole flow).
     await narrowToCategory(page, "Group & External");
-    await page.getByRole("button", { name: "Start" }).click();
-    await page.getByRole("radio", { name: "No" }).click();
-    await page.getByRole("radio", { name: "No" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.getByRole("radio", { name: "No", exact: true }).click();
+    await page.getByRole("radio", { name: "No", exact: true }).click();
 
     // -- State 2: "Continue" (some answers, not done) --
     await page.goto(base + "/group");
     await expect(page.getByText("Your group")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
     // The other CTA states must be absent — guard against regressions that
     // would render multiple labels simultaneously.
-    await expect(page.getByRole("button", { name: "Start filling out" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "View my answers" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start filling out", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "View my answers", exact: true })).toHaveCount(0);
 
     // Clicking Continue returns admin to questions flow (intro is skipped
     // now that hasSeenIntro is true).
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page).toHaveURL(/\/questions$/);
 
     // Finish answering to trigger the completed state. Answer all remaining
@@ -44,29 +44,29 @@ test.describe("admin /group primary CTA — state machine", () => {
     while (safety++ < 60) {
       const done = page.getByText("All done!").or(page.getByText("That's the last one"));
       if (await done.isVisible().catch(() => false)) break;
-      const noRadio = page.getByRole("radio", { name: "No" });
+      const noRadio = page.getByRole("radio", { name: "No", exact: true });
       if (await noRadio.isVisible().catch(() => false)) {
         await noRadio.click();
         continue;
       }
       // Skip over any welcome interstitials if narrowing produced one.
-      const startBtn = page.getByRole("button", { name: "Start" });
+      const startBtn = page.getByRole("button", { name: "Start", exact: true });
       if (await startBtn.isVisible().catch(() => false)) {
         await startBtn.click();
       }
     }
-    await page.getByRole("button", { name: "I'm done" }).click();
+    await page.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(page.getByText("Waiting for everyone")).toBeVisible();
 
     // -- State 3: "View my answers" (completed admin returning to /group) --
     await page.goto(base + "/group");
     await expect(page.getByText("Your group")).toBeVisible();
-    await expect(page.getByRole("button", { name: "View my answers" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Start filling out" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "View my answers", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start filling out", exact: true })).toHaveCount(0);
 
     // Clicking View my answers → /review.
-    await page.getByRole("button", { name: "View my answers" }).click();
+    await page.getByRole("button", { name: "View my answers", exact: true }).click();
     await expect(page).toHaveURL(/\/review$/);
     await expect(page.getByText("Review your answers")).toBeVisible();
   });

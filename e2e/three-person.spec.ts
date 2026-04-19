@@ -25,7 +25,7 @@ test.describe("3-person group results", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Touch & Body");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob: fill out and mark complete
@@ -33,7 +33,7 @@ test.describe("3-person group results", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Touch & Body");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(bob.getByText("Waiting for everyone")).toBeVisible();
 
     // Carol: fill out and mark complete — triggers results for all
@@ -41,7 +41,7 @@ test.describe("3-person group results", () => {
     await goThroughIntro(carol);
     await narrowToCategory(carol, "Touch & Body");
     await answerAllQuestions(carol, "yes");
-    await carol.getByRole("button", { name: "I'm done" }).click();
+    await carol.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Carol should see the results page
     await expect(carol.getByText("Your matches")).toBeVisible();
@@ -49,7 +49,7 @@ test.describe("3-person group results", () => {
     // ── (a) Pair-tab rendering ──────────────────────────────────────────
     // Verify 3 pair tabs render — viewer-pairs first, then other-vs-other.
     // Carol is the viewer, so tabs: "You & Alice", "You & Bob", "Alice & Bob"
-    const tabList = carol.getByRole("tablist", { name: "Pair results" });
+    const tabList = carol.getByRole("tablist", { name: "Pair results", exact: true });
     await expect(tabList).toBeVisible();
 
     const tabs = tabList.getByRole("tab");

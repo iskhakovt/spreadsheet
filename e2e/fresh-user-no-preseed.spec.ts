@@ -39,7 +39,7 @@ test("fresh user: clicking Start filling out lands on the first question (no pre
 
   // And we should be inside the flow: either the first Category Welcome
   // screen (pressable "Start" button) or the first Question (rating radios).
-  const welcomeStart = page.getByRole("button", { name: "Start" });
-  const yesRadio = page.getByRole("radio", { name: "Yes" });
+  const welcomeStart = page.getByRole("button", { name: "Start", exact: true });
+  const yesRadio = page.getByRole("radio", { name: "Yes", exact: true });
   await expect(welcomeStart.or(yesRadio)).toBeVisible();
 });

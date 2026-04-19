@@ -27,10 +27,10 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       await expect(page.getByText(/\d+ questions/)).toBeVisible();
-      await page.getByRole("button", { name: "Start" }).click();
+      await page.getByRole("button", { name: "Start", exact: true }).click();
 
       // Q1: answer Yes
-      await page.getByRole("radio", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes", exact: true }).click();
 
       // Wait for auto-sync to complete (pendingOps drain)
       await expect(async () => {
@@ -43,7 +43,7 @@ for (const encrypted of [false, true]) {
       expect(stokenAfterQ1).toBeTruthy();
 
       // Q2: answer No
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
 
       // Wait for auto-sync
       await expect(async () => {
@@ -56,7 +56,7 @@ for (const encrypted of [false, true]) {
       await scopedSet(page, "stoken", stokenAfterQ1!);
 
       // Q3: answer Maybe
-      await page.getByRole("radio", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe", exact: true }).click();
 
       // Wait for auto-sync to handle the conflict + retry
       await expect(async () => {
@@ -66,9 +66,9 @@ for (const encrypted of [false, true]) {
 
       // Verify all 3 answers survived the merge by navigating to the
       // Review screen via the Progress link + Summary (UI-reachable path)
-      await page.getByRole("button", { name: "Progress" }).click();
+      await page.getByRole("button", { name: "Progress", exact: true }).click();
       await expect(page.getByText("Your progress")).toBeVisible();
-      await page.getByRole("button", { name: "Review answers" }).click();
+      await page.getByRole("button", { name: "Review answers", exact: true }).click();
       await expect(page.getByText("Review your answers")).toBeVisible();
 
       // Expect Yes, No, Maybe to all appear in the review list

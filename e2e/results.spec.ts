@@ -16,7 +16,7 @@ test.describe("results display", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
@@ -24,7 +24,7 @@ test.describe("results display", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
     await expect(bob.getByText("You & Alice")).toBeVisible();
@@ -67,14 +67,14 @@ test.describe("results display", () => {
     const bobRatings = ["yes", "yes", "maybe", "fantasy", "no", "yes", "maybe", "if-partner-wants"] as const;
 
     await answerQuestionsCycling(alice, aliceRatings);
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerQuestionsCycling(bob, bobRatings);
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 
@@ -99,7 +99,7 @@ test.describe("results display", () => {
 
     // Alice: all No
     await answerAllQuestions(alice, "no");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob: all Yes
@@ -107,7 +107,7 @@ test.describe("results display", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 
@@ -126,14 +126,14 @@ test.describe("results display", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Bondage & Restraint");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 
