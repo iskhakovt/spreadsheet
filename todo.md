@@ -4,7 +4,6 @@
 
 - [ ] `p3` v2 illustrations — AI-generated via Flux on RunPod
 - [ ] `p2` Rotate person token on first land — admin currently knows partner tokens (returned by `setupAdmin`), so they could use a partner's token to read unsubmitted answers via the sync journal. Rotating the token when the partner first opens their link would close this.
-- [ ] `p0` Encrypt the `question` / `key` field of each operation — in encrypted mode the server still sees which question was answered (operations are keyed by plaintext `questionId:role`, e.g. `cunnilingus:give`). Server should learn nothing beyond "person X wrote entry N". Options: deterministic HMAC of the questionId under the group key (preserves the last-write-wins replay semantics that need stable keys), or include the key inside the encrypted payload and let the client dedupe at replay time (loses server-side ability to reason about keys — but the server doesn't today anyway).
 
 ## Later
 
