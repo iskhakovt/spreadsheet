@@ -5,25 +5,25 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
   test("both players pick anatomy, wait for each other, then answer", async ({ alice, bob }) => {
     // Admin creates filtered group with self-pick anatomy
     await alice.goto("/");
-    await alice.getByText("Get started").click();
+    await alice.getByRole("button", { name: "Get started", exact: true }).click();
     // Default is "Filter by body" — keep it
     // Switch "Who picks?" to "Each person"
     await alice.getByRole("radio", { name: "Each person", exact: true }).click();
-    await alice.getByText("Create group").click();
+    await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
 
     // Admin setup — no anatomy pickers in self-pick mode
     await expect(alice.getByText("Set up your group")).toBeVisible();
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
-    await alice.getByText("Create & get links").click();
+    await alice.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(alice.getByText("You're all set")).toBeVisible();
 
     // Extract Bob's link
     const bobLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice clicks "Start filling out" → should see anatomy picker (self-pick, her anatomy is null)
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(alice.getByText("One quick thing")).toBeVisible();
     await expect(alice.getByText("Pick your body type")).toBeVisible();
 
@@ -51,13 +51,13 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: 5000 });
 
     // Both go through intro → narrow via Summary UI → answer → complete
-    await alice.getByText("Let's go").click();
+    await alice.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
-    await bob.getByText("Let's go").click();
+    await bob.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();

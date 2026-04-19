@@ -7,7 +7,7 @@ test.describe("edit after completion", () => {
     // so they'll see "Match" matches when both land on /results.
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
@@ -39,7 +39,7 @@ test.describe("edit after completion", () => {
 
     // Alice clicks "Change my answers" — navigates back to /questions,
     // crucially WITHOUT calling unmarkComplete. Bob is NOT kicked from /results.
-    await alice.getByText("Change my answers").click();
+    await alice.getByRole("button", { name: "Change my answers", exact: true }).click();
     await expect(alice).toHaveURL(/\/questions/);
 
     // Bob is still on /results (not kicked to /waiting)
@@ -63,7 +63,7 @@ test.describe("edit after completion", () => {
   test("Alice's /waiting screen has an 'Edit my answers' button that navigates without unmarking", async ({ page }) => {
     await createGroupAndSetup(page);
 
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     await answerAllQuestions(page, "yes");

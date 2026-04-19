@@ -5,7 +5,7 @@ for (const encrypted of [false, true]) {
   test.describe(`refresh persistence (${encrypted ? "encrypted" : "plaintext"})`, () => {
     test("refresh on questions screen stays on questions", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await page.getByText("Start filling out").click();
+      await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       // Dismiss welcome screen and land on first question
@@ -30,12 +30,12 @@ for (const encrypted of [false, true]) {
 
     test("refresh on setup screen stays on setup", async ({ page }) => {
       await page.goto("/");
-      await page.getByText("Get started").click();
-      await page.getByText("All questions").click();
+      await page.getByRole("button", { name: "Get started", exact: true }).click();
+      await page.getByRole("radio", { name: "All questions", exact: true }).click();
       if (encrypted) {
         await page.getByLabel("End-to-end encryption").check();
       }
-      await page.getByText("Create group").click();
+      await page.getByRole("button", { name: "Create group", exact: true }).click();
       await expect(page.getByText("Set up your group")).toBeVisible();
 
       await page.reload();

@@ -19,7 +19,7 @@ test.describe("3-person comparison", () => {
     const base = personBase(alice.url());
 
     // --- Group screen with 3 members ---
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await alice.goto(base + "/group");
     await expect(alice.getByText("Your group")).toBeVisible();
     await expect(alice).toHaveScreenshot("group-3-members.png");

@@ -11,9 +11,9 @@ test.describe("admin 2-person flow", () => {
   test("setup → invite → intro → questions → summary → review → waiting → results", async ({ alice, bob }) => {
     // --- GroupSetup: form with partner names ---
     await alice.goto("/");
-    await alice.getByText("Get started").click();
-    await alice.getByText("All questions").click();
-    await alice.getByText("Create group").click();
+    await alice.getByRole("button", { name: "Get started", exact: true }).click();
+    await alice.getByRole("radio", { name: "All questions", exact: true }).click();
+    await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
     await expect(alice.getByText("Set up your group")).toBeVisible();
 
@@ -21,7 +21,7 @@ test.describe("admin 2-person flow", () => {
     await alice.getByPlaceholder("Partner's name").fill("Bob");
     await expect(alice).toHaveScreenshot("setup-form.png");
 
-    await alice.getByText("Create & get links").click();
+    await alice.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(alice.getByText("You're all set")).toBeVisible();
     await expect(alice).toHaveScreenshot("setup-links.png");
 
@@ -30,7 +30,7 @@ test.describe("admin 2-person flow", () => {
     const base = personBase(alice.url());
 
     // --- Group screen ---
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await alice.goto(base + "/group");
     await expect(alice.getByText("Your group")).toBeVisible();
     await expect(alice).toHaveScreenshot("group-members.png");
@@ -66,7 +66,7 @@ test.describe("admin 2-person flow", () => {
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // --- Summary screen with partial progress ---
-    await alice.getByText("Edit my answers").click();
+    await alice.getByRole("button", { name: "Edit my answers", exact: true }).click();
     await alice.goto(base + "/summary");
     await expect(alice.getByText("Your progress")).toBeVisible();
     await expect(alice).toHaveScreenshot("summary.png");
@@ -102,7 +102,7 @@ test.describe("admin 2-person flow", () => {
 
   test("intro with timing enabled", async ({ page }) => {
     await createGroupAndSetup(page, { showTiming: true });
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(page.getByText("Here's how it works")).toBeVisible();
     await expect(page).toHaveScreenshot("intro-with-timing.png");
 
@@ -123,7 +123,7 @@ test.describe("admin 2-person flow", () => {
     // `dirty-talk` and `sexting` each split into give + receive screens, so
     // four No clicks advance past them to phone-sex.
     await createGroupAndSetup(page);
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Foundations");
     await page.getByRole("button", { name: "Start", exact: true }).click();

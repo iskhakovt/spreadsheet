@@ -12,7 +12,7 @@ for (const encrypted of [false, true]) {
       }
 
       // Alice: full journey — start, intro, narrow via Summary UI, answer, done
-      await alice.getByText("Start filling out").click();
+      await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(alice);
       await narrowToCategory(alice, "Group & External");
       await answerAllQuestions(alice, "yes");

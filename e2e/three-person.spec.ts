@@ -21,7 +21,7 @@ test.describe("3-person group results", () => {
     });
 
     // Alice: fill out and mark complete
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Touch & Body");
     await answerAllQuestions(alice, "yes");

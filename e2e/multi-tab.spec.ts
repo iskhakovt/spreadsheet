@@ -7,20 +7,20 @@ test.describe("multi-tab isolation", () => {
   }) => {
     // Shared context = shared localStorage (simulates same browser, multiple tabs)
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Admin answers one question with "No"
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
@@ -28,7 +28,7 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("radio", { name: "No", exact: true }).click();
 
     // Verify via UI: press Back, admin's previous answer is still "No" selected
-    await admin.getByText("Back").click();
+    await admin.getByRole("button", { name: "Previous question", exact: true }).click();
     await expect(admin.getByRole("radio", { name: "No", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Open Bob's link in same browser (new page in the SAME context, shared
@@ -45,7 +45,7 @@ test.describe("multi-tab isolation", () => {
     await bob.getByRole("radio", { name: "Yes", exact: true }).click();
 
     // Bob's answer is "Yes" — verify via UI same way
-    await bob.getByText("Back").click();
+    await bob.getByRole("button", { name: "Previous question", exact: true }).click();
     await expect(bob.getByRole("radio", { name: "Yes", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Admin's first answer is STILL "No" — Bob's write didn't touch
@@ -68,15 +68,15 @@ test.describe("multi-tab isolation", () => {
     multiTab: { ctx, admin },
   }) => {
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
@@ -88,7 +88,7 @@ test.describe("multi-tab isolation", () => {
 
     // Back to admin — answer all and mark complete
     await admin.bringToFront();
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "no");
@@ -105,20 +105,20 @@ test.describe("multi-tab isolation", () => {
     multiTab: { ctx, admin },
   }) => {
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice answers and completes
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "yes");
@@ -147,16 +147,16 @@ test.describe("multi-tab isolation", () => {
     // Summary without a reload, driven by the native `storage` event that
     // useAnswers/useSyncExternalStore subscribes to.
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
 
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Foundations");
 
