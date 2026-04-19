@@ -175,6 +175,37 @@ body::before {
   }
 }
 
+/* Keyboard-commit animation — spring pop that overshoots and settles into
+   the resting selected state (ring-2 ring-accent/60 + scale-[1.01]). Used
+   to give number-key and Enter/Space commits a 300ms visual beat before
+   the advance fires. Click-commits stay instant and don't apply this. */
+@keyframes commit-alpha {
+  0% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 2px var(--color-bg),
+      0 0 0 2px transparent;
+  }
+
+  40% {
+    transform: scale(1.03);
+    box-shadow:
+      0 0 0 2px var(--color-bg),
+      0 0 0 5px color-mix(in srgb, var(--color-accent) 85%, transparent);
+  }
+
+  100% {
+    transform: scale(1.01);
+    box-shadow:
+      0 0 0 2px var(--color-bg),
+      0 0 0 4px color-mix(in srgb, var(--color-accent) 60%, transparent);
+  }
+}
+
+.commit-alpha {
+  animation: commit-alpha 300ms var(--ease-spring) both;
+}
+
 /* ------------------------------------------------------------------ */
 
 /* Base element styles                                                  */
@@ -322,5 +353,12 @@ input[type="checkbox"]:checked::after {
   *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* The commit animation drives the keyboard-to-advance flow via
+     `onAnimationEnd` — fire the keyframe at 1ms so the commit still
+     dispatches but no visible motion plays. */
+  .commit-alpha {
+    animation: commit-alpha 1ms linear both !important;
   }
 }

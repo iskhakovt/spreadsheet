@@ -53,7 +53,6 @@ export function Question({
   }, [questionsData.categories]);
 
   const [index, setIndex] = useState(0);
-  const [showDescription, setShowDescription] = useState(false);
   const [showTiming, setShowTiming] = useState(false);
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -165,40 +164,30 @@ export function Question({
     }
   }, [index]);
 
-  // Keyboard navigation: arrows + number keys for ratings. The handlers
-  // themselves are defined later in the function (they close over state
-  // that changes per render), so we keep stable refs and update them on
-  // every render to avoid tearing down the listener.
-  const handleRatingRef = useRef<(rating: Rating) => void>(undefined);
-  const handleTimingRef = useRef<(timing: Timing) => void>(undefined);
-  const keyRatingMap: Record<string, Rating> = {
-    "1": "yes",
-    "2": "if-partner-wants",
-    "3": "maybe",
-    "4": "fantasy",
-    "5": "no",
-  };
+  // Page-level keyboard navigation — Arrow left/right only. Rating number
+  // keys (1-5) and timing keys (1/n, 2/l) are owned by the RatingGroup and
+  // TimingButtons components in QuestionCard, scoped to their mount.
+  //
+  // `e.defaultPrevented` check lets child handlers claim the event first:
+  // RatingGroup's roving-tabindex onKeyDown calls `preventDefault()` on
+  // ArrowLeft/Right to move radio focus between options; we must not ALSO
+  // navigate between questions in that case. React's synthetic event runs
+  // on the root container before bubbling reaches window, so by the time
+  // this listener fires `defaultPrevented` reflects child-level intent.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
       if (e.key === "ArrowLeft") {
         setIndex((i) => Math.max(0, i - 1));
         setShowTiming(false);
-        setShowDescription(false);
       } else if (e.key === "ArrowRight") {
         setIndex((i) => Math.min(screens.length, i + 1));
         setShowTiming(false);
-        setShowDescription(false);
-      } else if (showTiming && (e.key === "1" || e.key === "n")) {
-        handleTimingRef.current?.("now");
-      } else if (showTiming && (e.key === "2" || e.key === "l")) {
-        handleTimingRef.current?.("later");
-      } else if (!showTiming && keyRatingMap[e.key]) {
-        handleRatingRef.current?.(keyRatingMap[e.key]);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [screens.length, showTiming]);
+  }, [screens.length]);
 
   // Auto-sync scheduled whenever the pending-ops count changes. The hook
   // owns the 3s debounce timer + the 5s indicator delay internally.
@@ -283,11 +272,6 @@ export function Question({
     setPendingRating(null);
   }
 
-  // Update the stable refs that the keyboard effect reads, so keystrokes
-  // always dispatch against the latest closure (index, pendingRating, etc.)
-  handleRatingRef.current = handleRating;
-  handleTimingRef.current = handleTiming;
-
   async function saveAnswer(rating: Rating, timing: Timing | null) {
     const current = screens[Math.min(index, screens.length - 1)];
     if (current.type !== "question") return;
@@ -295,7 +279,6 @@ export function Question({
     setAnswer(current.key, answer);
     const op = await encodeValue({ key: current.key, data: answer } satisfies OperationPayload);
     addPendingOp(op);
-    setShowDescription(false);
     shouldFocusHeading.current = true;
     setIndex((i) => i + 1);
   }
@@ -304,6 +287,21 @@ export function Question({
   const current = screens[Math.min(index, screens.length - 1)];
 
   if (current.type === "welcome") {
+    // Suppress the "New category" eyebrow if the user already has any
+    // answers in this category — it shouldn't read as "new" after a user
+    // returns mid-flow. Lookup runs per render but is cheap (≤ total answer
+    // count) and only relevant on welcome screens.
+    const hasAnswersInCategory = Object.keys(answers).some((key) => {
+      const questionId = key.split(":")[0];
+      const q = questions.find((qq) => qq.id === questionId);
+      return q?.categoryId === current.categoryId;
+    });
+    // First unanswered question in this category drives the welcome's
+    // primary CTA: Start (fresh) / Continue (partial) / Review from the
+    // start (complete). -1 when every question in the category is answered.
+    const firstUnansweredInCategoryIdx = screens.findIndex(
+      (s, i) => i > index && s.type === "question" && s.categoryId === current.categoryId && !answers[s.key],
+    );
     return (
       <CategoryWelcomeScreen
         screen={current}
@@ -315,6 +313,8 @@ export function Question({
         syncing={syncing}
         showSyncIndicator={showSyncIndicator}
         pendingCount={pendingOps.length}
+        hasAnswersInCategory={hasAnswersInCategory}
+        firstUnansweredInCategoryIdx={firstUnansweredInCategoryIdx}
         onSync={handleSync}
         onSummary={onSummary}
       />
@@ -331,7 +331,6 @@ export function Question({
       totalAnswered={Object.keys(answers).length}
       totalQuestions={qScreens.length}
       showTiming={showTiming}
-      showDescription={showDescription}
       syncing={syncing}
       showSyncIndicator={showSyncIndicator}
       pendingCount={pendingOps.length}
@@ -340,14 +339,11 @@ export function Question({
       onBack={() => {
         setIndex((i) => Math.max(0, i - 1));
         setShowTiming(false);
-        setShowDescription(false);
       }}
       onSkip={() => {
         setIndex((i) => i + 1);
         setShowTiming(false);
-        setShowDescription(false);
       }}
-      onToggleDescription={() => setShowDescription((v) => !v)}
       onSync={handleSync}
       onSummary={onSummary}
       headingRef={headingRef}
