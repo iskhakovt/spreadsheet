@@ -16,7 +16,7 @@ import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { cn } from "../lib/cn.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
-import { getAnswers } from "../lib/storage.js";
+import { useAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -65,7 +65,8 @@ export function Group({
   // primary CTA by their own progress. `hasAnswers` reads localStorage — the
   // per-person source of truth for partial answers not yet flushed to server.
   const title = group.isReady ? UI.group.titleReady : UI.group.title;
-  const hasAnswers = Object.keys(getAnswers()).length > 0;
+  const answers = useAnswers();
+  const hasAnswers = Object.keys(answers).length > 0;
   const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
   const primaryCtaProps = {
     start: { label: UI.group.startFilling, onClick: onStartFilling },

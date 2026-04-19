@@ -5,11 +5,11 @@ import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { cn } from "../lib/cn.js";
 import {
-  getAnswers,
   getSelectedCategories,
   getSelectedTier,
   setSelectedCategories,
   setSelectedTier,
+  useAnswers,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
@@ -32,7 +32,7 @@ export function Summary({
   onReview,
   onViewGroup,
 }: Readonly<SummaryProps>) {
-  const answers = getAnswers();
+  const answers = useAnswers();
   const [selected, setSelected] = useState(() => new Set(getSelectedCategories() ?? []));
   const [tier, setTier] = useState(getSelectedTier);
 

@@ -3,11 +3,10 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
+import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
 import {
   addPendingOp,
-  getAnswers,
   getCurrentScreenKey,
   getPendingOps,
   getSelectedCategories,
@@ -15,6 +14,8 @@ import {
   setAnswer,
   setCurrentScreenKey,
   setSelectedCategories,
+  useAnswers,
+  usePendingOps,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -45,19 +46,18 @@ export function Question({
   const trpc = useTRPC();
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
   const questions = questionsData.questions as QuestionData[];
-  const categoryMap = useMemo(() => {
-    const map: Record<string, CategoryData> = {};
-    for (const c of questionsData.categories as CategoryData[]) map[c.id] = c;
-    return map;
-  }, [questionsData.categories]);
+  const categoryMap = useMemo(
+    () => Object.fromEntries((questionsData.categories as CategoryData[]).map((c) => [c.id, c])),
+    [questionsData.categories],
+  );
 
   const [index, setIndex] = useState(0);
   const [showTiming, setShowTiming] = useState(false);
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusHeading = useRef(false);
-  const answers = getAnswers();
-  const pendingOps = getPendingOps();
+  const answers = useAnswers();
+  const pendingOps = usePendingOps();
 
   // Mark-complete is the unified hook — it always flushes pending ops
   // before calling sync.markComplete and then navigates to /waiting.
@@ -113,6 +113,8 @@ export function Question({
   }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
+
+  const categoryAnswerStats = useMemo(() => buildCategoryAnswerStats(screens, answers), [screens, answers]);
 
   // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
   const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length);
@@ -284,21 +286,9 @@ export function Question({
   const current = screens[Math.min(index, screens.length - 1)];
 
   if (current.type === "welcome") {
-    // Suppress the "New category" eyebrow if the user already has any
-    // answers in this category — it shouldn't read as "new" after a user
-    // returns mid-flow. Lookup runs per render but is cheap (≤ total answer
-    // count) and only relevant on welcome screens.
-    const hasAnswersInCategory = Object.keys(answers).some((key) => {
-      const questionId = key.split(":")[0];
-      const q = questions.find((qq) => qq.id === questionId);
-      return q?.categoryId === current.categoryId;
-    });
-    // First unanswered question in this category drives the welcome's
-    // primary CTA: Start (fresh) / Continue (partial) / Review from the
-    // start (complete). -1 when every question in the category is answered.
-    const firstUnansweredInCategoryIdx = screens.findIndex(
-      (s, i) => i > index && s.type === "question" && s.categoryId === current.categoryId && !answers[s.key],
-    );
+    const stats = categoryAnswerStats.get(current.categoryId);
+    const hasAnswersInCategory = stats?.hasAnswers ?? false;
+    const firstUnansweredInCategoryIdx = stats?.firstUnansweredIdx ?? -1;
     return (
       <CategoryWelcomeScreen
         screen={current}

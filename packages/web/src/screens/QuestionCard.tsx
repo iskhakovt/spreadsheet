@@ -79,10 +79,7 @@ export function QuestionCard({
   const helpPopoverRef = useRef<HTMLDivElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
 
-  // Click-outside + Escape close the help popover. Window-level so the user
-  // can dismiss from anywhere on the page; the listener tears down with the
-  // component (and is a no-op while closed). `pointerdown` (not `mousedown`)
-  // so touch + pen input dismisses uniformly across input types.
+  // `pointerdown` not `mousedown` so touch + pen dismiss uniformly.
   useEffect(() => {
     if (!helpOpen) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -102,20 +99,14 @@ export function QuestionCard({
     };
   }, [helpOpen]);
 
-  // On open: move focus into the popover (the Close button) so keyboard
-  // users have a defined landing. Without this, focus stays on the trigger
-  // and Tab order would require users to scroll blind through the legend
-  // to reach Close. Escape still closes from anywhere — matches the
-  // non-modal dialog pattern used by Radix / shadcn.
+  // Move focus into the popover on open — without this, keyboard users have
+  // no defined landing; Escape still closes from anywhere.
   useEffect(() => {
     if (helpOpen) helpCloseRef.current?.focus();
   }, [helpOpen]);
 
-  // Close the help popover on transitions that signal the user has moved on:
-  //   - mode flip (rating ↔ timing)  → glossary content would be stale
-  //   - question/welcome key change  → commit, Back/Skip, or category jump
-  // Informational popovers that linger past the moment they were relevant
-  // overlay the next screen's content and add visual noise.
+  // Dismiss on transitions that signal the user moved on (mode flip or
+  // commit/Back/Skip/category jump).
   useEffect(() => {
     setHelpOpen(false);
   }, [showTiming, screen.key]);
@@ -267,11 +258,8 @@ function RatingGroup({
   const [committing, setCommitting] = useState<Rating | null>(null);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Number-key shortcut (1-5). Window-scoped so the user doesn't have to
-  // focus the group first. While a commit animation is running, ignore
-  // additional presses to prevent stacking commits. Listener lifetime is
-  // bounded by the component mount — when showTiming flips on, the whole
-  // group unmounts and the listener tears down automatically.
+  // Number-key shortcut (1-5). Window-scoped — no need to focus the group
+  // first. Ignored while a commit animation is running.
   useEffect(() => {
     if (committing) return;
     function onKey(e: KeyboardEvent) {
@@ -302,15 +290,13 @@ function RatingGroup({
 
   function handleButtonClick(rating: Rating, e: React.MouseEvent<HTMLButtonElement>) {
     if (committing) return;
-    // event.detail === 0 indicates keyboard activation (Enter/Space on a
-    // focused button); a real mouse click has detail ≥ 1. Route the two
-    // paths differently: keyboard → animated commit; mouse → instant.
+    // detail === 0 → keyboard activation (Enter/Space on focused button);
+    // detail ≥ 1 → real mouse click. Keyboard path shows the commit
+    // animation, mouse path is instant.
     //
-    // Caveat: programmatic .click() (e.g., element.click() from a test
-    // helper) also reports detail === 0. Tests that want to exercise the
-    // click path must use real mouse input via Playwright's .click() on a
-    // locator — which does produce detail ≥ 1. Keep this invariant in
-    // mind if adding test utilities that simulate clicks.
+    // Gotcha: programmatic `.click()` also reports detail === 0, so test
+    // helpers that want the instant path must use Playwright's locator
+    // `.click()` (which produces detail ≥ 1), not `element.click()`.
     if (e.detail === 0) {
       setCommitting(rating);
     } else {
@@ -319,9 +305,8 @@ function RatingGroup({
   }
 
   function handleAnimationEnd(rating: Rating, e: React.AnimationEvent<HTMLButtonElement>) {
-    // Filter strictly — any other animation running on this element
-    // (e.g. the ambient transition for the selected ring) would otherwise
-    // also fire onAnimationEnd and prematurely commit.
+    // Filter by name so the ambient transition on the selected ring
+    // doesn't also fire this handler.
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== rating) return;
     setCommitting(null);

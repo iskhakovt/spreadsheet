@@ -1,10 +1,11 @@
-import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
-import { useMemo } from "react";
+import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
+import { buildReviewGroups } from "../lib/build-screens.js";
 import { cn } from "../lib/cn.js";
-import { getAnswers, getSelectedCategories } from "../lib/storage.js";
+import { getSelectedCategories, useAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
 interface ReviewProps {
@@ -47,45 +48,18 @@ export function Review({
   onEditQuestion,
   onBack,
 }: Readonly<ReviewProps>) {
-  const answers = getAnswers();
-  const selectedCategories = getSelectedCategories() ?? [];
+  const answers = useAnswers();
+  // Mount-time snapshot — `getSelectedCategories()` re-parses localStorage
+  // and returns a new array each call, which would invalidate the grouped
+  // memo on every render. Same pattern as Question.tsx.
+  const [selectedCategories] = useState<string[]>(() => getSelectedCategories() ?? []);
 
-  const grouped = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        category: CategoryData;
-        items: { key: string; label: string; answer: Answer | undefined }[];
-      }
-    > = {};
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-    for (const q of questions) {
-      if (!selectedCategories.includes(q.categoryId)) continue;
-
-      if (q.giveText && q.receiveText) {
-        const giveKey = `${q.id}:give`;
-        const receiveKey = `${q.id}:receive`;
-        if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key: giveKey, label: q.giveText, answer: answers[giveKey] });
-          groups[q.categoryId].items.push({ key: receiveKey, label: q.receiveText, answer: answers[receiveKey] });
-        }
-      } else {
-        const key = `${q.id}:mutual`;
-        if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key, label: q.text, answer: answers[key] });
-        }
-      }
-    }
-    return Object.values(groups);
-  }, [questions, categories, selectedCategories, answers]);
+  const grouped = useMemo(
+    () => buildReviewGroups(questions, categoryMap, selectedCategories, answers),
+    [questions, categoryMap, selectedCategories, answers],
+  );
 
   const totalAnswered = Object.keys(answers).length;
   const totalQuestions = grouped.reduce((sum, g) => sum + g.items.length, 0);
