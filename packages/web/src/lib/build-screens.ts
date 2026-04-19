@@ -198,3 +198,70 @@ export function buildCategoryAnswerStats(
   }
   return stats;
 }
+
+/** One row in the Review screen — a question expanded into 1 or 2 items. */
+export interface ReviewItem {
+  /** Operation key: `{questionId}:{give|receive|mutual}`. */
+  key: string;
+  /** Label to render — `giveText` / `receiveText` for split questions,
+   *  `text` for mutual. */
+  label: string;
+  /** Existing answer for this item, or `undefined` if unanswered. */
+  answer: Answer | undefined;
+}
+
+/** A category section in the Review screen. */
+export interface ReviewGroup {
+  category: CategoryData;
+  items: ReviewItem[];
+}
+
+/**
+ * Build the Review screen's per-category grouping in three declarative
+ * steps: filter questions to selected categories, expand each question
+ * into one or two items (give/receive split → two, mutual → one), group
+ * by categoryId.
+ *
+ * The original inline implementation nested `if (q.giveText && q.receiveText)`
+ * twice with lazy-init of `groups[categoryId]` — readable but imperative.
+ * This version makes the three steps explicit and unit-testable.
+ *
+ * Categories referenced by a question but missing from `categoryMap` are
+ * dropped silently (matches the original behavior).
+ */
+export function buildReviewGroups(
+  questions: readonly QuestionData[],
+  categoryMap: Readonly<Map<string, CategoryData>>,
+  selectedCategories: readonly string[],
+  answers: Readonly<Record<string, Answer>>,
+): ReviewGroup[] {
+  const selected = new Set(selectedCategories);
+
+  // Each question becomes one (mutual) or two (give+receive) items. Tag
+  // each with its categoryId so the subsequent groupBy doesn't need to
+  // scan back through `questions`.
+  const tagged = questions
+    .filter((q) => selected.has(q.categoryId))
+    .flatMap((q): (ReviewItem & { categoryId: string })[] => {
+      if (q.giveText && q.receiveText) {
+        const giveKey = `${q.id}:give`;
+        const receiveKey = `${q.id}:receive`;
+        return [
+          { categoryId: q.categoryId, key: giveKey, label: q.giveText, answer: answers[giveKey] },
+          { categoryId: q.categoryId, key: receiveKey, label: q.receiveText, answer: answers[receiveKey] },
+        ];
+      }
+      const key = `${q.id}:mutual`;
+      return [{ categoryId: q.categoryId, key, label: q.text, answer: answers[key] }];
+    });
+
+  // ES2024 Object.groupBy preserves insertion order of keys, so groups come
+  // out in the order their category was first encountered in `questions`.
+  const byCategoryId = Object.groupBy(tagged, (item) => item.categoryId);
+
+  return Object.entries(byCategoryId).flatMap(([catId, groupItems]) => {
+    const category = categoryMap.get(catId);
+    if (!category || !groupItems) return [];
+    return [{ category, items: groupItems.map(({ key, label, answer }) => ({ key, label, answer })) }];
+  });
+}

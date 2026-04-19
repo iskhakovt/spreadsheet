@@ -1,8 +1,9 @@
-import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
+import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { useMemo } from "react";
 import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
+import { buildReviewGroups } from "../lib/build-screens.js";
 import { cn } from "../lib/cn.js";
 import { getSelectedCategories, useAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
@@ -50,50 +51,20 @@ export function Review({
   const answers = useAnswers();
   const selectedCategories = getSelectedCategories() ?? [];
 
-  // Build a category-by-id lookup once so the grouping loop below doesn't do
-  // an O(n) `categories.find(...)` per question.
+  // Category-by-id lookup — `useAnswers` gives stable answers identity, so
+  // memoizing here is worthwhile; categoryMap is stable per `categories`.
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryData>();
     for (const c of categories) map.set(c.id, c);
     return map;
   }, [categories]);
 
-  const grouped = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        category: CategoryData;
-        items: { key: string; label: string; answer: Answer | undefined }[];
-      }
-    > = {};
-
-    for (const q of questions) {
-      if (!selectedCategories.includes(q.categoryId)) continue;
-
-      if (q.giveText && q.receiveText) {
-        const giveKey = `${q.id}:give`;
-        const receiveKey = `${q.id}:receive`;
-        if (!groups[q.categoryId]) {
-          const cat = categoryMap.get(q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key: giveKey, label: q.giveText, answer: answers[giveKey] });
-          groups[q.categoryId].items.push({ key: receiveKey, label: q.receiveText, answer: answers[receiveKey] });
-        }
-      } else {
-        const key = `${q.id}:mutual`;
-        if (!groups[q.categoryId]) {
-          const cat = categoryMap.get(q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key, label: q.text, answer: answers[key] });
-        }
-      }
-    }
-    return Object.values(groups);
-  }, [questions, categoryMap, selectedCategories, answers]);
+  // Grouping extracted to `buildReviewGroups` for testability — see
+  // build-screens.ts. Pure function of its inputs; unit-tested there.
+  const grouped = useMemo(
+    () => buildReviewGroups(questions, categoryMap, selectedCategories, answers),
+    [questions, categoryMap, selectedCategories, answers],
+  );
 
   const totalAnswered = Object.keys(answers).length;
   const totalQuestions = grouped.reduce((sum, g) => sum + g.items.length, 0);

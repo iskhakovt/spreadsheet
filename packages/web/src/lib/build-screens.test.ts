@@ -1,6 +1,12 @@
 import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
-import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens, type Screen } from "./build-screens.js";
+import {
+  buildCategoryAnswerStats,
+  buildReviewGroups,
+  buildScreens,
+  filterQuestionScreens,
+  type Screen,
+} from "./build-screens.js";
 
 const categories: Record<string, CategoryData> = {
   oral: { id: "oral", label: "Oral", description: "Oral activities", sortOrder: 1 },
@@ -354,5 +360,111 @@ describe("buildCategoryAnswerStats", () => {
     const answers = { "q2:mutual": answer };
     const stats = buildCategoryAnswerStats(screens, answers);
     expect(stats.get("oral")?.firstUnansweredIdx).toBe(1);
+  });
+});
+
+describe("buildReviewGroups", () => {
+  const categoryMap = new Map<string, CategoryData>(Object.entries(categories));
+  const answer: Answer = { rating: "yes", timing: null };
+
+  it("returns an empty array when no selected categories", () => {
+    const questions = [q({ id: "q1", categoryId: "oral" })];
+    const groups = buildReviewGroups(questions, categoryMap, [], {});
+    expect(groups).toEqual([]);
+  });
+
+  it("returns an empty array when selected category has no questions", () => {
+    const groups = buildReviewGroups([], categoryMap, ["oral"], {});
+    expect(groups).toEqual([]);
+  });
+
+  it("expands a mutual question into one item using q.text as label", () => {
+    const questions = [q({ id: "dirty-talk", categoryId: "oral", text: "Dirty talk" })];
+    const groups = buildReviewGroups(questions, categoryMap, ["oral"], {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toEqual(categories.oral);
+    expect(groups[0].items).toEqual([{ key: "dirty-talk:mutual", label: "Dirty talk", answer: undefined }]);
+  });
+
+  it("expands a give/receive question into two items with role-specific labels", () => {
+    const questions = [
+      q({
+        id: "massage",
+        categoryId: "touch",
+        text: "Sensual massage",
+        giveText: "Giving a massage",
+        receiveText: "Receiving a massage",
+      }),
+    ];
+    const groups = buildReviewGroups(questions, categoryMap, ["touch"], {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items).toEqual([
+      { key: "massage:give", label: "Giving a massage", answer: undefined },
+      { key: "massage:receive", label: "Receiving a massage", answer: undefined },
+    ]);
+  });
+
+  it("attaches existing answers to items", () => {
+    const questions = [
+      q({ id: "q1", categoryId: "oral" }),
+      q({
+        id: "q2",
+        categoryId: "touch",
+        giveText: "Give q2",
+        receiveText: "Receive q2",
+      }),
+    ];
+    const answers = { "q1:mutual": answer, "q2:give": answer };
+    const groups = buildReviewGroups(questions, categoryMap, ["oral", "touch"], answers);
+    const q1Item = groups.find((g) => g.category.id === "oral")?.items[0];
+    const q2Items = groups.find((g) => g.category.id === "touch")?.items;
+    expect(q1Item?.answer).toEqual(answer);
+    expect(q2Items?.[0].answer).toEqual(answer);
+    expect(q2Items?.[1].answer).toBeUndefined();
+  });
+
+  it("skips questions in unselected categories", () => {
+    const questions = [q({ id: "q1", categoryId: "oral" }), q({ id: "q2", categoryId: "touch" })];
+    const groups = buildReviewGroups(questions, categoryMap, ["oral"], {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category.id).toBe("oral");
+  });
+
+  it("groups multiple questions from the same category together in input order", () => {
+    const questions = [
+      q({ id: "q1", categoryId: "oral" }),
+      q({ id: "q2", categoryId: "oral" }),
+      q({ id: "q3", categoryId: "oral" }),
+    ];
+    const groups = buildReviewGroups(questions, categoryMap, ["oral"], {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items.map((i) => i.key)).toEqual(["q1:mutual", "q2:mutual", "q3:mutual"]);
+  });
+
+  it("preserves group order by first-appearance of each category in questions", () => {
+    const questions = [
+      q({ id: "q1", categoryId: "touch" }),
+      q({ id: "q2", categoryId: "oral" }),
+      q({ id: "q3", categoryId: "touch" }),
+    ];
+    const groups = buildReviewGroups(questions, categoryMap, ["oral", "touch"], {});
+    expect(groups.map((g) => g.category.id)).toEqual(["touch", "oral"]);
+  });
+
+  it("drops questions whose categoryId is not in categoryMap (silently)", () => {
+    // Some of the categories the user selected may have been removed from
+    // the seed data. The review shouldn't crash — just skip them.
+    const questions = [q({ id: "q1", categoryId: "unknown" }), q({ id: "q2", categoryId: "oral" })];
+    const groups = buildReviewGroups(questions, categoryMap, ["unknown", "oral"], {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category.id).toBe("oral");
+  });
+
+  it("falls back to mutual when only one of giveText/receiveText is set", () => {
+    // The original implementation splits only when BOTH are non-null.
+    // Mutual path uses q.text as the label.
+    const questions = [q({ id: "q1", categoryId: "oral", text: "Q1 text", giveText: "Q1 give", receiveText: null })];
+    const groups = buildReviewGroups(questions, categoryMap, ["oral"], {});
+    expect(groups[0].items).toEqual([{ key: "q1:mutual", label: "Q1 text", answer: undefined }]);
   });
 });
