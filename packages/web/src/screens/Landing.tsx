@@ -161,6 +161,9 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
                   size="sm"
                   aria-label="Label style"
                 />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  Affects how questions describe bodies, not which ones you see.
+                </p>
               </div>
 
               {/* Who picks */}
