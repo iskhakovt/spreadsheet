@@ -5,25 +5,25 @@ test.describe("questionnaire flow", () => {
   test("create group → setup → answer questions", async ({ page }) => {
     // Create group
     await page.goto("/");
-    await page.getByText("Get started").click();
-    await page.getByText("All questions").click();
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
     await page.getByLabel('Ask "now or later?"').check();
-    await page.getByText("Create group").click();
+    await page.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(page).toHaveURL(/\/p\/.+/);
 
     // Combined setup — admin name + partner
     await expect(page.getByText("Set up your group")).toBeVisible();
     await page.getByPlaceholder("Enter your name").fill("Alice");
     await page.getByPlaceholder("Partner's name").fill("Bob");
-    await page.getByText("Create & get links").click();
+    await page.getByRole("button", { name: "Create & get links", exact: true }).click();
 
     // Links screen
     await expect(page.getByText("You're all set")).toBeVisible();
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
 
     // Should see intro
     await expect(page.getByText("Here's how it works")).toBeVisible();
-    await page.getByText("Let's go").click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
 
     // Narrow to Foundations via Summary UI to keep the test focused, but
     // still exercises the real Summary flow (no localStorage poke).
@@ -53,7 +53,7 @@ test.describe("questionnaire flow", () => {
   test("tier picker appears on intro and filters questions", async ({ page }) => {
     await createGroupAndSetup(page);
 
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
 
     // Intro screen should show tier picker
     await expect(page.getByText("How many questions?")).toBeVisible();
@@ -62,7 +62,7 @@ test.describe("questionnaire flow", () => {
     await expect(page.getByText("Adventurous")).toBeVisible();
 
     // "Curious" should be selected by default (has accent border)
-    await page.getByText("Let's go").click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
 
     // Should proceed to questions — narrow to a single category via UI
     await narrowToCategory(page, "Group & External");
@@ -76,8 +76,8 @@ test.describe("questionnaire flow", () => {
     // so they expand into two screens each → answer No four times to
     // advance past them and land on phone-sex.
     await createGroupAndSetup(page);
-    await page.getByText("Start filling out").click();
-    await page.getByText("Let's go").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(page, "Foundations");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     for (let i = 0; i < 4; i++) {
@@ -90,8 +90,8 @@ test.describe("questionnaire flow", () => {
 
   test("help popover shows rating glossary; switches to timing on the sub-question", async ({ page }) => {
     await createGroupAndSetup(page, { showTiming: true });
-    await page.getByText("Start filling out").click();
-    await page.getByText("Let's go").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(page, "Group & External");
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
@@ -122,8 +122,8 @@ test.describe("questionnaire flow", () => {
     // next screen's content. After committing an answer, advancing, or
     // navigating back, the help popover should close automatically.
     await createGroupAndSetup(page);
-    await page.getByText("Start filling out").click();
-    await page.getByText("Let's go").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(page, "Group & External");
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
@@ -146,10 +146,10 @@ test.describe("questionnaire flow", () => {
 
     // Intro → pick Essentials tier via the Intro screen's tier picker.
     // The label is visible on Intro as part of the tier selector.
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(page.getByText("How many questions?")).toBeVisible();
-    await page.getByText("Essentials").click();
-    await page.getByText("Let's go").click();
+    await page.getByText("Essentials", { exact: true }).click();
+    await page.getByRole("button", { name: "Let's go", exact: true }).click();
 
     // Narrow to Power Exchange (has a mix of T1, T2, T3 questions, so tier
     // changes produce visible count changes).
@@ -174,7 +174,7 @@ test.describe("questionnaire flow", () => {
     const essentialTotal = Number(essentialsCountText?.split("/")[1] ?? 0);
 
     // Switch to Adventurous on Summary
-    await page.getByText("Adventurous").click();
+    await page.getByText("Adventurous", { exact: true }).click();
 
     // Count should increase (more questions unlocked at higher tier)
     const adventurousCountText = await powerRow.locator("text=/\\d+\\/\\d+/").textContent();

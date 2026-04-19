@@ -6,7 +6,7 @@ test.describe("realtime status (WebSocket)", () => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     // Alice answers and marks done
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");

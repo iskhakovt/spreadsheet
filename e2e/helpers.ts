@@ -99,10 +99,10 @@ export async function createGroupAndSetup(
   } = opts;
 
   await page.goto("/");
-  await page.getByText("Get started").click();
+  await page.getByRole("button", { name: "Get started", exact: true }).click();
 
   if (mode === "all") {
-    await page.getByText("All questions").click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
   }
   if (encrypted) {
     await page.getByLabel("End-to-end encryption").check();
@@ -111,7 +111,7 @@ export async function createGroupAndSetup(
     await page.getByLabel('Ask "now or later?"').check();
   }
 
-  await page.getByText("Create group").click();
+  await page.getByRole("button", { name: "Create group", exact: true }).click();
   await expect(page).toHaveURL(/\/p\/.+/);
 
   await expect(page.getByText("Set up your group")).toBeVisible();
@@ -120,13 +120,13 @@ export async function createGroupAndSetup(
 
   // Add extra partners via the "+ Add another person" button
   for (const name of extraPartners) {
-    await page.getByText("+ Add another person").click();
+    await page.getByRole("button", { name: "+ Add another person", exact: true }).click();
     // Fill the last (newly added) partner name input
     const partnerInputs = page.getByPlaceholder("Partner's name");
     await partnerInputs.last().fill(name);
   }
 
-  await page.getByText("Create & get links").click();
+  await page.getByRole("button", { name: "Create & get links", exact: true }).click();
 
   await expect(page.getByText("You're all set")).toBeVisible();
 
@@ -147,7 +147,7 @@ export async function createGroupAndSetup(
 /** Navigate through intro screen. */
 export async function goThroughIntro(page: Page) {
   await expect(page.getByText("Here's how it works")).toBeVisible();
-  await page.getByText("Let's go").click();
+  await page.getByRole("button", { name: "Let's go", exact: true }).click();
 }
 
 /**

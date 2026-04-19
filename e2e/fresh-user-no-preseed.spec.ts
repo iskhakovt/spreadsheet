@@ -30,7 +30,7 @@ test("fresh user: clicking Start filling out lands on the first question (no pre
   // Start the question flow from the post-setup screen. The app has NOT
   // been told which categories to use — this is the path a real first-time
   // user takes.
-  await page.getByText("Start filling out").click();
+  await page.getByRole("button", { name: "Start filling out", exact: true }).click();
   await goThroughIntro(page);
 
   // The empty-state card must not appear — the fresh-user default

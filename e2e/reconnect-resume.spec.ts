@@ -25,7 +25,7 @@ test.describe("tracked() reconnect resume", () => {
   test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
@@ -73,7 +73,7 @@ test.describe("tracked() reconnect resume", () => {
     await bob.waitForTimeout(500);
 
     // --- ALICE EDITS WHILE BOB IS DISCONNECTED ---
-    await alice.getByText("Change my answers").click();
+    await alice.getByRole("button", { name: "Change my answers", exact: true }).click();
     await expect(alice).toHaveURL(/\/questions/);
     await alice.getByRole("radio", { name: "No", exact: true }).click();
 

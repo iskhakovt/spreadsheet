@@ -5,7 +5,7 @@ for (const encrypted of [false, true]) {
   test.describe(`completion flow (${encrypted ? "encrypted" : "plaintext"})`, () => {
     test("mark complete from Review screen", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await page.getByText("Start filling out").click();
+      await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
 
@@ -30,7 +30,7 @@ for (const encrypted of [false, true]) {
 
     test("mark complete from All Done screen", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await page.getByText("Start filling out").click();
+      await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       await answerAllQuestions(page, "no");
@@ -44,7 +44,7 @@ for (const encrypted of [false, true]) {
 
     test("complete → refresh → stays on waiting", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await page.getByText("Start filling out").click();
+      await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       await answerAllQuestions(page, "no");
