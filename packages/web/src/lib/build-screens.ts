@@ -1,4 +1,4 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
 
 /** Discriminated union: welcome interstitials + question screens */
 export type Screen =
@@ -146,4 +146,55 @@ export function buildScreens(
 
 export function filterQuestionScreens(screens: Screen[]): QuestionScreen[] {
   return screens.filter((s): s is QuestionScreen => s.type === "question");
+}
+
+/** Per-category stat entry derived from the screens list + answers. */
+export interface CategoryAnswerStat {
+  /** True iff at least one question in this category has an answer. */
+  hasAnswers: boolean;
+  /** Absolute index into `screens` of the first unanswered question in this
+   *  category, or -1 if every question in the category is answered. */
+  firstUnansweredIdx: number;
+}
+
+/**
+ * Build per-category answer stats in a single O(screens) pass.
+ *
+ * Used by the welcome-screen render to decide:
+ *   - hasAnswers       → suppresses the "New category" eyebrow
+ *   - firstUnansweredIdx → drives the Continue / Review-from-the-start CTA
+ *
+ * The naive per-render approach (`Object.keys(answers).some(...
+ * questions.find(...))` plus a separate `screens.findIndex(...)`) was
+ * O(answers × questions + screens). This version pays O(screens) once and
+ * serves O(1) lookups from the returned Map.
+ *
+ * `firstUnansweredIdx` is the absolute screen index (not a per-category
+ * offset) because `buildScreens` emits a welcome followed by its category's
+ * contiguous questions — the first unanswered in the category is always at
+ * an absolute index strictly greater than the welcome's index, so the
+ * welcome can `setIndex(firstUnansweredIdx)` directly.
+ *
+ * Categories with no question screens produce no entry in the map.
+ */
+export function buildCategoryAnswerStats(
+  screens: readonly Screen[],
+  answers: Readonly<Record<string, Answer>>,
+): Map<string, CategoryAnswerStat> {
+  const stats = new Map<string, CategoryAnswerStat>();
+  for (let i = 0; i < screens.length; i++) {
+    const s = screens[i];
+    if (s.type !== "question") continue;
+    let entry = stats.get(s.categoryId);
+    if (!entry) {
+      entry = { hasAnswers: false, firstUnansweredIdx: -1 };
+      stats.set(s.categoryId, entry);
+    }
+    if (answers[s.key]) {
+      entry.hasAnswers = true;
+    } else if (entry.firstUnansweredIdx === -1) {
+      entry.firstUnansweredIdx = i;
+    }
+  }
+  return stats;
 }

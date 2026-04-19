@@ -3,7 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
+import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
 import {
   addPendingOp,
@@ -116,6 +116,12 @@ export function Question({
   }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
+
+  // Per-category answer stats, memoized. `useAnswers` gives stable
+  // `answers` identity, so this memo caches effectively — the O(screens)
+  // pass only re-runs when screens or answers genuinely change.
+  // See `buildCategoryAnswerStats` for invariants + tests.
+  const categoryAnswerStats = useMemo(() => buildCategoryAnswerStats(screens, answers), [screens, answers]);
 
   // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
   const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length);
@@ -287,21 +293,11 @@ export function Question({
   const current = screens[Math.min(index, screens.length - 1)];
 
   if (current.type === "welcome") {
-    // Suppress the "New category" eyebrow if the user already has any
-    // answers in this category — it shouldn't read as "new" after a user
-    // returns mid-flow. Lookup runs per render but is cheap (≤ total answer
-    // count) and only relevant on welcome screens.
-    const hasAnswersInCategory = Object.keys(answers).some((key) => {
-      const questionId = key.split(":")[0];
-      const q = questions.find((qq) => qq.id === questionId);
-      return q?.categoryId === current.categoryId;
-    });
-    // First unanswered question in this category drives the welcome's
-    // primary CTA: Start (fresh) / Continue (partial) / Review from the
-    // start (complete). -1 when every question in the category is answered.
-    const firstUnansweredInCategoryIdx = screens.findIndex(
-      (s, i) => i > index && s.type === "question" && s.categoryId === current.categoryId && !answers[s.key],
-    );
+    // O(1) lookup into the memoized stats map — see `categoryAnswerStats`
+    // above for the single-pass build.
+    const stats = categoryAnswerStats.get(current.categoryId);
+    const hasAnswersInCategory = stats?.hasAnswers ?? false;
+    const firstUnansweredInCategoryIdx = stats?.firstUnansweredIdx ?? -1;
     return (
       <CategoryWelcomeScreen
         screen={current}
