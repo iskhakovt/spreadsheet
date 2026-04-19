@@ -65,7 +65,8 @@ export function Group({
   // primary CTA by their own progress. `hasAnswers` reads localStorage — the
   // per-person source of truth for partial answers not yet flushed to server.
   const title = group.isReady ? UI.group.titleReady : UI.group.title;
-  const hasAnswers = Object.keys(useAnswers()).length > 0;
+  const answers = useAnswers();
+  const hasAnswers = Object.keys(answers).length > 0;
   const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
   const primaryCtaProps = {
     start: { label: UI.group.startFilling, onClick: onStartFilling },

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, goThroughIntro, narrowToCategory, personBase } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
   test("admin opens partner link in same browser — answers don't cross-contaminate", async ({
@@ -137,5 +137,40 @@ test.describe("multi-tab isolation", () => {
     await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
       timeout: 10000,
     });
+  });
+
+  test("cross-tab reactive: write in tab A updates tab B's Summary via the storage event", async ({
+    multiTab: { ctx, admin },
+  }) => {
+    // Two tabs of the SAME person (same token, shared context → shared
+    // localStorage). An answer committed in tab A should flow to tab B's
+    // Summary without a reload, driven by the native `storage` event that
+    // useAnswers/useSyncExternalStore subscribes to.
+    await admin.goto("/");
+    await admin.getByText("Get started").click();
+    await admin.getByText("All questions").click();
+    await admin.getByText("Create group").click();
+    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await admin.getByPlaceholder("Enter your name").fill("Alice");
+    await admin.getByPlaceholder("Partner's name").fill("Bob");
+    await admin.getByText("Create & get links").click();
+    await expect(admin.getByText("You're all set")).toBeVisible();
+
+    await admin.getByText("Start filling out").click();
+    await goThroughIntro(admin);
+    await narrowToCategory(admin, "Foundations");
+
+    // Open tab B to the same user's Summary.
+    const base = personBase(admin.url());
+    const tabB = await ctx.newPage();
+    await tabB.goto(base + "/summary");
+    await expect(tabB.getByText(/0 of \d+ answered/)).toBeVisible();
+
+    // Commit an answer in tab A.
+    await admin.getByRole("button", { name: "Start" }).click();
+    await admin.getByRole("radio", { name: "No" }).click();
+
+    // Tab B reactively reflects the new count — no reload.
+    await expect(tabB.getByText(/1 of \d+ answered/)).toBeVisible();
   });
 });

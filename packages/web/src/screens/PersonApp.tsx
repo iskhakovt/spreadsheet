@@ -115,12 +115,12 @@ export function PersonApp() {
   // when navigating `/questions → /summary → /review → Done`).
   const markComplete = useMarkComplete();
 
-  // Self first, then others alphabetically by name. Memoized so the sort
-  // only re-runs when the member list actually changes — `status.members`
-  // is referentially stable across renders via TanStack cache and the
-  // groups.status subscription's setQueryData. Computed unconditionally
-  // (above the early returns) per the rules of hooks; the result is only
-  // *used* in the authed branch where person is non-null.
+  // Computed unconditionally per rules-of-hooks (above the early returns);
+  // only used in the authed branch. Effective caching depends on
+  // `status.members` having stable identity across renders — true today
+  // via the TanStack cache + setQueryData, but any future refetch path
+  // that produces a new array on identical data would silently invalidate
+  // this memo (perf regression, not a correctness bug).
   const sortedMembers = useMemo(
     () => sortMembersViewerFirst(status?.members ?? [], status?.person?.id ?? ""),
     [status?.members, status?.person?.id],

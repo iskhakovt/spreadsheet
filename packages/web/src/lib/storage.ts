@@ -61,30 +61,39 @@ function notifyChanged(suffix: string): void {
   }
 }
 
+/**
+ * Build a React hook that subscribes to a scoped localStorage key via
+ * useSyncExternalStore. Returns a hook that yields a stable reference
+ * across renders until the underlying value changes (native `storage`
+ * event from other tabs, or `storage:{suffix}` dispatched by our
+ * setters in this file).
+ */
+function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => T): () => T {
+  // subscribe + getSnapshot are closed over here so useSyncExternalStore
+  // sees stable references across calls.
+  function subscribe(callback: () => void): () => void {
+    function onStorage(e: StorageEvent) {
+      if (e.key === getScope() + suffix) callback();
+    }
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(`storage:${suffix}`, callback);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(`storage:${suffix}`, callback);
+    };
+  }
+  function getSnapshot(): T {
+    return readCachedSnapshot(suffix, parse);
+  }
+  return () => useSyncExternalStore(subscribe, getSnapshot);
+}
+
 // === answers ===
 
-function answersSubscribe(callback: () => void): () => void {
-  function onStorage(e: StorageEvent) {
-    if (e.key === getScope() + "answers") callback();
-  }
-  function onLocal() {
-    callback();
-  }
-  window.addEventListener("storage", onStorage);
-  window.addEventListener("storage:answers", onLocal);
-  return () => {
-    window.removeEventListener("storage", onStorage);
-    window.removeEventListener("storage:answers", onLocal);
-  };
-}
-
-function answersSnapshot(): Record<string, Answer> {
-  return readCachedSnapshot("answers", (raw) => (raw ? JSON.parse(raw) : {}));
-}
-
-export function useAnswers(): Record<string, Answer> {
-  return useSyncExternalStore(answersSubscribe, answersSnapshot);
-}
+export const useAnswers = makeLocalStorageHook(
+  "answers",
+  (raw): Record<string, Answer> => (raw ? JSON.parse(raw) : {}),
+);
 
 export function getAnswers(): Record<string, Answer> {
   return getJson("answers", {});
@@ -107,28 +116,7 @@ export function setAnswer(key: string, answer: Answer | null): void {
 
 // === pendingOps ===
 
-function pendingOpsSubscribe(callback: () => void): () => void {
-  function onStorage(e: StorageEvent) {
-    if (e.key === getScope() + "pendingOps") callback();
-  }
-  function onLocal() {
-    callback();
-  }
-  window.addEventListener("storage", onStorage);
-  window.addEventListener("storage:pendingOps", onLocal);
-  return () => {
-    window.removeEventListener("storage", onStorage);
-    window.removeEventListener("storage:pendingOps", onLocal);
-  };
-}
-
-function pendingOpsSnapshot(): string[] {
-  return readCachedSnapshot("pendingOps", (raw) => (raw ? JSON.parse(raw) : []));
-}
-
-export function usePendingOps(): string[] {
-  return useSyncExternalStore(pendingOpsSubscribe, pendingOpsSnapshot);
-}
+export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): string[] => (raw ? JSON.parse(raw) : []));
 
 export function getPendingOps(): string[] {
   return getJson("pendingOps", []);
