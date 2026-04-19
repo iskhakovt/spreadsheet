@@ -213,7 +213,7 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
   }
 
   return (
-    <div className="relative min-h-screen px-4 py-10 sm:py-14 overflow-hidden">
+    <div className="relative min-h-dvh px-4 py-10 sm:py-14 overflow-hidden">
       {/* Atmospheric backdrop — softer than Landing, marking /results
           as a destination. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">

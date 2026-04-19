@@ -20,7 +20,7 @@ export function Landing() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
+    <div className="relative min-h-dvh flex flex-col items-center justify-center px-6 py-10 overflow-hidden">
       {/* Atmospheric backdrop — organic blobs drift slowly behind the
           content, creating depth and warmth. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">

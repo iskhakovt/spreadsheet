@@ -115,7 +115,7 @@ export function QuestionCard({
     <Card>
       {/* Header — category pill + position on the left, help icon + Progress
           chip on the right. */}
-      <div className="relative flex items-center justify-between mb-8">
+      <div className="relative flex items-center justify-between mb-4">
         <span className="inline-flex items-center gap-2 text-xs font-medium text-text-muted tracking-wide">
           <span className="relative flex items-center justify-center">
             <span
@@ -219,7 +219,7 @@ export function QuestionCard({
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
           gives the track depth. */}
       <div
-        className="mt-8 h-1.5 rounded-full overflow-hidden progress-track"
+        className="mt-4 h-1.5 rounded-full overflow-hidden progress-track"
         role="progressbar"
         aria-valuenow={totalAnswered}
         aria-valuemax={totalQuestions}
