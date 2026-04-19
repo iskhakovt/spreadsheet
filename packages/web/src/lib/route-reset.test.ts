@@ -6,14 +6,20 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { RouteReset } from "./route-reset.js";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // Restore the window.scrollTo spy so it doesn't leak between tests.
+  vi.restoreAllMocks();
+});
 
 function tree(hook: ReturnType<typeof memoryLocation>["hook"], body: React.ReactNode) {
+  // RouteReset scopes heading lookup to `main h1, main h2`, so wrap the
+  // test body in <main> to mirror what PersonApp renders in production.
+  const children = [createElement(RouteReset, { key: "rr" }), createElement("main", { key: "main" }, body)];
   // Router's generated TS types require `children` as a prop — createElement
-  // positional args don't satisfy the signature, so we pass via prop and
-  // silence biome's stylistic rule. This is test-only scaffolding.
+  // positional args don't satisfy the signature, so we pass via prop.
   // biome-ignore lint/correctness/noChildrenProp: Router's TS types require children as a prop
-  return createElement(Router, { hook, children: [createElement(RouteReset, { key: "rr" }), body] });
+  return createElement(Router, { hook, children });
 }
 
 describe("RouteReset", () => {

@@ -39,11 +39,13 @@ html {
 }
 
 /* RouteReset moves focus to the route's h1/h2 on SPA navigation so
-   screen readers announce the new page title. Suppress the visible
-   outline — these headings aren't in the Tab order (tabIndex=-1) so a
-   ring would only appear for programmatic focus, which the user didn't
-   request. Keyboard users still get the accessible announcement. */
-h1:focus, h2:focus {
+   screen readers announce the new page title. The outline suppression
+   is scoped to headings that RouteReset has marked tabindex="-1" — a
+   heading with tabindex="0" (explicitly Tab-reachable) keeps its focus
+   ring so keyboard users who land there via Tab still see the
+   indicator. */
+h1[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus {
   outline: none;
 }
 

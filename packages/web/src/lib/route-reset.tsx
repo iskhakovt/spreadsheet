@@ -36,9 +36,17 @@ export function RouteReset() {
       return;
     }
     window.scrollTo(0, 0);
-    const heading = document.querySelector<HTMLHeadingElement>("h1, h2");
+    // Scope to `main` so we pick the route's heading, not a heading that
+    // might live in a global fragment (e.g. an error banner). Landing
+    // doesn't render a <main>, but it's also only reachable on initial
+    // load — which we skip via isFirstRender — so the gap is harmless.
+    const heading = document.querySelector<HTMLHeadingElement>("main h1, main h2");
     if (heading) {
-      heading.tabIndex = -1;
+      // Only set tabIndex if the screen didn't already express intent —
+      // a heading explicitly set to tabindex="0" stays Tab-reachable.
+      if (!heading.hasAttribute("tabindex")) {
+        heading.tabIndex = -1;
+      }
       heading.focus({ preventScroll: true });
     }
   }, [location]);
