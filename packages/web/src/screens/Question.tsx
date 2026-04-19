@@ -164,8 +164,16 @@ export function Question({
   // Page-level keyboard navigation — Arrow left/right only. Rating number
   // keys (1-5) and timing keys (1/n, 2/l) are owned by the RatingGroup and
   // TimingButtons components in QuestionCard, scoped to their mount.
+  //
+  // `e.defaultPrevented` check lets child handlers claim the event first:
+  // RatingGroup's roving-tabindex onKeyDown calls `preventDefault()` on
+  // ArrowLeft/Right to move radio focus between options; we must not ALSO
+  // navigate between questions in that case. React's synthetic event runs
+  // on the root container before bubbling reaches window, so by the time
+  // this listener fires `defaultPrevented` reflects child-level intent.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
       if (e.key === "ArrowLeft") {
         setIndex((i) => Math.max(0, i - 1));
         setShowTiming(false);

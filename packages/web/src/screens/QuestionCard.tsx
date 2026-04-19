@@ -80,23 +80,24 @@ export function QuestionCard({
 
   // Click-outside + Escape close the help popover. Window-level so the user
   // can dismiss from anywhere on the page; the listener tears down with the
-  // component (and is a no-op while closed).
+  // component (and is a no-op while closed). `pointerdown` (not `mousedown`)
+  // so touch + pen input dismisses uniformly across input types.
   useEffect(() => {
     if (!helpOpen) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setHelpOpen(false);
     }
-    function onPointerDown(e: MouseEvent) {
+    function onPointerDown(e: PointerEvent) {
       const target = e.target as Node;
       if (helpPopoverRef.current?.contains(target)) return;
       if (helpButtonRef.current?.contains(target)) return;
       setHelpOpen(false);
     }
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("pointerdown", onPointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("pointerdown", onPointerDown);
     };
   }, [helpOpen]);
 
