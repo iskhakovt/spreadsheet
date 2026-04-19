@@ -12,7 +12,7 @@ test.describe("results display", () => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
     // Alice: answer all questions as Yes + Now (showTiming enabled)
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
@@ -46,7 +46,7 @@ test.describe("results display", () => {
 
   test("mixed answers produce varied match types", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
 
@@ -93,7 +93,7 @@ test.describe("results display", () => {
 
   test("one says no — question hidden from results", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
 
@@ -122,7 +122,7 @@ test.describe("results display", () => {
     // giveText/receiveText display path. "Group & External" (used by the
     // other tests) is mostly mutual and wouldn't catch a regression here.
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes");

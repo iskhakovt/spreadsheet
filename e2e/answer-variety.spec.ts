@@ -4,7 +4,7 @@ import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCatego
 test.describe("answer variety", () => {
   test("all rating types and timing options work", async ({ page }) => {
     await createGroupAndSetup(page, { showTiming: true });
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     // Dismiss category welcome screen
@@ -39,7 +39,7 @@ test.describe("answer variety", () => {
 
   test("skip advances without recording an answer", async ({ page }) => {
     await createGroupAndSetup(page);
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
@@ -55,7 +55,7 @@ test.describe("answer variety", () => {
     await page.getByRole("radio", { name: "No", exact: true }).click();
 
     // Back should go to previous question (which was answered with No)
-    await page.getByText("Back").click();
+    await page.getByRole("button", { name: "Previous question", exact: true }).click();
     await expect(page.getByRole("radio", { name: "No", exact: true })).toBeVisible();
   });
 });

@@ -10,12 +10,12 @@ test.describe("landing and group creation", () => {
 
   test("creates a group and sets up members", async ({ page }) => {
     await page.goto("/");
-    await page.getByText("Get started").click();
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
 
     // Create group form — switch to "All questions" for simpler test
     await expect(page.getByText("Create your group")).toBeVisible();
-    await page.getByText("All questions").click();
-    await page.getByText("Create group").click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
+    await page.getByRole("button", { name: "Create group", exact: true }).click();
 
     // Should redirect to /p/{token}
     await expect(page).toHaveURL(/\/p\/.+/);
@@ -26,7 +26,7 @@ test.describe("landing and group creation", () => {
     await page.getByPlaceholder("Partner's name").fill("Partner");
 
     // Submit — creates partner + marks ready
-    await page.getByText("Create & get links").click();
+    await page.getByRole("button", { name: "Create & get links", exact: true }).click();
 
     // Should see links screen
     await expect(page.getByText("You're all set")).toBeVisible();

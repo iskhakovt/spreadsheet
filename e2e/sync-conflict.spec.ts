@@ -23,7 +23,7 @@ for (const encrypted of [false, true]) {
   test.describe(`sync conflict resolution (${encrypted ? "encrypted" : "plaintext"})`, () => {
     test("stale stoken conflict resolves without data loss", async ({ page }) => {
       await createGroupAndSetup(page, { encrypted });
-      await page.getByText("Start filling out").click();
+      await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Group & External");
       await expect(page.getByText(/\d+ questions/)).toBeVisible();

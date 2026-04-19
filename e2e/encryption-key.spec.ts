@@ -30,7 +30,7 @@ test.describe("copy my link button", () => {
     const { partnerLink } = await createGroupAndSetup(alice, { encrypted: true });
 
     // Alice: fill out and mark complete → waiting screen
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
@@ -39,7 +39,7 @@ test.describe("copy my link button", () => {
     await expect(alice.getByText("Copy my link")).toBeVisible();
 
     // Alice: navigate to group screen (free route)
-    await alice.getByText("View group members").click();
+    await alice.getByRole("button", { name: "View group members", exact: true }).click();
     await expect(alice.getByText("Your group")).toBeVisible();
     await expect(alice.getByText("Copy my link")).toBeVisible();
 
@@ -66,7 +66,7 @@ test.describe("copy my link button", () => {
     await createGroupAndSetup(alice, { encrypted: false });
 
     // Alice: fill out and mark complete → waiting screen
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");

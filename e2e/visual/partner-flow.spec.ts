@@ -5,14 +5,14 @@ test.describe("non-admin partner flow", () => {
   test("waiting (non-admin) — no group members button", async ({ alice, bob }) => {
     // Create a group in all-questions mode
     await alice.goto("/");
-    await alice.getByText("Get started").click();
-    await alice.getByText("All questions").click();
-    await alice.getByText("Create group").click();
+    await alice.getByRole("button", { name: "Get started", exact: true }).click();
+    await alice.getByRole("radio", { name: "All questions", exact: true }).click();
+    await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
 
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
-    await alice.getByText("Create & get links").click();
+    await alice.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(alice.getByText("You're all set")).toBeVisible();
     const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
@@ -32,25 +32,25 @@ test.describe("non-admin partner flow", () => {
   test("self-pick anatomy flow — pending and pick screens", async ({ alice, bob }) => {
     // Create filtered-mode group where each person picks their own anatomy
     await alice.goto("/");
-    await alice.getByText("Get started").click();
-    await alice.getByText("Each person").click();
-    await alice.getByText("Create group").click();
+    await alice.getByRole("button", { name: "Get started", exact: true }).click();
+    await alice.getByRole("radio", { name: "Each person", exact: true }).click();
+    await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
 
     // Setup without anatomy (self-pick mode)
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
-    await alice.getByText("Create & get links").click();
+    await alice.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(alice.getByText("You're all set")).toBeVisible();
     const partnerLink = await alice.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice starts → picks own anatomy
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(alice.getByText("One quick thing")).toBeVisible();
     await expect(alice).toHaveScreenshot("pick-anatomy.png");
 
     // Expand to show all 4 anatomy types
-    await alice.getByText("Show more options").click();
+    await alice.getByRole("button", { name: "Show more options", exact: true }).click();
     await expect(alice).toHaveScreenshot("pick-anatomy-expanded.png");
 
     // Alice picks anatomy → lands on pending (waiting for Bob to pick)

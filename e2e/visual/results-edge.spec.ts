@@ -5,7 +5,7 @@ test.describe("results edge cases", () => {
   test("results with timing — green-light column visible", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes"); // answers yes + "Now" for timing
@@ -27,7 +27,7 @@ test.describe("results edge cases", () => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     // Alice answers yes, Bob answers no → all hidden
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
