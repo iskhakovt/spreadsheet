@@ -69,6 +69,78 @@ test.describe("questionnaire flow", () => {
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
   });
 
+  test("question description renders inline in the reserved slot", async ({ page }) => {
+    // Description rendering had no automated coverage. `phone-sex` is the
+    // first Foundations question with a description; the two prior
+    // questions (`dirty-talk`, `sexting`) each have giveText + receiveText
+    // so they expand into two screens each → answer No four times to
+    // advance past them and land on phone-sex.
+    await createGroupAndSetup(page);
+    await page.getByText("Start filling out").click();
+    await page.getByText("Let's go").click();
+    await narrowToCategory(page, "Foundations");
+    await page.getByRole("button", { name: "Start" }).click();
+    for (let i = 0; i < 4; i++) {
+      await page.getByRole("radio", { name: "No" }).click();
+    }
+
+    await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
+    await expect(page.getByText(/Sexual conversation or erotic audio over the phone/)).toBeVisible();
+  });
+
+  test("help popover shows rating glossary; switches to timing on the sub-question", async ({ page }) => {
+    await createGroupAndSetup(page, { showTiming: true });
+    await page.getByText("Start filling out").click();
+    await page.getByText("Let's go").click();
+    await narrowToCategory(page, "Group & External");
+    await page.getByRole("button", { name: "Start" }).click();
+
+    // Open help on the rating screen — should show all five ratings.
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    const ratingDialog = page.getByRole("dialog", { name: "Rating glossary" });
+    await expect(ratingDialog).toBeVisible();
+    await expect(ratingDialog.getByText("Fantasy only")).toBeVisible();
+    await expect(ratingDialog.getByText(/Fun to think about/)).toBeVisible();
+
+    // Close via the popover's close button (heading is below the popover so
+    // a "click outside" via heading would just hit the dialog's overlay).
+    await ratingDialog.getByRole("button", { name: "Close" }).click();
+    await expect(ratingDialog).not.toBeVisible();
+    await page.getByRole("radio", { name: "Yes" }).click();
+    await expect(page.getByRole("button", { name: "Now" })).toBeVisible();
+
+    // Help should now show the timing glossary, not ratings.
+    await page.getByRole("button", { name: /What do these timings mean/ }).click();
+    const timingDialog = page.getByRole("dialog", { name: "Timing glossary" });
+    await expect(timingDialog).toBeVisible();
+    await expect(timingDialog.getByText("Now", { exact: true })).toBeVisible();
+    await expect(timingDialog.getByText(/I'd like to try this soon/)).toBeVisible();
+  });
+
+  test("help popover dismisses when the user commits or navigates", async ({ page }) => {
+    // Popovers that linger past the moment they were relevant overlay the
+    // next screen's content. After committing an answer, advancing, or
+    // navigating back, the help popover should close automatically.
+    await createGroupAndSetup(page);
+    await page.getByText("Start filling out").click();
+    await page.getByText("Let's go").click();
+    await narrowToCategory(page, "Group & External");
+    await page.getByRole("button", { name: "Start" }).click();
+
+    // Open → commit via keyboard → popover dismissed
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Rating glossary" });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("3");
+    await expect(dialog).not.toBeVisible();
+
+    // Open → Skip → popover dismissed (screen.key change, different path)
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    await expect(dialog).toBeVisible();
+    await page.getByRole("button", { name: "Skip question" }).click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   test("changing tier on Summary updates question counts", async ({ page }) => {
     await createGroupAndSetup(page);
 
