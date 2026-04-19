@@ -4,6 +4,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Route, Router, Switch } from "wouter";
 import { Card } from "./components/Card.js";
 import { handleError, RootErrorFallback } from "./components/ErrorFallback.js";
+import { RouteReset } from "./lib/route-reset.js";
 import { initSentry } from "./lib/sentry.js";
 import { AppProviders } from "./lib/trpc-providers.js";
 import { Landing } from "./screens/Landing.js";
@@ -28,6 +29,7 @@ function App() {
       <AppProviders>
         <Suspense fallback={<LoadingCard />}>
           <Router>
+            <RouteReset />
             <Switch>
               <Route path="/p/:token" nest>
                 <PersonApp />
