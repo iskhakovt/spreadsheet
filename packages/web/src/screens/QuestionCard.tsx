@@ -167,9 +167,10 @@ export function QuestionCard({
       </div>
       {/* Question text + reserved description slot — keyed on screen.key for
           per-question fade-in, giving the flow a page-turning rhythm. The
-          min-h floor on the heading+description block keeps cards uniform
-          regardless of whether the question has a description. */}
-      <div key={screen.key} className="animate-in min-h-[6rem] mb-2">
+          min-h floor reserves space for a 2-line heading (≈3.8rem) + the
+          description slot below (2.75rem) + the mt-4 gap, so rating buttons
+          don't jump between 1-line and 2-line questions. */}
+      <div key={screen.key} className="animate-in min-h-[7.75rem] mb-2">
         <h2
           ref={headingRef}
           tabIndex={-1}
