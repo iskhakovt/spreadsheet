@@ -246,7 +246,7 @@ export function QuestionCard({
  * exactly when the group is mounted (showTiming=false). Keyboard commits run
  * through the α animation path; mouse clicks commit instantly.
  */
-function RatingGroup({
+export function RatingGroup({
   existingAnswer,
   onRating,
 }: Readonly<{
@@ -358,7 +358,7 @@ function RatingGroup({
  * with its own keyboard listener (1/n, 2/l). Only mounts when `showTiming`
  * is true; listener lifetime is scoped to the mount.
  */
-function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>) {
+export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>) {
   const [committing, setCommitting] = useState<Timing | null>(null);
 
   useEffect(() => {
