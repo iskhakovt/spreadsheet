@@ -248,7 +248,7 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
     } else if (rating === "maybe") {
       await page.getByRole("radio", { name: "Maybe", exact: true }).click();
     } else if (rating === "fantasy") {
-      await page.getByRole("radio", { name: "Fantasy", exact: true }).click();
+      await page.getByRole("radio", { name: "Fantasy only", exact: true }).click();
     } else {
       await page.getByRole("radio", { name: "No", exact: true }).click();
     }
