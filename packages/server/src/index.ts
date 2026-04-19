@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
+import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
 import { requestLogger } from "./request-logger.js";
 import { initSentry } from "./sentry.js";
@@ -78,18 +79,39 @@ app.use(
   }),
 );
 
-// SPA fallback
-let indexHtml: string | null = null;
+// SPA fallback. Two pre-rendered variants:
+//   default — landing & free routes: og:image = /og-image.png, standard copy
+//   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
+// Messenger crawlers (Facebook, iMessage, WhatsApp) fetch og:image from the
+// HTML at the invite URL, so per-token links unfurl with invite-framed copy.
+let indexHtmlDefault: string | null = null;
+let indexHtmlInvite: string | null = null;
 try {
-  indexHtml = readFileSync(resolve(staticRoot, "index.html"), "utf-8").replace("</head>", `${envScript}</head>`);
-} catch {
-  logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
+  const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8").replace("</head>", `${envScript}</head>`);
+  indexHtmlDefault = renderIndex(raw, {
+    ogImage: "/og-image.png",
+    ogTitle: "Spreadsheet",
+    ogImageAlt: "Spreadsheet — find the overlap",
+  });
+  indexHtmlInvite = renderIndex(raw, {
+    ogImage: "/og-invite.png",
+    ogTitle: "You’ve been invited · Spreadsheet",
+    ogImageAlt: "Spreadsheet — your turn",
+  });
+} catch (err) {
+  if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
+    logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
+  } else {
+    logger.fatal({ err, staticRoot }, "failed to pre-render SPA fallback");
+    throw err;
+  }
 }
 
 app.get("/*", (c) => {
-  if (!indexHtml) return c.text("Not found", 404);
+  const html = c.req.path.startsWith("/p/") ? indexHtmlInvite : indexHtmlDefault;
+  if (!html) return c.text("Not found", 404);
   c.header("Cache-Control", "no-cache");
-  return c.html(indexHtml);
+  return c.html(html);
 });
 
 const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 8080;

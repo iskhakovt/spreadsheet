@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <image href="./og-bg.svg" x="0" y="0" width="1200" height="630"/>
+  <rect x="60" y="200" width="1080" height="230" rx="16" fill="#fdf9f5"/>
+  <text x="600" y="285" text-anchor="middle" font-family="Lexend" font-weight="500" font-size="22" fill="#d08058" letter-spacing="8">SPREADSHEET</text>
+  <text x="600" y="380" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="108" fill="#3a3028">Your turn</text>
+</svg>
