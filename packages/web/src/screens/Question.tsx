@@ -7,7 +7,6 @@ import { buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
 import {
   addPendingOp,
-  getAnswers,
   getCurrentScreenKey,
   getPendingOps,
   getSelectedCategories,
@@ -15,6 +14,8 @@ import {
   setAnswer,
   setCurrentScreenKey,
   setSelectedCategories,
+  useAnswers,
+  usePendingOps,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -57,8 +58,10 @@ export function Question({
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusHeading = useRef(false);
-  const answers = getAnswers();
-  const pendingOps = getPendingOps();
+  // Reactive snapshots of localStorage-backed state. Stable identity per
+  // underlying value, so downstream useMemo deps actually cache.
+  const answers = useAnswers();
+  const pendingOps = usePendingOps();
 
   // Mark-complete is the unified hook — it always flushes pending ops
   // before calling sync.markComplete and then navigates to /waiting.

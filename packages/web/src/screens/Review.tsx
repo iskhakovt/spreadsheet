@@ -4,7 +4,7 @@ import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { cn } from "../lib/cn.js";
-import { getAnswers, getSelectedCategories } from "../lib/storage.js";
+import { getSelectedCategories, useAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
 interface ReviewProps {
@@ -47,8 +47,16 @@ export function Review({
   onEditQuestion,
   onBack,
 }: Readonly<ReviewProps>) {
-  const answers = getAnswers();
+  const answers = useAnswers();
   const selectedCategories = getSelectedCategories() ?? [];
+
+  // Build a category-by-id lookup once so the grouping loop below doesn't do
+  // an O(n) `categories.find(...)` per question.
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, CategoryData>();
+    for (const c of categories) map.set(c.id, c);
+    return map;
+  }, [categories]);
 
   const grouped = useMemo(() => {
     const groups: Record<
@@ -66,7 +74,7 @@ export function Review({
         const giveKey = `${q.id}:give`;
         const receiveKey = `${q.id}:receive`;
         if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
+          const cat = categoryMap.get(q.categoryId);
           if (cat) groups[q.categoryId] = { category: cat, items: [] };
         }
         if (groups[q.categoryId]) {
@@ -76,7 +84,7 @@ export function Review({
       } else {
         const key = `${q.id}:mutual`;
         if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
+          const cat = categoryMap.get(q.categoryId);
           if (cat) groups[q.categoryId] = { category: cat, items: [] };
         }
         if (groups[q.categoryId]) {
@@ -85,7 +93,7 @@ export function Review({
       }
     }
     return Object.values(groups);
-  }, [questions, categories, selectedCategories, answers]);
+  }, [questions, categoryMap, selectedCategories, answers]);
 
   const totalAnswered = Object.keys(answers).length;
   const totalQuestions = grouped.reduce((sum, g) => sum + g.items.length, 0);

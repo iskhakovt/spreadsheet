@@ -9,7 +9,7 @@ import {
   type QuestionData,
 } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Redirect, Route, Switch, useLocation, useParams } from "wouter";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
@@ -115,6 +115,17 @@ export function PersonApp() {
   // when navigating `/questions → /summary → /review → Done`).
   const markComplete = useMarkComplete();
 
+  // Self first, then others alphabetically by name. Memoized so the sort
+  // only re-runs when the member list actually changes — `status.members`
+  // is referentially stable across renders via TanStack cache and the
+  // groups.status subscription's setQueryData. Computed unconditionally
+  // (above the early returns) per the rules of hooks; the result is only
+  // *used* in the authed branch where person is non-null.
+  const sortedMembers = useMemo(
+    () => sortMembersViewerFirst(status?.members ?? [], status?.person?.id ?? ""),
+    [status?.members, status?.person?.id],
+  );
+
   // Loading is handled by the top-level <Suspense> boundary in main.tsx
   // via useLiveStatus → useSuspenseQuery. Errors propagate to the nearest
   // ErrorBoundary (root fallback reloads the page; screen fallback retries
@@ -151,10 +162,6 @@ export function PersonApp() {
   // down the narrow is lost. Assert the whole object as `AuthedGroupStatus`
   // — safe here because the early return above rules out the null branch.
   const authedStatus = status as AuthedGroupStatus;
-
-  // Self first, then others alphabetically by name. Sorted once here so
-  // all child screens (Group, Pending, Waiting, Question) get consistent order.
-  const sortedMembers = sortMembersViewerFirst(authedStatus.members, authedStatus.person.id);
 
   const defaultRoute = resolveRoute(authedStatus.person, authedStatus.group, allComplete);
 
