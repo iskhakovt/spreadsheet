@@ -34,7 +34,7 @@ function App() {
               </Route>
               <Route path="/" component={Landing} />
               <Route>
-                <div className="flex items-center justify-center min-h-screen">
+                <div className="flex items-center justify-center min-h-dvh">
                   <p className="text-text-muted">Page not found</p>
                 </div>
               </Route>

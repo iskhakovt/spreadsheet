@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className }: Readonly<CardProps>) {
   return (
-    <div className="min-h-screen flex items-start justify-center px-4 py-8 sm:py-12">
+    <div className="min-h-dvh flex items-start justify-center px-4 py-6 sm:py-8">
       <div
         className={cn(
           "w-full max-w-[480px] bg-bg/80 backdrop-blur-sm",

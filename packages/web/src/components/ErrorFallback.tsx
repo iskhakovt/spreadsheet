@@ -31,7 +31,7 @@ export function RootErrorFallback({ error, resetErrorBoundary }: Readonly<Fallba
     return <MissingKeyScreen />;
   }
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
+    <div className="min-h-dvh flex items-center justify-center px-6">
       <div className="text-center space-y-6 max-w-sm">
         <h1 className="text-2xl font-bold">Something went wrong</h1>
         <p className="text-text-muted text-sm">An unexpected error occurred. Your data is safe — it's saved locally.</p>
