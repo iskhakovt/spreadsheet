@@ -46,19 +46,16 @@ export function Question({
   const trpc = useTRPC();
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
   const questions = questionsData.questions as QuestionData[];
-  const categoryMap = useMemo(() => {
-    const map: Record<string, CategoryData> = {};
-    for (const c of questionsData.categories as CategoryData[]) map[c.id] = c;
-    return map;
-  }, [questionsData.categories]);
+  const categoryMap = useMemo(
+    () => Object.fromEntries((questionsData.categories as CategoryData[]).map((c) => [c.id, c])),
+    [questionsData.categories],
+  );
 
   const [index, setIndex] = useState(0);
   const [showTiming, setShowTiming] = useState(false);
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusHeading = useRef(false);
-  // Reactive snapshots of localStorage-backed state. Stable identity per
-  // underlying value, so downstream useMemo deps actually cache.
   const answers = useAnswers();
   const pendingOps = usePendingOps();
 
@@ -117,10 +114,6 @@ export function Question({
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
 
-  // Per-category answer stats, memoized. `useAnswers` gives stable
-  // `answers` identity, so this memo caches effectively — the O(screens)
-  // pass only re-runs when screens or answers genuinely change.
-  // See `buildCategoryAnswerStats` for invariants + tests.
   const categoryAnswerStats = useMemo(() => buildCategoryAnswerStats(screens, answers), [screens, answers]);
 
   // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
@@ -293,8 +286,6 @@ export function Question({
   const current = screens[Math.min(index, screens.length - 1)];
 
   if (current.type === "welcome") {
-    // O(1) lookup into the memoized stats map — see `categoryAnswerStats`
-    // above for the single-pass build.
     const stats = categoryAnswerStats.get(current.categoryId);
     const hasAnswersInCategory = stats?.hasAnswers ?? false;
     const firstUnansweredInCategoryIdx = stats?.firstUnansweredIdx ?? -1;

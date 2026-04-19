@@ -51,16 +51,8 @@ export function Review({
   const answers = useAnswers();
   const selectedCategories = getSelectedCategories() ?? [];
 
-  // Category-by-id lookup — `useAnswers` gives stable answers identity, so
-  // memoizing here is worthwhile; categoryMap is stable per `categories`.
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, CategoryData>();
-    for (const c of categories) map.set(c.id, c);
-    return map;
-  }, [categories]);
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-  // Grouping extracted to `buildReviewGroups` for testability — see
-  // build-screens.ts. Pure function of its inputs; unit-tested there.
   const grouped = useMemo(
     () => buildReviewGroups(questions, categoryMap, selectedCategories, answers),
     [questions, categoryMap, selectedCategories, answers],

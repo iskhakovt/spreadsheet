@@ -148,34 +148,18 @@ export function filterQuestionScreens(screens: Screen[]): QuestionScreen[] {
   return screens.filter((s): s is QuestionScreen => s.type === "question");
 }
 
-/** Per-category stat entry derived from the screens list + answers. */
 export interface CategoryAnswerStat {
-  /** True iff at least one question in this category has an answer. */
   hasAnswers: boolean;
-  /** Absolute index into `screens` of the first unanswered question in this
-   *  category, or -1 if every question in the category is answered. */
+  /** Absolute index into `screens`, or -1 if all answered. */
   firstUnansweredIdx: number;
 }
 
 /**
- * Build per-category answer stats in a single O(screens) pass.
+ * Per-category answer stats from the screens list.
  *
- * Used by the welcome-screen render to decide:
- *   - hasAnswers       → suppresses the "New category" eyebrow
- *   - firstUnansweredIdx → drives the Continue / Review-from-the-start CTA
- *
- * The naive per-render approach (`Object.keys(answers).some(...
- * questions.find(...))` plus a separate `screens.findIndex(...)`) was
- * O(answers × questions + screens). This version pays O(screens) once and
- * serves O(1) lookups from the returned Map.
- *
- * `firstUnansweredIdx` is the absolute screen index (not a per-category
- * offset) because `buildScreens` emits a welcome followed by its category's
- * contiguous questions — the first unanswered in the category is always at
- * an absolute index strictly greater than the welcome's index, so the
- * welcome can `setIndex(firstUnansweredIdx)` directly.
- *
- * Categories with no question screens produce no entry in the map.
+ * `firstUnansweredIdx` is an absolute screen index because `buildScreens`
+ * emits a welcome followed by its category's contiguous questions — so
+ * callers can `setIndex(firstUnansweredIdx)` directly.
  */
 export function buildCategoryAnswerStats(
   screens: readonly Screen[],
@@ -199,35 +183,22 @@ export function buildCategoryAnswerStats(
   return stats;
 }
 
-/** One row in the Review screen — a question expanded into 1 or 2 items. */
 export interface ReviewItem {
   /** Operation key: `{questionId}:{give|receive|mutual}`. */
   key: string;
-  /** Label to render — `giveText` / `receiveText` for split questions,
-   *  `text` for mutual. */
   label: string;
-  /** Existing answer for this item, or `undefined` if unanswered. */
   answer: Answer | undefined;
 }
 
-/** A category section in the Review screen. */
 export interface ReviewGroup {
   category: CategoryData;
   items: ReviewItem[];
 }
 
 /**
- * Build the Review screen's per-category grouping in three declarative
- * steps: filter questions to selected categories, expand each question
- * into one or two items (give/receive split → two, mutual → one), group
- * by categoryId.
- *
- * The original inline implementation nested `if (q.giveText && q.receiveText)`
- * twice with lazy-init of `groups[categoryId]` — readable but imperative.
- * This version makes the three steps explicit and unit-testable.
- *
- * Categories referenced by a question but missing from `categoryMap` are
- * dropped silently (matches the original behavior).
+ * Review screen's per-category grouping. Questions with both give- and
+ * receive-text expand into two items; others become one mutual item.
+ * Questions whose categoryId is missing from `categoryMap` are dropped.
  */
 export function buildReviewGroups(
   questions: readonly QuestionData[],
@@ -237,9 +208,6 @@ export function buildReviewGroups(
 ): ReviewGroup[] {
   const selected = new Set(selectedCategories);
 
-  // Each question becomes one (mutual) or two (give+receive) items. Tag
-  // each with its categoryId so the subsequent groupBy doesn't need to
-  // scan back through `questions`.
   const tagged = questions
     .filter((q) => selected.has(q.categoryId))
     .flatMap((q): (ReviewItem & { categoryId: string })[] => {
@@ -255,8 +223,6 @@ export function buildReviewGroups(
       return [{ categoryId: q.categoryId, key, label: q.text, answer: answers[key] }];
     });
 
-  // ES2024 Object.groupBy preserves insertion order of keys, so groups come
-  // out in the order their category was first encountered in `questions`.
   const byCategoryId = Object.groupBy(tagged, (item) => item.categoryId);
 
   return Object.entries(byCategoryId).flatMap(([catId, groupItems]) => {

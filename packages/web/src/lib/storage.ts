@@ -27,25 +27,12 @@ function removeRaw(key: string): void {
   localStorage.removeItem(getScope() + key);
 }
 
-/**
- * useSyncExternalStore plumbing for localStorage-backed state.
- *
- * Why: components reading state via `getAnswers()` / `getPendingOps()` were
- * getting fresh object identity on every render — defeating any `useMemo`
- * downstream that listed `answers` or `pendingOps` as a dep. Switching the
- * React-side reads to `useSyncExternalStore` gives a stable reference per
- * underlying value, plus cross-tab updates (via the native `storage` event)
- * and same-tab updates (via a custom event we dispatch on every write).
- *
- * Imperative non-React callers (sync-flush, useSyncQueue's handleSync) still
- * use the existing `getAnswers()` / `getPendingOps()` getters — they don't
- * need stable identity, just a fresh read at the moment of use.
- */
+// React-side reads of localStorage-backed state go through useSyncExternalStore
+// so they get stable object identity. Non-React callers keep using the
+// imperative getters — they don't need stable identity.
 
-// Per-scope-key snapshot cache. Keying by full localStorage key (scope +
-// suffix) means a session change in the same tab (rare — only on /p/:token
-// → /p/:other-token in-tab navigation) gets distinct cache entries
-// automatically; no cross-session contamination.
+// Snapshot cache keyed by full localStorage key (scope + suffix), so session
+// changes in-tab don't cross-contaminate.
 const snapshotCache = new Map<string, { raw: string | null; parsed: unknown }>();
 
 function readCachedSnapshot<T>(suffix: string, parse: (raw: string | null) => T): T {
@@ -58,12 +45,9 @@ function readCachedSnapshot<T>(suffix: string, parse: (raw: string | null) => T)
   return parsed;
 }
 
-// Invalidate the current scope's cache for `suffix` and dispatch the
-// same-tab event that `useSyncExternalStore` subscribers listen for. Called
-// from every setter in this file. `window` guard keeps the node-env unit
-// tests that exercise the imperative setters from crashing.
 function notifyChanged(suffix: string): void {
   snapshotCache.delete(getScope() + suffix);
+  // `window` guard for the node-env unit tests that exercise setters.
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(`storage:${suffix}`));
   }
@@ -173,9 +157,7 @@ export function setStoken(stoken: string | null): void {
 }
 
 // === selectedCategories / selectedTier ===
-// Both are wrapped in component-level useState (Question.tsx initializes
-// from storage once, mutations write through). No useSyncExternalStore
-// hook needed for these — adding one would just duplicate state.
+// Wrapped in component-level useState, so no useSyncExternalStore hook.
 
 export function getSelectedCategories(): string[] | null {
   return getJson("selectedCategories", null);
@@ -198,7 +180,7 @@ export function setSelectedTier(tier: number): void {
   setRaw("selectedTier", String(tier));
 }
 
-// === one-shot flags / cursors (read once, no React subscription needed) ===
+// === one-shot flags / cursors ===
 
 export function getHasSeenIntro(): boolean {
   return getRaw("hasSeenIntro") === "true";
