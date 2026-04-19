@@ -468,6 +468,9 @@ function OnboardingForm({
               Your body type
             </label>
             <AnatomyPicker selected={anatomy} onSelect={setAnatomy} labels={labels} />
+            <p className="text-xs text-text-muted mt-2 leading-relaxed">
+              So we can show only questions that apply to you.
+            </p>
           </div>
         )}
 
