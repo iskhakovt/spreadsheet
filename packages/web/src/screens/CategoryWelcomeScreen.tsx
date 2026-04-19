@@ -10,7 +10,9 @@ interface CategoryWelcomeScreenProps {
   categoryMap: Readonly<Record<string, CategoryData>>;
   screens: readonly Screen[];
   index: number;
-  setIndex: (fn: (i: number) => number) => void;
+  // Accepts both plain values and updater form — matches React's
+  // built-in Dispatch<SetStateAction<number>> shape.
+  setIndex: (value: number | ((i: number) => number)) => void;
   headingRef?: RefObject<HTMLHeadingElement | null>;
   syncing: boolean;
   showSyncIndicator: boolean;
@@ -45,8 +47,8 @@ export function CategoryWelcomeScreen({
   const firstQuestionIdx = index + 1;
   const hasUnanswered = firstUnansweredInCategoryIdx !== -1;
 
-  const goToFirstUnanswered = () => setIndex(() => firstUnansweredInCategoryIdx);
-  const goToFirstQuestion = () => setIndex(() => firstQuestionIdx);
+  const goToFirstUnanswered = () => setIndex(firstUnansweredInCategoryIdx);
+  const goToFirstQuestion = () => setIndex(firstQuestionIdx);
 
   // Primary button label mirrors the /group CTA vocabulary:
   //   fresh (no answers)   → Start
@@ -118,7 +120,7 @@ export function CategoryWelcomeScreen({
               const nextIdx = screens.findIndex(
                 (s, i) => i > index && s.type === "welcome" && s.categoryId !== screen.categoryId,
               );
-              setIndex(() => (nextIdx !== -1 ? nextIdx : screens.length));
+              setIndex(nextIdx !== -1 ? nextIdx : screens.length);
             }}
           >
             Skip this category
