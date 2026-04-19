@@ -7,7 +7,6 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
-import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -152,26 +151,16 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               {/* Label style */}
               <div>
                 <p className="text-xs font-medium mb-2.5 text-text-muted uppercase tracking-[0.1em]">Label style</p>
-                <div role="radiogroup" aria-label="Label style" className="flex gap-2 flex-wrap">
-                  {(["anatomical", "gendered", "amab", "short"] as const).map((style) => (
-                    // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
-                    <button
-                      key={style}
-                      type="button"
-                      role="radio"
-                      aria-checked={anatomyLabels === style}
-                      onClick={() => setAnatomyLabels(style)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-200",
-                        anatomyLabels === style
-                          ? "bg-accent text-accent-fg border-accent shadow-accent-md"
-                          : "bg-surface border-border text-text-muted hover:border-accent/25",
-                      )}
-                    >
-                      {ANATOMY_LABEL_PRESETS[style].amab} / {ANATOMY_LABEL_PRESETS[style].afab}
-                    </button>
-                  ))}
-                </div>
+                <ToggleGroup
+                  options={(["anatomical", "gendered", "amab"] as const).map((style) => ({
+                    value: style,
+                    label: `${ANATOMY_LABEL_PRESETS[style].amab} / ${ANATOMY_LABEL_PRESETS[style].afab}`,
+                  }))}
+                  value={anatomyLabels}
+                  onChange={setAnatomyLabels}
+                  size="sm"
+                  aria-label="Label style"
+                />
               </div>
 
               {/* Who picks */}
