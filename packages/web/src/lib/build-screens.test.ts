@@ -276,20 +276,24 @@ describe("tier filtering", () => {
 describe("buildCategoryAnswerStats", () => {
   // Small helpers for the Screen union variants. Keeps the tests readable
   // and lets the type-checker catch field drift.
-  const welcome = (categoryId: string, questionCount = 1): Screen => ({
-    type: "welcome",
-    categoryId,
-    questionCount,
-    key: `welcome:${categoryId}`,
-  });
-  const question = (categoryId: string, id: string): Screen => ({
-    type: "question",
-    question: q({ id, categoryId }),
-    role: "mutual",
-    displayText: id,
-    key: `${id}:mutual`,
-    categoryId,
-  });
+  function welcome(categoryId: string, questionCount = 1): Screen {
+    return {
+      type: "welcome",
+      categoryId,
+      questionCount,
+      key: `welcome:${categoryId}`,
+    };
+  }
+  function question(categoryId: string, id: string): Screen {
+    return {
+      type: "question",
+      question: q({ id, categoryId }),
+      role: "mutual",
+      displayText: id,
+      key: `${id}:mutual`,
+      categoryId,
+    };
+  }
   const answer: Answer = { rating: "yes", timing: null };
 
   it("returns an empty map when there are no question screens", () => {
