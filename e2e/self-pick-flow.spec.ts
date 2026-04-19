@@ -8,7 +8,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await alice.getByText("Get started").click();
     // Default is "Filter by body" — keep it
     // Switch "Who picks?" to "Each person"
-    await alice.getByText("Each person").click();
+    await alice.getByRole("radio", { name: "Each person", exact: true }).click();
     await alice.getByText("Create group").click();
     await expect(alice).toHaveURL(/\/p\/.+/);
 

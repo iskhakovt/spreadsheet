@@ -33,7 +33,7 @@ test.describe("non-admin partner flow", () => {
     // Create filtered-mode group where each person picks their own anatomy
     await alice.goto("/");
     await alice.getByText("Get started").click();
-    await alice.getByText("Each person").click();
+    await alice.getByRole("radio", { name: "Each person", exact: true }).click();
     await alice.getByText("Create group").click();
     await expect(alice).toHaveURL(/\/p\/.+/);
 

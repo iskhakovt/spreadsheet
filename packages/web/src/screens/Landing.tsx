@@ -141,6 +141,9 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               onChange={setQuestionMode}
               aria-label="Question mode"
             />
+            <p className="text-xs text-text-muted mt-2 leading-relaxed">
+              Filter shows each person only the questions that apply to their body.
+            </p>
           </div>
 
           {/* Filtered mode settings */}
@@ -184,6 +187,9 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
                   size="sm"
                   aria-label="Who picks body type"
                 />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  Fill in everyone's body now, or let each person pick their own on arrival.
+                </p>
               </div>
             </div>
           )}

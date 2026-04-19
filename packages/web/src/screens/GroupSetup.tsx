@@ -170,6 +170,9 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                 Your body type
               </label>
               <AnatomyPicker selected={myAnatomy} onSelect={(v) => setMyAnatomy(v as Anatomy)} labels={labels} />
+              <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                So we can show only questions that apply to you.
+              </p>
             </div>
           )}
         </div>
@@ -220,6 +223,9 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   onSelect={(v) => updatePartner(i, "anatomy", v)}
                   labels={labels}
                 />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  So they see only questions that apply to them.
+                </p>
               </div>
             )}
 
