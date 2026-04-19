@@ -40,7 +40,15 @@ function readCachedSnapshot<T>(suffix: string, parse: (raw: string | null) => T)
   const raw = localStorage.getItem(fullKey);
   const cached = snapshotCache.get(fullKey);
   if (cached && cached.raw === raw) return cached.parsed as T;
-  const parsed = parse(raw);
+  // Self-heal on corrupt storage (manual edits, partial writes): fall back
+  // to parse(null). Cache the raw alongside the fallback so subsequent
+  // reads short-circuit to the cached value instead of re-throwing.
+  let parsed: T;
+  try {
+    parsed = parse(raw);
+  } catch {
+    parsed = parse(null);
+  }
   snapshotCache.set(fullKey, { raw, parsed });
   return parsed;
 }

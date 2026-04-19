@@ -1,5 +1,5 @@
 import type { CategoryData, QuestionData } from "@spreadsheet/shared";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
@@ -49,7 +49,10 @@ export function Review({
   onBack,
 }: Readonly<ReviewProps>) {
   const answers = useAnswers();
-  const selectedCategories = getSelectedCategories() ?? [];
+  // Mount-time snapshot — `getSelectedCategories()` re-parses localStorage
+  // and returns a new array each call, which would invalidate the grouped
+  // memo on every render. Same pattern as Question.tsx.
+  const [selectedCategories] = useState<string[]>(() => getSelectedCategories() ?? []);
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
