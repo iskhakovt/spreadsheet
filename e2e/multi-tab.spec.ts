@@ -24,12 +24,12 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
-    await admin.getByRole("button", { name: "Start" }).click();
-    await admin.getByRole("radio", { name: "No" }).click();
+    await admin.getByRole("button", { name: "Start", exact: true }).click();
+    await admin.getByRole("radio", { name: "No", exact: true }).click();
 
     // Verify via UI: press Back, admin's previous answer is still "No" selected
     await admin.getByText("Back").click();
-    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    await expect(admin.getByRole("radio", { name: "No", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Open Bob's link in same browser (new page in the SAME context, shared
     // localStorage). This is the crux of the multi-tab test — a new page in
@@ -41,12 +41,12 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
-    await bob.getByRole("button", { name: "Start" }).click();
-    await bob.getByRole("radio", { name: "Yes" }).click();
+    await bob.getByRole("button", { name: "Start", exact: true }).click();
+    await bob.getByRole("radio", { name: "Yes", exact: true }).click();
 
     // Bob's answer is "Yes" — verify via UI same way
     await bob.getByText("Back").click();
-    await expect(bob.getByRole("radio", { name: "Yes" })).toHaveAttribute("aria-checked", "true");
+    await expect(bob.getByRole("radio", { name: "Yes", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Admin's first answer is STILL "No" — Bob's write didn't touch
     // admin's scoped localStorage. This is the core isolation assertion:
@@ -58,10 +58,10 @@ test.describe("multi-tab isolation", () => {
     // a welcome screen or mid-flow. Navigate explicitly to the first
     // question to verify its saved answer.
     await admin
-      .getByRole("button", { name: "Start" })
+      .getByRole("button", { name: "Start", exact: true })
       .click()
       .catch(() => {});
-    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    await expect(admin.getByRole("radio", { name: "No", exact: true })).toHaveAttribute("aria-checked", "true");
   });
 
   test("admin marks complete after visiting partner link — marks correct person", async ({
@@ -92,7 +92,7 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "no");
-    await admin.getByRole("button", { name: "I'm done" }).click();
+    await admin.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Correct person (Alice) marked complete: admin reached /waiting (proves
     // Alice is complete — guard wouldn't land her here otherwise) and Bob is
@@ -122,7 +122,7 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "yes");
-    await admin.getByRole("button", { name: "I'm done" }).click();
+    await admin.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob answers and completes in same browser context
@@ -131,7 +131,7 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Bob should reach waiting or results
     await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
@@ -167,8 +167,8 @@ test.describe("multi-tab isolation", () => {
     await expect(tabB.getByText(/0 of \d+ answered/)).toBeVisible();
 
     // Commit an answer in tab A.
-    await admin.getByRole("button", { name: "Start" }).click();
-    await admin.getByRole("radio", { name: "No" }).click();
+    await admin.getByRole("button", { name: "Start", exact: true }).click();
+    await admin.getByRole("radio", { name: "No", exact: true }).click();
 
     // Tab B reactively reflects the new count — no reload.
     await expect(tabB.getByText(/1 of \d+ answered/)).toBeVisible();

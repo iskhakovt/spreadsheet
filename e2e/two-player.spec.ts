@@ -16,7 +16,7 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(alice);
       await narrowToCategory(alice, "Group & External");
       await answerAllQuestions(alice, "yes");
-      await alice.getByRole("button", { name: "I'm done" }).click();
+      await alice.getByRole("button", { name: "I'm done", exact: true }).click();
       await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
       // Bob: open link → intro → narrow via Summary → answer → done
@@ -24,7 +24,7 @@ for (const encrypted of [false, true]) {
       await goThroughIntro(bob);
       await narrowToCategory(bob, "Group & External");
       await answerAllQuestions(bob, "yes");
-      await bob.getByRole("button", { name: "I'm done" }).click();
+      await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Both complete → Bob goes straight to results
       await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });

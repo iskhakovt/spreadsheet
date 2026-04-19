@@ -21,11 +21,11 @@ test.describe("non-admin partner flow", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Waiting screen (non-admin) — no "View group members" button ---
     await expect(bob.getByText("Waiting for everyone")).toBeVisible();
-    await expect(bob.getByRole("button", { name: "View group members" })).toHaveCount(0);
+    await expect(bob.getByRole("button", { name: "View group members", exact: true })).toHaveCount(0);
     await expect(bob).toHaveScreenshot("waiting-non-admin.png");
   });
 
@@ -54,8 +54,8 @@ test.describe("non-admin partner flow", () => {
     await expect(alice).toHaveScreenshot("pick-anatomy-expanded.png");
 
     // Alice picks anatomy → lands on pending (waiting for Bob to pick)
-    await alice.getByRole("radio", { name: "Vulva" }).click();
-    await alice.getByRole("button", { name: "Continue" }).click();
+    await alice.getByRole("radio", { name: "Vulva", exact: true }).click();
+    await alice.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(alice.getByText("Almost there")).toBeVisible();
     await expect(alice).toHaveScreenshot("pending-waiting-anatomy.png");
 

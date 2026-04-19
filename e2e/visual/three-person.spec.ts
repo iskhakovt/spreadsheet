@@ -29,7 +29,7 @@ test.describe("3-person comparison", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // --- Waiting with 3 members (partial completion) ---
@@ -40,14 +40,14 @@ test.describe("3-person comparison", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerQuestionsCycling(bob, ["yes", "maybe", "fantasy", "yes", "no"]);
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Carol: different mix for variety across all pairs
     await carol.goto(partnerLinks[1]);
     await goThroughIntro(carol);
     await narrowToCategory(carol, "Group & External");
     await answerQuestionsCycling(carol, ["maybe", "yes", "fantasy", "no", "yes"]);
-    await carol.getByRole("button", { name: "I'm done" }).click();
+    await carol.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with 3 people: pair tabs ---
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });

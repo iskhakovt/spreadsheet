@@ -11,14 +11,14 @@ test.describe("edit after completion", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results. Alice's view should update via WS.
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
@@ -48,8 +48,8 @@ test.describe("edit after completion", () => {
     // Alice changes her first answer from "yes" to "no". This triggers the
     // 3s sync.push debounce → server commit → journalEvents emit → Bob's
     // tracked subscription → setQueryData merge → Comparison re-render.
-    await expect(alice.getByRole("radio", { name: "No" })).toBeVisible();
-    await alice.getByRole("radio", { name: "No" }).click();
+    await expect(alice.getByRole("radio", { name: "No", exact: true })).toBeVisible();
+    await alice.getByRole("radio", { name: "No", exact: true }).click();
 
     // Poll Bob's match count until it drops. This covers the full pipeline
     // latency (debounce + network + subscription + merge + re-render)
@@ -67,14 +67,14 @@ test.describe("edit after completion", () => {
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     await answerAllQuestions(page, "yes");
-    await page.getByRole("button", { name: "I'm done" }).click();
+    await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Page is now on /waiting
     await expect(page.getByText("Waiting for everyone")).toBeVisible();
     await expect(page).toHaveURL(/\/waiting/);
 
     // Click "Edit my answers" — navigates to /questions
-    await page.getByRole("button", { name: "Edit my answers" }).click();
+    await page.getByRole("button", { name: "Edit my answers", exact: true }).click();
     await expect(page).toHaveURL(/\/questions/);
 
     // isCompleted should NOT have been touched server-side. We verify this

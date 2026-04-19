@@ -9,14 +9,14 @@ test.describe("results edge cases", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes"); // answers yes + "Now" for timing
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both answered yes + now → green-light matches with "Go for it" column
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
@@ -31,14 +31,14 @@ test.describe("results edge cases", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "no");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
     await expect(alice.getByText("No overlaps")).toBeVisible();

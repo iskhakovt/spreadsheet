@@ -32,19 +32,19 @@ test.describe("questionnaire flow", () => {
     // Should see category welcome screen
     await expect(page.getByText("Foundations")).toBeVisible();
     await expect(page.getByText(/\d+ questions/)).toBeVisible();
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Should see first question
-    await expect(page.getByRole("radio", { name: "Yes" })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "No" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "No", exact: true })).toBeVisible();
 
     // Answer with "Yes" → should show timing
-    await page.getByRole("radio", { name: "Yes" }).click();
+    await page.getByRole("radio", { name: "Yes", exact: true }).click();
     await expect(page.getByText("When?")).toBeVisible();
-    await page.getByRole("button", { name: "Now" }).click();
+    await page.getByRole("button", { name: "Now", exact: true }).click();
 
     // Should advance to next question
-    await expect(page.getByRole("button", { name: "Skip question" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skip question", exact: true })).toBeVisible();
 
     // Finish any remaining questions with No
     await answerAllQuestions(page, "no");
@@ -79,9 +79,9 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Start filling out").click();
     await page.getByText("Let's go").click();
     await narrowToCategory(page, "Foundations");
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
     for (let i = 0; i < 4; i++) {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
     }
 
     await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
@@ -93,25 +93,25 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Start filling out").click();
     await page.getByText("Let's go").click();
     await narrowToCategory(page, "Group & External");
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Open help on the rating screen — should show all five ratings.
     await page.getByRole("button", { name: /What do these ratings mean/ }).click();
-    const ratingDialog = page.getByRole("dialog", { name: "Rating glossary" });
+    const ratingDialog = page.getByRole("dialog", { name: "Rating glossary", exact: true });
     await expect(ratingDialog).toBeVisible();
     await expect(ratingDialog.getByText("Fantasy only")).toBeVisible();
     await expect(ratingDialog.getByText(/Fun to think about/)).toBeVisible();
 
     // Close via the popover's close button (heading is below the popover so
     // a "click outside" via heading would just hit the dialog's overlay).
-    await ratingDialog.getByRole("button", { name: "Close" }).click();
+    await ratingDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(ratingDialog).not.toBeVisible();
-    await page.getByRole("radio", { name: "Yes" }).click();
-    await expect(page.getByRole("button", { name: "Now" })).toBeVisible();
+    await page.getByRole("radio", { name: "Yes", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
 
     // Help should now show the timing glossary, not ratings.
     await page.getByRole("button", { name: /What do these timings mean/ }).click();
-    const timingDialog = page.getByRole("dialog", { name: "Timing glossary" });
+    const timingDialog = page.getByRole("dialog", { name: "Timing glossary", exact: true });
     await expect(timingDialog).toBeVisible();
     await expect(timingDialog.getByText("Now", { exact: true })).toBeVisible();
     await expect(timingDialog.getByText(/I'd like to try this soon/)).toBeVisible();
@@ -125,11 +125,11 @@ test.describe("questionnaire flow", () => {
     await page.getByText("Start filling out").click();
     await page.getByText("Let's go").click();
     await narrowToCategory(page, "Group & External");
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Open → commit via keyboard → popover dismissed
     await page.getByRole("button", { name: /What do these ratings mean/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Rating glossary" });
+    const dialog = page.getByRole("dialog", { name: "Rating glossary", exact: true });
     await expect(dialog).toBeVisible();
     await page.keyboard.press("3");
     await expect(dialog).not.toBeVisible();
@@ -137,7 +137,7 @@ test.describe("questionnaire flow", () => {
     // Open → Skip → popover dismissed (screen.key change, different path)
     await page.getByRole("button", { name: /What do these ratings mean/ }).click();
     await expect(dialog).toBeVisible();
-    await page.getByRole("button", { name: "Skip question" }).click();
+    await page.getByRole("button", { name: "Skip question", exact: true }).click();
     await expect(dialog).not.toBeVisible();
   });
 
@@ -156,8 +156,8 @@ test.describe("questionnaire flow", () => {
     await narrowToCategory(page, "Power Exchange");
 
     // Start category, land on a question, then navigate to Summary
-    await page.getByRole("button", { name: "Start" }).click();
-    await page.getByRole("button", { name: "Progress" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.getByRole("button", { name: "Progress", exact: true }).click();
 
     // Summary should show Essentials currently selected and a count for
     // Power Exchange. Scope the fraction lookup to the Power Exchange row

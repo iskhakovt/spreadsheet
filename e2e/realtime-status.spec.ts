@@ -10,7 +10,7 @@ test.describe("realtime status (WebSocket)", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob joins and goes all the way through
@@ -24,7 +24,7 @@ test.describe("realtime status (WebSocket)", () => {
     // onData → setQueryData → guard redirect path. Starting after the
     // click would hide the click's own processing time.
     const start = Date.now();
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
     const elapsed = Date.now() - start;
 

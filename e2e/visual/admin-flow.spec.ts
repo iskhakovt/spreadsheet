@@ -43,14 +43,14 @@ test.describe("admin 2-person flow", () => {
     await goThroughIntro(alice);
 
     // --- Welcome screen (category interstitial) ---
-    await expect(alice.getByRole("button", { name: "Start" })).toBeVisible();
+    await expect(alice.getByRole("button", { name: "Start", exact: true })).toBeVisible();
     await expect(alice).toHaveScreenshot("welcome-screen.png");
 
     // Narrow to a small category for speed
     await narrowToCategory(alice, "Group & External");
 
     // --- Question card (unanswered) ---
-    await alice.getByRole("button", { name: "Start" }).click();
+    await alice.getByRole("button", { name: "Start", exact: true }).click();
     await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
     await expect(alice).toHaveScreenshot("question-unanswered.png");
 
@@ -62,7 +62,7 @@ test.describe("admin 2-person flow", () => {
     await expect(alice).toHaveScreenshot("end-of-questions.png");
 
     // Mark complete → waiting
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // --- Summary screen with partial progress ---
@@ -72,7 +72,7 @@ test.describe("admin 2-person flow", () => {
     await expect(alice).toHaveScreenshot("summary.png");
 
     // --- Review screen with mixed ratings ---
-    await alice.getByRole("button", { name: "Review answers" }).click();
+    await alice.getByRole("button", { name: "Review answers", exact: true }).click();
     await expect(alice.getByText("Review your answers")).toBeVisible();
     await expect(alice).toHaveScreenshot("review.png");
 
@@ -93,7 +93,7 @@ test.describe("admin 2-person flow", () => {
     //   Q5: Alice=no  Bob=yes         → hidden
     //   ...cycles repeat
     await answerQuestionsCycling(bob, ["yes", "maybe", "yes", "fantasy", "yes"]);
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with match type variety (no timing → no green-light column) ---
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
@@ -109,12 +109,12 @@ test.describe("admin 2-person flow", () => {
     // Question with timing sub-question
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect(page.getByText("Yes", { exact: true })).toBeVisible();
 
     // Answer yes → timing sub-question must appear
-    await page.getByRole("radio", { name: "Yes" }).click();
-    await expect(page.getByRole("button", { name: "Now" })).toBeVisible();
+    await page.getByRole("radio", { name: "Yes", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
     await expect(page).toHaveScreenshot("question-timing.png");
   });
 
@@ -126,9 +126,9 @@ test.describe("admin 2-person flow", () => {
     await page.getByText("Start filling out").click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Foundations");
-    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
     for (let i = 0; i < 4; i++) {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
     }
 
     await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
@@ -137,7 +137,7 @@ test.describe("admin 2-person flow", () => {
 
     // Help popover open — verifies the rating-mode glossary
     await page.getByRole("button", { name: /What do these ratings mean/ }).click();
-    await expect(page.getByRole("dialog", { name: "Rating glossary" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Rating glossary", exact: true })).toBeVisible();
     await expect(page).toHaveScreenshot("question-with-help-popover.png");
   });
 });

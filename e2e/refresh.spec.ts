@@ -10,9 +10,9 @@ for (const encrypted of [false, true]) {
       await narrowToCategory(page, "Group & External");
       // Dismiss welcome screen and land on first question
       await expect(page.getByText(/\d+ questions/)).toBeVisible();
-      await page.getByRole("button", { name: "Start" }).click();
+      await page.getByRole("button", { name: "Start", exact: true }).click();
 
-      await expect(page.getByRole("radio", { name: "Yes" })).toBeVisible();
+      await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
       expect(page.url()).toMatch(/\/questions/);
 
       await page.reload();
@@ -21,7 +21,9 @@ for (const encrypted of [false, true]) {
       // But the URL stays on /questions
       expect(page.url()).toMatch(/\/questions/);
       // Wait for content to load — either welcome or question screen
-      await expect(page.getByText(/\d+ questions/).or(page.getByRole("radio", { name: "Yes" }))).toBeVisible({
+      await expect(
+        page.getByText(/\d+ questions/).or(page.getByRole("radio", { name: "Yes", exact: true })),
+      ).toBeVisible({
         timeout: 10000,
       });
     });

@@ -34,7 +34,7 @@ test.describe("copy my link button", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
     await expect(alice.getByText("Copy my link")).toBeVisible();
 
@@ -52,7 +52,7 @@ test.describe("copy my link button", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both complete → results screen
     await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
@@ -70,7 +70,7 @@ test.describe("copy my link button", () => {
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
     await expect(alice.getByText("Copy my link")).toHaveCount(0);
   });
