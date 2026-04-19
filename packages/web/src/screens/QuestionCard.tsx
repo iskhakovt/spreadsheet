@@ -77,6 +77,7 @@ export function QuestionCard({
   const [helpOpen, setHelpOpen] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const helpPopoverRef = useRef<HTMLDivElement>(null);
+  const helpCloseRef = useRef<HTMLButtonElement>(null);
 
   // Click-outside + Escape close the help popover. Window-level so the user
   // can dismiss from anywhere on the page; the listener tears down with the
@@ -101,13 +102,23 @@ export function QuestionCard({
     };
   }, [helpOpen]);
 
-  // Close the help popover whenever the answer mode flips (rating ↔ timing)
-  // — otherwise an open popover would briefly show the wrong glossary on the
-  // transition. setState to the same value is a React no-op so the
-  // first-mount call is harmless.
+  // On open: move focus into the popover (the Close button) so keyboard
+  // users have a defined landing. Without this, focus stays on the trigger
+  // and Tab order would require users to scroll blind through the legend
+  // to reach Close. Escape still closes from anywhere — matches the
+  // non-modal dialog pattern used by Radix / shadcn.
+  useEffect(() => {
+    if (helpOpen) helpCloseRef.current?.focus();
+  }, [helpOpen]);
+
+  // Close the help popover on transitions that signal the user has moved on:
+  //   - mode flip (rating ↔ timing)  → glossary content would be stale
+  //   - question/welcome key change  → commit, Back/Skip, or category jump
+  // Informational popovers that linger past the moment they were relevant
+  // overlay the next screen's content and add visual noise.
   useEffect(() => {
     setHelpOpen(false);
-  }, [showTiming]);
+  }, [showTiming, screen.key]);
 
   return (
     <Card>
@@ -153,6 +164,7 @@ export function QuestionCard({
         {helpOpen && (
           <HelpPopover
             ref={helpPopoverRef}
+            closeRef={helpCloseRef}
             mode={showTiming ? "timing" : "rating"}
             onClose={() => setHelpOpen(false)}
           />
@@ -293,6 +305,12 @@ function RatingGroup({
     // event.detail === 0 indicates keyboard activation (Enter/Space on a
     // focused button); a real mouse click has detail ≥ 1. Route the two
     // paths differently: keyboard → animated commit; mouse → instant.
+    //
+    // Caveat: programmatic .click() (e.g., element.click() from a test
+    // helper) also reports detail === 0. Tests that want to exercise the
+    // click path must use real mouse input via Playwright's .click() on a
+    // locator — which does produce detail ≥ 1. Keep this invariant in
+    // mind if adding test utilities that simulate clicks.
     if (e.detail === 0) {
       setCommitting(rating);
     } else {
@@ -375,6 +393,8 @@ function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>
 
   function handleClick(timing: Timing, e: React.MouseEvent<HTMLButtonElement>) {
     if (committing) return;
+    // Same keyboard-vs-mouse detection as RatingGroup — see the detailed
+    // note there, including the programmatic .click() caveat.
     if (e.detail === 0) {
       setCommitting(timing);
     } else {
@@ -449,10 +469,12 @@ const TIMING_HELP: { key: string; label: string; desc: string; labelClass: strin
 
 function HelpPopover({
   ref,
+  closeRef,
   mode,
   onClose,
 }: Readonly<{
   ref?: RefObject<HTMLDivElement | null>;
+  closeRef?: RefObject<HTMLButtonElement | null>;
   mode: "rating" | "timing";
   onClose: () => void;
 }>) {
@@ -463,11 +485,14 @@ function HelpPopover({
       ref={ref}
       role="dialog"
       aria-label={mode === "rating" ? "Rating glossary" : "Timing glossary"}
-      className="absolute top-9 right-0 w-72 bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
+      // max-w caps the popover at the viewport's inner width minus a margin,
+      // safety net if the card padding ever tightens on the smallest devices.
+      className="absolute top-9 right-0 w-72 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
     >
       <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">{title}</p>
         <button
+          ref={closeRef}
           type="button"
           onClick={onClose}
           aria-label="Close"

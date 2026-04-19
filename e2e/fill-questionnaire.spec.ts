@@ -117,6 +117,30 @@ test.describe("questionnaire flow", () => {
     await expect(timingDialog.getByText(/I'd like to try this soon/)).toBeVisible();
   });
 
+  test("help popover dismisses when the user commits or navigates", async ({ page }) => {
+    // Popovers that linger past the moment they were relevant overlay the
+    // next screen's content. After committing an answer, advancing, or
+    // navigating back, the help popover should close automatically.
+    await createGroupAndSetup(page);
+    await page.getByText("Start filling out").click();
+    await page.getByText("Let's go").click();
+    await narrowToCategory(page, "Group & External");
+    await page.getByRole("button", { name: "Start" }).click();
+
+    // Open → commit via keyboard → popover dismissed
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Rating glossary" });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("3");
+    await expect(dialog).not.toBeVisible();
+
+    // Open → Skip → popover dismissed (screen.key change, different path)
+    await page.getByRole("button", { name: /What do these ratings mean/ }).click();
+    await expect(dialog).toBeVisible();
+    await page.getByRole("button", { name: "Skip question" }).click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   test("changing tier on Summary updates question counts", async ({ page }) => {
     await createGroupAndSetup(page);
 
