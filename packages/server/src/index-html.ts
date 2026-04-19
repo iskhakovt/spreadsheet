@@ -19,6 +19,8 @@ export function renderIndex(raw: string, o: MetaOverrides): string {
   for (const sel of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) {
     doc.querySelector(sel)?.setAttribute("content", o.ogTitle);
   }
-  doc.querySelector('meta[property="og:image:alt"]')?.setAttribute("content", o.ogImageAlt);
+  for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) {
+    doc.querySelector(sel)?.setAttribute("content", o.ogImageAlt);
+  }
   return doc.toString();
 }

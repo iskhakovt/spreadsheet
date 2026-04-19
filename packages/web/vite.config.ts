@@ -32,6 +32,9 @@ function rasterizeOG(): Plugin {
       for (const name of variants) {
         const template = await readFile(resolve(srcDir, `${name}.svg`), "utf8");
         const composed = template.replace(/<image[^/]*href="\.\/og-bg\.svg"[^/]*\/>/, bgInner);
+        if (composed === template) {
+          throw new Error(`Failed to inline og-bg.svg into ${name}.svg — template format changed?`);
+        }
         const png = new Resvg(composed, { font: { fontFiles: [fontFile] } }).render().asPng();
         await writeFile(resolve(outDir, `${name}.png`), png);
       }

@@ -98,8 +98,13 @@ try {
     ogTitle: "You’ve been invited · Spreadsheet",
     ogImageAlt: "Spreadsheet — your turn",
   });
-} catch {
-  logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
+} catch (err) {
+  if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
+    logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
+  } else {
+    logger.fatal({ err, staticRoot }, "failed to pre-render SPA fallback");
+    throw err;
+  }
 }
 
 app.get("/*", (c) => {

@@ -4,13 +4,13 @@ test.describe("static assets + meta-tag variants", () => {
   test("/og-image.png serves the rasterized landing card", async ({ request, baseURL }) => {
     const res = await request.get(`${baseURL}/og-image.png`);
     expect(res.status()).toBe(200);
-    expect(res.headers()["content-type"]).toBe("image/png");
+    expect(res.headers()["content-type"]).toMatch(/^image\/png\b/i);
   });
 
   test("/og-invite.png serves the rasterized invite card", async ({ request, baseURL }) => {
     const res = await request.get(`${baseURL}/og-invite.png`);
     expect(res.status()).toBe(200);
-    expect(res.headers()["content-type"]).toBe("image/png");
+    expect(res.headers()["content-type"]).toMatch(/^image\/png\b/i);
   });
 
   test("/robots.txt disallows /p/ and /api/", async ({ request, baseURL }) => {
