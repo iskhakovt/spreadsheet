@@ -19,9 +19,7 @@ export function Landing() {
     return (
       <CreateGroup
         onCreated={(tokenWithKey) => {
-          const hashIdx = tokenWithKey.indexOf("#");
-          const token = hashIdx !== -1 ? tokenWithKey.slice(0, hashIdx) : tokenWithKey;
-          const hash = hashIdx !== -1 ? tokenWithKey.slice(hashIdx + 1) : undefined;
+          const [token, hash] = tokenWithKey.split("#", 2);
           void navigate({ to: "/p/$token", params: { token }, hash });
         }}
       />
