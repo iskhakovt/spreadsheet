@@ -1,14 +1,8 @@
-import { useLocation } from "@tanstack/react-router";
-import { useLayoutEffect, useRef } from "react";
+import { useLocation, useRouterState } from "@tanstack/react-router";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 /**
  * Resets window scroll and moves focus on every SPA route change.
- *
- * Wouter (like react-router) doesn't manage scroll or focus across
- * navigations — the browser preserves whatever state the previous screen
- * left behind. That's fine when the user triggers the nav themselves,
- * but it leaves the next screen partially scrolled (BackLink hidden above
- * the fold) and with stale focus rings on reused controls.
  *
  * On each location change we:
  *   1. Scroll the window to the top. `scrollTo(0, 0)` is a no-op if
@@ -19,8 +13,12 @@ import { useLayoutEffect, useRef } from "react";
  *      remember to opt in. `preventScroll: true` keeps the `scrollTo(0,0)`
  *      above from being undone by focus's implicit scroll-into-view.
  *
- * `useLayoutEffect` so the reset runs before paint — the new screen
- * never renders-then-jumps.
+ * Scroll uses `useLayoutEffect([pathname])` so it fires before paint.
+ * Focus uses `useEffect([status])` gated on router "idle" — TanStack
+ * Router sets the location store (which `useLocation` reads) at the START
+ * of navigation, before route loaders run and new components render, so a
+ * `[pathname]` dep would fire too early and find no H1. The `pendingNav`
+ * ref bridges the two: set on pathname change, cleared on idle+focus.
  *
  * Initial-render case is skipped: users landing on a page don't expect
  * their focus to be forcibly moved on page load, and the browser already
@@ -28,28 +26,35 @@ import { useLayoutEffect, useRef } from "react";
  */
 export function RouteReset() {
   const { pathname } = useLocation();
+  const status = useRouterState({ select: (s) => s.status });
   const isFirstRender = useRef(true);
+  const pendingNav = useRef(false);
 
+  // Scroll reset: fires early (before paint) when the URL changes.
   useLayoutEffect(() => {
+    if (isFirstRender.current) return;
+    pendingNav.current = true;
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  // Focus: fires after route content is rendered (router status → idle).
+  useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    window.scrollTo(0, 0);
+    if (status !== "idle" || !pendingNav.current) return;
+    pendingNav.current = false;
     // Scope to `main` so we pick the route's heading, not a heading that
-    // might live in a global fragment (e.g. an error banner). Landing
-    // doesn't render a <main>, but it's also only reachable on initial
-    // load — which we skip via isFirstRender — so the gap is harmless.
+    // might live in a global fragment (e.g. an error banner).
     const heading = document.querySelector<HTMLHeadingElement>("main h1, main h2");
     if (heading) {
-      // Only set tabIndex if the screen didn't already express intent —
-      // a heading explicitly set to tabindex="0" stays Tab-reachable.
       if (!heading.hasAttribute("tabindex")) {
         heading.tabIndex = -1;
       }
       heading.focus({ preventScroll: true });
     }
-  }, [pathname]);
+  }, [status]);
 
   return null;
 }

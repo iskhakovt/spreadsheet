@@ -1,4 +1,4 @@
-import type { CategoryData, Group as GroupData, GroupStatus, Person, QuestionData } from "@spreadsheet/shared";
+import type { CategoryData, Group as GroupData, Person, QuestionData } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -98,8 +98,7 @@ function PersonAppLayout() {
     : null;
   const freeRoutes = ["/group", "/summary", "/review", "/questions"];
   const routeSuffix = location.pathname.replace(`/p/${token}`, "") || "/";
-  const shouldRedirect =
-    !!defaultRoute && routeSuffix !== "/" && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
+  const shouldRedirect = !!defaultRoute && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
 
   // Real-time guard via useLayoutEffect so a WS-triggered status change
   // (e.g. everyone completes → /results) redirects before paint.

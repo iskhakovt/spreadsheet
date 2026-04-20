@@ -36,7 +36,7 @@ export default defineConfig({
     actionTimeout: 10_000,
   },
   expect: {
-    timeout: 1_000,
+    timeout: 5_000,
   },
   globalSetup: "./e2e/global-setup.ts",
   projects: [

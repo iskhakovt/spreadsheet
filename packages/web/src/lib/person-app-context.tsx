@@ -1,4 +1,4 @@
-import type { CategoryData, Group as GroupData, GroupStatus, Person, QuestionData } from "@spreadsheet/shared";
+import type { CategoryData, GroupStatus, Person, QuestionData } from "@spreadsheet/shared";
 import { createContext, useContext } from "react";
 
 // Status with `person` narrowed to non-null — set up by the /p/$token layout
