@@ -67,7 +67,10 @@ test.describe("useScrollReset — scroll on sub-state transitions", () => {
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
 
-    await page.evaluate(() => window.scrollTo(0, 400));
+    // Shrink viewport so the question card overflows — at 664 px it fits and
+    // scrollTo(0, 400) would be a no-op.
+    await page.setViewportSize({ width: 390, height: 300 });
+    await page.evaluate(() => window.scrollTo(0, 200));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
     await page.getByRole("radio", { name: "No", exact: true }).click();
