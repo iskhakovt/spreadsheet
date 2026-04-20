@@ -6,7 +6,7 @@ A yes/no/maybe list for couples and groups to discover shared sexual interests. 
 
 - **Language:** TypeScript (full stack, shared types via tRPC)
 - **Backend:** Node.js, Hono, tRPC v11 (HTTP + WebSocket), Drizzle, Zod
-- **Frontend:** React 19, Vite 8, Tailwind, shadcn/ui (Base UI primitives), TanStack Query v5 + `@trpc/tanstack-react-query`
+- **Frontend:** React 19, Vite 8, Tailwind, shadcn/ui (Base UI primitives), TanStack Router v1, TanStack Query v5 + `@trpc/tanstack-react-query`
 - **Database:** Postgres (prod + dev), PGlite (unit tests)
 - **Offline:** vite-plugin-pwa, localStorage
 - **Testing:** Vitest, PGlite, testcontainers, Playwright
@@ -30,12 +30,13 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 - **Admin token flow** — `groups.create` returns `adminToken` (no person). `setupAdmin` creates admin + partners + marks ready in one transaction, reusing adminToken as person token.
 - **Encryption** — key in URL fragment `#key=...`, cached in `sessionStorage`. `wrapSensitive`/`unwrapSensitive` handle encrypt/decrypt transparently. Opaque `p:1:`/`e:1:` prefix format.
-- **Routing** — wouter nested routes under `/p/:token`.
-  - **Universal guard**: `resolveRoute()` computes the correct screen from status. A `<Redirect>` at the top of the Switch redirects if the current route doesn't match. Free routes (`/group`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
-  - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
+- **Routing** — TanStack Router v1 file-based routing. Route tree auto-generated to `src/routeTree.gen.ts` (excluded from linting). Structure: `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/routes/p/$token/route.tsx` (layout) + 10 child screen routes.
+  - **Universal guard**: `resolveRoute()` computes the correct screen from status. Lives in the `/p/$token` layout component (not `beforeLoad`) so real-time WS status changes (e.g. everyone completes → `/results`) redirect before paint via `useLayoutEffect` + `navigate`. Free routes (`/group`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
+  - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. `useMarkComplete` navigates to `/p/$token/waiting` explicitly after the mutation (the guard no longer auto-routes there).
+  - **`PersonAppContext`** — the `/p/$token` layout route provides live status, questions data, `startKey`, and shared mutations to all child routes via React context. Use `usePersonApp()` in any child screen.
   - **Mutations self-invalidate** via `useMutation({ onSuccess: () => qc.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }) })`. Always return the invalidation promise so the mutation stays pending until the refetch completes — this is what replaces the old `await refreshStatus()` threading.
 - **Data fetching** — TanStack Query v5 via `@trpc/tanstack-react-query` (`useTRPC()` returns a typed proxy).
-  - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `main.tsx` handles loading.
+  - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `src/routes/__root.tsx` handles loading.
   - Writes: `useMutation(trpc.x.mutationOptions({ onSuccess: invalidate }))`. Use `mutate()` for fire-and-forget with local callbacks; `mutateAsync()` when you need to await the result.
   - Live updates: `useSubscription(trpc.x.subscriptionOptions(...))` with `setQueryData` in `onData` to feed updates into the same cache entry that an HTTP query populated.
   - **Never call `.query()` / `.mutate()` on a singleton** — there is no `trpc` singleton, only the `useTRPC()` proxy inside hooks/components. If you need imperative access from a non-hook context, use `useTRPCClient()`.
