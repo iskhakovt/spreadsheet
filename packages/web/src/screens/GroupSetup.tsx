@@ -7,6 +7,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { CopyLinkField } from "../components/copy-link-field.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
+import { useScrollReset } from "../lib/route-reset.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
@@ -34,6 +35,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
   const { copiedIndex: copied, copy: handleCopy } = useCopy();
   const [done, setDone] = useState(false);
+  useScrollReset(done);
 
   // NOTE: no onSuccess invalidation here — we want the "You're all set"
   // intermediate screen to stay visible until the user clicks "Start filling

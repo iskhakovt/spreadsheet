@@ -16,6 +16,7 @@ import {
 } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { mergeJournal } from "../lib/merge-journal.js";
+import { useScrollReset } from "../lib/route-reset.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
 /**
@@ -201,6 +202,9 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
   const activeIndex = visiblePair
     ? pairs.findIndex((p) => pairKey(p.a, p.b) === pairKey(visiblePair.a, visiblePair.b))
     : 0;
+  // Scroll on pair switches only — activeIndex stays 0 on the null→firstKey
+  // transition (user clicks the tab that's already shown), so no spurious scroll.
+  useScrollReset(activeIndex);
 
   function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const next = nextTabIndex(e.key, activeIndex, pairs.length);

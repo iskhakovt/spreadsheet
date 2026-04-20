@@ -6,6 +6,7 @@ import { Card } from "../components/Card.js";
 import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
 import { usePersonApp } from "../lib/person-app-context.js";
+import { useScrollReset } from "../lib/route-reset.js";
 import {
   addPendingOp,
   getCurrentScreenKey,
@@ -19,6 +20,7 @@ import {
   usePendingOps,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
+
 import { useTRPC } from "../lib/trpc.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { useSyncQueue } from "../lib/use-sync-queue.js";
@@ -53,6 +55,7 @@ export function Question({
   );
 
   const [index, setIndex] = useState(0);
+  useScrollReset(index);
   const [showTiming, setShowTiming] = useState(false);
   const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);

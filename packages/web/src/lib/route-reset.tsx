@@ -2,6 +2,22 @@ import { useLocation, useRouterState } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 /**
+ * Scrolls the window to the top whenever `dep` changes, skipping the
+ * initial render. Use for within-route state transitions (question index,
+ * pair tab) where the URL doesn't change and RouteReset can't fire.
+ */
+export function useScrollReset(dep: unknown) {
+  const isFirstRender = useRef(true);
+  useLayoutEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [dep]);
+}
+
+/**
  * Resets window scroll and moves focus on every SPA route change.
  *
  * On each location change we:

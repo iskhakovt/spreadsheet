@@ -17,7 +17,6 @@ function rasterizeOG(): Plugin {
   const srcDir = resolve(here, "src/assets/og");
   const outDir = resolve(here, "public");
   const fontFile = resolve(srcDir, "Lexend.ttf");
-  const bgFile = resolve(srcDir, "og-bg.svg");
   const variants = ["og-image", "og-invite"] as const;
 
   let done = false;
@@ -26,17 +25,13 @@ function rasterizeOG(): Plugin {
     async buildStart() {
       if (done) return;
       const { Resvg } = await import("@resvg/resvg-js");
-      const bg = await readFile(bgFile, "utf8");
-      // resvg-js has no filesystem context, so <image href="./og-bg.svg"/> can't
-      // be resolved; inline the bg's inner SVG before rasterizing.
-      const bgInner = bg.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
       for (const name of variants) {
         const template = await readFile(resolve(srcDir, `${name}.svg`), "utf8");
-        const composed = template.replace(/<image[^/]*href="\.\/og-bg\.svg"[^/]*\/>/, bgInner);
-        if (composed === template) {
-          throw new Error(`Failed to inline og-bg.svg into ${name}.svg — template format changed?`);
+        const resvg = new Resvg(template, { font: { fontFiles: [fontFile] } });
+        for (const href of resvg.imagesToResolve()) {
+          resvg.resolveImage(href, await readFile(resolve(srcDir, href)));
         }
-        const png = new Resvg(composed, { font: { fontFiles: [fontFile] } }).render().asPng();
+        const png = resvg.render().asPng();
         await writeFile(resolve(outDir, `${name}.png`), png);
       }
       done = true;
