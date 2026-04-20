@@ -1,7 +1,7 @@
 [![Release](https://img.shields.io/github/v/release/iskhakovt/spreadsheet?label=release&color=blue)](https://github.com/iskhakovt/cogmo/releases)
 [![ghcr](https://img.shields.io/github/v/release/iskhakovt/spreadsheet?label=ghcr&logo=docker&color=2496ED)](https://github.com/iskhakovt/cogmo/pkgs/container/cogmo)
 
-# Spreadsheet
+# [spreadsheet.love](https://spreadsheet.love) 
 
 A yes/no/maybe list for couples and groups to discover shared sexual interests. Rate activities privately, see only the overlaps.
 
