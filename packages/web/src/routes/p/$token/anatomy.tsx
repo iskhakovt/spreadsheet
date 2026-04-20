@@ -34,9 +34,9 @@ function AnatomyRoute() {
         <AnatomyPicker selected={selected} onSelect={setSelected} labels={labels} />
         <Button
           fullWidth
-          disabled={!selected}
+          disabled={!selected || setProfileMutation.isPending}
           onClick={() => {
-            if (!selected) return;
+            if (!selected || setProfileMutation.isPending) return;
             setProfileMutation.mutate({ name: authedStatus.person.name, anatomy: selected });
           }}
         >

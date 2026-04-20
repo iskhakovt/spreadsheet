@@ -27,7 +27,8 @@ function SetupRoute() {
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
-  const canSubmit = name && (!showAnatomy || anatomy);
+  const trimmedName = name.trim();
+  const canSubmit = trimmedName.length > 0 && (!showAnatomy || anatomy) && !setProfileMutation.isPending;
 
   return (
     <Card>
@@ -63,7 +64,7 @@ function SetupRoute() {
         <Button
           fullWidth
           disabled={!canSubmit}
-          onClick={() => canSubmit && setProfileMutation.mutate({ name, anatomy: anatomy || null })}
+          onClick={() => canSubmit && setProfileMutation.mutate({ name: trimmedName, anatomy: anatomy || null })}
         >
           Continue
         </Button>
