@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 // Mobile viewport — short enough that Summary overflows the viewport,
 // so the test exercises the real "user scrolled the page before the
@@ -55,5 +55,89 @@ test.describe("RouteReset — scroll + focus on SPA navigation", () => {
     // — not hijacked onto the Landing h1 by RouteReset.
     const activeTag = await page.evaluate(() => document.activeElement?.tagName);
     expect(activeTag).toBe("BODY");
+  });
+});
+
+test.describe("useScrollReset — scroll on sub-state transitions", () => {
+  test("scrolls to top when advancing to the next question card", async ({ page }) => {
+    await createGroupAndSetup(page);
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await goThroughIntro(page);
+    await narrowToCategory(page, "Group & External");
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
+
+    // Shrink viewport so the question card overflows — at 664 px it fits and
+    // scrollTo(0, 400) would be a no-op.
+    await page.setViewportSize({ width: 390, height: 300 });
+    await page.evaluate(() => window.scrollTo(0, 200));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await page.getByRole("radio", { name: "No", exact: true }).click();
+    // Wait for the transition: "No" must no longer be checked (new question loaded).
+    await expect(page.getByRole("radio", { name: "No", exact: true })).not.toBeChecked();
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test("scrolls to top when the group setup form transitions to the success screen", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
+    await page.getByRole("button", { name: "Create group", exact: true }).click();
+    await expect(page.getByText("Set up your group")).toBeVisible();
+
+    await page.getByPlaceholder("Enter your name").fill("Alice");
+    await page.getByPlaceholder("Partner's name").fill("Bob");
+    // Add extra partners so the form is tall enough to have been scrolled.
+    for (const name of ["Charlie", "Dana"]) {
+      await page.getByRole("button", { name: "+ Add another person", exact: true }).click();
+      await page.getByPlaceholder("Partner's name").last().fill(name);
+    }
+
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Create & get links", exact: true }).click();
+    await expect(page.getByText("You're all set")).toBeVisible();
+
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test("scrolls to top when switching between pair tabs on the results screen", async ({ alice, bob, carol }) => {
+    const { partnerLinks } = await createGroupAndSetup(alice, {
+      adminName: "Alice",
+      partnerName: "Bob",
+      extraPartners: ["Carol"],
+    });
+
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await goThroughIntro(alice);
+    await narrowToCategory(alice, "Touch & Body");
+    await answerAllQuestions(alice, "yes");
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
+
+    await bob.goto(partnerLinks[0]);
+    await goThroughIntro(bob);
+    await narrowToCategory(bob, "Touch & Body");
+    await answerAllQuestions(bob, "yes");
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
+
+    await carol.goto(partnerLinks[1]);
+    await goThroughIntro(carol);
+    await narrowToCategory(carol, "Touch & Body");
+    await answerAllQuestions(carol, "yes");
+    await carol.getByRole("button", { name: "I'm done", exact: true }).click();
+
+    await expect(carol.getByText("Your matches")).toBeVisible();
+    const tabList = carol.getByRole("tablist", { name: "Pair results", exact: true });
+    await expect(tabList).toBeVisible();
+
+    await carol.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(() => carol.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await tabList.getByRole("tab").nth(1).click();
+
+    expect(await carol.evaluate(() => window.scrollY)).toBe(0);
   });
 });

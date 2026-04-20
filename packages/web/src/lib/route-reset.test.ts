@@ -1,10 +1,10 @@
 /** @vitest-environment happy-dom */
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
-import { RouteReset } from "./route-reset.js";
+import { RouteReset, useScrollReset } from "./route-reset.js";
 
 afterEach(() => {
   cleanup();
@@ -119,5 +119,39 @@ describe("RouteReset", () => {
     // assert "strictly more" after each nav rather than a fixed count.
     expect(callsAfterFirst).toBeGreaterThan(callsBefore);
     expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+  });
+});
+
+describe("useScrollReset", () => {
+  let scrollSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    scrollSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  });
+
+  it("does not scroll on the initial render", () => {
+    renderHook(() => useScrollReset(0));
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  it("scrolls to top when the dep changes", () => {
+    const { rerender } = renderHook(({ dep }) => useScrollReset(dep), { initialProps: { dep: 0 } });
+    expect(scrollSpy).not.toHaveBeenCalled();
+    rerender({ dep: 1 });
+    expect(scrollSpy).toHaveBeenCalledWith(0, 0);
+  });
+
+  it("scrolls on every subsequent change, not just the first", () => {
+    const { rerender } = renderHook(({ dep }) => useScrollReset(dep), { initialProps: { dep: 0 } });
+    rerender({ dep: 1 });
+    rerender({ dep: 2 });
+    expect(scrollSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not scroll when rerendered with the same dep", () => {
+    const { rerender } = renderHook(({ dep }) => useScrollReset(dep), { initialProps: { dep: 0 } });
+    rerender({ dep: 0 });
+    rerender({ dep: 0 });
+    expect(scrollSpy).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,22 @@ import { useLayoutEffect, useRef } from "react";
 import { useLocation } from "wouter";
 
 /**
+ * Scrolls the window to the top whenever `dep` changes, skipping the
+ * initial render. Use for within-route state transitions (question index,
+ * pair tab) where the URL doesn't change and RouteReset can't fire.
+ */
+export function useScrollReset(dep: unknown) {
+  const isFirstRender = useRef(true);
+  useLayoutEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [dep]);
+}
+
+/**
  * Resets window scroll and moves focus on every SPA route change.
  *
  * Wouter (like react-router) doesn't manage scroll or focus across
