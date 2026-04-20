@@ -16,6 +16,7 @@ import {
 } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { mergeJournal } from "../lib/merge-journal.js";
+import { useScrollReset } from "../lib/route-reset.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
 
 /**
@@ -189,6 +190,7 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
   const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
 
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
+  useScrollReset(activePairKey);
 
   const pairs = useMemo(() => buildPairs(memberAnswers), [memberAnswers]);
 
