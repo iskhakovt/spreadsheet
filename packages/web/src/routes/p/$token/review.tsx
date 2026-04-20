@@ -1,4 +1,3 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { usePersonApp } from "../../../lib/person-app-context.js";
 import { Review } from "../../../screens/Review.js";
@@ -13,8 +12,8 @@ function ReviewRoute() {
 
   return (
     <Review
-      questions={questionsData.questions as QuestionData[]}
-      categories={questionsData.categories as CategoryData[]}
+      questions={questionsData.questions}
+      categories={questionsData.categories}
       onMarkComplete={markComplete}
       onViewProgress={() => void navigate({ to: "/p/$token/summary", params: { token } })}
       onEditQuestion={(key) => {

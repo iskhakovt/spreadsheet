@@ -104,8 +104,7 @@ function PersonAppLayout() {
   // (e.g. everyone completes → /results) redirects before paint.
   useLayoutEffect(() => {
     if (!shouldRedirect || !defaultRoute) return;
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic route from resolveRoute — valid paths, not statically known
-    void navigate({ to: `/p/$token${defaultRoute}`, params: { token }, replace: true } as any);
+    void navigate({ to: `/p/$token${defaultRoute}` as string, params: { token }, replace: true });
   }, [shouldRedirect, defaultRoute, token, navigate]);
 
   if (status === null) {

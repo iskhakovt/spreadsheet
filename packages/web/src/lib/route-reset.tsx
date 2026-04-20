@@ -44,6 +44,9 @@ export function RouteReset() {
   const { pathname } = useLocation();
   const status = useRouterState({ select: (s) => s.status });
   const isFirstRender = useRef(true);
+  // Bridges the two effects: set on pathname change (layout), cleared after focus (effect).
+  // Needed because TanStack Router updates stores.location at nav START — before components
+  // render — so we can't focus H1 in the layout effect; we defer to status→idle instead.
   const pendingNav = useRef(false);
 
   // Scroll reset: fires early (before paint) when the URL changes.
