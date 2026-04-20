@@ -1,5 +1,5 @@
+import { useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, useRef } from "react";
-import { useLocation } from "wouter";
 
 /**
  * Resets window scroll and moves focus on every SPA route change.
@@ -27,7 +27,7 @@ import { useLocation } from "wouter";
  * starts them at scrollY=0.
  */
 export function RouteReset() {
-  const [location] = useLocation();
+  const { pathname } = useLocation();
   const isFirstRender = useRef(true);
 
   useLayoutEffect(() => {
@@ -49,7 +49,7 @@ export function RouteReset() {
       }
       heading.focus({ preventScroll: true });
     }
-  }, [location]);
+  }, [pathname]);
 
   return null;
 }

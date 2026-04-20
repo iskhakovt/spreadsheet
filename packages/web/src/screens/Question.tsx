@@ -5,6 +5,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
 import { encodeValue } from "../lib/crypto.js";
+import { usePersonApp } from "../lib/person-app-context.js";
 import {
   addPendingOp,
   getCurrentScreenKey,
@@ -62,7 +63,8 @@ export function Question({
   // Mark-complete is the unified hook — it always flushes pending ops
   // before calling sync.markComplete and then navigates to /waiting.
   // Do not roll your own; see lib/use-mark-complete.ts.
-  const markComplete = useMarkComplete();
+  const { token } = usePersonApp();
+  const markComplete = useMarkComplete(token);
 
   // Selected categories are React state (not a plain localStorage read) so
   // the first-mount default propagates through a re-render. Prior pattern

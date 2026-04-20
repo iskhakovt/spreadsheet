@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
-import { useLocation } from "wouter";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
 
@@ -22,10 +22,10 @@ import { useTRPC } from "./trpc.js";
  * The returned callback is identity-stable (same pattern as useSyncQueue:
  * mutations are read through refs so the useCallback dep array is empty).
  */
-export function useMarkComplete(): () => Promise<void> {
+export function useMarkComplete(token: string): () => Promise<void> {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
+  const navigate = useNavigate();
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() });
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
   const markCompleteMutation = useMutation(trpc.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }));
@@ -35,6 +35,8 @@ export function useMarkComplete(): () => Promise<void> {
   pushRef.current = pushMutation;
   const markCompleteRef = useRef(markCompleteMutation);
   markCompleteRef.current = markCompleteMutation;
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   return useCallback(async () => {
     if (inFlightRef.current) return;
@@ -45,7 +47,7 @@ export function useMarkComplete(): () => Promise<void> {
         async () => null,
       );
       await markCompleteRef.current.mutateAsync();
-      navigate("/waiting");
+      void navigate({ to: "/p/$token/waiting", params: { token: tokenRef.current } });
     } finally {
       inFlightRef.current = false;
     }

@@ -44,6 +44,6 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/dist/", "!**/build/", "!**/*.yml", "!**/*.yaml", "!**/*.css"]
+    "includes": ["**", "!**/dist/", "!**/build/", "!**/*.yml", "!**/*.yaml", "!**/*.css", "!**/routeTree.gen.ts"]
   }
 }
