@@ -146,7 +146,7 @@ export async function createGroupAndSetup(
 
 /** Navigate through intro screen. */
 export async function goThroughIntro(page: Page) {
-  await expect(page.getByText("Here's how it works")).toBeVisible();
+  await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
   await page.getByRole("button", { name: "Let's go", exact: true }).click();
 }
 

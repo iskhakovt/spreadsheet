@@ -103,7 +103,7 @@ test.describe("admin 2-person flow", () => {
   test("intro with timing enabled", async ({ page }) => {
     await createGroupAndSetup(page, { showTiming: true });
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
-    await expect(page.getByText("Here's how it works")).toBeVisible();
+    await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
     await expect(page).toHaveScreenshot("intro-with-timing.png");
 
     // Question with timing sub-question

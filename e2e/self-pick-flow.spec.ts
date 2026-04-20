@@ -40,7 +40,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await bob.goto(bobLink);
 
     // Bob should see anatomy picker (self-pick, his anatomy is null)
-    await expect(bob.getByText("One quick thing")).toBeVisible();
+    await expect(bob.getByText("One quick thing")).toBeVisible({ timeout: 2_000 });
     await bob.getByRole("radio", { name: "Penis", exact: true }).click();
     await bob.getByRole("button", { name: "Continue", exact: true }).click();
 

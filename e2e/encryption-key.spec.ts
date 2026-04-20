@@ -21,7 +21,7 @@ test.describe("missing encryption key", () => {
 
     await bob.goto(partnerLink);
     // Bob should see the intro, not an error
-    await expect(bob.getByText("Here's how it works")).toBeVisible();
+    await expect(bob.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
   });
 });
 

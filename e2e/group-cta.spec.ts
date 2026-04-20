@@ -14,7 +14,7 @@ test.describe("admin /group primary CTA — state machine", () => {
 
     // Click Start filling out → should land on intro (first time) or questions
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
-    await expect(page.getByText("Here's how it works")).toBeVisible();
+    await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
     await goThroughIntro(page);
 
     // Narrow to a small category, answer a couple of questions (enough to
