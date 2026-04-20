@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSession } from "./session.js";
 import { getPendingOps, setPendingOps } from "./storage.js";
 
+interface NavigateCall {
+  to: string;
+}
+
 const { pushFn, markCompleteFn, navigate } = vi.hoisted(() => ({
   pushFn: vi.fn(),
   markCompleteFn: vi.fn(),
@@ -64,7 +68,7 @@ describe("useMarkComplete", () => {
     markCompleteFn.mockImplementation(async () => {
       callOrder.push("markComplete");
     });
-    navigate.mockImplementation((opts: { to: string }) => {
+    navigate.mockImplementation((opts: NavigateCall) => {
       callOrder.push(`navigate:${opts.to}`);
     });
 

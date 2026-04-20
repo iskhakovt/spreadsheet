@@ -1,4 +1,3 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { usePersonApp } from "../../../lib/person-app-context.js";
 import { Summary } from "../../../screens/Summary.js";
@@ -13,8 +12,8 @@ function SummaryRoute() {
 
   return (
     <Summary
-      questions={questionsData.questions as QuestionData[]}
-      categories={questionsData.categories as CategoryData[]}
+      questions={questionsData.questions}
+      categories={questionsData.categories}
       isAdmin={authedStatus.person.isAdmin}
       onNavigateToCategory={(catId) => {
         setStartKey(`welcome:${catId}`);

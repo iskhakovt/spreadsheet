@@ -1,6 +1,7 @@
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { NotFound } from "./components/NotFound.js";
 import { makeQueryClient } from "./lib/query-client.js";
 import { initSentry } from "./lib/sentry.js";
 import { routeTree } from "./routeTree.gen.js";
@@ -13,11 +14,7 @@ const queryClient = makeQueryClient();
 const router = createRouter({
   routeTree,
   context: { queryClient },
-  defaultNotFoundComponent: () => (
-    <div className="flex items-center justify-center min-h-dvh">
-      <p className="text-text-muted">Page not found</p>
-    </div>
-  ),
+  defaultNotFoundComponent: NotFound,
 });
 
 declare module "@tanstack/react-router" {

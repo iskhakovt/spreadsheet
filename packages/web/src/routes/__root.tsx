@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../components/Card.js";
 import { handleError, RootErrorFallback } from "../components/ErrorFallback.js";
+import { NotFound } from "../components/NotFound.js";
 import { RouteReset } from "../lib/route-reset.js";
 import { AppProviders } from "../lib/trpc-providers.js";
 
@@ -38,9 +39,5 @@ function RootLayout() {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
-  notFoundComponent: () => (
-    <div className="flex items-center justify-center min-h-dvh">
-      <p className="text-text-muted">Page not found</p>
-    </div>
-  ),
+  notFoundComponent: NotFound,
 });
