@@ -1,8 +1,8 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SourceLink } from "../components/source-link.js";
@@ -12,11 +12,18 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
-  const [, navigate] = useLocation();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
 
   if (showCreate) {
-    return <CreateGroup onCreated={(token) => navigate(`/p/${token}`)} />;
+    return (
+      <CreateGroup
+        onCreated={(tokenWithKey) => {
+          const [token, hash] = tokenWithKey.split("#", 2);
+          void navigate({ to: "/p/$token", params: { token }, hash });
+        }}
+      />
+    );
   }
 
   return (

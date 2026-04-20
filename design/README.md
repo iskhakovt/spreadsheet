@@ -17,6 +17,7 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | Database | Postgres (prod + dev), PGlite (unit tests) |
 | Frontend | React 19 + Vite 8 |
 | UI | Tailwind + shadcn/ui (Base UI primitives) |
+| Routing | TanStack Router v1 (file-based, type-safe) |
 | Client data | TanStack Query v5 + `@trpc/tanstack-react-query` |
 | Offline | Service worker (vite-plugin-pwa) + localStorage |
 | Auth | Unique link per person (token in URL) |

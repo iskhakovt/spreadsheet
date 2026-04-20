@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { compression } from "vite-plugin-compression2";
@@ -40,6 +41,7 @@ function rasterizeOG(): Plugin {
 
 export default defineConfig({
   plugins: [
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     svgr(),
     tailwindcss(),

@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSession } from "./session.js";
 import { getPendingOps, setPendingOps } from "./storage.js";
 
+interface NavigateCall {
+  to: string;
+}
+
 const { pushFn, markCompleteFn, navigate } = vi.hoisted(() => ({
   pushFn: vi.fn(),
   markCompleteFn: vi.fn(),
@@ -29,18 +33,18 @@ vi.mock("./trpc.js", () => ({
   }),
 }));
 
-vi.mock("wouter", () => ({
-  useLocation: () => [undefined, navigate],
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => navigate,
 }));
 
 const { useMarkComplete } = await import("./use-mark-complete.js");
+
+const token = "test-token";
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return createElement(QueryClientProvider, { client: qc }, children);
 }
-
-const token = "test-token-" + Math.random().toString(36).slice(2);
 
 beforeEach(() => {
   setSession(token);
@@ -64,23 +68,23 @@ describe("useMarkComplete", () => {
     markCompleteFn.mockImplementation(async () => {
       callOrder.push("markComplete");
     });
-    navigate.mockImplementation((path: string) => {
-      callOrder.push(`navigate:${path}`);
+    navigate.mockImplementation((opts: NavigateCall) => {
+      callOrder.push(`navigate:${opts.to}`);
     });
 
-    const { result } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result } = renderHook(() => useMarkComplete(token), { wrapper });
 
     await act(async () => {
       await result.current();
     });
 
-    expect(callOrder).toEqual(["push", "markComplete", "navigate:/waiting"]);
+    expect(callOrder).toEqual(["push", "markComplete", "navigate:/p/$token/waiting"]);
     expect(pushFn.mock.calls[0][0]).toMatchObject({ operations: ["op1", "op2"] });
     expect(getPendingOps()).toEqual([]);
   });
 
   it("skips push when there are no pending ops, still marks complete + navigates", async () => {
-    const { result } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result } = renderHook(() => useMarkComplete(token), { wrapper });
 
     await act(async () => {
       await result.current();
@@ -88,14 +92,14 @@ describe("useMarkComplete", () => {
 
     expect(pushFn).not.toHaveBeenCalled();
     expect(markCompleteFn).toHaveBeenCalledTimes(1);
-    expect(navigate).toHaveBeenCalledWith("/waiting");
+    expect(navigate).toHaveBeenCalledWith({ to: "/p/$token/waiting", params: { token } });
   });
 
   it("does NOT mark complete or navigate if push fails — ops stay queued", async () => {
     setPendingOps(["op1"]);
     pushFn.mockRejectedValue(new Error("network"));
 
-    const { result } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result } = renderHook(() => useMarkComplete(token), { wrapper });
 
     await act(async () => {
       await expect(result.current()).rejects.toThrow("network");
@@ -118,7 +122,7 @@ describe("useMarkComplete", () => {
         }),
     );
 
-    const { result } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result } = renderHook(() => useMarkComplete(token), { wrapper });
 
     let first!: Promise<void>;
     act(() => {
@@ -145,7 +149,7 @@ describe("useMarkComplete", () => {
     setPendingOps(["op1"]);
     pushFn.mockRejectedValueOnce(new Error("network"));
 
-    const { result } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result } = renderHook(() => useMarkComplete(token), { wrapper });
 
     await act(async () => {
       await expect(result.current()).rejects.toThrow("network");
@@ -158,11 +162,11 @@ describe("useMarkComplete", () => {
       await result.current();
     });
     expect(markCompleteFn).toHaveBeenCalledTimes(1);
-    expect(navigate).toHaveBeenCalledWith("/waiting");
+    expect(navigate).toHaveBeenCalledWith({ to: "/p/$token/waiting", params: { token } });
   });
 
   it("returns a stable callback across re-renders", () => {
-    const { result, rerender } = renderHook(() => useMarkComplete(), { wrapper });
+    const { result, rerender } = renderHook(() => useMarkComplete(token), { wrapper });
     const first = result.current;
     rerender();
     rerender();
