@@ -71,10 +71,10 @@ test.describe("useScrollReset — scroll on sub-state transitions", () => {
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
     await page.getByRole("radio", { name: "No", exact: true }).click();
-    // Wait for the next question to confirm the transition completed.
-    await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
+    // Wait for the transition: "No" must no longer be checked (new question loaded).
+    await expect(page.getByRole("radio", { name: "No", exact: true })).not.toBeChecked();
 
-    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });
 
   test("scrolls to top when the group setup form transitions to the success screen", async ({ page }) => {

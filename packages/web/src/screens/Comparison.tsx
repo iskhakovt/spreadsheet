@@ -190,7 +190,6 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
   const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
 
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
-  useScrollReset(activePairKey);
 
   const pairs = useMemo(() => buildPairs(memberAnswers), [memberAnswers]);
 
@@ -203,6 +202,9 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
   const activeIndex = visiblePair
     ? pairs.findIndex((p) => pairKey(p.a, p.b) === pairKey(visiblePair.a, visiblePair.b))
     : 0;
+  // Scroll on pair switches only — activeIndex stays 0 on the null→firstKey
+  // transition (user clicks the tab that's already shown), so no spurious scroll.
+  useScrollReset(activeIndex);
 
   function handleTabKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const next = nextTabIndex(e.key, activeIndex, pairs.length);
