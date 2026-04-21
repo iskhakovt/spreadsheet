@@ -98,7 +98,8 @@ export function Landing() {
 
 function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => void }>) {
   const trpc = useTRPC();
-  const [encrypted, setEncrypted] = useState(false);
+  const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
+  const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
   const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
@@ -220,6 +221,7 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               id="encrypted"
               checked={encrypted}
               onChange={(e) => setEncrypted(e.target.checked)}
+              disabled={requireEncryption}
               className="mt-0.5"
             />
             <div className="text-sm">

@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/react";
 
 declare global {
   interface Window {
-    __ENV?: { SENTRY_DSN?: string };
+    __ENV?: { SENTRY_DSN?: string; REQUIRE_ENCRYPTION?: boolean };
   }
 }
 
