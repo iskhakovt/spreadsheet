@@ -10,15 +10,14 @@ import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
+import { registry, wsConnectionsGauge } from "./metrics.js";
 import { requestLogger } from "./request-logger.js";
-import { initSentry } from "./sentry.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
 import { createContext, createWSContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
-initSentry();
 logger.info("server starting");
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -56,7 +55,6 @@ app.use(
 
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
-  SENTRY_DSN: process.env.SENTRY_DSN_FRONTEND ?? process.env.SENTRY_DSN ?? "",
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
 });
 const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
@@ -135,6 +133,22 @@ server.on("listening", () => {
   logger.info({ port: actualPort }, "server listening");
 });
 
+// Metrics server — separate port so it can be firewalled off from public traffic
+const metricsApp = new Hono();
+metricsApp.get("/metrics", async (c) =>
+  c.text(await registry.metrics(), 200, { "Content-Type": registry.contentType }),
+);
+const metricsPort = process.env.METRICS_PORT !== undefined ? Number(process.env.METRICS_PORT) : 9090;
+const metricsServer = serve({ fetch: metricsApp.fetch, port: metricsPort });
+metricsServer.on("listening", () => {
+  const addr = metricsServer.address();
+  const actualPort = typeof addr === "object" && addr ? addr.port : metricsPort;
+  logger.info({ port: actualPort }, "metrics server listening");
+});
+metricsServer.on("error", (err) => {
+  logger.error(err, "metrics server error");
+});
+
 // WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
 // `noServer: true` lets us pick which upgrade requests to handle so the rest
 // (e.g. Vite HMR in dev) fall through.
@@ -152,8 +166,12 @@ const wssHandler = applyWSSHandler({
 });
 
 wss.on("connection", (ws) => {
+  wsConnectionsGauge.inc();
   logger.debug("ws connection opened");
-  ws.on("close", () => logger.debug("ws connection closed"));
+  ws.on("close", () => {
+    wsConnectionsGauge.dec();
+    logger.debug("ws connection closed");
+  });
 });
 
 server.on("upgrade", (req, socket, head) => {
@@ -170,6 +188,7 @@ process.on("SIGTERM", () => {
   logger.info("SIGTERM received — shutting down");
   wssHandler.broadcastReconnectNotification();
   wss.close();
+  metricsServer.close();
   server.close(() => {
     logger.info("http server closed");
   });

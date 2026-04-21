@@ -1,6 +1,6 @@
 # Deploy
 
-Single container, single process, single port. Needs a Postgres database.
+Single container, single process. Exposes two ports: `8080` (app) and `9090` (Prometheus metrics). Needs a Postgres database.
 
 ## Image
 
@@ -17,9 +17,8 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `DATABASE_URL` | Yes | — | Postgres connection string |
 | `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
+| `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
-| `SENTRY_DSN` | No | — | Sentry/GlitchTip DSN for server errors |
-| `SENTRY_DSN_FRONTEND` | No | `$SENTRY_DSN` | Separate DSN for frontend (injected at runtime) |
 
 Generate `STOKEN_SECRET`:
 ```bash
@@ -39,6 +38,7 @@ docker run -d --name spreadsheet \
   -e DATABASE_URL=postgres://user:pass@host/db \
   -e STOKEN_SECRET="$(openssl rand -base64 32)" \
   -p 8080:8080 \
+  -p 9090:9090 \
   "$IMAGE"
 ```
 
@@ -56,6 +56,7 @@ docker run -d --name spreadsheet \
   -e DATABASE_URL=... \
   -e STOKEN_SECRET=... \
   -p 8080:8080 \
+  -p 9090:9090 \
   "$IMAGE"
 ```
 
@@ -72,8 +73,20 @@ docker run -d --name spreadsheet \
 
 ```bash
 curl http://localhost:8080/health
-# {"status":"ok"}
+# {"status":"ok","version":"1.2.3"}
 ```
+
+## Metrics
+
+Prometheus metrics are available on a dedicated port (default `9090`):
+
+```bash
+curl http://localhost:9090/metrics
+```
+
+The metrics server listens on a separate port from the main app (default `9090`) so it can be firewalled off from public traffic independently. Point your Prometheus scrape config at `host:9090/metrics` and bind `METRICS_PORT` to an internal-only network interface.
+
+Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, plus Node.js default metrics (event loop lag, memory, CPU).
 
 ## Logging
 
@@ -86,15 +99,6 @@ docker logs spreadsheet | jq .
 Set `LOG_LEVEL=debug` for verbose output during troubleshooting.
 
 Tokens and auth headers are redacted at the logger level — see [design/server.md](design/server.md#secret-redaction) for the mechanism and its limitations.
-
-## Monitoring
-
-Sentry/GlitchTip is optional. Two DSNs:
-
-- `SENTRY_DSN` — used by the server. Unset to disable server-side error reporting.
-- `SENTRY_DSN_FRONTEND` — used by the browser bundle. Defaults to `SENTRY_DSN` if unset. Set separately when you want client and server errors to land in different projects.
-
-The frontend DSN is **injected at serve time** into `index.html` as `window.__ENV.SENTRY_DSN`, not baked into the JS bundle. This means the same built image can target multiple environments without rebuilding — changing the env var and restarting is enough.
 
 ## Notes
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
+import { groupsSetupCompletedCounter } from "../../metrics.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -142,6 +143,28 @@ describe("groups.setupAdmin", () => {
       partners: [{ name: "B", anatomy: null }],
     });
     expect(result.partnerTokens).toEqual(["t1"]);
+  });
+
+  it("does not increment setup counter on store error", async () => {
+    const spy = vi.spyOn(groupsSetupCompletedCounter, "inc");
+    const ctx = mockCtx({
+      groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "not_found" }) },
+    });
+    await createCaller(ctx)
+      .groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })
+      .catch(() => {});
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("increments setup counter on success", async () => {
+    const spy = vi.spyOn(groupsSetupCompletedCounter, "inc");
+    const ctx = mockCtx({
+      groups: { setupAdmin: vi.fn().mockResolvedValue({ partnerTokens: ["t1"] }) },
+    });
+    await createCaller(ctx).groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] });
+    expect(spy).toHaveBeenCalledOnce();
+    spy.mockRestore();
   });
 });
 

@@ -47,6 +47,7 @@ ENV NODE_ENV=production
 ENV PORT=8080
 ENV STATIC_ROOT=./web
 EXPOSE 8080
+EXPOSE 9090
 
 ENTRYPOINT ["/nodejs/bin/node", "dist/main.js"]
 CMD ["serve"]

@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sentry/react": "^10.48.0",
     "@spreadsheet/shared": "workspace:*",
     "@tanstack/react-query": "5.99.0",
     "@tanstack/react-router": "^1.168.23",

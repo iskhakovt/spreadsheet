@@ -3,11 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { NotFound } from "./components/not-found.js";
 import { makeQueryClient } from "./lib/query-client.js";
-import { initSentry } from "./lib/sentry.js";
 import { routeTree } from "./routeTree.gen.js";
 import "./index.css";
-
-initSentry();
 
 const queryClient = makeQueryClient();
 

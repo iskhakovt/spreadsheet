@@ -3,6 +3,7 @@ import { decodeOpaque } from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
 import { emitJournalUpdate, journalEventName, journalEvents } from "../../events.js";
+import { markCompleteCounter, syncPushCounter } from "../../metrics.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -49,6 +50,7 @@ export const syncRouter = router({
         emitJournalUpdate(ctx.group.id, result.committedEntries);
       }
 
+      syncPushCounter.inc({ result: result.pushRejected ? "conflict" : "clean" });
       // The committedEntries field is internal — don't expose it on the wire.
       const { committedEntries: _committedEntries, ...wireResult } = result;
       return wireResult;
@@ -56,6 +58,7 @@ export const syncRouter = router({
 
   markComplete: broadcastingProcedure.mutation(async ({ ctx }) => {
     await ctx.sync.markComplete(ctx.person.id);
+    markCompleteCounter.inc();
     return { ok: true };
   }),
 

@@ -7,6 +7,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { GenericContainer, Network, type StartedNetwork, type StartedTestContainer, Wait } from "testcontainers";
 
 const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
+const METRICS_PORT_FILE = resolve(import.meta.dirname, ".e2e-metrics-port");
 
 let container: StartedPostgreSqlContainer;
 let serverProcess: ChildProcess | undefined;
@@ -64,7 +65,7 @@ async function setupDocker(imageName: string) {
   // Start the server
   appContainer = await new GenericContainer(imageName)
     .withNetwork(network)
-    .withExposedPorts(8080)
+    .withExposedPorts(8080, 9090)
     .withCommand(["serve"])
     .withEnvironment({
       DATABASE_URL: internalDbUrl,
@@ -77,7 +78,9 @@ async function setupDocker(imageName: string) {
 
   const host = appContainer.getHost();
   const port = appContainer.getMappedPort(8080);
+  const metricsPort = appContainer.getMappedPort(9090);
   writeFileSync(PORT_FILE, `${host}:${port}`);
+  writeFileSync(METRICS_PORT_FILE, `${host}:${metricsPort}`);
   console.log(`[global-setup] server ready at http://${host}:${port}`);
 
   return async () => {
@@ -85,9 +88,11 @@ async function setupDocker(imageName: string) {
     await appContainer?.stop().catch(() => {});
     await container?.stop().catch(() => {});
     await network?.stop().catch(() => {});
-    try {
-      unlinkSync(PORT_FILE);
-    } catch {}
+    for (const f of [PORT_FILE, METRICS_PORT_FILE]) {
+      try {
+        unlinkSync(f);
+      } catch {}
+    }
   };
 }
 
@@ -147,23 +152,28 @@ async function setupLocal() {
       STOKEN_SECRET: "e2e-test-secret",
       STATIC_ROOT: staticRoot,
       PORT: "0",
+      METRICS_PORT: "0",
       REQUIRE_ENCRYPTION: "false",
     },
     stdio: "pipe",
   });
   serverProcess = proc;
 
-  const assignedPort = await new Promise<number>((resolve, reject) => {
+  const [assignedPort, assignedMetricsPort] = await new Promise<[number, number]>((resolve, reject) => {
     if (!proc.stdout) return reject(new Error("Server stdout not available"));
     const timeout = setTimeout(() => reject(new Error("Server startup timeout")), 30_000);
+    let mainPort: number | undefined;
+    let metricsPort: number | undefined;
     const rl = createInterface({ input: proc.stdout });
     rl.on("line", (line) => {
       try {
         const log = JSON.parse(line) as { msg?: string; port?: number };
-        if (log.msg === "server listening" && typeof log.port === "number") {
+        if (log.msg === "server listening" && typeof log.port === "number") mainPort = log.port;
+        if (log.msg === "metrics server listening" && typeof log.port === "number") metricsPort = log.port;
+        if (mainPort !== undefined && metricsPort !== undefined) {
           clearTimeout(timeout);
           rl.close();
-          resolve(log.port);
+          resolve([mainPort, metricsPort]);
         }
       } catch {
         // not JSON — ignore (e.g. tsx warnings)
@@ -180,6 +190,7 @@ async function setupLocal() {
   });
 
   writeFileSync(PORT_FILE, `localhost:${assignedPort}`);
+  writeFileSync(METRICS_PORT_FILE, `localhost:${assignedMetricsPort}`);
 
   return async () => {
     if (serverProcess) {
@@ -187,8 +198,10 @@ async function setupLocal() {
       await once(serverProcess, "close", { signal: AbortSignal.timeout(5_000) }).catch(() => {});
     }
     await container?.stop();
-    try {
-      unlinkSync(PORT_FILE);
-    } catch {}
+    for (const f of [PORT_FILE, METRICS_PORT_FILE]) {
+      try {
+        unlinkSync(f);
+      } catch {}
+    }
   };
 }
