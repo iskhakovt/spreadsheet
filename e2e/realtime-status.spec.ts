@@ -1,5 +1,11 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  WS_PERF_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("realtime status (WebSocket)", () => {
   test("Alice's waiting screen updates instantly when Bob completes (WS path)", async ({ alice, bob }) => {
@@ -25,13 +31,11 @@ test.describe("realtime status (WebSocket)", () => {
     // click would hide the click's own processing time.
     const start = Date.now();
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_PERF_TIMEOUT });
     const elapsed = Date.now() - start;
 
-    // Soft check: WS push is typically sub-second. Warn if it creeps up so we
-    // notice regressions.
-    if (elapsed > 2000) {
-      console.warn(`WS push took ${elapsed}ms — slower than expected`);
-    }
+    // Hard check: WS push must arrive on the first delivery attempt.
+    // A reconnect cycle adds ~1–3 s; > 2000 ms means we hit the retry path.
+    expect(elapsed).toBeLessThan(2000);
   });
 });

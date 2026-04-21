@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, personBase } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  personBase,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("missing encryption key", () => {
   test("shows error when opening encrypted group without #key=", async ({ alice, bob }) => {
@@ -55,10 +62,10 @@ test.describe("copy my link button", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both complete → results screen
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(bob.getByText("Copy my link")).toBeVisible();
 
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice.getByText("Copy my link")).toBeVisible();
   });
 

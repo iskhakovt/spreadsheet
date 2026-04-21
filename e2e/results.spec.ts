@@ -4,7 +4,9 @@ import {
   answerQuestionsCycling,
   createGroupAndSetup,
   goThroughIntro,
+  NAV_TIMEOUT,
   narrowToCategory,
+  WS_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("results display", () => {
@@ -26,14 +28,14 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(bob.getByText("You & Alice")).toBeVisible();
 
     // All should be green-light matches (both yes + both now). Target the
     // data-match-type attribute on match rows so we don't collide with the
     // summary-strip label which also reads "Go for it".
     const greenLightRows = bob.locator('[data-testid="match-row"][data-match-type="green-light"]');
-    await expect(greenLightRows.first()).toBeVisible();
+    await expect(greenLightRows.first()).toBeVisible({ timeout: WS_TIMEOUT });
     expect(await greenLightRows.count()).toBeGreaterThan(0);
 
     // No other match types should appear — target by data-match-type so
@@ -68,7 +70,7 @@ test.describe("results display", () => {
 
     await answerQuestionsCycling(alice, aliceRatings);
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
@@ -76,7 +78,7 @@ test.describe("results display", () => {
     await answerQuestionsCycling(bob, bobRatings);
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
     // Verify that multiple distinct match types appear on the same results
     // page. Use data-match-type to avoid colliding with summary strip labels.

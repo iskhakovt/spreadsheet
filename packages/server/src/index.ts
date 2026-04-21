@@ -4,7 +4,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { compress } from "hono/compress";
 import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
@@ -57,35 +57,21 @@ app.use(
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
   SENTRY_DSN: process.env.SENTRY_DSN_FRONTEND ?? process.env.SENTRY_DSN ?? "",
+  REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
 });
 const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
-
-// Static files
-const staticRoot = process.env.STATIC_ROOT ?? "../web/dist";
-app.use(
-  "/*",
-  serveStatic({
-    root: staticRoot,
-    precompressed: true,
-    onFound: (path, c) => {
-      if (path.includes("/assets/")) {
-        c.header("Cache-Control", "public, max-age=31536000, immutable");
-      } else if (/\/(sw|registerSW|workbox-[^/]+)\.js$|\/manifest\.webmanifest$/.test(path)) {
-        c.header("Cache-Control", "no-cache");
-      } else {
-        c.header("Cache-Control", "public, max-age=3600");
-      }
-    },
-  }),
-);
 
 // SPA fallback. Two pre-rendered variants:
 //   default — landing & free routes: og:image = /og-image.png, standard copy
 //   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
 // Messenger crawlers (Facebook, iMessage, WhatsApp) fetch og:image from the
 // HTML at the invite URL, so per-token links unfurl with invite-framed copy.
+//
+// Registered BEFORE serveStatic so that / and /index.html are always served
+// through this handler (with window.__ENV injected) rather than the raw file.
 let indexHtmlDefault: string | null = null;
 let indexHtmlInvite: string | null = null;
+const staticRoot = process.env.STATIC_ROOT ?? "../web/dist";
 try {
   const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8").replace("</head>", `${envScript}</head>`);
   indexHtmlDefault = renderIndex(raw, {
@@ -107,12 +93,39 @@ try {
   }
 }
 
-app.get("/*", (c) => {
+const serveSpaHtml = (c: Context) => {
   const html = c.req.path.startsWith("/p/") ? indexHtmlInvite : indexHtmlDefault;
   if (!html) return c.text("Not found", 404);
   c.header("Cache-Control", "no-cache");
   return c.html(html);
-});
+};
+
+// Explicit routes for the HTML entry points — must come before serveStatic so
+// serveStatic never intercepts index.html and strips window.__ENV.
+app.get("/", serveSpaHtml);
+app.get("/index.html", serveSpaHtml);
+
+// Static files
+app.use(
+  "/*",
+  serveStatic({
+    root: staticRoot,
+    precompressed: true,
+    onFound: (path, c) => {
+      if (path.includes("/assets/")) {
+        c.header("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (/\/(sw|registerSW|workbox-[^/]+)\.js$|\/manifest\.webmanifest$/.test(path)) {
+        c.header("Cache-Control", "no-cache");
+      } else {
+        c.header("Cache-Control", "public, max-age=3600");
+      }
+    },
+  }),
+);
+
+// SPA fallback for all remaining routes (e.g. /summary, /group, /p/* not
+// matched above by the explicit routes).
+app.get("/*", serveSpaHtml);
 
 const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 8080;
 const server = serve({ fetch: app.fetch, port });

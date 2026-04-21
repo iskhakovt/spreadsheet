@@ -69,6 +69,7 @@ async function setupDocker(imageName: string) {
     .withEnvironment({
       DATABASE_URL: internalDbUrl,
       STOKEN_SECRET: "e2e-test-secret",
+      REQUIRE_ENCRYPTION: "false",
     })
     .withWaitStrategy(Wait.forHttp("/health", 8080).forStatusCode(200))
     .withStartupTimeout(30_000)
@@ -146,6 +147,7 @@ async function setupLocal() {
       STOKEN_SECRET: "e2e-test-secret",
       STATIC_ROOT: staticRoot,
       PORT: "0",
+      REQUIRE_ENCRYPTION: "false",
     },
     stdio: "pipe",
   });

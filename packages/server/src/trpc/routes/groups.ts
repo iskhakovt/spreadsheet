@@ -23,6 +23,9 @@ export const groupsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (process.env.REQUIRE_ENCRYPTION !== "false" && !input.encrypted) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Encryption is required" });
+      }
       return ctx.groups.create(input);
     }),
 

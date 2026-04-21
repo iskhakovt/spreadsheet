@@ -7,6 +7,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -98,7 +99,10 @@ export function Landing() {
 
 function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => void }>) {
   const trpc = useTRPC();
-  const [encrypted, setEncrypted] = useState(false);
+  // window.__ENV is injected by the Hono server at request time. When undefined
+  // (e.g. raw `vite dev` without the Hono server), fail closed — treat as required.
+  const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
+  const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
   const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
@@ -214,12 +218,16 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
           </label>
 
           {/* Encryption */}
-          <label htmlFor="encrypted" className="flex items-start gap-3 cursor-pointer group">
+          <label
+            htmlFor="encrypted"
+            className={cn("flex items-start gap-3", requireEncryption ? "cursor-default" : "cursor-pointer group")}
+          >
             <input
               type="checkbox"
               id="encrypted"
               checked={encrypted}
               onChange={(e) => setEncrypted(e.target.checked)}
+              disabled={requireEncryption}
               className="mt-0.5"
             />
             <div className="text-sm">

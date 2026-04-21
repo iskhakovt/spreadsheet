@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, scopedGet } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  scopedGet,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 /**
  * Verifies the tRPC `tracked()` resume protocol end-to-end: if Bob's WS drops,
@@ -40,8 +47,8 @@ test.describe("tracked() reconnect resume", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results via the WS push
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
     // Both see "match" (both-yes) rows initially. Target by data-match-type
     // attribute so we don't collide with summary-strip text ("Total matches").

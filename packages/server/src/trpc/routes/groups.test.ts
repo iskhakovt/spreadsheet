@@ -9,6 +9,7 @@ const createCaller = createCallerFactory(appRouter);
 
 afterEach(() => {
   groupEvents.removeAllListeners();
+  vi.unstubAllEnvs();
 });
 
 /** Build a mock context with stubbed stores */
@@ -85,6 +86,16 @@ describe("groups.create", () => {
         anatomyPicker: null,
       }),
     ).rejects.toThrow();
+  });
+
+  it("rejects unencrypted group when REQUIRE_ENCRYPTION is enforced", async () => {
+    vi.stubEnv("REQUIRE_ENCRYPTION", "true");
+    const caller = createCaller(mockCtx({}));
+    const err = await caller.groups
+      .create({ encrypted: false, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null })
+      .catch((e) => e);
+    expect(err.message).toBe("Encryption is required");
+    expect(err.code).toBe("BAD_REQUEST");
   });
 });
 

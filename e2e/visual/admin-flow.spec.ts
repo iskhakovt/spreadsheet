@@ -5,6 +5,7 @@ import {
   goThroughIntro,
   narrowToCategory,
   personBase,
+  WS_TIMEOUT,
 } from "../helpers.js";
 
 test.describe("admin 2-person flow", () => {
@@ -96,7 +97,7 @@ test.describe("admin 2-person flow", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with match type variety (no timing → no green-light column) ---
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice).toHaveScreenshot("results-2p.png");
   });
 

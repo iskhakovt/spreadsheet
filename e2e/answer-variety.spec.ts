@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory } from "./helpers.js";
 
 test.describe("answer variety", () => {
   test("all rating types and timing options work", async ({ page }) => {
@@ -8,7 +8,7 @@ test.describe("answer variety", () => {
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     // Dismiss category welcome screen
-    await expect(page.getByText(/\d+ questions/)).toBeVisible();
+    await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Q1: Yes + Now
@@ -42,7 +42,7 @@ test.describe("answer variety", () => {
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
-    await expect(page.getByText(/\d+ questions/)).toBeVisible();
+    await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Answer Q1
