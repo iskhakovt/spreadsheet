@@ -7,6 +7,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -215,7 +216,10 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
           </label>
 
           {/* Encryption */}
-          <label htmlFor="encrypted" className="flex items-start gap-3 cursor-pointer group">
+          <label
+            htmlFor="encrypted"
+            className={cn("flex items-start gap-3", requireEncryption ? "cursor-default" : "cursor-pointer group")}
+          >
             <input
               type="checkbox"
               id="encrypted"

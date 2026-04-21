@@ -255,6 +255,20 @@ input[type="checkbox"]:checked {
   border-color: var(--color-accent);
 }
 
+input[type="checkbox"]:disabled {
+  cursor: default;
+}
+
+input[type="checkbox"]:disabled:hover {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+input[type="checkbox"]:disabled:checked {
+  background: var(--color-neutral);
+  border-color: var(--color-neutral);
+}
+
 input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
