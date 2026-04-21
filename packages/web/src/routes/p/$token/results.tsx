@@ -9,7 +9,7 @@ export const Route = createFileRoute("/p/$token/results")({
   component: ResultsRoute,
 });
 
-function ResultsRoute() {
+export function ResultsRoute() {
   const { token, authedStatus } = usePersonApp();
   const navigate = useNavigate();
   const trpc = useTRPC();
