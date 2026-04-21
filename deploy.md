@@ -38,6 +38,7 @@ docker run -d --name spreadsheet \
   -e DATABASE_URL=postgres://user:pass@host/db \
   -e STOKEN_SECRET="$(openssl rand -base64 32)" \
   -p 8080:8080 \
+  -p 9090:9090 \
   "$IMAGE"
 ```
 
@@ -55,6 +56,7 @@ docker run -d --name spreadsheet \
   -e DATABASE_URL=... \
   -e STOKEN_SECRET=... \
   -p 8080:8080 \
+  -p 9090:9090 \
   "$IMAGE"
 ```
 
