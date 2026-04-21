@@ -1,5 +1,4 @@
 import type { FallbackProps } from "react-error-boundary";
-import { Sentry } from "../lib/sentry.js";
 import { Button } from "./Button.js";
 import { Card } from "./Card.js";
 
@@ -61,8 +60,7 @@ export function ScreenErrorFallback({ error, resetErrorBoundary }: Readonly<Fall
   );
 }
 
-/** Error handler — logs to console + Sentry */
+/** Error handler — logs to console */
 export function handleError(error: unknown, info: { componentStack?: string | null }) {
   console.error("Error boundary caught:", error, info.componentStack);
-  Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
 }

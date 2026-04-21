@@ -10,15 +10,14 @@ import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
+import { registry, wsConnectionsGauge } from "./metrics.js";
 import { requestLogger } from "./request-logger.js";
-import { initSentry } from "./sentry.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
 import { createContext, createWSContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
-initSentry();
 logger.info("server starting");
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -41,6 +40,11 @@ app.use("*", requestLogger(logger));
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
 
+// Prometheus metrics — internal scrape target
+app.get("/metrics", async (c) => {
+  return c.text(await registry.metrics(), 200, { "Content-Type": registry.contentType });
+});
+
 // Compress API responses (static files are pre-compressed)
 app.use("/api/*", compress());
 
@@ -56,7 +60,6 @@ app.use(
 
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
-  SENTRY_DSN: process.env.SENTRY_DSN_FRONTEND ?? process.env.SENTRY_DSN ?? "",
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
 });
 const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
@@ -152,8 +155,12 @@ const wssHandler = applyWSSHandler({
 });
 
 wss.on("connection", (ws) => {
+  wsConnectionsGauge.inc();
   logger.debug("ws connection opened");
-  ws.on("close", () => logger.debug("ws connection closed"));
+  ws.on("close", () => {
+    wsConnectionsGauge.dec();
+    logger.debug("ws connection closed");
+  });
 });
 
 server.on("upgrade", (req, socket, head) => {

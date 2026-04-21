@@ -3,6 +3,7 @@ import { AnatomyLabels, AnatomyPicker, groupStatusSchema, QuestionMode } from "@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
+import { groupsCreatedCounter, groupsSetupCompletedCounter } from "../../metrics.js";
 import {
   authedProcedure,
   broadcastingAdminProcedure,
@@ -26,7 +27,9 @@ export const groupsRouter = router({
       if (process.env.REQUIRE_ENCRYPTION !== "false" && !input.encrypted) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Encryption is required" });
       }
-      return ctx.groups.create(input);
+      const result = await ctx.groups.create(input);
+      groupsCreatedCounter.inc();
+      return result;
     }),
 
   setupAdmin: publicProcedure
@@ -61,6 +64,7 @@ export const groupsRouter = router({
         }
       }
 
+      groupsSetupCompletedCounter.inc();
       return { partnerTokens: result.partnerTokens };
     }),
 

@@ -1,5 +1,4 @@
 interface EnvConfig {
-  SENTRY_DSN?: string;
   REQUIRE_ENCRYPTION?: boolean;
 }
 
