@@ -8,6 +8,14 @@ export const NAV_TIMEOUT = 5_000;
 export const WS_TIMEOUT = 10_000;
 
 /**
+ * Tighter timeout for the realtime-status perf test. 5 s is enough for a
+ * single first-delivery attempt; if WS had to reconnect and retry, the elapsed
+ * time would be >5 s and the assertion would fail, catching the regression.
+ * Use WS_TIMEOUT everywhere else.
+ */
+export const WS_PERF_TIMEOUT = 5_000;
+
+/**
  * E2E test helpers — UI-driven by policy.
  *
  * ## The bypass policy
