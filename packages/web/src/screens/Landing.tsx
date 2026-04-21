@@ -99,6 +99,8 @@ export function Landing() {
 
 function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => void }>) {
   const trpc = useTRPC();
+  // window.__ENV is injected by the Hono server at request time. When undefined
+  // (e.g. raw `vite dev` without the Hono server), fail closed — treat as required.
   const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
   const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
