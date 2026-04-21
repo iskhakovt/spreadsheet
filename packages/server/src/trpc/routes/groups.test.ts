@@ -91,15 +91,11 @@ describe("groups.create", () => {
   it("rejects unencrypted group when REQUIRE_ENCRYPTION is enforced", async () => {
     vi.stubEnv("REQUIRE_ENCRYPTION", "true");
     const caller = createCaller(mockCtx({}));
-    await expect(
-      caller.groups.create({
-        encrypted: false,
-        questionMode: "all",
-        showTiming: true,
-        anatomyLabels: null,
-        anatomyPicker: null,
-      }),
-    ).rejects.toThrow("Encryption is required");
+    const err = await caller.groups
+      .create({ encrypted: false, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null })
+      .catch((e) => e);
+    expect(err.message).toBe("Encryption is required");
+    expect(err.code).toBe("BAD_REQUEST");
   });
 });
 
