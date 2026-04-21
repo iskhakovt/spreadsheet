@@ -44,7 +44,7 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     child[level](fields, "request");
 
     httpRequestDuration.observe(
-      { method: c.req.method, path: sanitizedPath, status: String(status) },
+      { method: c.req.method, path: sanitizedPath, status: `${Math.floor(status / 100)}xx` },
       durationMs / 1000,
     );
   };
