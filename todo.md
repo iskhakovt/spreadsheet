@@ -3,6 +3,8 @@
 ## Next
 
 - [ ] `p3` v2 illustrations — AI-generated via Flux on RunPod
+- [ ] `p2` Backend validates that sync payloads match the group's encryption setting — `sync.push` currently accepts `p:1:` plaintext ops on an encrypted group and vice versa; server should reject mismatches
+- [ ] `p3` Consider replacing `window.__ENV` inline injection with a startup-generated `env-config.js` static file to avoid the route-ordering dependency on `serveStatic`
 - [ ] `p2` Rotate person token on first land — admin currently knows partner tokens (returned by `setupAdmin`), so they could use a partner's token to read unsubmitted answers via the sync journal. Rotating the token when the partner first opens their link would close this.
 
 ## Later
