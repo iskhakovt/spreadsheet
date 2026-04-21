@@ -9,6 +9,7 @@ build/
 test-results/
 playwright-report/
 e2e/.e2e-port
+e2e/.e2e-metrics-port
 
 # Local design mocks / exploration scratch
 design/mocks/
