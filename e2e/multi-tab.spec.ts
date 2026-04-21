@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, goThroughIntro, narrowToCategory, personBase } from "./helpers.js";
+import { answerAllQuestions, goThroughIntro, narrowToCategory, personBase, WS_TIMEOUT } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
   test("admin opens partner link in same browser — answers don't cross-contaminate", async ({
@@ -135,7 +135,7 @@ test.describe("multi-tab isolation", () => {
 
     // Bob should reach waiting or results
     await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
-      timeout: 10000,
+      timeout: WS_TIMEOUT,
     });
   });
 

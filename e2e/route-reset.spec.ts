@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory } from "./helpers.js";
 
 // Mobile viewport — short enough that Summary overflows the viewport,
 // so the test exercises the real "user scrolled the page before the
@@ -65,7 +65,7 @@ test.describe("useScrollReset — scroll on sub-state transitions", () => {
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible({ timeout: NAV_TIMEOUT });
 
     // Shrink viewport so the question card overflows — at 664 px it fits and
     // scrollTo(0, 400) would be a no-op.
@@ -85,7 +85,7 @@ test.describe("useScrollReset — scroll on sub-state transitions", () => {
     await page.getByRole("button", { name: "Get started", exact: true }).click();
     await page.getByRole("radio", { name: "All questions", exact: true }).click();
     await page.getByRole("button", { name: "Create group", exact: true }).click();
-    await expect(page.getByText("Set up your group")).toBeVisible();
+    await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     await page.getByPlaceholder("Enter your name").fill("Alice");
     await page.getByPlaceholder("Partner's name").fill("Bob");

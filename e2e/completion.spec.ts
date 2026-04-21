@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory } from "./helpers.js";
 
 for (const encrypted of [false, true]) {
   test.describe(`completion flow (${encrypted ? "encrypted" : "plaintext"})`, () => {
@@ -25,7 +25,7 @@ for (const encrypted of [false, true]) {
       await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Should land on waiting screen
-      await expect(page.getByText("Waiting for everyone")).toBeVisible();
+      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
     });
 
     test("mark complete from All Done screen", async ({ page }) => {
@@ -39,7 +39,7 @@ for (const encrypted of [false, true]) {
       await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Should land on waiting screen
-      await expect(page.getByText("Waiting for everyone")).toBeVisible();
+      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
     });
 
     test("complete → refresh → stays on waiting", async ({ page }) => {
@@ -49,11 +49,11 @@ for (const encrypted of [false, true]) {
       await narrowToCategory(page, "Group & External");
       await answerAllQuestions(page, "no");
       await page.getByRole("button", { name: "I'm done", exact: true }).click();
-      await expect(page.getByText("Waiting for everyone")).toBeVisible();
+      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
 
       // Refresh — should stay on waiting, not bounce back to questions
       await page.reload();
-      await expect(page.getByText("Waiting for everyone")).toBeVisible();
+      await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
     });
   });
 }

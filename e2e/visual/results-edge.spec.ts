@@ -1,5 +1,5 @@
 import { expect, test } from "../fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "../helpers.js";
+import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, WS_TIMEOUT } from "../helpers.js";
 
 test.describe("results edge cases", () => {
   test("results with timing — green-light column visible", async ({ alice, bob }) => {
@@ -19,7 +19,7 @@ test.describe("results edge cases", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both answered yes + now → green-light matches with "Go for it" column
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice).toHaveScreenshot("results-with-timing.png");
   });
 
@@ -40,7 +40,7 @@ test.describe("results edge cases", () => {
     await answerAllQuestions(bob, "no");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 10_000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice.getByText("No overlaps")).toBeVisible();
     await expect(alice).toHaveScreenshot("results-empty.png");
   });

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory, WS_TIMEOUT } from "./helpers.js";
 
 for (const encrypted of [false, true]) {
   test.describe(`refresh persistence (${encrypted ? "encrypted" : "plaintext"})`, () => {
@@ -24,7 +24,7 @@ for (const encrypted of [false, true]) {
       await expect(
         page.getByText(/\d+ questions/).or(page.getByRole("radio", { name: "Yes", exact: true })),
       ).toBeVisible({
-        timeout: 10000,
+        timeout: WS_TIMEOUT,
       });
     });
 
@@ -36,11 +36,11 @@ for (const encrypted of [false, true]) {
         await page.getByLabel("End-to-end encryption").check();
       }
       await page.getByRole("button", { name: "Create group", exact: true }).click();
-      await expect(page.getByText("Set up your group")).toBeVisible();
+      await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
 
       await page.reload();
 
-      await expect(page.getByText("Set up your group")).toBeVisible();
+      await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     });
   });
 }

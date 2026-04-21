@@ -1,6 +1,12 @@
 import { expect, type Page } from "@playwright/test";
 import { fnv1a } from "../packages/shared/src/hash.js";
 
+/** Timeout for assertions that follow a server mutation or client-side route change. */
+export const NAV_TIMEOUT = 5_000;
+
+/** Timeout for assertions that wait for a WebSocket broadcast (e.g. both-complete → results). */
+export const WS_TIMEOUT = 10_000;
+
 /**
  * E2E test helpers — UI-driven by policy.
  *
