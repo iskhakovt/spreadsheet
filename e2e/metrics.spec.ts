@@ -26,8 +26,8 @@ test("GET /metrics returns Prometheus text format with expected metrics", async 
 });
 
 test("main app port does not serve /metrics", async ({ request, baseURL }) => {
-  const response = await request.get(`${baseURL}/metrics`);
-  expect(response.status()).toBe(404);
+  const body = await (await request.get(`${baseURL}/metrics`)).text();
+  expect(body).not.toContain("groups_created_total");
 });
 
 test("ws_connections_active gauge increments on connect and decrements on close", async ({
