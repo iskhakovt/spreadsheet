@@ -18,8 +18,6 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
-| `SENTRY_DSN` | No | — | Sentry/GlitchTip DSN for server errors |
-| `SENTRY_DSN_FRONTEND` | No | `$SENTRY_DSN` | Separate DSN for frontend (injected at runtime) |
 
 Generate `STOKEN_SECRET`:
 ```bash
@@ -72,8 +70,20 @@ docker run -d --name spreadsheet \
 
 ```bash
 curl http://localhost:8080/health
-# {"status":"ok"}
+# {"status":"ok","version":"1.2.3"}
 ```
+
+## Metrics
+
+Prometheus metrics are available on the same port:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+Point your Prometheus scrape config at `host:8080/metrics`. The endpoint is unauthenticated — restrict access at the network level (firewall rule, internal-only network) rather than exposing it publicly.
+
+Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, plus Node.js default metrics (event loop lag, memory, CPU).
 
 ## Logging
 
@@ -86,15 +96,6 @@ docker logs spreadsheet | jq .
 Set `LOG_LEVEL=debug` for verbose output during troubleshooting.
 
 Tokens and auth headers are redacted at the logger level — see [design/server.md](design/server.md#secret-redaction) for the mechanism and its limitations.
-
-## Monitoring
-
-Sentry/GlitchTip is optional. Two DSNs:
-
-- `SENTRY_DSN` — used by the server. Unset to disable server-side error reporting.
-- `SENTRY_DSN_FRONTEND` — used by the browser bundle. Defaults to `SENTRY_DSN` if unset. Set separately when you want client and server errors to land in different projects.
-
-The frontend DSN is **injected at serve time** into `index.html` as `window.__ENV.SENTRY_DSN`, not baked into the JS bundle. This means the same built image can target multiple environments without rebuilding — changing the env var and restarting is enough.
 
 ## Notes
 

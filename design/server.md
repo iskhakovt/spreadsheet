@@ -6,8 +6,8 @@ packages/server/src/
   index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
   events.ts   ← Two EventEmitter instances: groupEvents, journalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
-  request-logger.ts ← Per-request child logger with reqId
-  sentry.ts   ← Optional Sentry/GlitchTip init (env-gated)
+  request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
+  metrics.ts  ← prom-client registry, counters, gauges, histogram exports
   db/         ← schema, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
@@ -70,7 +70,7 @@ Call sites still shouldn't pass tokens to the logger — the above are defense i
 
 Routes throw `TRPCError` with standard codes (`UNAUTHORIZED`, `NOT_FOUND`, `CONFLICT`, `PRECONDITION_FAILED`, `BAD_REQUEST`). The tRPC error formatter serializes them for the client; the frontend maps each code to user-facing behavior via the TanStack Query error boundary.
 
-Unexpected exceptions propagate to Sentry (when configured) with the sanitized error serializer applied.
+Unexpected exceptions surface as 5xx responses, logged at `error` level by the request logger and counted by the HTTP duration histogram (`http_request_duration_seconds{status="5xx"}`).
 
 ## CLI dispatcher
 
@@ -87,16 +87,37 @@ Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md)
 
 `index.ts` (the serve path) is imported directly by `tsx watch` in dev, bypassing the CLI dispatcher — dev never touches migrate/seed.
 
+## Metrics
+
+`packages/server/src/metrics.ts` exports a single prom-client `Registry` and all metric instances. The `/metrics` endpoint (on the main HTTP port) returns the Prometheus text exposition format for scraping.
+
+### Infrastructure metrics
+
+`collectDefaultMetrics()` provides event loop lag, memory, CPU, and GC stats out of the box.
+
+- **`ws_connections_active`** (gauge) — incremented on WS `connection`, decremented on `close`
+- **`http_request_duration_seconds`** (histogram) — recorded by `request-logger.ts` for every request except `/health` and `/metrics`; path label uses `sanitizePath` to normalise `/p/:token/*` → `/p/[REDACTED]/*`
+
+### Product funnel counters
+
+| Metric | Incremented in |
+|-|-|
+| `groups_created_total` | `groups.create` |
+| `groups_setup_completed_total` | `groups.setupAdmin` (success only) |
+| `sync_push_total` | `sync.push` |
+| `mark_complete_total` | `sync.markComplete` |
+| `results_viewed_total` | `analytics.track` tRPC mutation, called from the results screen on mount |
+
 ## Runtime config injection
 
-The frontend reads optional runtime values (e.g. `SENTRY_DSN`) from `window.__ENV`, which is injected into the served `index.html` at serve time:
+The frontend reads runtime values from `window.__ENV`, which is injected into the served `index.html` at serve time:
 
 ```ts
 const envScript = `<script>window.__ENV=${JSON.stringify(runtimeEnv)}</script>`;
 indexHtml = readFileSync(...).replace("</head>", `${envScript}</head>`);
 ```
 
-This keeps the built static bundle free of environment-specific values and lets the same image target multiple environments. `SENTRY_DSN_FRONTEND` overrides `SENTRY_DSN` for the browser bundle, so client and server can report to different projects if desired.
+This keeps the built static bundle free of environment-specific values and lets the same image target multiple environments without rebuilding.
 
 ## Graceful shutdown
 
