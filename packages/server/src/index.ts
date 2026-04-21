@@ -40,20 +40,6 @@ app.use("*", requestLogger(logger));
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
 
-// Prometheus metrics — internal scrape target.
-// Restrict at the network level (firewall / internal-only network) in production.
-// Optionally set METRICS_TOKEN to require a bearer token as a second layer.
-app.get("/metrics", async (c) => {
-  const token = process.env.METRICS_TOKEN;
-  if (token) {
-    const auth = c.req.header("authorization");
-    if (auth !== `Bearer ${token}`) {
-      return c.text("Unauthorized", 401);
-    }
-  }
-  return c.text(await registry.metrics(), 200, { "Content-Type": registry.contentType });
-});
-
 // Compress API responses (static files are pre-compressed)
 app.use("/api/*", compress());
 
@@ -147,6 +133,19 @@ server.on("listening", () => {
   logger.info({ port: actualPort }, "server listening");
 });
 
+// Metrics server — separate port so it can be firewalled off from public traffic
+const metricsApp = new Hono();
+metricsApp.get("/metrics", async (c) =>
+  c.text(await registry.metrics(), 200, { "Content-Type": registry.contentType }),
+);
+const metricsPort = process.env.METRICS_PORT !== undefined ? Number(process.env.METRICS_PORT) : 9090;
+const metricsServer = serve({ fetch: metricsApp.fetch, port: metricsPort });
+metricsServer.on("listening", () => {
+  const addr = metricsServer.address();
+  const actualPort = typeof addr === "object" && addr ? addr.port : metricsPort;
+  logger.info({ port: actualPort }, "metrics server listening");
+});
+
 // WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
 // `noServer: true` lets us pick which upgrade requests to handle so the rest
 // (e.g. Vite HMR in dev) fall through.
@@ -186,6 +185,7 @@ process.on("SIGTERM", () => {
   logger.info("SIGTERM received — shutting down");
   wssHandler.broadcastReconnectNotification();
   wss.close();
+  metricsServer.close();
   server.close(() => {
     logger.info("http server closed");
   });

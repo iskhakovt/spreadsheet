@@ -14,9 +14,8 @@ export function sanitizePath(path: string): string {
 
 export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerEnv> {
   return async (c, next) => {
-    // Container orchestrators hit /health every few seconds and Prometheus
-    // scrapes /metrics — skip both to avoid drowning the signal.
-    if (c.req.path === "/health" || c.req.path === "/metrics") return next();
+    // Container orchestrators hit /health every few seconds — skip to avoid drowning the signal.
+    if (c.req.path === "/health") return next();
 
     const reqId = randomUUID();
     const child = rootLogger.child({ reqId });

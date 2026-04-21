@@ -89,7 +89,7 @@ Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md)
 
 ## Metrics
 
-`packages/server/src/metrics.ts` exports a single prom-client `Registry` and all metric instances. The `/metrics` endpoint (on the main HTTP port) returns the Prometheus text exposition format for scraping.
+`packages/server/src/metrics.ts` exports a single prom-client `Registry` and all metric instances. A dedicated metrics-only Hono app serves `GET /metrics` on a separate port (default `9090`, configurable via `METRICS_PORT`), so it can be firewalled off from public traffic independently of the main app.
 
 ### Infrastructure metrics
 

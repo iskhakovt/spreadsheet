@@ -17,8 +17,8 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `DATABASE_URL` | Yes | — | Postgres connection string |
 | `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
+| `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
-| `METRICS_TOKEN` | No | — | Bearer token required on `GET /metrics`; unset = no auth (restrict via firewall instead) |
 
 Generate `STOKEN_SECRET`:
 ```bash
@@ -82,7 +82,7 @@ Prometheus metrics are available on the same port:
 curl http://localhost:8080/metrics
 ```
 
-Point your Prometheus scrape config at `host:8080/metrics`. The endpoint is unauthenticated — restrict access at the network level (firewall rule, internal-only network) rather than exposing it publicly.
+The metrics server listens on a separate port (default `9090`) so it can be firewalled off from public traffic independently of the main app port. Point your Prometheus scrape config at `host:9090/metrics` and bind `METRICS_PORT` to an internal-only network interface.
 
 Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, plus Node.js default metrics (event loop lag, memory, CPU).
 
