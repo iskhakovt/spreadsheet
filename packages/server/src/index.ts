@@ -39,7 +39,7 @@ const app = new Hono<HonoLoggerEnv>();
 app.use("*", requestLogger(logger));
 
 // Health check — container orchestration uses this
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
 
 // Compress API responses (static files are pre-compressed)
 app.use("/api/*", compress());
