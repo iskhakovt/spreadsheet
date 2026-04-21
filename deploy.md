@@ -1,6 +1,6 @@
 # Deploy
 
-Single container, single process, single port. Needs a Postgres database.
+Single container, single process. Exposes two ports: `8080` (app) and `9090` (Prometheus metrics). Needs a Postgres database.
 
 ## Image
 
