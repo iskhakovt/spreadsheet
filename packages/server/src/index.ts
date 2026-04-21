@@ -145,6 +145,9 @@ metricsServer.on("listening", () => {
   const actualPort = typeof addr === "object" && addr ? addr.port : metricsPort;
   logger.info({ port: actualPort }, "metrics server listening");
 });
+metricsServer.on("error", (err) => {
+  logger.error(err, "metrics server error");
+});
 
 // WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
 // `noServer: true` lets us pick which upgrade requests to handle so the rest

@@ -78,13 +78,13 @@ curl http://localhost:8080/health
 
 ## Metrics
 
-Prometheus metrics are available on the same port:
+Prometheus metrics are available on a dedicated port (default `9090`):
 
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:9090/metrics
 ```
 
-The metrics server listens on a separate port (default `9090`) so it can be firewalled off from public traffic independently of the main app port. Point your Prometheus scrape config at `host:9090/metrics` and bind `METRICS_PORT` to an internal-only network interface.
+The metrics server listens on a separate port from the main app (default `9090`) so it can be firewalled off from public traffic independently. Point your Prometheus scrape config at `host:9090/metrics` and bind `METRICS_PORT` to an internal-only network interface.
 
 Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, plus Node.js default metrics (event loop lag, memory, CPU).
 
