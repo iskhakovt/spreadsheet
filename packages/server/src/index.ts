@@ -40,8 +40,17 @@ app.use("*", requestLogger(logger));
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
 
-// Prometheus metrics — internal scrape target
+// Prometheus metrics — internal scrape target.
+// Restrict at the network level (firewall / internal-only network) in production.
+// Optionally set METRICS_TOKEN to require a bearer token as a second layer.
 app.get("/metrics", async (c) => {
+  const token = process.env.METRICS_TOKEN;
+  if (token) {
+    const auth = c.req.header("authorization");
+    if (auth !== `Bearer ${token}`) {
+      return c.text("Unauthorized", 401);
+    }
+  }
   return c.text(await registry.metrics(), 200, { "Content-Type": registry.contentType });
 });
 

@@ -32,9 +32,10 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     // rethrow. Inspect `c.error` to detect downstream failures.
     const status = c.res.status;
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+    const sanitizedPath = sanitizePath(c.req.path);
     const fields: Record<string, unknown> = {
       method: c.req.method,
-      path: sanitizePath(c.req.path),
+      path: sanitizedPath,
       status,
       durationMs,
     };
@@ -44,7 +45,7 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     child[level](fields, "request");
 
     httpRequestDuration.observe(
-      { method: c.req.method, path: sanitizePath(c.req.path), status: String(status) },
+      { method: c.req.method, path: sanitizedPath, status: String(status) },
       durationMs / 1000,
     );
   };

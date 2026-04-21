@@ -18,6 +18,7 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
+| `METRICS_TOKEN` | No | — | Bearer token required on `GET /metrics`; unset = no auth (restrict via firewall instead) |
 
 Generate `STOKEN_SECRET`:
 ```bash
