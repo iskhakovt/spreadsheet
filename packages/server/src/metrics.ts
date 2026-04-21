@@ -33,6 +33,7 @@ export const groupsSetupCompletedCounter = new Counter({
 export const syncPushCounter = new Counter({
   name: "sync_push_total",
   help: "Total sync push operations",
+  labelNames: ["result"],
   registers: [registry],
 });
 

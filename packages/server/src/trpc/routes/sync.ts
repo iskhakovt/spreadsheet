@@ -50,7 +50,7 @@ export const syncRouter = router({
         emitJournalUpdate(ctx.group.id, result.committedEntries);
       }
 
-      syncPushCounter.inc();
+      syncPushCounter.inc({ result: result.pushRejected ? "conflict" : "clean" });
       // The committedEntries field is internal — don't expose it on the wire.
       const { committedEntries: _committedEntries, ...wireResult } = result;
       return wireResult;
