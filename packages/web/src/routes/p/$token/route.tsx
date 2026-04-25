@@ -3,7 +3,6 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { useStore } from "zustand";
 import { Card } from "../../../components/Card.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
 import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
@@ -14,7 +13,7 @@ import {
   PersonAppContext,
   type PersonAppContextValue,
 } from "../../../lib/person-app-context.js";
-import { sessionStore, setExchanged, setSession } from "../../../lib/session.js";
+import { setExchanged, setSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient, wsClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
@@ -79,12 +78,6 @@ function PersonAppLayout() {
       prevTokenRef.current = token;
     }
   }, [token, queryClient]);
-
-  // Restart WS after exchange so it reconnects with sessionKey instead of token.
-  const exchanged = useStore(sessionStore, (s) => s.exchanged);
-  useEffect(() => {
-    if (exchanged) wsClient.close();
-  }, [exchanged]);
 
   const { status, refresh: refreshStatus } = useLiveStatus(token);
   const trpcProxy = useTRPC();
