@@ -117,35 +117,21 @@ describe("wrapSensitive / unwrapSensitive", () => {
   });
 
   it("wrap returns raw string when no session key", async () => {
-    // No key in URL or sessionStorage → wrapSensitive returns raw
+    // No key in URL hash → wrapSensitive returns raw
     const result = await wrapSensitive("Alice");
     expect(result).toBe("Alice");
   });
 });
 
 describe("getGroupKeyFromUrl scope isolation", () => {
-  // Minimal window + sessionStorage stubs so getGroupKeyFromUrl exercises
-  // its caching + scoping logic end-to-end. In the node test env neither
-  // exists by default, and the `typeof window === "undefined"` short-circuit
-  // in the function would otherwise skip the real code path.
-  //
-  // `sessionStorage` is stubbed at the `describe` scope (not reset per-test)
-  // so the fallback-read path in `getGroupKeyFromUrl` can see a key written
-  // during the same tab, which is what the real-world flow does: the user
-  // opens an encrypted group, the key gets cached in sessionStorage scoped
-  // by their token, they then navigate to a second group in the same tab.
-  let sessionStoreMap: Map<string, string>;
+  // Minimal window stub so getGroupKeyFromUrl exercises its caching +
+  // scoping logic end-to-end. In the node test env `window` doesn't exist
+  // by default, and the `typeof window === "undefined"` short-circuit in
+  // the function would otherwise skip the real code path.
   let locationStub: { hash: string; pathname: string };
 
   beforeEach(() => {
-    sessionStoreMap = new Map<string, string>();
     locationStub = { hash: "", pathname: "/" };
-    vi.stubGlobal("sessionStorage", {
-      getItem: (k: string) => sessionStoreMap.get(k) ?? null,
-      setItem: (k: string, v: string) => void sessionStoreMap.set(k, v),
-      removeItem: (k: string) => void sessionStoreMap.delete(k),
-      clear: () => sessionStoreMap.clear(),
-    });
     vi.stubGlobal("window", { location: locationStub });
     // Reset module state so each test gets fresh `cachedGroupKey` /
     // `cachedScope` + a fresh Zustand sessionStore.
@@ -181,49 +167,52 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     // and the new token must not see group A's key. This is the
     // regression test for the `e:1:` leak we observed in prod:
     // before the scoping fix, `getGroupKeyFromUrl` for TOKEN_B
-    // would return GROUP_A_KEY from the module-level + sessionStorage
-    // cache, and TOKEN_B's answers would be encrypted with A's key.
+    // would return GROUP_A_KEY from the module-level cache, and
+    // TOKEN_B's answers would be encrypted with A's key.
     locationStub.hash = "";
     setSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBeNull();
-
-    // Going back to token A should still surface A's key because it
-    // was stored scoped under A's hash in sessionStorage.
-    setSession("TOKEN_A");
-    expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
   });
 
-  it("keeps separate keys for two encrypted groups visited in the same tab", async () => {
+  it("returns the key when the hash is still present after a scope change", async () => {
     const { getGroupKeyFromUrl, setSession } = await loadModules();
 
     locationStub.hash = "#key=KEY_A";
     setSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("KEY_A");
 
+    // Navigate to a second encrypted group whose key is in the URL hash
     locationStub.hash = "#key=KEY_B";
     setSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBe("KEY_B");
+  });
 
-    // Switch back — each scope remembers its own key via sessionStorage
-    locationStub.hash = "";
+  it("returns null after a scope change when the hash is gone (key not retained across scopes)", async () => {
+    const { getGroupKeyFromUrl, setSession } = await loadModules();
+
+    // Cache key for group A
+    locationStub.hash = "#key=KEY_A";
     setSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("KEY_A");
+
+    // Switch to group B with no hash — key is not available
+    locationStub.hash = "";
+    setSession("TOKEN_B");
+    expect(getGroupKeyFromUrl()).toBeNull();
+
+    // Switch back to TOKEN_A without a hash — in-memory store does not
+    // survive a scope invalidation, so the key is gone. The user would
+    // need to navigate via a link that includes #key= to restore it.
+    setSession("TOKEN_A");
+    expect(getGroupKeyFromUrl()).toBeNull();
   });
 });
 
 describe("buildPersonLink", () => {
-  let sessionStoreMap: Map<string, string>;
   let locationStub: { hash: string; pathname: string; origin: string };
 
   beforeEach(() => {
-    sessionStoreMap = new Map<string, string>();
     locationStub = { hash: "", pathname: "/", origin: "https://example.com" };
-    vi.stubGlobal("sessionStorage", {
-      getItem: (k: string) => sessionStoreMap.get(k) ?? null,
-      setItem: (k: string, v: string) => void sessionStoreMap.set(k, v),
-      removeItem: (k: string) => void sessionStoreMap.delete(k),
-      clear: () => sessionStoreMap.clear(),
-    });
     vi.stubGlobal("window", { location: locationStub });
     vi.resetModules();
   });

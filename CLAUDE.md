@@ -29,7 +29,7 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 ### Key Patterns
 
 - **Admin token flow** — `groups.create` returns `adminToken` (no person). `setupAdmin` creates admin + partners + marks ready in one transaction, reusing adminToken as person token.
-- **Encryption** — key in URL fragment `#key=...`, cached in `sessionStorage`. `wrapSensitive`/`unwrapSensitive` handle encrypt/decrypt transparently. Opaque `p:1:`/`e:1:` prefix format.
+- **Encryption** — key in URL fragment `#key=...`, cached in a module-scoped in-memory variable (not sessionStorage — in-memory never leaves a trace). `wrapSensitive`/`unwrapSensitive` handle encrypt/decrypt transparently. Opaque `p:1:`/`e:1:` prefix format.
 - **Routing** — TanStack Router v1 file-based routing. Route tree auto-generated to `src/routeTree.gen.ts` (excluded from linting). Structure: `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/routes/p/$token/route.tsx` (layout) + 10 child screen routes.
   - **Universal guard**: `resolveRoute()` computes the correct screen from status. Lives in the `/p/$token` layout component (not `beforeLoad`) so real-time WS status changes (e.g. everyone completes → `/results`) redirect before paint via `useLayoutEffect` + `navigate`. Free routes (`/group`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
   - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. `useMarkComplete` navigates to `/p/$token/waiting` explicitly after the mutation (the guard no longer auto-routes there).

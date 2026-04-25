@@ -102,17 +102,20 @@ export async function decodeValue<T = unknown>(opaque: string, groupKey?: string
  * URL format: https://example.com/p/token#key=base64urlKey
  * Returns null if no key in fragment (plaintext mode).
  *
- * The key is persisted to sessionStorage because:
- * - wouter's pushState drops the hash fragment during client-side navigation
- * - A full page reload clears in-memory state
- * sessionStorage survives reloads but not new tabs (each tab needs its own key from the URL).
+ * The key is held in a module-scoped variable (in-memory only):
+ * - TanStack Router drops the hash fragment during client-side navigation,
+ *   so we cache the key the first time we see it in the URL.
+ * - In-memory storage never leaves a trace (unlike sessionStorage) and is
+ *   not accessible to other scripts via the Web Storage API.
+ * - A full page reload clears the cache — the user must navigate back via
+ *   a full link that includes the #key= fragment, which is the expected flow.
  */
-// Module-level cache keyed by the session scope. Scoping is what prevents
-// the "earlier encrypted group's key leaks into a later unrelated group"
-// bug — without it, navigating from `/p/TOKEN_A#key=...` to a later
-// `/p/TOKEN_B` in the same tab would return TOKEN_A's key for TOKEN_B,
-// and TOKEN_B's unencrypted data would silently be wrapped with TOKEN_A's
-// key (observed as `e:1:` payloads on a `group.encrypted = false` row).
+// Module-level cache keyed by the session scope. Scoping prevents the
+// "earlier encrypted group's key leaks into a later unrelated group" bug —
+// without it, navigating from `/p/TOKEN_A#key=...` to a later `/p/TOKEN_B`
+// in the same tab would return TOKEN_A's key for TOKEN_B, and TOKEN_B's
+// unencrypted data would silently be wrapped with TOKEN_A's key (observed
+// as `e:1:` payloads on a `group.encrypted = false` row).
 let cachedGroupKey: string | null = null;
 let cachedScope: string | null = null;
 
@@ -121,9 +124,7 @@ export function getGroupKeyFromUrl(): string | null {
 
   const scope = getScope();
   // Invalidate the module cache when the token has changed — otherwise
-  // the previous group's key stays cached and gets returned for the new
-  // group. sessionStorage is also scope-prefixed below so the fallback
-  // read can't cross-contaminate either.
+  // the previous group's key stays cached and gets returned for the new group.
   if (cachedScope !== scope) {
     cachedGroupKey = null;
     cachedScope = scope;
@@ -135,11 +136,7 @@ export function getGroupKeyFromUrl(): string | null {
     const key = params.get("key");
     if (key) {
       cachedGroupKey = key;
-      sessionStorage.setItem(`${scope}groupKey`, key);
     }
-  }
-  if (!cachedGroupKey) {
-    cachedGroupKey = sessionStorage.getItem(`${scope}groupKey`);
   }
   return cachedGroupKey;
 }
