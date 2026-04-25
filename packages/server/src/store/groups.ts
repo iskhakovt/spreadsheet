@@ -150,7 +150,7 @@ export class GroupStore {
     });
   }
 
-  async getPersonByToken(token: string) {
+  async getPersonByToken(token: string): Promise<typeof persons.$inferSelect | null> {
     return this.#tx(async (tx) => {
       return tx
         .select()
@@ -161,7 +161,7 @@ export class GroupStore {
     });
   }
 
-  async getGroupById(groupId: string) {
+  async getGroupById(groupId: string): Promise<typeof groups.$inferSelect | null> {
     return this.#tx(async (tx) => {
       return tx
         .select()

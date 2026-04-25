@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents, journalEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
 import { syncPushCounter } from "../../metrics.js";
+import { strictMock } from "../../test/mocks.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -22,34 +23,23 @@ function mockCtx(
     questions: Partial<TrpcContext["questions"]>;
   }>,
 ): TrpcContext {
+  const groups = strictMock<TrpcContext["groups"]>();
+  const sync = strictMock<TrpcContext["sync"]>();
+  const questions = strictMock<TrpcContext["questions"]>();
+  if (overrides.groups) Object.assign(groups, overrides.groups);
+  if (overrides.sync) Object.assign(sync, overrides.sync);
+  if (overrides.questions) Object.assign(questions, overrides.questions);
   return {
-    groups: {
-      create: vi.fn(),
-      setupAdmin: vi.fn(),
-      addPerson: vi.fn(),
-      removePerson: vi.fn(),
-      setProfile: vi.fn(),
-      markReady: vi.fn(),
-      getPersonByToken: vi.fn(),
-      getGroupById: vi.fn(),
-      getStatus: vi.fn(),
-      ...overrides.groups,
-    },
-    sync: {
-      push: vi.fn(),
-      markComplete: vi.fn(),
-      unmarkComplete: vi.fn(),
-      journalSince: vi.fn(),
-      ...overrides.sync,
-    },
-    questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
+    groups,
+    sync,
+    questions,
     person: overrides.person ?? null,
     group: overrides.group ?? null,
     // authedProcedure requires personToken alongside person; default to a
     // dummy when a person is provided so mock-based tests mirror real usage.
     personToken: overrides.person ? "mock-token" : null,
     logger: silentLogger,
-  } as unknown as TrpcContext;
+  };
 }
 
 const person = { id: "p1", groupId: "g1", name: "Alice", anatomy: "afab", isAdmin: true, isCompleted: false };

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
-import { parse as parseCookies } from "cookie";
+import { parse as parseCookies } from "cookie-es";
 import type { Context as HonoContext } from "hono";
 import { getCookie } from "hono/cookie";
 import type { Logger } from "pino";

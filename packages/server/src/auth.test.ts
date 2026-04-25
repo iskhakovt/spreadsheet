@@ -1,16 +1,30 @@
 import { fnv1a } from "@spreadsheet/shared";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createAuthApp } from "./auth.js";
+import type { GroupStore } from "./store/groups.js";
+import { strictMock } from "./test/mocks.js";
 
-const person = { id: "p1", groupId: "g1", name: "Alice", anatomy: null, isAdmin: false, isCompleted: false };
+const person = {
+  id: "p1",
+  groupId: "g1",
+  name: "Alice",
+  anatomy: null,
+  token: "tkn",
+  isAdmin: false,
+  isCompleted: false,
+  progress: null,
+  createdAt: new Date(),
+};
 
-function makeApp(getPersonByToken: (token: string) => Promise<typeof person | null>) {
-  return createAuthApp({ getPersonByToken } as never);
+function makeApp(getPersonByToken?: GroupStore["getPersonByToken"]) {
+  const groups = strictMock<GroupStore>();
+  if (getPersonByToken) groups.getPersonByToken.mockImplementation(getPersonByToken);
+  return createAuthApp(groups);
 }
 
 describe("POST /auth/exchange", () => {
   it("returns 400 when body is not valid JSON", async () => {
-    const app = makeApp(vi.fn());
+    const app = makeApp();
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,7 +35,7 @@ describe("POST /auth/exchange", () => {
   });
 
   it("returns 400 when token is missing", async () => {
-    const app = makeApp(vi.fn());
+    const app = makeApp();
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,7 +46,7 @@ describe("POST /auth/exchange", () => {
   });
 
   it("returns 400 when token is not a string", async () => {
-    const app = makeApp(vi.fn());
+    const app = makeApp();
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -43,7 +57,7 @@ describe("POST /auth/exchange", () => {
   });
 
   it("returns 404 when token is not found", async () => {
-    const app = makeApp(vi.fn().mockResolvedValue(null));
+    const app = makeApp(async () => null);
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,7 +69,7 @@ describe("POST /auth/exchange", () => {
 
   it("returns 200 and sets httpOnly cookie on valid token", async () => {
     const token = "valid-token-abc";
-    const app = makeApp(vi.fn().mockResolvedValue(person));
+    const app = makeApp(async () => person);
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,10 +84,11 @@ describe("POST /auth/exchange", () => {
     expect(cookie.toLowerCase()).toContain("httponly");
     expect(cookie.toLowerCase()).toContain("samesite=strict");
     expect(cookie).toContain("Path=/");
+    expect(cookie).toContain(`Max-Age=${60 * 60 * 24 * 30}`);
   });
 
   it("sets Secure flag when x-forwarded-proto is https", async () => {
-    const app = makeApp(vi.fn().mockResolvedValue(person));
+    const app = makeApp(async () => person);
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-forwarded-proto": "https" },
@@ -83,7 +98,7 @@ describe("POST /auth/exchange", () => {
   });
 
   it("does not set Secure flag over http", async () => {
-    const app = makeApp(vi.fn().mockResolvedValue(person));
+    const app = makeApp(async () => person);
     const res = await app.request("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

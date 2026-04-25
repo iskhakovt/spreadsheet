@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { silentLogger } from "../../logger.js";
+import { strictMock } from "../../test/mocks.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -13,24 +14,14 @@ function mockCtx(
   }>,
 ): TrpcContext {
   return {
-    groups: {
-      create: vi.fn(),
-      setupAdmin: vi.fn(),
-      addPerson: vi.fn(),
-      removePerson: vi.fn(),
-      setProfile: vi.fn(),
-      markReady: vi.fn(),
-      getPersonByToken: vi.fn(),
-      getGroupById: vi.fn(),
-      getStatus: vi.fn(),
-    },
-    sync: { push: vi.fn(), markComplete: vi.fn(), unmarkComplete: vi.fn(), journalSince: vi.fn() },
-    questions: { list: vi.fn(), seed: vi.fn() },
+    groups: strictMock<TrpcContext["groups"]>(),
+    sync: strictMock<TrpcContext["sync"]>(),
+    questions: strictMock<TrpcContext["questions"]>(),
     person: overrides.person ?? null,
     group: overrides.group ?? null,
     personToken: overrides.person ? "mock-token" : null,
     logger: silentLogger,
-  } as unknown as TrpcContext;
+  };
 }
 
 const person = { id: "p1", groupId: "g1", name: "Alice", anatomy: null, isAdmin: false, isCompleted: false };
