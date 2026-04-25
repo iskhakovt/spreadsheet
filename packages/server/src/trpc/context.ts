@@ -76,7 +76,7 @@ export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOp
   const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
 
   if (params?.sessionKey) {
-    const cookieHeader = opts.req.headers["cookie"] ?? "";
+    const cookieHeader = opts.req.headers.cookie ?? "";
     const token = parseCookieValue(cookieHeader, `s_${params.sessionKey}`);
     return buildContext(stores, token, connLogger);
   }
