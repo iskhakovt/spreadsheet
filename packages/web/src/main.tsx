@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { NotFound } from "./components/not-found.js";
 import { makeQueryClient } from "./lib/query-client.js";
 import { routeTree } from "./routeTree.gen.js";
+import "@fontsource-variable/lexend";
 import "./index.css";
 
 const queryClient = makeQueryClient();

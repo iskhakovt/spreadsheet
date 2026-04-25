@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Lexend", sans-serif;
+  --font-sans: "Lexend Variable", sans-serif;
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --radius-lg: 20px;
   --radius-md: 16px;
