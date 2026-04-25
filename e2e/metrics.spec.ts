@@ -42,6 +42,11 @@ test("ws_connections_active gauge increments on connect and decrements on close"
 
   const before = await getGauge();
 
+  // Navigate so the page has the correct origin before opening the WebSocket.
+  // Without this, browsers at about:blank send Origin: null which the server
+  // rejects as part of the CSWSH defence.
+  await page.goto(baseURL!);
+
   const wsUrl = baseURL!.replace("http://", "ws://") + "/api/trpc-ws";
   await page.evaluate((url) => {
     return new Promise<void>((resolve) => {
