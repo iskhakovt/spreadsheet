@@ -5,9 +5,12 @@
    verify the page is stable. This stylesheet forces everything to a
    settled state. */
 
+/* `animation: none` removes the animation entirely, leaving the element at
+   its natural CSS state. Just zeroing duration/delay relies on
+   animation-fill-mode (set on individual rules) to hold the end state, which
+   doesn't always work for animations Playwright catches mid-flight. */
 *, *::before, *::after {
-  animation-duration: 0s !important;
-  animation-delay: 0s !important;
+  animation: none !important;
   transition: none !important;
 }
 
