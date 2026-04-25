@@ -55,6 +55,10 @@ app.use("*", async (c, next) => {
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "no-referrer");
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
+  if (c.req.header("x-forwarded-proto") === "https") {
+    c.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  }
 });
 
 // Health check — container orchestration uses this
