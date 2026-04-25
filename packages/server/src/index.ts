@@ -4,9 +4,11 @@ import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
+import { fnv1a } from "@spreadsheet/shared";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { type Context, Hono } from "hono";
 import { compress } from "hono/compress";
+import { setCookie } from "hono/cookie";
 import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
@@ -63,6 +65,27 @@ app.use("*", async (c, next) => {
 
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
+
+// Token exchange — client posts its person token once; server sets an httpOnly
+// cookie so subsequent requests authenticate without the token in headers.
+app.post("/auth/exchange", async (c) => {
+  const body = await c.req.json<{ token?: unknown }>();
+  const token = typeof body.token === "string" ? body.token : null;
+  if (!token) return c.json({ error: "missing_token" }, 400);
+
+  const person = await stores.groups.getPersonByToken(token);
+  if (!person) return c.json({ error: "not_found" }, 404);
+
+  const hash = fnv1a(token);
+  const isHttps = c.req.header("x-forwarded-proto") === "https";
+  setCookie(c, `s_${hash}`, token, {
+    httpOnly: true,
+    sameSite: "Strict",
+    path: "/",
+    secure: isHttps,
+  });
+  return c.json({ hash });
+});
 
 // Compress API responses (static files are pre-compressed)
 app.use("/api/*", compress());

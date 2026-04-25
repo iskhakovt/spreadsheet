@@ -1,7 +1,7 @@
 import { createTRPCClient, createWSClient, httpBatchLink, splitLink, wsLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
-import { getAuthToken } from "./session.js";
+import { getAuthHeaders, getAuthParams } from "./session.js";
 
 // WebSocket URL is built lazily inside createWSClient so SSR-style tooling
 // (which has no `location`) doesn't crash on import.
@@ -21,10 +21,7 @@ const wsUrl = (): string => {
 export const wsClient = createWSClient({
   url: wsUrl,
   lazy: { enabled: true, closeMs: 5_000 },
-  connectionParams: () => {
-    const token = getAuthToken();
-    return token ? { token } : {};
-  },
+  connectionParams: () => getAuthParams(),
 });
 
 /**
@@ -40,10 +37,7 @@ export function makeTrpcClient() {
         true: wsLink({ client: wsClient }),
         false: httpBatchLink({
           url: "/api/trpc",
-          headers() {
-            const token = getAuthToken();
-            return token ? { "x-person-token": token } : {};
-          },
+          headers: () => getAuthHeaders(),
         }),
       }),
     ],

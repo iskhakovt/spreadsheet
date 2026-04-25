@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
+import { useStore } from "zustand";
 import { Card } from "../../../components/Card.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
 import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
@@ -13,7 +14,7 @@ import {
   PersonAppContext,
   type PersonAppContextValue,
 } from "../../../lib/person-app-context.js";
-import { setSession } from "../../../lib/session.js";
+import { sessionStore, setExchanged, setSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient, wsClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
@@ -52,6 +53,21 @@ function PersonAppLayout() {
   // new token so tRPC hooks pick up the right credentials on next render).
   setSession(token);
 
+  // Exchange token for an httpOnly session cookie. Fire-and-forget — falls
+  // back to x-person-token header auth until the exchange completes or if
+  // it fails (e.g. offline). On success, subsequent requests use X-Session-Key.
+  useEffect(() => {
+    fetch("/auth/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    })
+      .then((res) => {
+        if (res.ok) setExchanged();
+      })
+      .catch(() => {});
+  }, [token]);
+
   // On in-tab navigation between two /p/:token URLs: close WS for a clean
   // auth handshake and drop any non-token-keyed cache entries.
   const prevTokenRef = useRef(token);
@@ -63,6 +79,12 @@ function PersonAppLayout() {
       prevTokenRef.current = token;
     }
   }, [token, queryClient]);
+
+  // Restart WS after exchange so it reconnects with sessionKey instead of token.
+  const exchanged = useStore(sessionStore, (s) => s.exchanged);
+  useEffect(() => {
+    if (exchanged) wsClient.close();
+  }, [exchanged]);
 
   const { status, refresh: refreshStatus } = useLiveStatus(token);
   const trpcProxy = useTRPC();

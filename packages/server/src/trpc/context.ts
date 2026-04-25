@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
 import type { Context as HonoContext } from "hono";
+import { getCookie } from "hono/cookie";
 import type { Logger } from "pino";
 import { type HonoLoggerEnv, logger as rootLogger } from "../logger.js";
 import type { GroupStore } from "../store/groups.js";
@@ -60,13 +61,33 @@ async function buildContext(stores: Stores, token: string | null, log: Logger): 
 }
 
 export async function createContext(stores: Stores, c: HonoContext<HonoLoggerEnv>): Promise<TrpcContext> {
+  const sessionKey = c.req.header("x-session-key");
+  if (sessionKey) {
+    const token = getCookie(c, `s_${sessionKey}`) ?? null;
+    return buildContext(stores, token, c.var.logger);
+  }
   return buildContext(stores, c.req.header("x-person-token") ?? null, c.var.logger);
 }
 
 export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOptions): Promise<TrpcContext> {
-  const params = opts.info.connectionParams as { token?: string } | undefined;
+  const params = opts.info.connectionParams as { token?: string; sessionKey?: string } | undefined;
   // `connId` is per-WS-connection (analogous to `reqId` for HTTP) — without it,
   // log lines from concurrent WS subscriptions can't be correlated.
   const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
+
+  if (params?.sessionKey) {
+    const cookieHeader = opts.req.headers["cookie"] ?? "";
+    const token = parseCookieValue(cookieHeader, `s_${params.sessionKey}`);
+    return buildContext(stores, token, connLogger);
+  }
   return buildContext(stores, params?.token ?? null, connLogger);
+}
+
+function parseCookieValue(header: string, name: string): string | null {
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+  }
+  return null;
 }
