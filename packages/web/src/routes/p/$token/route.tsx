@@ -56,15 +56,18 @@ function PersonAppLayout() {
   // back to x-person-token header auth until the exchange completes or if
   // it fails (e.g. offline). On success, subsequent requests use X-Session-Key.
   useEffect(() => {
+    const ac = new AbortController();
     fetch("/auth/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
+      signal: ac.signal,
     })
       .then((res) => {
         if (res.ok) setExchanged();
       })
       .catch(() => {});
+    return () => ac.abort();
   }, [token]);
 
   // On in-tab navigation between two /p/:token URLs: close WS for a clean

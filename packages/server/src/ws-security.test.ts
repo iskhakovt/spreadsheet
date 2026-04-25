@@ -22,6 +22,10 @@ describe("isAllowedOrigin", () => {
     expect(isAllowedOrigin("https://sub.example.com", "example.com")).toBe(false);
   });
 
+  it("allows when origin host differs only by case", () => {
+    expect(isAllowedOrigin("https://Example.com", "example.com")).toBe(true);
+  });
+
   it("rejects a malformed origin", () => {
     expect(isAllowedOrigin("not-a-url", "example.com")).toBe(false);
   });

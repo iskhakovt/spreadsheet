@@ -9,6 +9,17 @@ function makeApp(getPersonByToken: (token: string) => Promise<typeof person | nu
 }
 
 describe("POST /auth/exchange", () => {
+  it("returns 400 when body is not valid JSON", async () => {
+    const app = makeApp(vi.fn());
+    const res = await app.request("/auth/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not-json",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "missing_token" });
+  });
+
   it("returns 400 when token is missing", async () => {
     const app = makeApp(vi.fn());
     const res = await app.request("/auth/exchange", {

@@ -7,7 +7,7 @@
 export function isAllowedOrigin(origin: string | undefined, host: string): boolean {
   if (!origin) return true;
   try {
-    return new URL(origin).host === host;
+    return new URL(origin).host === host.toLowerCase();
   } catch {
     return false; // malformed origin
   }

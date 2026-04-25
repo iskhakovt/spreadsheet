@@ -7,7 +7,12 @@ export function createAuthApp(groups: GroupStore): Hono {
   const app = new Hono();
 
   app.post("/auth/exchange", async (c) => {
-    const body = await c.req.json<{ token?: unknown }>();
+    let body: { token?: unknown };
+    try {
+      body = await c.req.json<{ token?: unknown }>();
+    } catch {
+      return c.json({ error: "missing_token" }, 400);
+    }
     const token = typeof body.token === "string" ? body.token : null;
     if (!token) return c.json({ error: "missing_token" }, 400);
 
