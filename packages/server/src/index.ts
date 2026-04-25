@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
@@ -33,9 +34,28 @@ const stores = {
   questions: new QuestionStore(db),
 };
 
+// Runtime config injected into index.html as window.__ENV
+const runtimeEnv = JSON.stringify({
+  REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
+});
+const envScriptContent = `window.__ENV=${runtimeEnv}`;
+const envScript = `<script>${envScriptContent}</script>`;
+const envScriptHash = createHash("sha256").update(envScriptContent).digest("base64");
+
 const app = new Hono<HonoLoggerEnv>();
 
 app.use("*", requestLogger(logger));
+
+app.use("*", async (c, next) => {
+  await next();
+  c.header(
+    "Content-Security-Policy",
+    `default-src 'self'; script-src 'self' 'sha256-${envScriptHash}'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+  );
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "no-referrer");
+});
 
 // Health check — container orchestration uses this
 app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ?? "dev" }));
@@ -52,12 +72,6 @@ app.use(
     createContext: (_opts, c) => createContext(stores, c),
   }),
 );
-
-// Runtime config injected into index.html as window.__ENV
-const runtimeEnv = JSON.stringify({
-  REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
-});
-const envScript = `<script>window.__ENV=${runtimeEnv}</script>`;
 
 // SPA fallback. Two pre-rendered variants:
 //   default — landing & free routes: og:image = /og-image.png, standard copy
