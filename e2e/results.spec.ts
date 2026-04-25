@@ -1,16 +1,24 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import {
+  answerAllQuestions,
+  answerQuestionsCycling,
+  createGroupAndSetup,
+  goThroughIntro,
+  NAV_TIMEOUT,
+  narrowToCategory,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("results display", () => {
   test("shows correct match labels for different answer combinations", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
     // Alice: answer all questions as Yes + Now (showTiming enabled)
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
@@ -18,16 +26,16 @@ test.describe("results display", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(bob.getByText("You & Alice")).toBeVisible();
 
     // All should be green-light matches (both yes + both now). Target the
     // data-match-type attribute on match rows so we don't collide with the
     // summary-strip label which also reads "Go for it".
     const greenLightRows = bob.locator('[data-testid="match-row"][data-match-type="green-light"]');
-    await expect(greenLightRows.first()).toBeVisible();
+    await expect(greenLightRows.first()).toBeVisible({ timeout: WS_TIMEOUT });
     expect(await greenLightRows.count()).toBeGreaterThan(0);
 
     // No other match types should appear — target by data-match-type so
@@ -40,45 +48,60 @@ test.describe("results display", () => {
 
   test("mixed answers produce varied match types", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
 
-    // Alice: answer all as Maybe
-    await answerAllQuestions(alice, "maybe");
-    await alice.getByRole("button", { name: "I'm done" }).click();
-    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+    // "Group & External" has 8 screens in all-questions mode (7 questions,
+    // cuckolding splits into give + receive). Arrays are sized to cover
+    // each screen exactly once.
+    //
+    // Screen mapping (seed order):
+    //   1 threesome-mff  (mutual)   Alice: yes      Bob: yes      → match
+    //   2 threesome-mmf  (mutual)   Alice: maybe    Bob: yes      → possible
+    //   3 swinging       (mutual)   Alice: maybe    Bob: maybe    → both-maybe
+    //   4 soft-swap      (mutual)   Alice: fantasy  Bob: fantasy  → fantasy
+    //   5 cuckolding:give           Alice: yes      Bob: no       ┐ cross-role:
+    //   6 cuckolding:receive        Alice: no       Bob: yes      ┘ give↔recv = match
+    //   7 watching-partner (mutual) Alice: ipw      Bob: maybe    → possible
+    //   8 being-watched   (mutual)  Alice: maybe    Bob: ipw      → possible
+    const aliceRatings = ["yes", "maybe", "maybe", "fantasy", "yes", "no", "if-partner-wants", "maybe"] as const;
+    const bobRatings = ["yes", "yes", "maybe", "fantasy", "no", "yes", "maybe", "if-partner-wants"] as const;
 
-    // Bob: answer all as Maybe too
+    await answerQuestionsCycling(alice, aliceRatings);
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
+
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
-    await answerAllQuestions(bob, "maybe");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await answerQuestionsCycling(bob, bobRatings);
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible();
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
-    // All should be both-maybe (worth discussing). Target match-type
-    // attribute to avoid collision with summary strip labels.
-    const bothMaybeRows = bob.locator('[data-testid="match-row"][data-match-type="both-maybe"]');
-    await expect(bothMaybeRows.first()).toBeVisible();
-    expect(await bothMaybeRows.count()).toBeGreaterThan(0);
+    // Verify that multiple distinct match types appear on the same results
+    // page. Use data-match-type to avoid colliding with summary strip labels.
+    const row = (type: string) => bob.locator(`[data-testid="match-row"][data-match-type="${type}"]`);
 
-    // No green-light or plain match rows. Target by data-match-type so we
-    // don't collide with the summary strip's always-visible "Go for it" label.
-    await expect(bob.locator('[data-testid="match-row"][data-match-type="green-light"]')).toHaveCount(0);
-    await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]')).toHaveCount(0);
+    await expect(row("match").first()).toBeVisible();
+    await expect(row("possible").first()).toBeVisible();
+    await expect(row("both-maybe").first()).toBeVisible();
+    await expect(row("fantasy").first()).toBeVisible();
+
+    // No green-light (showTiming disabled, timing is null for all answers).
+    await expect(row("green-light")).toHaveCount(0);
   });
 
   test("one says no — question hidden from results", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
 
     // Alice: all No
     await answerAllQuestions(alice, "no");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob: all Yes
@@ -86,7 +109,7 @@ test.describe("results display", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 
@@ -101,18 +124,18 @@ test.describe("results display", () => {
     // giveText/receiveText display path. "Group & External" (used by the
     // other tests) is mostly mutual and wouldn't catch a regression here.
     const { partnerLink } = await createGroupAndSetup(alice);
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Bondage & Restraint");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     await expect(bob.getByText("Your matches")).toBeVisible();
 

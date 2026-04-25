@@ -1,12 +1,12 @@
 # Spreadsheet
 
-A yes/no/maybe list for couples and groups to discover shared sexual interests. See [DESIGN.md](DESIGN.md) for full design.
+A yes/no/maybe list for couples and groups to discover shared sexual interests. See [design/](design/) for full design.
 
 ## Stack
 
 - **Language:** TypeScript (full stack, shared types via tRPC)
 - **Backend:** Node.js, Hono, tRPC v11 (HTTP + WebSocket), Drizzle, Zod
-- **Frontend:** React 19, Vite 8, Tailwind, shadcn/ui (Base UI primitives), TanStack Query v5 + `@trpc/tanstack-react-query`
+- **Frontend:** React 19, Vite 8, Tailwind, shadcn/ui (Base UI primitives), TanStack Router v1, TanStack Query v5 + `@trpc/tanstack-react-query`
 - **Database:** Postgres (prod + dev), PGlite (unit tests)
 - **Offline:** vite-plugin-pwa, localStorage
 - **Testing:** Vitest, PGlite, testcontainers, Playwright
@@ -30,12 +30,13 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 - **Admin token flow** — `groups.create` returns `adminToken` (no person). `setupAdmin` creates admin + partners + marks ready in one transaction, reusing adminToken as person token.
 - **Encryption** — key in URL fragment `#key=...`, cached in `sessionStorage`. `wrapSensitive`/`unwrapSensitive` handle encrypt/decrypt transparently. Opaque `p:1:`/`e:1:` prefix format.
-- **Routing** — wouter nested routes under `/p/:token`.
-  - **Universal guard**: `resolveRoute()` computes the correct screen from status. A `<Redirect>` at the top of the Switch redirects if the current route doesn't match. Free routes (`/invite`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
-  - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. This means `handleMarkComplete` in `Question.tsx` has to `navigate("/waiting")` explicitly after the mutation (the guard no longer auto-routes there).
+- **Routing** — TanStack Router v1 file-based routing. Route tree auto-generated to `src/routeTree.gen.ts` (excluded from linting). Structure: `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/routes/p/$token/route.tsx` (layout) + 10 child screen routes.
+  - **Universal guard**: `resolveRoute()` computes the correct screen from status. Lives in the `/p/$token` layout component (not `beforeLoad`) so real-time WS status changes (e.g. everyone completes → `/results`) redirect before paint via `useLayoutEffect` + `navigate`. Free routes (`/group`, `/summary`, `/review`, `/questions`) are exempt — users reach them intentionally.
+  - **`/questions` is a free route** so marked-complete users can edit via the "Edit my answers" / "Change my answers" buttons on `/waiting` and `/results` without unmarking their completion state. `useMarkComplete` navigates to `/p/$token/waiting` explicitly after the mutation (the guard no longer auto-routes there).
+  - **`PersonAppContext`** — the `/p/$token` layout route provides live status, questions data, `startKey`, and shared mutations to all child routes via React context. Use `usePersonApp()` in any child screen.
   - **Mutations self-invalidate** via `useMutation({ onSuccess: () => qc.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }) })`. Always return the invalidation promise so the mutation stays pending until the refetch completes — this is what replaces the old `await refreshStatus()` threading.
 - **Data fetching** — TanStack Query v5 via `@trpc/tanstack-react-query` (`useTRPC()` returns a typed proxy).
-  - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `main.tsx` handles loading.
+  - Reads: `useSuspenseQuery(trpc.x.queryOptions(...))`. Top-level `<Suspense>` boundary in `src/routes/__root.tsx` handles loading.
   - Writes: `useMutation(trpc.x.mutationOptions({ onSuccess: invalidate }))`. Use `mutate()` for fire-and-forget with local callbacks; `mutateAsync()` when you need to await the result.
   - Live updates: `useSubscription(trpc.x.subscriptionOptions(...))` with `setQueryData` in `onData` to feed updates into the same cache entry that an HTTP query populated.
   - **Never call `.query()` / `.mutate()` on a singleton** — there is no `trpc` singleton, only the `useTRPC()` proxy inside hooks/components. If you need imperative access from a non-hook context, use `useTRPCClient()`.
@@ -53,6 +54,8 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 
 ```
 packages/server/src/
+  main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Built as the Docker entrypoint.
+  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
   db/         ← schema, migrations, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
@@ -89,7 +92,10 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Error handling** — throw `TRPCError` in procedures. Frontend catches via tRPC's error handling. No silent swallows.
 - **No mutable state across boundaries** — return defensive copies, use `Readonly<T>` where practical.
 - **Use the stack** — Zod for validation, Drizzle for queries, tRPC for API contracts. Don't reinvent.
+- **Domain types go in `@spreadsheet/shared`, not `RouterOutputs`** — when a procedure returns a shape the UI names or narrows (e.g. `Person`, `GroupStatus`), define it as a Zod schema in `@spreadsheet/shared/types.ts` and have the procedure `.output(schema)` for runtime validation. The client imports named types directly (`import type { Person } from "@spreadsheet/shared"`) and can use `Pick<Person, "isCompleted">` freely. Reach for `inferRouterOutputs<AppRouter>` / `NonNullable<RouterOutputs[...][...]>` chains only for ad-hoc spots where a shape isn't worth naming.
 - **Inject dependencies** — pass db/services as parameters, don't hard-import. Keeps tests clean.
+- **Conditional classNames** — always use the `cn()` helper (`lib/cn.ts`) for conditional classes: `cn("base", condition && "extra")`. Never use template literals or string concatenation for conditional className assembly.
+- **Icons** — use `lucide-react` for all icons. Never write inline `<svg>` icons by hand. Import the named icon component and set `size` and `strokeWidth` props: `<Pencil size={14} strokeWidth={1.5} />`. Browse available icons at https://lucide.dev/icons/.
 
 ## Commits
 
@@ -138,7 +144,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Pure function tests** — no mocks, no DB (crypto, journal, build-screens, stoken)
 - Test contracts, not internals. If it's hard to test, fix the design.
 
-### Three tiers
+### Test tiers
 
 | Tier | Infra | What it tests |
 |-|-|-|
@@ -146,9 +152,10 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 | **route** `trpc/routes/*.test.ts` | Mocked stores | Auth, validation, error mapping, business rules |
 | **pure** `lib/*.test.ts`, `stoken.test.ts` | None | Crypto, journal replay, screen building, match classification |
 | **integration** `.integration.test.ts` | Postgres (testcontainers) | Full round-trips, seed data |
-| **e2e** `e2e/*.spec.ts` | Playwright + Postgres | Full user flows |
+| **e2e** `e2e/*.spec.ts` | Playwright + Docker image (CI) or tsx (local) | Full user flows against the shipped artifact |
+| **visual** `e2e/visual/*.spec.ts` | Playwright (desktop 1280×800 + mobile 390×664, 2x DPR) | Screenshot baselines for every screen and conditional rendering path |
 
-Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite build` first).
+Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web + runs tsx; CI: runs against Docker image via `E2E_IMAGE`), `pnpm test:visual` (screenshot comparison). Visual baselines stored via Git LFS. **Visual tests run inside the official Playwright Docker image** (`mcr.microsoft.com/playwright:v1.59.1-noble`) for deterministic rendering across dev machines and CI. Always use `pnpm test:visual:docker` locally and `pnpm test:visual:docker:update` to regenerate baselines — never use the bare `pnpm test:visual:update` or screenshots will differ on CI.
 
 ### Test helpers
 
@@ -158,13 +165,13 @@ Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (requires `vite buil
 - **Subscription integration tests** use `createCaller(ctx, { signal })` with a real `AbortController`, and an `openSubscription(factory)` helper (see `e2e/groups.subscription.integration.test.ts` and `sync.journal-subscription.integration.test.ts`) that wraps the async iterable with timeout + cancel. For `tracked()` subscriptions the caller receives the raw tuple `[id, data, symbol]` — destructure via `unwrap()` helpers; the HTTP/WS adapter unwraps to `{id, data}` on the wire but `createCaller` passes the tuple through.
 - Integration tests have `fileParallelism: false` in `vitest.config.ts` because they share a single Postgres container — running multiple `.integration.test.ts` files in parallel deadlocks on TRUNCATE.
 - `e2e/fixtures.ts` — custom Playwright fixture with dynamic `baseURL` (random port via `.e2e-port` file)
-- `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `setCategories`, `scopedGet`, `scopedSet`
+- `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `answerQuestionsCycling`, `personBase`, `scopedGet`, `scopedSet`
 
 ### E2E patterns
 
 - Tests parameterized with `for (const encrypted of [false, true])` where encryption matters
-- Single category (`setCategories(page, ["group"])`) for speed — uses scoped localStorage via `fnv1a` hash
-- `answerAllQuestions` handles welcome screens automatically
+- Single category via `narrowToCategory(page, "Group & External")` — exercises the real Summary UI
+- `answerAllQuestions` handles welcome screens automatically; `answerQuestionsCycling` rotates through all 5 ratings
 - Sync-conflict test polls scoped `pendingOps` via `scopedGet` instead of clicking hidden UI
 - Multi-tab tests use `context.newPage()` (shared localStorage) to verify scoped storage isolation
 
@@ -174,7 +181,14 @@ After making changes, run:
 
 ```bash
 pnpm -r typecheck && pnpm test
-# For E2E: cd packages/web && pnpm exec vite build && cd ../.. && pnpm test:e2e
+# For E2E (local — builds web + runs tsx):
+pnpm test:e2e
+# For E2E against Docker image:
+docker build -t spreadsheet:ci . && E2E_IMAGE=spreadsheet:ci pnpm test:e2e
+# Visual regression (must use Docker for deterministic rendering):
+pnpm build && pnpm test:visual:docker
+# Update visual baselines:
+pnpm build && pnpm test:visual:docker:update
 ```
 
 ## Working with Tools

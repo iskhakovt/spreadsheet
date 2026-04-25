@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, scopedGet } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  scopedGet,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 /**
  * Verifies the tRPC `tracked()` resume protocol end-to-end: if Bob's WS drops,
@@ -25,11 +32,11 @@ test.describe("tracked() reconnect resume", () => {
   test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob joins — start with WS allowed so he gets the initial subscription
@@ -37,11 +44,11 @@ test.describe("tracked() reconnect resume", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results via the WS push
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
     // Both see "match" (both-yes) rows initially. Target by data-match-type
     // attribute so we don't collide with summary-strip text ("Total matches").
@@ -73,9 +80,9 @@ test.describe("tracked() reconnect resume", () => {
     await bob.waitForTimeout(500);
 
     // --- ALICE EDITS WHILE BOB IS DISCONNECTED ---
-    await alice.getByText("Change my answers").click();
+    await alice.getByRole("button", { name: "Change my answers", exact: true }).click();
     await expect(alice).toHaveURL(/\/questions/);
-    await alice.getByRole("radio", { name: "No" }).click();
+    await alice.getByRole("radio", { name: "No", exact: true }).click();
 
     // Poll Alice's pendingOps via scopedGet (rationale in helpers.ts:
     // sync completion is not observable from the DOM — there's no

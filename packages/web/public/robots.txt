@@ -1,0 +1,5 @@
+# /p/ is per-person invite URLs — not for indexing (privacy)
+# /api/ is the tRPC endpoint — not useful to crawlers
+User-agent: *
+Disallow: /api/
+Disallow: /p/

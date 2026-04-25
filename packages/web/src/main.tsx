@@ -1,55 +1,30 @@
-import { StrictMode, Suspense } from "react";
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ErrorBoundary } from "react-error-boundary";
-import { Route, Router, Switch } from "wouter";
-import { Card } from "./components/Card.js";
-import { handleError, RootErrorFallback } from "./components/ErrorFallback.js";
-import { initSentry } from "./lib/sentry.js";
-import { AppProviders } from "./lib/trpc-providers.js";
-import { Landing } from "./screens/Landing.js";
-import { PersonApp } from "./screens/PersonApp.js";
+import { NotFound } from "./components/not-found.js";
+import { makeQueryClient } from "./lib/query-client.js";
+import { routeTree } from "./routeTree.gen.js";
+import "@fontsource-variable/lexend";
 import "./index.css";
 
-initSentry();
+const queryClient = makeQueryClient();
 
-function LoadingCard() {
-  return (
-    <Card>
-      <div className="flex items-center justify-center pt-32">
-        <p className="text-text-muted">Loading...</p>
-      </div>
-    </Card>
-  );
-}
+const router = createRouter({
+  routeTree,
+  context: { queryClient },
+  defaultNotFoundComponent: NotFound,
+});
 
-function App() {
-  return (
-    <ErrorBoundary FallbackComponent={RootErrorFallback} onError={handleError}>
-      <AppProviders>
-        <Suspense fallback={<LoadingCard />}>
-          <Router>
-            <Switch>
-              <Route path="/p/:token" nest>
-                <PersonApp />
-              </Route>
-              <Route path="/" component={Landing} />
-              <Route>
-                <div className="flex items-center justify-center min-h-screen">
-                  <p className="text-text-muted">Page not found</p>
-                </div>
-              </Route>
-            </Switch>
-          </Router>
-        </Suspense>
-      </AppProviders>
-    </ErrorBoundary>
-  );
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
 }
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");
 createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>,
 );

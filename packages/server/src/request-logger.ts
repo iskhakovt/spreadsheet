@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import type { Logger } from "pino";
 import type { HonoLoggerEnv } from "./logger.js";
+import { httpRequestDuration } from "./metrics.js";
 
 // Tokens appear in URL paths via the wouter `/p/:token` client route — the SPA
 // fallback serves these on the server, so the raw path would otherwise leak
@@ -13,9 +14,7 @@ export function sanitizePath(path: string): string {
 
 export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerEnv> {
   return async (c, next) => {
-    // Container orchestrators hit /health every few seconds — logging each
-    // probe drowns the signal at scale. The handler doesn't need a
-    // request-scoped logger or reqId, so skip the middleware entirely.
+    // Container orchestrators hit /health every few seconds — skip to avoid drowning the signal.
     if (c.req.path === "/health") return next();
 
     const reqId = randomUUID();
@@ -32,9 +31,10 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     // rethrow. Inspect `c.error` to detect downstream failures.
     const status = c.res.status;
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+    const sanitizedPath = sanitizePath(c.req.path);
     const fields: Record<string, unknown> = {
       method: c.req.method,
-      path: sanitizePath(c.req.path),
+      path: sanitizedPath,
       status,
       durationMs,
     };
@@ -42,5 +42,10 @@ export function requestLogger(rootLogger: Logger): MiddlewareHandler<HonoLoggerE
     // (logger.ts) — any custom properties on the Error are dropped there.
     if (c.error) fields.err = c.error;
     child[level](fields, "request");
+
+    httpRequestDuration.observe(
+      { method: c.req.method, path: sanitizedPath, status: `${Math.floor(status / 100)}xx` },
+      durationMs / 1000,
+    );
   };
 }

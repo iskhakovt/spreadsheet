@@ -1,8 +1,9 @@
 import { on } from "node:events";
-import { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
+import { AnatomyLabels, AnatomyPicker, groupStatusSchema, QuestionMode } from "@spreadsheet/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
+import { groupsCreatedCounter, groupsSetupCompletedCounter } from "../../metrics.js";
 import {
   authedProcedure,
   broadcastingAdminProcedure,
@@ -23,7 +24,12 @@ export const groupsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.groups.create(input);
+      if (process.env.REQUIRE_ENCRYPTION !== "false" && !input.encrypted) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Encryption is required" });
+      }
+      const result = await ctx.groups.create(input);
+      groupsCreatedCounter.inc();
+      return result;
     }),
 
   setupAdmin: publicProcedure
@@ -58,6 +64,7 @@ export const groupsRouter = router({
         }
       }
 
+      groupsSetupCompletedCounter.inc();
       return { partnerTokens: result.partnerTokens };
     }),
 
@@ -110,9 +117,12 @@ export const groupsRouter = router({
       return { ok: true };
     }),
 
-  status: publicProcedure.input(z.object({ token: z.string() })).query(async ({ ctx, input }) => {
-    return ctx.groups.getStatus(input.token);
-  }),
+  status: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .output(groupStatusSchema.nullable())
+    .query(async ({ ctx, input }) => {
+      return ctx.groups.getStatus(input.token);
+    }),
 
   markReady: broadcastingAdminProcedure.mutation(async ({ ctx }) => {
     if (ctx.group.isReady) {

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents, journalEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
+import { syncPushCounter } from "../../metrics.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
@@ -70,6 +71,14 @@ const pushOk = (entries: { id: number; personId: string; operation: string }[] =
   pushRejected: false as const,
 });
 
+/** Shared test fixture: what a conflict-rejected sync.push store call returns. */
+const pushConflict = () => ({
+  stoken: "s1",
+  entries: [],
+  committedEntries: [] as { id: number; personId: string; operation: string }[],
+  pushRejected: true as const,
+});
+
 describe("sync.push", () => {
   it("validates opaque format before calling store", async () => {
     const ctx = mockCtx({ person, group });
@@ -114,6 +123,22 @@ describe("sync.push", () => {
     });
     expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
     expect("committedEntries" in result).toBe(false);
+  });
+
+  it("records result=clean label on successful push", async () => {
+    const spy = vi.spyOn(syncPushCounter, "inc");
+    const ctx = mockCtx({ person, group, sync: { push: vi.fn().mockResolvedValue(pushOk()) } });
+    await createCaller(ctx).sync.push({ stoken: null, operations: [], progress: null });
+    expect(spy).toHaveBeenCalledWith({ result: "clean" });
+    spy.mockRestore();
+  });
+
+  it("records result=conflict label on rejected push", async () => {
+    const spy = vi.spyOn(syncPushCounter, "inc");
+    const ctx = mockCtx({ person, group, sync: { push: vi.fn().mockResolvedValue(pushConflict()) } });
+    await createCaller(ctx).sync.push({ stoken: null, operations: [], progress: null });
+    expect(spy).toHaveBeenCalledWith({ result: "conflict" });
+    spy.mockRestore();
   });
 });
 

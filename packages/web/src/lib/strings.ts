@@ -68,17 +68,16 @@ export const UI = {
     done: "I'm done",
     answered: (n: number, total: number) => `${n} of ${total} answered`,
   },
-  waiting: {
-    title: "Waiting for everyone",
-    partnerDone: "Everyone is done!",
-    viewResults: "View results",
-  },
-  invite: {
+  group: {
     title: "Invite your partner",
+    titleReady: "Your group",
     copyLink: "Copy link",
     copied: "Copied!",
     addPerson: "Add person",
+    everyoneAdded: "Everyone is added",
     startFilling: "Start filling out",
+    continueFilling: "Continue",
+    viewAnswers: "View my answers",
     members: "Members",
   },
 } as const;

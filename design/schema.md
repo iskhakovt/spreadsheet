@@ -55,6 +55,7 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 | description | text | Nullable. One-line explanation shown via "What's this?" |
 | target_give | enum ("all", "amab", "afab") | Who sees the give screen |
 | target_receive | enum ("all", "amab", "afab") | Who sees the receive screen |
+| tier | integer | 1 (essentials), 2 (curious), 3 (adventurous). Default 1. Reserved for future UI that filters the question set by appetite. |
 | sort_order | integer | Display order within category |
 
 ### journal_entries
@@ -79,7 +80,7 @@ question *──1 category
 
 1. `groups.create` generates a random `admin_token` and stores it on the group. No person is created yet.
 2. The admin visits `/p/{admin_token}`. The `status` query checks `persons.token` first, then falls back to `groups.admin_token`.
-3. `setupAdmin` creates the admin person (reusing `admin_token` as the person's `token`), creates partner persons, marks the group ready, and clears `admin_token`.
+3. `setupAdmin` creates the admin person with `token = admin_token` (same value, so the URL keeps working), creates partner persons, marks the group ready, and sets `admin_token` to null — all in one transaction.
 4. After setup, the same URL resolves via the person token. No redirect needed.
 
 ## Question Structure
@@ -107,4 +108,4 @@ The presence of `give_text`/`receive_text` determines which type.
 | Fantasy only | Hot to think about, don't want to do | No |
 | No | Hard no | No |
 
-Timing: `now` (ready to try) or `later` (interested but not yet). Controlled by `groups.show_timing` — when off, all answers have null timing and "Go for it" (both-yes + both-now) downgrades to "Match" (both-yes).
+Timing: `now` (ready to try) or `later` (interested but not yet). Controlled by `groups.show_timing` — when off, the timing sub-question is skipped and all answers have null timing. With null timing, both-yes answers classify as "Match" instead of "Go for it" (which requires both-now).

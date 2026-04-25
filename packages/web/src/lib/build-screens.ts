@@ -1,4 +1,4 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
 
 /** Discriminated union: welcome interstitials + question screens */
 export type Screen =
@@ -146,4 +146,88 @@ export function buildScreens(
 
 export function filterQuestionScreens(screens: Screen[]): QuestionScreen[] {
   return screens.filter((s): s is QuestionScreen => s.type === "question");
+}
+
+export interface CategoryAnswerStat {
+  hasAnswers: boolean;
+  /** Absolute index into `screens`, or -1 if all answered. */
+  firstUnansweredIdx: number;
+}
+
+/**
+ * Per-category answer stats from the screens list.
+ *
+ * `firstUnansweredIdx` is an absolute screen index because `buildScreens`
+ * emits a welcome followed by its category's contiguous questions — so
+ * callers can `setIndex(firstUnansweredIdx)` directly.
+ */
+export function buildCategoryAnswerStats(
+  screens: readonly Screen[],
+  answers: Readonly<Record<string, Answer>>,
+): Map<string, CategoryAnswerStat> {
+  const stats = new Map<string, CategoryAnswerStat>();
+  for (let i = 0; i < screens.length; i++) {
+    const s = screens[i];
+    if (s.type !== "question") continue;
+    let entry = stats.get(s.categoryId);
+    if (!entry) {
+      entry = { hasAnswers: false, firstUnansweredIdx: -1 };
+      stats.set(s.categoryId, entry);
+    }
+    if (answers[s.key]) {
+      entry.hasAnswers = true;
+    } else if (entry.firstUnansweredIdx === -1) {
+      entry.firstUnansweredIdx = i;
+    }
+  }
+  return stats;
+}
+
+export interface ReviewItem {
+  /** Operation key: `{questionId}:{give|receive|mutual}`. */
+  key: string;
+  label: string;
+  answer: Answer | undefined;
+}
+
+export interface ReviewGroup {
+  category: CategoryData;
+  items: ReviewItem[];
+}
+
+/**
+ * Review screen's per-category grouping. Questions with both give- and
+ * receive-text expand into two items; others become one mutual item.
+ * Questions whose categoryId is missing from `categoryMap` are dropped.
+ */
+export function buildReviewGroups(
+  questions: readonly QuestionData[],
+  categoryMap: Readonly<Map<string, CategoryData>>,
+  selectedCategories: readonly string[],
+  answers: Readonly<Record<string, Answer>>,
+): ReviewGroup[] {
+  const selected = new Set(selectedCategories);
+
+  const tagged = questions
+    .filter((q) => selected.has(q.categoryId))
+    .flatMap((q): (ReviewItem & { categoryId: string })[] => {
+      if (q.giveText && q.receiveText) {
+        const giveKey = `${q.id}:give`;
+        const receiveKey = `${q.id}:receive`;
+        return [
+          { categoryId: q.categoryId, key: giveKey, label: q.giveText, answer: answers[giveKey] },
+          { categoryId: q.categoryId, key: receiveKey, label: q.receiveText, answer: answers[receiveKey] },
+        ];
+      }
+      const key = `${q.id}:mutual`;
+      return [{ categoryId: q.categoryId, key, label: q.text, answer: answers[key] }];
+    });
+
+  const byCategoryId = Object.groupBy(tagged, (item) => item.categoryId);
+
+  return Object.entries(byCategoryId).flatMap(([catId, groupItems]) => {
+    const category = categoryMap.get(catId);
+    if (!category || !groupItems) return [];
+    return [{ category, items: groupItems.map(({ key, label, answer }) => ({ key, label, answer })) }];
+  });
 }

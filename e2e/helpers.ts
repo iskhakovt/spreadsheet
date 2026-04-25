@@ -1,6 +1,20 @@
 import { expect, type Page } from "@playwright/test";
 import { fnv1a } from "../packages/shared/src/hash.js";
 
+/** Timeout for assertions that follow a server mutation or client-side route change. */
+export const NAV_TIMEOUT = 5_000;
+
+/** Timeout for assertions that wait for a WebSocket broadcast (e.g. both-complete → results). */
+export const WS_TIMEOUT = 10_000;
+
+/**
+ * Tighter timeout for the realtime-status perf test. 5 s is enough for a
+ * single first-delivery attempt; if WS had to reconnect and retry, the elapsed
+ * time would be >5 s and the assertion would fail, catching the regression.
+ * Use WS_TIMEOUT everywhere else.
+ */
+export const WS_PERF_TIMEOUT = 5_000;
+
 /**
  * E2E test helpers — UI-driven by policy.
  *
@@ -41,6 +55,13 @@ function scopePrefix(token: string): string {
 function tokenFromUrl(url: string): string {
   const match = url.match(/\/p\/([^/#?]+)/);
   if (!match) throw new Error(`Can't extract token from URL: ${url}`);
+  return match[1];
+}
+
+/** Extract the /p/{token} base path from a full URL. */
+export function personBase(url: string): string {
+  const match = url.match(/(\/p\/[^/#?]+)/);
+  if (!match) throw new Error(`Can't extract person base from URL: ${url}`);
   return match[1];
 }
 
@@ -92,10 +113,10 @@ export async function createGroupAndSetup(
   } = opts;
 
   await page.goto("/");
-  await page.getByText("Get started").click();
+  await page.getByRole("button", { name: "Get started", exact: true }).click();
 
   if (mode === "all") {
-    await page.getByText("All questions").click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
   }
   if (encrypted) {
     await page.getByLabel("End-to-end encryption").check();
@@ -104,7 +125,7 @@ export async function createGroupAndSetup(
     await page.getByLabel('Ask "now or later?"').check();
   }
 
-  await page.getByText("Create group").click();
+  await page.getByRole("button", { name: "Create group", exact: true }).click();
   await expect(page).toHaveURL(/\/p\/.+/);
 
   await expect(page.getByText("Set up your group")).toBeVisible();
@@ -113,21 +134,23 @@ export async function createGroupAndSetup(
 
   // Add extra partners via the "+ Add another person" button
   for (const name of extraPartners) {
-    await page.getByText("+ Add another person").click();
+    await page.getByRole("button", { name: "+ Add another person", exact: true }).click();
     // Fill the last (newly added) partner name input
     const partnerInputs = page.getByPlaceholder("Partner's name");
     await partnerInputs.last().fill(name);
   }
 
-  await page.getByText("Create & get links").click();
+  await page.getByRole("button", { name: "Create & get links", exact: true }).click();
 
   await expect(page.getByText("You're all set")).toBeVisible();
 
-  // Collect all partner links from the readonly inputs
-  const linkInputs = page.locator("input[readonly]");
-  const linkCount = await linkInputs.count();
+  // Collect partner links only (not the admin's own link on encrypted groups).
+  // Assert the expected count to fail fast with a clear message.
+  const expectedPartnerCount = 1 + extraPartners.length;
+  const linkInputs = page.locator('[data-testid="partner-link"]');
+  await expect(linkInputs).toHaveCount(expectedPartnerCount);
   const partnerLinks: string[] = [];
-  for (let i = 0; i < linkCount; i++) {
+  for (let i = 0; i < expectedPartnerCount; i++) {
     partnerLinks.push(await linkInputs.nth(i).inputValue());
   }
 
@@ -137,8 +160,8 @@ export async function createGroupAndSetup(
 
 /** Navigate through intro screen. */
 export async function goThroughIntro(page: Page) {
-  await expect(page.getByText("Here's how it works")).toBeVisible();
-  await page.getByText("Let's go").click();
+  await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
+  await page.getByRole("button", { name: "Let's go", exact: true }).click();
 }
 
 /**
@@ -158,8 +181,8 @@ export async function goThroughIntro(page: Page) {
  */
 export async function narrowToCategory(page: Page, targetLabel: string) {
   // From any category welcome, "View all categories" → Summary
-  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
-  await page.getByRole("button", { name: "View all categories" }).click();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View all categories", exact: true }).click();
 
   await expect(page.getByText("Your progress")).toBeVisible();
 
@@ -190,12 +213,69 @@ export async function narrowToCategory(page: Page, targetLabel: string) {
 
   // We should now be on the target category's welcome screen, ready to
   // click Start.
-  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
 }
 
 /** Check if we've reached the end of questions. */
 function doneLocator(page: Page) {
   return page.getByText("All done!").or(page.getByText("That's the last one"));
+}
+
+type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
+
+/** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically. */
+export async function answerQuestionsCycling(page: Page, ratings: readonly Rating[]) {
+  let i = 0;
+  for (let guard = 0; guard < 200; guard++) {
+    if (
+      await doneLocator(page)
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
+
+    const startBtn = page.getByRole("button", { name: "Start", exact: true });
+    const ratingLabel = page.getByText("Yes", { exact: true });
+    await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
+
+    if (
+      await doneLocator(page)
+        .isVisible()
+        .catch(() => false)
+    )
+      break;
+
+    if (await startBtn.isVisible().catch(() => false)) {
+      if (!(await ratingLabel.isVisible().catch(() => false))) {
+        await startBtn.click();
+        continue;
+      }
+    }
+
+    const rating = ratings[i % ratings.length];
+    i++;
+
+    if (rating === "yes") {
+      await page.getByRole("radio", { name: "Yes", exact: true }).click();
+    } else if (rating === "if-partner-wants") {
+      await page.getByRole("radio", { name: "If partner wants", exact: true }).click();
+    } else if (rating === "maybe") {
+      await page.getByRole("radio", { name: "Maybe", exact: true }).click();
+    } else if (rating === "fantasy") {
+      await page.getByRole("radio", { name: "Fantasy only", exact: true }).click();
+    } else {
+      await page.getByRole("radio", { name: "No", exact: true }).click();
+    }
+
+    // Dismiss timing if it appears (yes and if-partner-wants trigger it)
+    if (rating === "yes" || rating === "if-partner-wants") {
+      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
+      if (await nowBtn.isVisible().catch(() => false)) {
+        await nowBtn.click();
+      }
+    }
+  }
+  await expect(doneLocator(page)).toBeVisible();
 }
 
 /** Answer all visible questions until done. Handles welcome screens automatically. */
@@ -209,7 +289,7 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
       break;
 
     // Wait for either a welcome screen "Start" or a question rating label
-    const startBtn = page.getByRole("button", { name: "Start" });
+    const startBtn = page.getByRole("button", { name: "Start", exact: true });
     const ratingLabel = page.getByText("Yes", { exact: true });
     await expect(startBtn.or(ratingLabel).or(doneLocator(page))).toBeVisible();
 
@@ -229,16 +309,16 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     }
 
     if (rating === "yes") {
-      await page.getByRole("radio", { name: "Yes" }).click();
+      await page.getByRole("radio", { name: "Yes", exact: true }).click();
       // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
-      const nowBtn = page.getByRole("button", { name: "Now" });
+      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
       if (await nowBtn.isVisible().catch(() => false)) {
         await nowBtn.click();
       }
     } else if (rating === "no") {
-      await page.getByRole("radio", { name: "No" }).click();
+      await page.getByRole("radio", { name: "No", exact: true }).click();
     } else {
-      await page.getByRole("radio", { name: "Maybe" }).click();
+      await page.getByRole("radio", { name: "Maybe", exact: true }).click();
     }
   }
   await expect(doneLocator(page)).toBeVisible();

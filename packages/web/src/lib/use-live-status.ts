@@ -1,13 +1,9 @@
+import type { GroupStatus } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import type { inferRouterOutputs } from "@trpc/server";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useRef } from "react";
-import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { decryptStatus } from "./decrypt-status.js";
 import { useTRPC } from "./trpc.js";
-
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Status = NonNullable<RouterOutputs["groups"]["status"]>;
 
 /**
  * Live-updating group status with TanStack Query + tRPC WS subscription.
@@ -30,7 +26,7 @@ type Status = NonNullable<RouterOutputs["groups"]["status"]>;
  * Suspense-query surfaces to the nearest ErrorBoundary. No separate
  * "error" state tracked in the hook.
  */
-export function useLiveStatus(token: string): { status: Status | null; refresh: () => Promise<void> } {
+export function useLiveStatus(token: string): { status: GroupStatus | null; refresh: () => Promise<void> } {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

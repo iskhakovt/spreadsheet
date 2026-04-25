@@ -18,7 +18,7 @@ export function SyncIndicator({
         type="button"
         onClick={onSync}
         disabled={syncing || pendingCount === 0}
-        className="text-xs text-accent font-medium disabled:opacity-50 transition-opacity"
+        className="text-xs text-accent/80 font-medium disabled:opacity-40 transition-all duration-300"
         style={{ visibility: visible ? "visible" : "hidden" }}
       >
         {syncing ? UI.question.syncing : UI.question.unsynced(pendingCount)}

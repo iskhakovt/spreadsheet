@@ -1,8 +1,18 @@
-node_modules
+# Deny-all, then allow only what the Dockerfile needs.
+*
+
+# Root config for pnpm install
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!package.json
+
+# Workspace packages (source + package.json)
+!packages/shared/
+!packages/server/
+!packages/web/
+
+# Exclude build artifacts, deps, and secrets inside packages
 packages/*/node_modules
 packages/*/dist
-build
-.git
-.task
-*.db
-.env
+**/.env
+**/.env.*

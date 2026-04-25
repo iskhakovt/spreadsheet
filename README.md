@@ -1,4 +1,7 @@
-# Spreadsheet
+[![Release](https://img.shields.io/github/v/release/iskhakovt/spreadsheet?label=release&color=blue)](https://github.com/iskhakovt/spreadsheet/releases)
+[![ghcr](https://img.shields.io/github/v/release/iskhakovt/spreadsheet?label=ghcr&logo=docker&color=2496ED)](https://github.com/iskhakovt/spreadsheet/pkgs/container/spreadsheet)
+
+# [spreadsheet.love](https://spreadsheet.love) 
 
 A yes/no/maybe list for couples and groups to discover shared sexual interests. Rate activities privately, see only the overlaps.
 
@@ -26,24 +29,23 @@ pnpm dev
 pnpm test               # Unit tests (PGlite, no Docker needed)
 pnpm test:integration   # Integration tests (Testcontainers, needs Docker)
 pnpm test:e2e           # E2E tests (Playwright + Testcontainers)
+pnpm test:visual        # Visual regression (Playwright screenshots, desktop + mobile)
 ```
 
-## Build
+Visual regression baselines are stored via [Git LFS](https://git-lfs.github.com). Run `git lfs install` after cloning.
 
 ```bash
-# Docker image
-docker build -t spreadsheet .
-
-# Run
-docker run -p 8080:8080 \
-  -e DATABASE_URL="postgresql://..." \
-  -e STOKEN_SECRET="..." \
-  spreadsheet
+pnpm test:visual:new     # Generate baselines for new tests only
+pnpm test:visual:update  # Regenerate all baselines (after intentional UI changes)
 ```
+
+## Deploy
+
+See [deploy.md](deploy.md) for self-hosting — pre-built images, environment variables, migrations, and production notes.
 
 ## Architecture
 
-See [DESIGN.md](DESIGN.md) for the full design — schema, sync protocol, encryption, UI.
+See [design/](design/) for the full design — schema, sync protocol, encryption, UI, server architecture.
 
 ```
 packages/

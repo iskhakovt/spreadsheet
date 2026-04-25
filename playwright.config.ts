@@ -1,4 +1,28 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
+
+const visualArgs = [
+  "--font-render-hinting=none",
+  "--disable-skia-runtime-opts",
+  "--disable-font-subpixel-positioning",
+  "--disable-lcd-text",
+  "--force-color-profile=srgb",
+];
+
+const visualExpect = {
+  toHaveScreenshot: {
+    animations: "disabled" as const,
+    caret: "hide" as const,
+    scale: "device" as const,
+    threshold: 0.2,
+    // 0.005 = 0.5% of pixels. Previously 0.01 (1%), which was lenient
+    // enough to let a full BackLink chevron slip through on mobile Review
+    // (PR #57 review). Our Docker-based rendering is deterministic enough
+    // to run at the tighter bound without noise flakes.
+    maxDiffPixelRatio: 0.005,
+    stylePath: "./e2e/visual/screenshot.css",
+    timeout: 15_000,
+  },
+};
 
 export default defineConfig({
   testDir: "./e2e",
@@ -12,7 +36,45 @@ export default defineConfig({
     actionTimeout: 10_000,
   },
   expect: {
-    timeout: 10_000,
+    timeout: 1_000,
   },
   globalSetup: "./e2e/global-setup.ts",
+  projects: [
+    {
+      name: "e2e",
+      testIgnore: /visual\//,
+    },
+    {
+      name: "visual-desktop",
+      testMatch: /visual\/.+\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 2,
+        colorScheme: "light",
+        reducedMotion: "reduce",
+        launchOptions: { args: visualArgs },
+      },
+      expect: visualExpect,
+    },
+    {
+      name: "visual-mobile",
+      testMatch: /visual\/.+\.spec\.ts$/,
+      use: {
+        // Desktop Chrome with a mobile viewport — NOT iPhone/WebKit. We use
+        // Chromium for both projects so the deterministic rendering args
+        // (font-render-hinting, force-color-profile, etc.) apply uniformly.
+        // The mobile viewport is what matters for layout regression; the UA
+        // string is irrelevant (no server-side mobile detection).
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 664 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        colorScheme: "light",
+        reducedMotion: "reduce",
+        launchOptions: { args: visualArgs },
+      },
+      expect: visualExpect,
+    },
+  ],
 });

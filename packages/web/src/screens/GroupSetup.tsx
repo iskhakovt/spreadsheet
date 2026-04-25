@@ -1,10 +1,13 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "lucide-react";
 import { useState } from "react";
 import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
-import { getGroupKeyFromUrl, wrapSensitive } from "../lib/crypto.js";
+import { CopyLinkField } from "../components/copy-link-field.js";
+import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
+import { useScrollReset } from "../lib/route-reset.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
 
@@ -32,6 +35,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
   const { copiedIndex: copied, copy: handleCopy } = useCopy();
   const [done, setDone] = useState(false);
+  useScrollReset(done);
 
   // NOTE: no onSuccess invalidation here — we want the "You're all set"
   // intermediate screen to stay visible until the user clicks "Start filling
@@ -63,7 +67,6 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
 
   async function handleSubmit() {
     if (!canSubmit) return;
-    const groupKey = getGroupKeyFromUrl();
 
     const encName = await wrapSensitive(myName);
     const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
@@ -86,45 +89,48 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
       partners: encPartners,
     });
 
-    const keyFragment = groupKey ? `#key=${groupKey}` : "";
-    const links = result.partnerTokens.map((t) => `${window.location.origin}/p/${t}${keyFragment}`);
+    const links = result.partnerTokens.map((t) => buildPersonLink(t));
     setGeneratedLinks(links);
     setDone(true);
   }
 
   // After submission — show links and continue button
   if (done && generatedLinks.length > 0) {
+    const myLink = buildPersonLink(adminToken);
+
     return (
       <Card>
         <div className="animate-in space-y-6">
           <div>
             <h1 className="text-2xl font-bold">You're all set</h1>
-            <p className="text-sm text-text-muted mt-1">Share these links with your partners</p>
+            <p className="text-sm text-text-muted mt-1">Save your link and share the others with your partners</p>
+          </div>
+
+          <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-2">
+            <div className="flex items-center gap-2">
+              <Link size={14} strokeWidth={1.5} className="text-accent shrink-0" />
+              <p className="text-sm font-medium">Your link</p>
+            </div>
+            <p className="text-xs text-text-muted">Save this to access your group from another device</p>
+            <CopyLinkField
+              value={myLink}
+              label="Your invite link"
+              copyLabel="Copy your link"
+              copied={copied === 0}
+              onCopy={() => handleCopy(myLink, 0)}
+            />
           </div>
 
           {partners.map((partner, i) => (
-            <div key={i} className="p-4 bg-surface rounded-lg space-y-2">
+            <div key={i} className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-2">
               <p className="text-sm font-medium">{partner.name}'s link</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={generatedLinks[i]}
-                  aria-label={`${partner.name}'s invite link`}
-                  className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-text font-mono truncate"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCopy(generatedLinks[i], i)}
-                  aria-label={`Copy ${partner.name}'s link`}
-                  className="px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium shrink-0"
-                >
-                  {copied === i ? "Copied!" : "Copy"}
-                </button>
-                <span className="sr-only" aria-live="polite">
-                  {copied === i ? "Copied to clipboard" : ""}
-                </span>
-              </div>
+              <CopyLinkField
+                value={generatedLinks[i]}
+                label={`${partner.name}'s invite link`}
+                copied={copied === i + 1}
+                onCopy={() => handleCopy(generatedLinks[i], i + 1)}
+                data-testid="partner-link"
+              />
             </div>
           ))}
 
@@ -156,7 +162,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
               value={myName}
               onChange={(e) => setMyName(e.target.value)}
               placeholder="Enter your name"
-              className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface border border-border text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-shadow"
+              className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface/60 border border-border/40 text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/30 transition-all duration-200"
             />
           </div>
 
@@ -166,12 +172,15 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                 Your body type
               </label>
               <AnatomyPicker selected={myAnatomy} onSelect={(v) => setMyAnatomy(v as Anatomy)} labels={labels} />
+              <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                So we can show only questions that apply to you.
+              </p>
             </div>
           )}
         </div>
 
         {/* Divider */}
-        <div className="border-t border-border" />
+        <div className="border-t border-border/40" />
 
         {/* Partners */}
         {partners.map((partner, i) => (
@@ -185,7 +194,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   type="button"
                   onClick={() => removePartner(i)}
                   aria-label={`Remove partner ${i + 1}`}
-                  className="text-xs text-text-muted hover:text-accent"
+                  className="text-xs text-text-muted/70 hover:text-accent transition-colors duration-200"
                 >
                   Remove
                 </button>
@@ -202,7 +211,7 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                 value={partner.name}
                 onChange={(e) => updatePartner(i, "name", e.target.value)}
                 placeholder="Partner's name"
-                className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface border border-border text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-shadow"
+                className="w-full px-4 py-3.5 rounded-[var(--radius-md)] bg-surface/60 border border-border/40 text-text placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/30 transition-all duration-200"
               />
             </div>
 
@@ -216,17 +225,20 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
                   onSelect={(v) => updatePartner(i, "anatomy", v)}
                   labels={labels}
                 />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  So they see only questions that apply to them.
+                </p>
               </div>
             )}
 
-            {i < partners.length - 1 && <div className="border-t border-border" />}
+            {i < partners.length - 1 && <div className="border-t border-border/40" />}
           </div>
         ))}
 
         <button
           type="button"
           onClick={addPartner}
-          className="text-sm text-accent hover:text-accent/80 transition-colors"
+          className="text-sm text-accent hover:text-accent/75 transition-colors duration-200"
         >
           + Add another person
         </button>

@@ -1,8 +1,11 @@
-import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
-import { useMemo } from "react";
+import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
+import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
-import { getAnswers, getSelectedCategories } from "../lib/storage.js";
+import { buildReviewGroups } from "../lib/build-screens.js";
+import { cn } from "../lib/cn.js";
+import { getSelectedCategories, useAnswers } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
 interface ReviewProps {
@@ -11,6 +14,7 @@ interface ReviewProps {
   onMarkComplete: () => void;
   onViewProgress: () => void;
   onEditQuestion: (key: string) => void;
+  onBack: () => void;
 }
 
 const RATING_LABELS: Record<string, string> = {
@@ -42,46 +46,20 @@ export function Review({
   onMarkComplete,
   onViewProgress,
   onEditQuestion,
+  onBack,
 }: Readonly<ReviewProps>) {
-  const answers = getAnswers();
-  const selectedCategories = getSelectedCategories() ?? [];
+  const answers = useAnswers();
+  // Mount-time snapshot — `getSelectedCategories()` re-parses localStorage
+  // and returns a new array each call, which would invalidate the grouped
+  // memo on every render. Same pattern as Question.tsx.
+  const [selectedCategories] = useState<string[]>(() => getSelectedCategories() ?? []);
 
-  const grouped = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        category: CategoryData;
-        items: { key: string; label: string; answer: Answer | undefined }[];
-      }
-    > = {};
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-    for (const q of questions) {
-      if (!selectedCategories.includes(q.categoryId)) continue;
-
-      if (q.giveText && q.receiveText) {
-        const giveKey = `${q.id}:give`;
-        const receiveKey = `${q.id}:receive`;
-        if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key: giveKey, label: q.giveText, answer: answers[giveKey] });
-          groups[q.categoryId].items.push({ key: receiveKey, label: q.receiveText, answer: answers[receiveKey] });
-        }
-      } else {
-        const key = `${q.id}:mutual`;
-        if (!groups[q.categoryId]) {
-          const cat = categories.find((c) => c.id === q.categoryId);
-          if (cat) groups[q.categoryId] = { category: cat, items: [] };
-        }
-        if (groups[q.categoryId]) {
-          groups[q.categoryId].items.push({ key, label: q.text, answer: answers[key] });
-        }
-      }
-    }
-    return Object.values(groups);
-  }, [questions, categories, selectedCategories, answers]);
+  const grouped = useMemo(
+    () => buildReviewGroups(questions, categoryMap, selectedCategories, answers),
+    [questions, categoryMap, selectedCategories, answers],
+  );
 
   const totalAnswered = Object.keys(answers).length;
   const totalQuestions = grouped.reduce((sum, g) => sum + g.items.length, 0);
@@ -89,6 +67,7 @@ export function Review({
   return (
     <Card>
       <div className="space-y-6">
+        <BackLink onClick={onBack} />
         <div>
           <h1 className="text-2xl font-bold">{UI.review.title}</h1>
           <p className="text-text-muted mt-1">{UI.review.answered(totalAnswered, totalQuestions)}</p>
@@ -96,23 +75,26 @@ export function Review({
 
         {grouped.map((group) => (
           <div key={group.category.id}>
-            <h3 className="text-sm font-medium text-text-muted mb-2">{group.category.label}</h3>
-            <div className="space-y-1">
+            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-text-muted/80 mb-2">
+              <span className="w-1 h-1 rounded-full bg-accent/60" />
+              {group.category.label}
+            </h3>
+            <div className="space-y-0.5">
               {group.items.map((item) => (
                 <button
                   type="button"
                   key={item.key}
                   onClick={() => onEditQuestion(item.key)}
-                  className="w-full text-left flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-surface transition-colors"
+                  className="w-full text-left flex items-center justify-between px-4 py-2.5 rounded-[var(--radius-sm)] hover:bg-surface/70 transition-colors duration-200"
                 >
                   <span className="text-sm truncate mr-4">{item.label}</span>
                   {item.answer ? (
-                    <span className={`text-sm shrink-0 ${ratingStyle(item.answer.rating)}`}>
+                    <span className={cn("text-sm shrink-0", ratingStyle(item.answer.rating))}>
                       {RATING_LABELS[item.answer.rating]}
                       {item.answer.timing ? ` (${item.answer.timing})` : ""}
                     </span>
                   ) : (
-                    <span className="text-sm text-text-muted/50 shrink-0">—</span>
+                    <span className="text-sm text-text-muted/40 shrink-0">&mdash;</span>
                   )}
                 </button>
               ))}

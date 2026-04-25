@@ -3,11 +3,15 @@
 ## Next
 
 - [ ] `p3` v2 illustrations — AI-generated via Flux on RunPod
+- [ ] `p2` Backend validates that sync payloads match the group's encryption setting — `sync.push` currently accepts `p:1:` plaintext ops on an encrypted group and vice versa; server should reject mismatches
+- [ ] `p3` Consider replacing `window.__ENV` inline injection with a startup-generated `env-config.js` static file to avoid the route-ordering dependency on `serveStatic`
+- [ ] `p3` E2E test for `REQUIRE_ENCRYPTION=true` enforcement path — server injects flag → browser shows disabled checkbox → `groups.create` correctly sends `encrypted: true`
+- [ ] `p2` Rotate person token on first land — admin currently knows partner tokens (returned by `setupAdmin`), so they could use a partner's token to read unsubmitted answers via the sync journal. Rotating the token when the partner first opens their link would close this.
 
 ## Later
 
 - [ ] `p3` Migrate `.stagger` animation delay to native CSS `sibling-index()` once Firefox ships it. Currently the `.stagger` class reads its delay from an inline `--stagger-index` custom property per element — works everywhere and scales to any count, but authors must remember to set the index. `sibling-index() * 100ms` in CSS would be fully declarative (zero inline style, zero prop passing). Chrome 132+ / Safari 18.2+ already support it; blocked on Firefox. Track at caniuse.com/css-sibling-functions
-- [ ] `p3` Visual regression coverage — Playwright screenshot tests or Chromatic/Percy. Current gap: keyboard focus treatment (`*:focus-visible` in `@layer base` vs per-input `focus:outline-none focus:ring-*`), animations, and color palette changes are unverified by automation. E2E tests exercise flows, not rendering. A one-shot baseline per key screen (Landing, Question, Comparison, Summary) plus `:focus-visible` hover/tab states would catch cascade-layer accidents like the double-outline bug fixed in #22 before merge. Decide on tooling first — Playwright's built-in `toHaveScreenshot` is cheapest (no external service) but needs CI-stable rendering (Linux only, fonts pinned)
+- [ ] `p3` Revisit focus-visible — global vs per-component. Currently `index.css` has a single `*:focus-visible { outline: 2px solid var(--color-accent-light); outline-offset: 2px }` that every interactive element inherits. The React + Tailwind convention (shadcn/ui, Tailwind UI) is per-component `focus-visible:` utilities in each component's className. Trade-off is cross-element consistency (current) vs. per-component tunability. Worth migrating if/when the app grows shared components that need distinct focus treatments; stay global otherwise.
 - [ ] E2E sharding across CI jobs (when test count/runtime grows)
 - [ ] Background Sync API for offline sync (when Safari supports it)
 - [ ] GlitchTip deployment (error tracking)

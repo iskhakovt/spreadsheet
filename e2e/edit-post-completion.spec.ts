@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  NAV_TIMEOUT,
+  narrowToCategory,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("edit after completion", () => {
   test("Alice edits an answer on /results, Bob sees the pair matches update live", async ({ alice, bob }) => {
@@ -7,22 +14,22 @@ test.describe("edit after completion", () => {
     // so they'll see "Match" matches when both land on /results.
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    await alice.getByText("Start filling out").click();
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Group & External");
     await answerAllQuestions(alice, "yes");
-    await alice.getByRole("button", { name: "I'm done" }).click();
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results. Alice's view should update via WS.
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: 5000 });
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: 5000 });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
     // Both should see "match" (both-yes) rows since everyone answered yes.
     // Target via data-match-type to avoid any collision with summary-strip
@@ -39,7 +46,7 @@ test.describe("edit after completion", () => {
 
     // Alice clicks "Change my answers" — navigates back to /questions,
     // crucially WITHOUT calling unmarkComplete. Bob is NOT kicked from /results.
-    await alice.getByText("Change my answers").click();
+    await alice.getByRole("button", { name: "Change my answers", exact: true }).click();
     await expect(alice).toHaveURL(/\/questions/);
 
     // Bob is still on /results (not kicked to /waiting)
@@ -48,8 +55,8 @@ test.describe("edit after completion", () => {
     // Alice changes her first answer from "yes" to "no". This triggers the
     // 3s sync.push debounce → server commit → journalEvents emit → Bob's
     // tracked subscription → setQueryData merge → Comparison re-render.
-    await expect(alice.getByRole("radio", { name: "No" })).toBeVisible();
-    await alice.getByRole("radio", { name: "No" }).click();
+    await expect(alice.getByRole("radio", { name: "No", exact: true })).toBeVisible();
+    await alice.getByRole("radio", { name: "No", exact: true }).click();
 
     // Poll Bob's match count until it drops. This covers the full pipeline
     // latency (debounce + network + subscription + merge + re-render)
@@ -63,18 +70,18 @@ test.describe("edit after completion", () => {
   test("Alice's /waiting screen has an 'Edit my answers' button that navigates without unmarking", async ({ page }) => {
     await createGroupAndSetup(page);
 
-    await page.getByText("Start filling out").click();
+    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Group & External");
     await answerAllQuestions(page, "yes");
-    await page.getByRole("button", { name: "I'm done" }).click();
+    await page.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Page is now on /waiting
-    await expect(page.getByText("Waiting for everyone")).toBeVisible();
+    await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });
     await expect(page).toHaveURL(/\/waiting/);
 
     // Click "Edit my answers" — navigates to /questions
-    await page.getByRole("button", { name: "Edit my answers" }).click();
+    await page.getByRole("button", { name: "Edit my answers", exact: true }).click();
     await expect(page).toHaveURL(/\/questions/);
 
     // isCompleted should NOT have been touched server-side. We verify this

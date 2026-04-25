@@ -9,3 +9,11 @@ build/
 test-results/
 playwright-report/
 e2e/.e2e-port
+e2e/.e2e-metrics-port
+
+# Local design mocks / exploration scratch
+design/mocks/
+
+# Generated OG images (rasterized from src/assets/og/*.svg at build time)
+packages/web/public/og-image.png
+packages/web/public/og-invite.png

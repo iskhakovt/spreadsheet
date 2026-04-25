@@ -7,8 +7,9 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "node",
-          include: ["packages/*/src/**/*.test.ts"],
+          include: ["packages/*/src/**/*.test.{ts,tsx}"],
           exclude: ["packages/*/src/**/*.integration.test.ts"],
+          env: { REQUIRE_ENCRYPTION: "false" },
         },
       },
       {
@@ -22,6 +23,7 @@ export default defineConfig({
           // Integration tests share a single Postgres container; running test
           // files in parallel causes TRUNCATE / FK deadlocks.
           fileParallelism: false,
+          env: { REQUIRE_ENCRYPTION: "false" },
         },
       },
     ],

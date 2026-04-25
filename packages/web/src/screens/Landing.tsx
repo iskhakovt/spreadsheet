@@ -1,84 +1,96 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
+import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
-  const [, navigate] = useLocation();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
 
   if (showCreate) {
-    return <CreateGroup onCreated={(token) => navigate(`/p/${token}`)} />;
+    return (
+      <CreateGroup
+        onCreated={(tokenWithKey) => {
+          const [token, hash] = tokenWithKey.split("#", 2);
+          void navigate({ to: "/p/$token", params: { token }, hash });
+        }}
+      />
+    );
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
-      {/* Atmospheric backdrop — two organic blobs drift slowly behind the
-          content. Pointer-events-none so they never interfere. Hidden from
-          screen readers — purely decorative. */}
+    <div className="relative min-h-dvh flex flex-col items-center justify-center px-6 overflow-hidden">
+      {/* Atmospheric backdrop — organic blobs drift slowly behind the
+          content, creating depth and warmth. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         <div
-          className="float-a absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full blur-3xl opacity-40"
+          className="float-a absolute -top-28 -left-20 w-[440px] h-[440px] rounded-full blur-[80px] opacity-35"
           style={{ background: "radial-gradient(circle, #e4b898 0%, transparent 65%)" }}
         />
         <div
-          className="float-b absolute -bottom-32 -right-20 w-[480px] h-[480px] rounded-full blur-3xl opacity-35"
+          className="float-b absolute -bottom-36 -right-16 w-[500px] h-[500px] rounded-full blur-[90px] opacity-30"
           style={{ background: "radial-gradient(circle, #d08058 0%, transparent 70%)" }}
         />
         <div
-          className="float-a absolute top-1/3 right-1/4 w-[220px] h-[220px] rounded-full blur-3xl opacity-25"
+          className="float-a absolute top-1/3 right-1/4 w-[200px] h-[200px] rounded-full blur-[70px] opacity-20"
           style={{ background: "radial-gradient(circle, #7aab8e 0%, transparent 70%)", animationDelay: "-8s" }}
         />
       </div>
 
       <div className="relative text-center max-w-sm w-full">
-        <div className="stagger flex justify-center mb-10" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+        <div className="stagger flex justify-center mb-12" style={{ "--stagger-index": 0 } as React.CSSProperties}>
           <img
             src="/logo.svg"
             alt=""
-            width="88"
-            height="88"
-            className="drop-shadow-[0_8px_20px_rgba(208,128,88,0.25)]"
+            width="80"
+            height="80"
+            className="drop-shadow-[0_6px_24px_rgba(208,128,88,0.3)]"
           />
         </div>
 
-        <div className="stagger mb-3" style={{ "--stagger-index": 1 } as React.CSSProperties}>
-          <h1 className="text-[3.25rem] leading-[0.95] font-bold tracking-[-0.03em] text-text">{UI.appName}</h1>
+        <div className="stagger mb-5" style={{ "--stagger-index": 1 } as React.CSSProperties}>
+          <h1 className="text-[3.5rem] leading-[0.92] font-bold tracking-[-0.035em] text-text">{UI.appName}</h1>
         </div>
 
         <div
-          className="stagger mb-10 flex items-center justify-center gap-3"
+          className="stagger mb-12 flex items-center justify-center gap-4"
           style={{ "--stagger-index": 2 } as React.CSSProperties}
         >
-          <span className="h-px w-8 bg-accent/40" />
-          <p className="text-base text-accent font-medium italic tracking-wide">{UI.tagline}</p>
-          <span className="h-px w-8 bg-accent/40" />
+          <span className="h-px w-10 bg-gradient-to-r from-transparent to-accent/30" />
+          <p className="text-[15px] text-accent font-medium italic tracking-wide">{UI.tagline}</p>
+          <span className="h-px w-10 bg-gradient-to-l from-transparent to-accent/30" />
         </div>
 
         <p
-          className="stagger text-text-muted leading-[1.7] text-[15px] text-balance mb-10"
+          className="stagger text-text-muted leading-[1.75] text-[15px] text-balance mb-12"
           style={{ "--stagger-index": 3 } as React.CSSProperties}
         >
           {UI.landing.description}
         </p>
 
-        <div className="stagger space-y-6" style={{ "--stagger-index": 4 } as React.CSSProperties}>
+        <div className="stagger space-y-7" style={{ "--stagger-index": 4 } as React.CSSProperties}>
           <Button fullWidth onClick={() => setShowCreate(true)}>
             {UI.landing.getStarted}
           </Button>
 
-          <p className="text-xs text-text-muted/70 tracking-wide">
-            Private <span className="text-text-muted/30 mx-1.5">&middot;</span>
-            Encrypted <span className="text-text-muted/30 mx-1.5">&middot;</span>
+          <p className="text-[11px] text-text-muted/60 tracking-[0.08em] uppercase font-medium">
+            Private <span className="text-text-muted/20 mx-2">&middot;</span>
+            Encrypted <span className="text-text-muted/20 mx-2">&middot;</span>
             No account needed
           </p>
+
+          <div className="pt-2">
+            <SourceLink />
+          </div>
         </div>
       </div>
     </div>
@@ -87,7 +99,10 @@ export function Landing() {
 
 function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => void }>) {
   const trpc = useTRPC();
-  const [encrypted, setEncrypted] = useState(false);
+  // window.__ENV is injected by the Hono server at request time. When undefined
+  // (e.g. raw `vite dev` without the Hono server), fail closed — treat as required.
+  const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
+  const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
   const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
@@ -118,13 +133,13 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
   return (
     <Card>
       <div className="animate-in">
-        <h2 className="text-2xl font-bold mb-2">{UI.createGroup.title}</h2>
+        <h2 className="text-2xl font-bold mb-1.5">{UI.createGroup.title}</h2>
         <p className="text-sm text-text-muted mb-8">Configure your group settings</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Question mode */}
           <div>
-            <p id="question-mode-label" className="text-sm font-medium mb-2 text-text-muted">
+            <p id="question-mode-label" className="text-sm font-medium mb-2.5 text-text-muted">
               Questions
             </p>
             <ToggleGroup
@@ -136,38 +151,35 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               onChange={setQuestionMode}
               aria-label="Question mode"
             />
+            <p className="text-xs text-text-muted mt-2 leading-relaxed">
+              Filter shows each person only the questions that apply to their body.
+            </p>
           </div>
 
           {/* Filtered mode settings */}
           {isFiltered && (
-            <div className="space-y-5 pl-3 border-l-2 border-accent/20">
+            <div className="space-y-5 pl-4 border-l-2 border-accent/15">
               {/* Label style */}
               <div>
-                <p className="text-xs font-medium mb-2 text-text-muted uppercase tracking-wide">Label style</p>
-                <div role="radiogroup" aria-label="Label style" className="flex gap-2 flex-wrap">
-                  {(["anatomical", "gendered", "amab", "short"] as const).map((style) => (
-                    // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
-                    <button
-                      key={style}
-                      type="button"
-                      role="radio"
-                      aria-checked={anatomyLabels === style}
-                      onClick={() => setAnatomyLabels(style)}
-                      className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                        anatomyLabels === style
-                          ? "bg-accent text-accent-fg border-accent"
-                          : "bg-surface border-border text-text-muted hover:border-accent/30"
-                      }`}
-                    >
-                      {ANATOMY_LABEL_PRESETS[style].amab} / {ANATOMY_LABEL_PRESETS[style].afab}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-xs font-medium mb-2.5 text-text-muted uppercase tracking-[0.1em]">Label style</p>
+                <ToggleGroup
+                  options={(["anatomical", "gendered", "amab"] as const).map((style) => ({
+                    value: style,
+                    label: `${ANATOMY_LABEL_PRESETS[style].amab} / ${ANATOMY_LABEL_PRESETS[style].afab}`,
+                  }))}
+                  value={anatomyLabels}
+                  onChange={setAnatomyLabels}
+                  size="sm"
+                  aria-label="Label style"
+                />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  Affects how questions describe bodies, not which ones you see.
+                </p>
               </div>
 
               {/* Who picks */}
               <div>
-                <p className="text-xs font-medium mb-2 text-text-muted uppercase tracking-wide">Who picks?</p>
+                <p className="text-xs font-medium mb-2.5 text-text-muted uppercase tracking-[0.1em]">Who picks?</p>
                 <ToggleGroup
                   options={[
                     { value: "admin" as const, label: "I'll set it" },
@@ -178,6 +190,9 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
                   size="sm"
                   aria-label="Who picks body type"
                 />
+                <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                  Fill in everyone's body now, or let each person pick their own on arrival.
+                </p>
               </div>
             </div>
           )}
@@ -192,7 +207,9 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               className="mt-0.5"
             />
             <div className="text-sm">
-              <span className="font-medium group-hover:text-accent transition-colors">Ask "now or later?"</span>
+              <span className="font-medium group-hover:text-accent transition-colors duration-200">
+                Ask "now or later?"
+              </span>
               <br />
               <span className="text-text-muted text-xs leading-relaxed">
                 After yes/willing answers, ask if you want it now or later.
@@ -201,16 +218,20 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
           </label>
 
           {/* Encryption */}
-          <label htmlFor="encrypted" className="flex items-start gap-3 cursor-pointer group">
+          <label
+            htmlFor="encrypted"
+            className={cn("flex items-start gap-3", requireEncryption ? "cursor-default" : "cursor-pointer group")}
+          >
             <input
               type="checkbox"
               id="encrypted"
               checked={encrypted}
               onChange={(e) => setEncrypted(e.target.checked)}
+              disabled={requireEncryption}
               className="mt-0.5"
             />
             <div className="text-sm">
-              <span className="font-medium group-hover:text-accent transition-colors">
+              <span className="font-medium group-hover:text-accent transition-colors duration-200">
                 {UI.createGroup.encryptedLabel}
               </span>
               <br />

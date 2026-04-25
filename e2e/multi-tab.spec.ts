@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, goThroughIntro, narrowToCategory, personBase, WS_TIMEOUT } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
   test("admin opens partner link in same browser — answers don't cross-contaminate", async ({
@@ -7,29 +7,29 @@ test.describe("multi-tab isolation", () => {
   }) => {
     // Shared context = shared localStorage (simulates same browser, multiple tabs)
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Admin answers one question with "No"
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
-    await admin.getByRole("button", { name: "Start" }).click();
-    await admin.getByRole("radio", { name: "No" }).click();
+    await admin.getByRole("button", { name: "Start", exact: true }).click();
+    await admin.getByRole("radio", { name: "No", exact: true }).click();
 
     // Verify via UI: press Back, admin's previous answer is still "No" selected
-    await admin.getByText("Back").click();
-    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    await admin.getByRole("button", { name: "Previous question", exact: true }).click();
+    await expect(admin.getByRole("radio", { name: "No", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Open Bob's link in same browser (new page in the SAME context, shared
     // localStorage). This is the crux of the multi-tab test — a new page in
@@ -41,12 +41,12 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
-    await bob.getByRole("button", { name: "Start" }).click();
-    await bob.getByRole("radio", { name: "Yes" }).click();
+    await bob.getByRole("button", { name: "Start", exact: true }).click();
+    await bob.getByRole("radio", { name: "Yes", exact: true }).click();
 
     // Bob's answer is "Yes" — verify via UI same way
-    await bob.getByText("Back").click();
-    await expect(bob.getByRole("radio", { name: "Yes" })).toHaveAttribute("aria-checked", "true");
+    await bob.getByRole("button", { name: "Previous question", exact: true }).click();
+    await expect(bob.getByRole("radio", { name: "Yes", exact: true })).toHaveAttribute("aria-checked", "true");
 
     // Admin's first answer is STILL "No" — Bob's write didn't touch
     // admin's scoped localStorage. This is the core isolation assertion:
@@ -58,27 +58,27 @@ test.describe("multi-tab isolation", () => {
     // a welcome screen or mid-flow. Navigate explicitly to the first
     // question to verify its saved answer.
     await admin
-      .getByRole("button", { name: "Start" })
+      .getByRole("button", { name: "Start", exact: true })
       .click()
       .catch(() => {});
-    await expect(admin.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    await expect(admin.getByRole("radio", { name: "No", exact: true })).toHaveAttribute("aria-checked", "true");
   });
 
   test("admin marks complete after visiting partner link — marks correct person", async ({
     multiTab: { ctx, admin },
   }) => {
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Open Bob's link in a second tab first (the risky action order that
     // used to cause "admin marks Bob complete" cross-contamination bugs)
@@ -88,11 +88,11 @@ test.describe("multi-tab isolation", () => {
 
     // Back to admin — answer all and mark complete
     await admin.bringToFront();
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "no");
-    await admin.getByRole("button", { name: "I'm done" }).click();
+    await admin.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Correct person (Alice) marked complete: admin reached /waiting (proves
     // Alice is complete — guard wouldn't land her here otherwise) and Bob is
@@ -105,24 +105,24 @@ test.describe("multi-tab isolation", () => {
     multiTab: { ctx, admin },
   }) => {
     await admin.goto("/");
-    await admin.getByText("Get started").click();
-    await admin.getByText("All questions").click();
-    await admin.getByText("Create group").click();
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
     await expect(admin.getByText("Set up your group")).toBeVisible();
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
-    await admin.getByText("Create & get links").click();
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
     await expect(admin.getByText("You're all set")).toBeVisible();
-    const bobLink = await admin.locator("input[readonly]").inputValue();
+    const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice answers and completes
-    await admin.getByText("Start filling out").click();
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
     await narrowToCategory(admin, "Group & External");
     await answerAllQuestions(admin, "yes");
-    await admin.getByRole("button", { name: "I'm done" }).click();
+    await admin.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
 
     // Bob answers and completes in same browser context
@@ -131,11 +131,46 @@ test.describe("multi-tab isolation", () => {
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
-    await bob.getByRole("button", { name: "I'm done" }).click();
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Bob should reach waiting or results
     await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
-      timeout: 10000,
+      timeout: WS_TIMEOUT,
     });
+  });
+
+  test("cross-tab reactive: write in tab A updates tab B's Summary via the storage event", async ({
+    multiTab: { ctx, admin },
+  }) => {
+    // Two tabs of the SAME person (same token, shared context → shared
+    // localStorage). An answer committed in tab A should flow to tab B's
+    // Summary without a reload, driven by the native `storage` event that
+    // useAnswers/useSyncExternalStore subscribes to.
+    await admin.goto("/");
+    await admin.getByRole("button", { name: "Get started", exact: true }).click();
+    await admin.getByRole("radio", { name: "All questions", exact: true }).click();
+    await admin.getByRole("button", { name: "Create group", exact: true }).click();
+    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await admin.getByPlaceholder("Enter your name").fill("Alice");
+    await admin.getByPlaceholder("Partner's name").fill("Bob");
+    await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
+    await expect(admin.getByText("You're all set")).toBeVisible();
+
+    await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await goThroughIntro(admin);
+    await narrowToCategory(admin, "Foundations");
+
+    // Open tab B to the same user's Summary.
+    const base = personBase(admin.url());
+    const tabB = await ctx.newPage();
+    await tabB.goto(base + "/summary");
+    await expect(tabB.getByText(/0 of \d+ answered/)).toBeVisible();
+
+    // Commit an answer in tab A.
+    await admin.getByRole("button", { name: "Start", exact: true }).click();
+    await admin.getByRole("radio", { name: "No", exact: true }).click();
+
+    // Tab B reactively reflects the new count — no reload.
+    await expect(tabB.getByText(/1 of \d+ answered/)).toBeVisible();
   });
 });
