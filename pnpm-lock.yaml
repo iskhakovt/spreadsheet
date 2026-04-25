@@ -128,6 +128,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@fontsource-variable/lexend':
+        specifier: ^5.2.11
+        version: 5.2.11
       '@spreadsheet/shared':
         specifier: workspace:*
         version: link:../shared
@@ -1309,6 +1312,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource-variable/lexend@5.2.11':
+    resolution: {integrity: sha512-0hgEQ4O7Nh8fxL/WWmspJf0BErbocRkZwtLRGey/V4mUUqxfF7QUwqhcdzwpjom3NYCniY4uzQ5wYD7r9/92tQ==}
 
   '@grpc/grpc-js@1.14.3':
     resolution: {integrity: sha512-Iq8QQQ/7X3Sac15oB6p0FmUg/klxQvXLeileoqrTRGJYLV+/9tubbr9ipz0GKHjmXVsgFPo/+W+2cA8eNcR+XA==}
@@ -5683,6 +5689,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@fontsource-variable/lexend@5.2.11': {}
 
   '@grpc/grpc-js@1.14.3':
     dependencies:
