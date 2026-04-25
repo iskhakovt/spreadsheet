@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
+import { parse as parseCookies } from "cookie";
 import type { Context as HonoContext } from "hono";
 import { getCookie } from "hono/cookie";
 import type { Logger } from "pino";
@@ -76,18 +77,9 @@ export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOp
   const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
 
   if (params?.sessionKey) {
-    const cookieHeader = opts.req.headers.cookie ?? "";
-    const token = parseCookieValue(cookieHeader, `s_${params.sessionKey}`);
+    const cookies = parseCookies(opts.req.headers.cookie ?? "");
+    const token = cookies[`s_${params.sessionKey}`] ?? null;
     return buildContext(stores, token, connLogger);
   }
   return buildContext(stores, params?.token ?? null, connLogger);
-}
-
-function parseCookieValue(header: string, name: string): string | null {
-  for (const part of header.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
-  }
-  return null;
 }

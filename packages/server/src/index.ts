@@ -217,12 +217,25 @@ wss.on("connection", (ws) => {
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  if (url.pathname === "/api/trpc-ws") {
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit("connection", ws, req);
-    });
+  if (url.pathname !== "/api/trpc-ws") return; // other upgrade paths left untouched
+
+  // Reject cross-origin WebSocket connections (CSWSH defence). Browsers always
+  // send Origin; non-browser clients (e.g. integration tests) omit it — allow those.
+  const origin = req.headers.origin;
+  if (origin) {
+    const originHost = new URL(origin).host;
+    const host = req.headers.host ?? "";
+    if (originHost !== host) {
+      logger.warn({ origin, host }, "ws upgrade rejected: origin mismatch");
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
   }
-  // Other upgrade paths are left untouched.
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req);
+  });
 });
 
 process.on("SIGTERM", () => {
