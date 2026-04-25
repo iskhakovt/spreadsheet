@@ -133,6 +133,35 @@ export const groupsRouter = router({
   }),
 
   /**
+   * Called once when a partner opens their invite link for the first time.
+   * Rotates the person's token so the admin's copy becomes stale, preventing
+   * the admin from reading the partner's unsubmitted answers via the sync
+   * journal. Idempotent: returns `{ newToken: null }` if already landed.
+   */
+  land: authedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.person.isAdmin) {
+      // Admin created their own token via setupAdmin — no rotation needed.
+      return { newToken: null };
+    }
+
+    const person = await ctx.groups.getPersonByToken(ctx.personToken);
+    if (!person) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+    }
+
+    if (person.hasLanded) {
+      return { newToken: null };
+    }
+
+    const result = await ctx.groups.rotateToken(person.id);
+    if ("error" in result) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+    }
+
+    return { newToken: result.newToken };
+  }),
+
+  /**
    * Real-time per-person status. Yields the current state immediately, then
    * yields again whenever any mutation in the group emits via {@link groupEvents}.
    * Each subscriber gets a personalized payload (their own `person` field).

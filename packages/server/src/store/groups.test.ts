@@ -200,3 +200,46 @@ describe("GroupStore.removePerson", () => {
     expect(result).toEqual({ error: "self_remove" });
   });
 });
+
+describe("GroupStore.rotateToken", () => {
+  it("returns error for non-existent person", async () => {
+    const result = await store.rotateToken("00000000-0000-4000-8000-000000000000");
+    expect(result).toEqual({ error: "not_found" });
+  });
+
+  it("issues a new unique token and marks hasLanded = true", async () => {
+    const { adminToken } = await store.create({
+      encrypted: false,
+      questionMode: "all",
+      showTiming: true,
+      anatomyLabels: null,
+      anatomyPicker: null,
+    });
+    const setup = await store.setupAdmin(adminToken, {
+      name: "Alice",
+      anatomy: null,
+      partners: [{ name: "Bob", anatomy: null }],
+    });
+    if ("error" in setup) throw new Error("setup failed");
+
+    const partnerToken = setup.partnerTokens[0];
+    const partnerStatus = await store.getStatus(partnerToken);
+    const partnerId = partnerStatus!.person!.id;
+
+    const result = await store.rotateToken(partnerId);
+    expect("error" in result).toBe(false);
+    if ("error" in result) throw new Error("unexpected error");
+
+    const { newToken } = result;
+    expect(newToken).not.toBe(partnerToken);
+
+    // Old token is now stale — getStatus returns null.
+    const oldStatus = await store.getStatus(partnerToken);
+    expect(oldStatus).toBeNull();
+
+    // New token resolves correctly.
+    const newStatus = await store.getStatus(newToken);
+    expect(newStatus).not.toBeNull();
+    expect(newStatus!.person!.id).toBe(partnerId);
+  });
+});

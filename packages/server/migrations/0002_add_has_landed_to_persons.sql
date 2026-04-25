@@ -1,0 +1,1 @@
+ALTER TABLE "persons" ADD COLUMN "hasLanded" boolean DEFAULT false NOT NULL;

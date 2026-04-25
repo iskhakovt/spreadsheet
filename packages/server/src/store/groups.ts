@@ -150,6 +150,23 @@ export class GroupStore {
     });
   }
 
+  async rotateToken(personId: string): Promise<{ newToken: string } | { error: "not_found" }> {
+    return this.#tx(async (tx) => {
+      const person = await tx
+        .select()
+        .from(persons)
+        .where(eq(persons.id, personId))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (!person) return { error: "not_found" as const };
+
+      const newToken = generateToken();
+      await tx.update(persons).set({ token: newToken, hasLanded: true }).where(eq(persons.id, personId));
+      return { newToken };
+    });
+  }
+
   async getPersonByToken(token: string) {
     return this.#tx(async (tx) => {
       return tx

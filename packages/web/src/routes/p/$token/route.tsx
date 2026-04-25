@@ -81,6 +81,28 @@ function PersonAppLayout() {
 
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
+  // Token rotation: fire once per person session. The mutation asks the server
+  // to rotate the token on first land so the admin's copy becomes stale.
+  // A ref guards against double-firing in React Strict Mode / re-renders.
+  const landFiredRef = useRef(false);
+  const landMutation = useMutation(trpcProxy.groups.land.mutationOptions());
+  useEffect(() => {
+    if (landFiredRef.current) return;
+    if (!status?.person) return;
+    landFiredRef.current = true;
+    landMutation.mutateAsync().then(({ newToken }) => {
+      if (!newToken) return;
+      // Update session scope to the new token before navigating so tRPC
+      // headers and localStorage scope are correct on the next render.
+      setSession(newToken);
+      void navigate({ to: "/p/$token", params: { token: newToken }, replace: true });
+    });
+    // landMutation is stable (mutationOptions returns a stable ref); including
+    // it would cause an infinite loop if it weren't, so we intentionally omit
+    // it from the deps array and suppress the lint warning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.person, navigate]);
+
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
   const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
   const markComplete = useMarkComplete(token);

@@ -31,6 +31,7 @@ export const persons = pgTable(
     token: text().notNull().unique(),
     isAdmin: boolean().notNull(),
     isCompleted: boolean().notNull(),
+    hasLanded: boolean().notNull().default(false),
     progress: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

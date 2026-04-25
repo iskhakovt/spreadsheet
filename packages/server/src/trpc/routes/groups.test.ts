@@ -31,6 +31,7 @@ function mockCtx(
       removePerson: vi.fn(),
       setProfile: vi.fn(),
       markReady: vi.fn(),
+      rotateToken: vi.fn(),
       getPersonByToken: vi.fn(),
       getGroupById: vi.fn(),
       getStatus: vi.fn(),
@@ -341,5 +342,49 @@ describe("broadcasting middleware", () => {
     const caller = createCaller(ctx);
     await expect(caller.groups.markReady()).rejects.toThrow("Admin access required");
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("groups.land", () => {
+  const partnerPerson = { ...adminPerson, isAdmin: false };
+
+  it("requires auth (rejects anon)", async () => {
+    const caller = createCaller(mockCtx({}));
+    await expect(caller.groups.land()).rejects.toThrow("Invalid or missing person token");
+  });
+
+  it("returns newToken: null for admin (no rotation needed)", async () => {
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup });
+    const result = await createCaller(ctx).groups.land();
+    expect(result).toEqual({ newToken: null });
+  });
+
+  it("returns newToken: null when person has already landed", async () => {
+    const getPersonByToken = vi.fn().mockResolvedValue({ id: "p2", hasLanded: true });
+    const ctx = mockCtx({ person: partnerPerson, group: readyGroup, groups: { getPersonByToken } });
+    const result = await createCaller(ctx).groups.land();
+    expect(result).toEqual({ newToken: null });
+  });
+
+  it("rotates token on first land and returns new token", async () => {
+    const rotateToken = vi.fn().mockResolvedValue({ newToken: "rotated-token" });
+    const getPersonByToken = vi.fn().mockResolvedValue({ id: "p2", hasLanded: false });
+    const ctx = mockCtx({ person: partnerPerson, group: readyGroup, groups: { rotateToken, getPersonByToken } });
+    const result = await createCaller(ctx).groups.land();
+    expect(result).toEqual({ newToken: "rotated-token" });
+    expect(rotateToken).toHaveBeenCalledWith("p2");
+  });
+
+  it("throws NOT_FOUND when person not found by token", async () => {
+    const getPersonByToken = vi.fn().mockResolvedValue(null);
+    const ctx = mockCtx({ person: partnerPerson, group: readyGroup, groups: { getPersonByToken } });
+    await expect(createCaller(ctx).groups.land()).rejects.toThrow("Person not found");
+  });
+
+  it("throws NOT_FOUND when rotateToken returns not_found", async () => {
+    const rotateToken = vi.fn().mockResolvedValue({ error: "not_found" });
+    const getPersonByToken = vi.fn().mockResolvedValue({ id: "p2", hasLanded: false });
+    const ctx = mockCtx({ person: partnerPerson, group: readyGroup, groups: { rotateToken, getPersonByToken } });
+    await expect(createCaller(ctx).groups.land()).rejects.toThrow("Person not found");
   });
 });
