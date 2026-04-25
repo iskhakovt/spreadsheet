@@ -17,7 +17,7 @@
     "@spreadsheet/shared": "workspace:*",
     "@trpc/server": "^11.16.0",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.12.14",
+    "hono": "^4.12.15",
     "node-html-parser": "^7.1.0",
     "pino": "^10.3.1",
     "postgres": "^3.4.0",
@@ -36,6 +36,6 @@
     "testcontainers": "^11.14.0",
     "tsup": "^8.5.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.3"
   }
 }
