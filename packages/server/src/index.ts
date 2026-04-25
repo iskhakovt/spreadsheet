@@ -4,12 +4,11 @@ import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
-import { fnv1a } from "@spreadsheet/shared";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { type Context, Hono } from "hono";
 import { compress } from "hono/compress";
-import { setCookie } from "hono/cookie";
 import { WebSocketServer } from "ws";
+import { createAuthApp } from "./auth.js";
 import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
@@ -20,6 +19,7 @@ import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
 import { createContext, createWSContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
+import { isAllowedOrigin } from "./ws-security.js";
 
 logger.info("server starting");
 
@@ -68,24 +68,7 @@ app.get("/health", (c) => c.json({ status: "ok", version: process.env.VERSION ??
 
 // Token exchange — client posts its person token once; server sets an httpOnly
 // cookie so subsequent requests authenticate without the token in headers.
-app.post("/auth/exchange", async (c) => {
-  const body = await c.req.json<{ token?: unknown }>();
-  const token = typeof body.token === "string" ? body.token : null;
-  if (!token) return c.json({ error: "missing_token" }, 400);
-
-  const person = await stores.groups.getPersonByToken(token);
-  if (!person) return c.json({ error: "not_found" }, 404);
-
-  const hash = fnv1a(token);
-  const isHttps = c.req.header("x-forwarded-proto") === "https";
-  setCookie(c, `s_${hash}`, token, {
-    httpOnly: true,
-    sameSite: "Strict",
-    path: "/",
-    secure: isHttps,
-  });
-  return c.json({ hash });
-});
+app.route("/", createAuthApp(stores.groups));
 
 // Compress API responses (static files are pre-compressed)
 app.use("/api/*", compress());
@@ -221,16 +204,12 @@ server.on("upgrade", (req, socket, head) => {
 
   // Reject cross-origin WebSocket connections (CSWSH defence). Browsers always
   // send Origin; non-browser clients (e.g. integration tests) omit it — allow those.
-  const origin = req.headers.origin;
-  if (origin) {
-    const originHost = new URL(origin).host;
-    const host = req.headers.host ?? "";
-    if (originHost !== host) {
-      logger.warn({ origin, host }, "ws upgrade rejected: origin mismatch");
-      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-      socket.destroy();
-      return;
-    }
+  const host = req.headers.host ?? "";
+  if (!isAllowedOrigin(req.headers.origin, host)) {
+    logger.warn({ origin: req.headers.origin, host }, "ws upgrade rejected: origin mismatch");
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    socket.destroy();
+    return;
   }
 
   wss.handleUpgrade(req, socket, head, (ws) => {
