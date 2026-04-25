@@ -36,7 +36,14 @@ export const syncRouter = router({
         }
       }
 
-      const result = await ctx.sync.push(ctx.person.id, input);
+      const result = await ctx.sync.push(ctx.person.id, input, ctx.group.encrypted);
+
+      if ("error" in result) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Operation encryption does not match group setting",
+        });
+      }
 
       // Emit journal update after a successful, non-rejected commit. Rejected
       // pushes changed nothing server-side, so there's nothing to propagate;
