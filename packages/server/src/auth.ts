@@ -27,7 +27,7 @@ export function createAuthApp(groups: GroupStore): Hono {
       path: "/",
       secure: isHttps,
     });
-    return c.json({ hash });
+    return c.json({ ok: true });
   });
 
   return app;

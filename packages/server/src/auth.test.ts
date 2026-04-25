@@ -39,6 +39,7 @@ describe("POST /auth/exchange", () => {
       body: JSON.stringify({ token: 42 }),
     });
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "missing_token" });
   });
 
   it("returns 404 when token is not found", async () => {
@@ -52,7 +53,7 @@ describe("POST /auth/exchange", () => {
     expect(await res.json()).toEqual({ error: "not_found" });
   });
 
-  it("returns 200 with hash and sets httpOnly cookie on valid token", async () => {
+  it("returns 200 and sets httpOnly cookie on valid token", async () => {
     const token = "valid-token-abc";
     const app = makeApp(vi.fn().mockResolvedValue(person));
     const res = await app.request("/auth/exchange", {
@@ -61,9 +62,9 @@ describe("POST /auth/exchange", () => {
       body: JSON.stringify({ token }),
     });
     expect(res.status).toBe(200);
-    const hash = fnv1a(token);
-    expect(await res.json()).toEqual({ hash });
+    expect(await res.json()).toEqual({ ok: true });
 
+    const hash = fnv1a(token);
     const cookie = res.headers.get("set-cookie") ?? "";
     expect(cookie).toContain(`s_${hash}=${token}`);
     expect(cookie.toLowerCase()).toContain("httponly");

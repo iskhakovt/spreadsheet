@@ -128,4 +128,20 @@ describe("createWSContext", () => {
     expect(ctx.person).toBeNull();
     expect(ctx.personToken).toBeNull();
   });
+
+  it("ignores non-string token in connectionParams", async () => {
+    const stores = makeStores(vi.fn());
+    const opts = { req: { headers: { cookie: "" } }, info: { connectionParams: { token: 42 } } } as never;
+    const ctx = await createWSContext(stores, opts);
+    expect(ctx.person).toBeNull();
+    expect(ctx.personToken).toBeNull();
+  });
+
+  it("ignores non-string sessionKey in connectionParams", async () => {
+    const stores = makeStores(vi.fn());
+    const opts = { req: { headers: { cookie: "" } }, info: { connectionParams: { sessionKey: true } } } as never;
+    const ctx = await createWSContext(stores, opts);
+    expect(ctx.person).toBeNull();
+    expect(ctx.personToken).toBeNull();
+  });
 });

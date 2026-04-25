@@ -71,15 +71,17 @@ export async function createContext(stores: Stores, c: HonoContext<HonoLoggerEnv
 }
 
 export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOptions): Promise<TrpcContext> {
-  const params = opts.info.connectionParams as { token?: string; sessionKey?: string } | undefined;
+  const raw = opts.info.connectionParams as Record<string, unknown> | undefined;
+  const sessionKey = typeof raw?.sessionKey === "string" ? raw.sessionKey : null;
+  const tokenParam = typeof raw?.token === "string" ? raw.token : null;
   // `connId` is per-WS-connection (analogous to `reqId` for HTTP) — without it,
   // log lines from concurrent WS subscriptions can't be correlated.
   const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
 
-  if (params?.sessionKey) {
+  if (sessionKey) {
     const cookies = parseCookies(opts.req.headers.cookie ?? "");
-    const token = cookies[`s_${params.sessionKey}`] ?? null;
+    const token = cookies[`s_${sessionKey}`] ?? null;
     return buildContext(stores, token, connLogger);
   }
-  return buildContext(stores, params?.token ?? null, connLogger);
+  return buildContext(stores, tokenParam, connLogger);
 }

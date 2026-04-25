@@ -23,7 +23,8 @@ export const sessionStore = createStore<Session>()(() => ({
 export function setSession(token: string) {
   const current = sessionStore.getState();
   if (current.token === token) return;
-  sessionStore.setState({ token, hash: fnv1a(token), exchanged: false, scope: `s${fnv1a(token)}:` });
+  const hash = fnv1a(token);
+  sessionStore.setState({ token, hash, exchanged: false, scope: `s${hash}:` });
 }
 
 /** Mark the session as cookie-exchanged. After this, requests use X-Session-Key. */
