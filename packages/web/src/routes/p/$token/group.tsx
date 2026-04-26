@@ -16,6 +16,7 @@ function GroupRoute() {
       members={sortedMembers}
       person={authedStatus.person}
       group={authedStatus.group}
+      token={token}
       onGroupReady={markReady}
       onStartFilling={() => {
         if (!getHasSeenIntro()) void navigate({ to: "/p/$token/intro", params: { token } });

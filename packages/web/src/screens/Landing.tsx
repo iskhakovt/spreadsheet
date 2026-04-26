@@ -1,7 +1,6 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -13,15 +12,17 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
-  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
 
   if (showCreate) {
     return (
       <CreateGroup
         onCreated={(tokenWithKey) => {
-          const [token, hash] = tokenWithKey.split("#", 2);
-          void navigate({ to: "/p/$token", params: { token }, hash });
+          // Hard navigation: the server's /p/:token route sets the session
+          // cookie on the response. A soft nav would skip the server entirely,
+          // leaving the next authenticated request unauthorised. The brief
+          // reload is the price of canonical PRG-style auth bootstrapping.
+          window.location.assign(`/p/${tokenWithKey}`);
         }}
       />
     );

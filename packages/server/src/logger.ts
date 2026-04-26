@@ -13,7 +13,9 @@ export const redactPaths = [
   // Request headers carrying credentials. `host` is intentionally NOT here
   // — it's the public-facing hostname the client sent and is useful for
   // debugging which vhost was hit.
-  'req.headers["x-person-token"]',
+  // x-session-key is fnv1a(token) — non-secret in itself, but listing it here
+  // keeps the redact contract exhaustive about credential-bearing headers.
+  'req.headers["x-session-key"]',
   "req.headers.authorization",
   "req.headers.cookie",
   // Sensitive keys at root of a logged object

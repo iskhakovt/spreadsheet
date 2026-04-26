@@ -5,7 +5,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
-import { type Context, Hono } from "hono";
+import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
@@ -13,6 +13,7 @@ import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
 import { registry, wsConnectionsGauge } from "./metrics.js";
 import { requestLogger } from "./request-logger.js";
+import { makeSpaRoutes } from "./spa-routes.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
@@ -109,17 +110,19 @@ try {
   }
 }
 
-const serveSpaHtml = (c: Context) => {
-  const html = c.req.path.startsWith("/p/") ? indexHtmlInvite : indexHtmlDefault;
-  if (!html) return c.text("Not found", 404);
-  c.header("Cache-Control", "no-cache");
-  return c.html(html);
-};
+const { serveBootstrap, serveDefault } = makeSpaRoutes(indexHtmlInvite, indexHtmlDefault);
+
+// /p/:token (and sub-paths) — bootstrap-only: validates token, sets a
+// per-person httpOnly session cookie, serves the invite-flavoured HTML.
+// Client-side `replaceState`s the URL to root once it's read its session
+// identity (the hash) — see web-side bootstrap route.
+app.get("/p/:token", serveBootstrap);
+app.get("/p/:token/*", serveBootstrap);
 
 // Explicit routes for the HTML entry points — must come before serveStatic so
 // serveStatic never intercepts index.html and strips window.__ENV.
-app.get("/", serveSpaHtml);
-app.get("/index.html", serveSpaHtml);
+app.get("/", serveDefault);
+app.get("/index.html", serveDefault);
 
 // Static files
 app.use(
@@ -139,9 +142,8 @@ app.use(
   }),
 );
 
-// SPA fallback for all remaining routes (e.g. /summary, /group, /p/* not
-// matched above by the explicit routes).
-app.get("/*", serveSpaHtml);
+// SPA fallback for all remaining non-/p/ routes (e.g. /setup, /results, /group).
+app.get("/*", serveDefault);
 
 const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 8080;
 const server = serve({ fetch: app.fetch, port });

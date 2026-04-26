@@ -9,7 +9,7 @@ export const Route = createFileRoute("/p/$token/pending")({
 });
 
 function PendingRoute() {
-  const { authedStatus, sortedMembers } = usePersonApp();
+  const { authedStatus, sortedMembers, token } = usePersonApp();
   const waitingForAnatomy = authedStatus.group.isAdminReady && !authedStatus.group.isReady;
   const others = sortedMembers.filter((m) => m.id !== authedStatus.person.id);
 
@@ -38,7 +38,7 @@ function PendingRoute() {
           ))}
         </div>
         <p className="text-xs text-text-muted/70">Only matches are revealed. Checking automatically...</p>
-        <CopyMyLink encrypted={authedStatus.group.encrypted} />
+        <CopyMyLink encrypted={authedStatus.group.encrypted} token={token} />
       </div>
     </Card>
   );

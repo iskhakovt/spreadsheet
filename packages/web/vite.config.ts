@@ -52,6 +52,11 @@ export default defineConfig({
       registerType: "autoUpdate",
       workbox: {
         globPatterns: ["**/*.{js,css,html}"],
+        // /p/:token is a server-handled bootstrap route — it sets the session
+        // cookie on the response. If the SW navigation fallback intercepts
+        // and serves cached index.html, the cookie never gets set. Force /p/*
+        // to always hit the network.
+        navigateFallbackDenylist: [/^\/p\//],
       },
       manifest: {
         name: "Spreadsheet",

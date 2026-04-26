@@ -25,6 +25,7 @@ interface GroupProps {
   members: Member[];
   person: Pick<Person, "isCompleted">;
   group: Pick<GroupData, "encrypted" | "isReady" | "questionMode" | "anatomyLabels" | "anatomyPicker">;
+  token: string;
   onGroupReady: () => void;
   onStartFilling: () => void;
   onViewAnswers: () => void;
@@ -35,6 +36,7 @@ export function Group({
   members,
   person,
   group,
+  token,
   onGroupReady,
   onStartFilling,
   onViewAnswers,
@@ -219,7 +221,7 @@ export function Group({
           </Button>
         )}
 
-        <CopyMyLink encrypted={group.encrypted} />
+        <CopyMyLink encrypted={group.encrypted} token={token} />
       </div>
     </Card>
   );

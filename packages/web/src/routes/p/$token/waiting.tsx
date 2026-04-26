@@ -48,7 +48,7 @@ function WaitingRoute() {
             View group members
           </button>
         )}
-        <CopyMyLink encrypted={authedStatus.group.encrypted} />
+        <CopyMyLink encrypted={authedStatus.group.encrypted} token={token} />
       </div>
     </Card>
   );
