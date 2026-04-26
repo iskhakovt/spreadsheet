@@ -45,10 +45,19 @@ export const sessionStore = createStore<Session>()(() => ({
  *
  * The token itself is not persisted in JS — only its hash. The token lives
  * in the httpOnly cookie set by the server's `/p/:token` response.
+ *
+ * The in-memory store is updated even when persistence fails (quota,
+ * private-browsing modes, sandboxed iframes that throw on `setItem`). The
+ * tab still works for its lifetime; only the survive-reload property is lost.
  */
 export function adoptSession(token: string) {
   const hash = fnv1a(token);
-  safeSessionStorage()?.setItem(STORAGE_KEY, hash);
+  if (sessionStore.getState().hash === hash) return;
+  try {
+    safeSessionStorage()?.setItem(STORAGE_KEY, hash);
+  } catch {
+    // Storage write failure (quota, private mode, sandbox) — fall through.
+  }
   sessionStore.setState({ hash, scope: `s${hash}:` });
 }
 

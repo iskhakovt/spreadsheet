@@ -1,7 +1,7 @@
 import type { CategoryData, Group as GroupData, Person, QuestionData } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../../../components/Card.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
@@ -15,9 +15,10 @@ import {
 } from "../../../lib/person-app-context.js";
 import { adoptSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
-import { useTRPC, useTRPCClient, wsClient } from "../../../lib/trpc.js";
+import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
 import { useMarkComplete } from "../../../lib/use-mark-complete.js";
+import { useTokenSwitchCleanup } from "../../../lib/use-token-switch-cleanup.js";
 import { GroupSetup } from "../../../screens/GroupSetup.js";
 
 function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
@@ -54,17 +55,7 @@ function PersonAppLayout() {
   // new token so tRPC hooks pick up the right credentials on next render).
   adoptSession(token);
 
-  // On in-tab navigation between two /p/:token URLs: close WS for a clean
-  // auth handshake and drop any non-token-keyed cache entries.
-  const prevTokenRef = useRef(token);
-  useEffect(() => {
-    if (prevTokenRef.current !== token) {
-      wsClient.close();
-      queryClient.invalidateQueries({ queryKey: [["sync"]] });
-      queryClient.invalidateQueries({ queryKey: [["questions"]] });
-      prevTokenRef.current = token;
-    }
-  }, [token, queryClient]);
+  useTokenSwitchCleanup(token);
 
   const { status, refresh: refreshStatus } = useLiveStatus();
   const trpcProxy = useTRPC();

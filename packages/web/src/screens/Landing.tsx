@@ -17,12 +17,12 @@ export function Landing() {
   if (showCreate) {
     return (
       <CreateGroup
-        onCreated={(tokenWithKey) => {
+        onCreated={(token) => {
           // Hard navigation: the server's /p/:token route sets the session
           // cookie on the response. A soft nav would skip the server entirely,
           // leaving the next authenticated request unauthorised. The brief
           // reload is the price of canonical PRG-style auth bootstrapping.
-          window.location.assign(`/p/${tokenWithKey}`);
+          window.location.assign(`/p/${token}`);
         }}
       />
     );
