@@ -4,7 +4,7 @@ import { createDatabase, type Database } from "../../db/index.js";
 import { seed } from "../../db/seed.js";
 import { journalEventName, journalEvents } from "../../events.js";
 import { QuestionStore } from "../../store/questions.js";
-import { anonCtx, authedCtx, createCaller, defaultCreate } from "../../test/factories.js";
+import { anonCtx, authedCtx, createCaller, defaultCreate, tokenCtx } from "../../test/factories.js";
 
 let db: Database;
 
@@ -64,9 +64,9 @@ async function setupCompletedPair() {
   });
   const bobToken = partnerTokens[0];
 
-  const aliceStatus0 = await caller.groups.status({ token: adminToken });
+  const aliceStatus0 = await createCaller(tokenCtx(db, adminToken)).groups.status();
   const aliceCaller0 = createCaller(authedCtx(db, aliceStatus0!, adminToken));
-  const bobStatus0 = await caller.groups.status({ token: bobToken });
+  const bobStatus0 = await createCaller(tokenCtx(db, bobToken)).groups.status();
   const bobCaller0 = createCaller(authedCtx(db, bobStatus0!, bobToken));
 
   // Each pushes one journal entry, then both mark complete.
@@ -86,8 +86,8 @@ async function setupCompletedPair() {
 
   // Re-read status so `isCompleted` is reflected in the contexts used for
   // opening the journal subscription (whose precondition checks allComplete).
-  const aliceStatus = await caller.groups.status({ token: adminToken });
-  const bobStatus = await caller.groups.status({ token: bobToken });
+  const aliceStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
+  const bobStatus = await createCaller(tokenCtx(db, bobToken)).groups.status();
 
   return {
     alice: {
@@ -302,7 +302,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
       partners: [{ name: "Bob", anatomy: null }],
     });
 
-    const aliceStatus = await caller.groups.status({ token: adminToken });
+    const aliceStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
     const aliceCtx = authedCtx(db, aliceStatus!, adminToken);
 
     await expect(async () => {
@@ -354,7 +354,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
+    const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
     const ctx = authedCtx(db, status!, adminToken);
     const aliceCaller = createCaller(ctx);
 
@@ -367,7 +367,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await aliceCaller.sync.markComplete();
 
     // Re-read status after markComplete so the subscription ctx sees completion
-    const updatedStatus = await caller.groups.status({ token: adminToken });
+    const updatedStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
     const updatedCtx = authedCtx(db, updatedStatus!, adminToken);
 
     const sub = await openSubscription(journalSub(updatedCtx));

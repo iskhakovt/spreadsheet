@@ -4,7 +4,7 @@ import { createDatabase, type Database } from "../../db/index.js";
 import { seed } from "../../db/seed.js";
 import { groupEvents } from "../../events.js";
 import { QuestionStore } from "../../store/questions.js";
-import { anonCtx, authedCtx, createCaller, defaultCreate } from "../../test/factories.js";
+import { anonCtx, authedCtx, createCaller, defaultCreate, tokenCtx } from "../../test/factories.js";
 
 let db: Database;
 
@@ -65,8 +65,8 @@ async function setupAliceAndBob() {
   });
   const bobToken = partnerTokens[0];
 
-  const aliceStatus = await caller.groups.status({ token: adminToken });
-  const bobStatus = await caller.groups.status({ token: bobToken });
+  const aliceStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
+  const bobStatus = await createCaller(tokenCtx(db, bobToken)).groups.status();
 
   return {
     alice: {
@@ -195,7 +195,7 @@ describe("groups.onStatus subscription (real Postgres)", () => {
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
+    const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
     const ctx = authedCtx(db, status!, adminToken);
 
     const sub = await openSubscription((signal) => createCaller(ctx, { signal }).groups.onStatus());

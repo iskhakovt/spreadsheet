@@ -22,6 +22,15 @@ export function anonCtx(db: Database): TrpcContext {
   return { ...makeStores(db), person: null, group: null, personToken: null, logger: silentLogger } as TrpcContext;
 }
 
+/**
+ * Context with `personToken` set but `person`/`group` left unresolved. Used
+ * for `publicProcedure` procedures that look up state from the token (e.g.
+ * `groups.status`) without needing a fully authenticated person.
+ */
+export function tokenCtx(db: Database, personToken: string): TrpcContext {
+  return { ...makeStores(db), person: null, group: null, personToken, logger: silentLogger } as TrpcContext;
+}
+
 /** Build an authenticated context from a status response. Single place for the cast. */
 export function authedCtx(
   db: Database,
@@ -58,7 +67,7 @@ export async function createAndSetup(db: Database, overrides: Record<string, unk
     anatomy: null,
     partners: [],
   });
-  const status = await caller.groups.status({ token: adminToken });
+  const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
   return {
     token: adminToken,
     status: status!,

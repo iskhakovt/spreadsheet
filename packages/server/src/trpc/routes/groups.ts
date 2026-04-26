@@ -117,12 +117,14 @@ export const groupsRouter = router({
       return { ok: true };
     }),
 
-  status: publicProcedure
-    .input(z.object({ token: z.string() }))
-    .output(groupStatusSchema.nullable())
-    .query(async ({ ctx, input }) => {
-      return ctx.groups.getStatus(input.token);
-    }),
+  status: publicProcedure.output(groupStatusSchema.nullable()).query(async ({ ctx }) => {
+    // Pre-setup admin tokens have no person row but are still recoverable
+    // as ctx.personToken (createContext sets it whenever the named cookie
+    // resolves to a value). getStatus handles both the person-token and
+    // admin-token cases.
+    if (!ctx.personToken) return null;
+    return ctx.groups.getStatus(ctx.personToken);
+  }),
 
   markReady: broadcastingAdminProcedure.mutation(async ({ ctx }) => {
     if (ctx.group.isReady) {

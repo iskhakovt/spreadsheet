@@ -66,7 +66,7 @@ function PersonAppLayout() {
     }
   }, [token, queryClient]);
 
-  const { status, refresh: refreshStatus } = useLiveStatus(token);
+  const { status, refresh: refreshStatus } = useLiveStatus();
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
