@@ -283,6 +283,42 @@ describe("tier filtering", () => {
     expect(welcome?.type === "welcome" && welcome.questionCount).toBe(1);
   });
 
+  it("skips welcome screen when anatomy filters remove all questions in a category", () => {
+    // The latent-bug fix: an all-amab group should not see "Reproductive
+    // 0 of 0" — the welcome card shouldn't even appear when no question
+    // in the category passes the anatomy filter.
+    const questions = [
+      q({
+        id: "afab-only",
+        categoryId: "oral",
+        giveText: "g",
+        receiveText: "r",
+        targetGive: "afab",
+        targetReceive: "afab",
+      }),
+      q({ id: "ok", categoryId: "touch" }),
+    ];
+    const screens = buildScreens(questions, ["oral", "touch"], "amab", ["amab"], "filtered", categories, NO_ANSWERS);
+    expect(screens.some((s) => s.type === "welcome" && s.categoryId === "oral")).toBe(false);
+    expect(screens.some((s) => s.type === "welcome" && s.categoryId === "touch")).toBe(true);
+  });
+
+  it("skips welcome screen when dependency gating removes all questions in a category", () => {
+    // Parent in another category answered "no" gates every child question
+    // in this category — the welcome card should disappear.
+    const ans: Answer = { rating: "no", timing: null };
+    const questions = [
+      q({ id: "gate", categoryId: "touch" }),
+      q({ id: "child1", categoryId: "oral", requires: ["gate"] }),
+      q({ id: "child2", categoryId: "oral", requires: ["gate"] }),
+    ];
+    const screens = buildScreens(questions, ["touch", "oral"], "amab", ["afab"], "all", categories, {
+      "gate:mutual": ans,
+    });
+    expect(screens.some((s) => s.type === "welcome" && s.categoryId === "touch")).toBe(true);
+    expect(screens.some((s) => s.type === "welcome" && s.categoryId === "oral")).toBe(false);
+  });
+
   it("skips welcome screen when tier filters remove all questions in a category", () => {
     const questions = [q({ id: "q1", categoryId: "oral", tier: 3 }), q({ id: "q2", categoryId: "touch", tier: 1 })];
     const screens = buildScreens(questions, ["oral", "touch"], "amab", [], "all", categories, NO_ANSWERS, 1);
