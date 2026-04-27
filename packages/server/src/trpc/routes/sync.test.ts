@@ -101,32 +101,6 @@ describe("sync.push", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Operation encryption does not match group setting" });
   });
 
-  it("throws BAD_REQUEST for encrypted op on plaintext group (encryption_mismatch)", async () => {
-    const push = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
-    const ctx = mockCtx({ person, group: { ...group, encrypted: false }, sync: { push } });
-    const caller = createCaller(ctx);
-    await expect(
-      caller.sync.push({
-        stoken: null,
-        operations: ["e:1:encryptedpayload"],
-        progress: null,
-      }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  });
-
-  it("throws BAD_REQUEST for plaintext op on encrypted group (encryption_mismatch)", async () => {
-    const push = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
-    const ctx = mockCtx({ person, group: { ...group, encrypted: true }, sync: { push } });
-    const caller = createCaller(ctx);
-    await expect(
-      caller.sync.push({
-        stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
-      }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  });
-
   it("passes valid operations to store", async () => {
     const push = vi.fn().mockResolvedValue(pushOk());
     const ctx = mockCtx({ person, group, sync: { push } });
