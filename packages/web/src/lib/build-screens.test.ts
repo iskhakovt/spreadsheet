@@ -242,6 +242,35 @@ describe("tier filtering", () => {
     expect(qScreens).toHaveLength(3);
   });
 
+  it("dependency gating omits hidden sides per-side from emitted screens", () => {
+    // Verifies buildScreens applies the visibleSides helper end-to-end —
+    // not just anatomy, but per-side dependency gating too. Parent answered
+    // give:no should hide the child's give-side while keeping receive.
+    const ans: Answer = { rating: "no", timing: null };
+    const questions = [
+      q({
+        id: "p",
+        categoryId: "oral",
+        giveText: "p give",
+        receiveText: "p receive",
+      }),
+      q({
+        id: "c",
+        categoryId: "oral",
+        requires: ["p"],
+        giveText: "c give",
+        receiveText: "c receive",
+      }),
+    ];
+    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories, { "p:give": ans });
+    const keys = filterQuestionScreens(screens).map((s) => s.key);
+
+    expect(keys).toContain("p:give");
+    expect(keys).toContain("p:receive");
+    expect(keys).toContain("c:receive");
+    expect(keys).not.toContain("c:give");
+  });
+
   it("welcome screen question count respects tier filter", () => {
     const questions = [
       q({ id: "q1", categoryId: "oral", tier: 1 }),
