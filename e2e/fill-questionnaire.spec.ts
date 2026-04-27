@@ -58,8 +58,9 @@ test.describe("questionnaire flow", () => {
     // Intro screen should show tier picker
     await expect(page.getByText("How many questions?")).toBeVisible();
     await expect(page.getByText("Essentials")).toBeVisible();
-    await expect(page.getByText("Curious")).toBeVisible();
+    await expect(page.getByText("Common")).toBeVisible();
     await expect(page.getByText("Adventurous")).toBeVisible();
+    await expect(page.getByText("Edge")).toBeVisible();
 
     // "Curious" should be selected by default (has accent border)
     await page.getByRole("button", { name: "Let's go", exact: true }).click();
@@ -70,22 +71,17 @@ test.describe("questionnaire flow", () => {
   });
 
   test("question description renders inline in the reserved slot", async ({ page }) => {
-    // Description rendering had no automated coverage. `phone-sex` is the
-    // first Foundations question with a description; the two prior
-    // questions (`dirty-talk`, `sexting`) each have giveText + receiveText
-    // so they expand into two screens each → answer No four times to
-    // advance past them and land on phone-sex.
+    // Description rendering had no automated coverage. `eye-contact` is the
+    // first Foundations question and carries a description, so we don't
+    // need to navigate past anything to land on a question that has one.
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await page.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(page, "Foundations");
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    for (let i = 0; i < 4; i++) {
-      await page.getByRole("radio", { name: "No", exact: true }).click();
-    }
 
-    await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
-    await expect(page.getByText(/Sexual conversation or erotic audio over the phone/)).toBeVisible();
+    await expect(page.getByText("Eye contact during intimate moments")).toBeVisible();
+    await expect(page.getByText(/Looking at each other while we're being intimate/)).toBeVisible();
   });
 
   test("help popover shows rating glossary; switches to timing on the sub-question", async ({ page }) => {

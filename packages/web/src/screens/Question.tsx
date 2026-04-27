@@ -104,7 +104,11 @@ export function Question({
 
   const screens = useMemo(() => {
     if (person.anatomy === null && group.questionMode === "filtered") {
-      console.error("Question screen reached with null anatomy in filtered mode");
+      // Invariant: filtered mode requires the person to have picked their
+      // anatomy first; the route guard at /p/$token sends users to the
+      // anatomy picker before /questions. Throwing here surfaces the bug
+      // instead of silently rendering the wrong question set.
+      throw new Error("Question screen reached with null anatomy in filtered mode");
     }
     return buildScreens(
       questions,
@@ -113,9 +117,19 @@ export function Question({
       otherAnatomies,
       group.questionMode,
       categoryMap,
+      answers,
       maxTier,
     );
-  }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
+  }, [
+    questions,
+    selectedCategories,
+    person.anatomy,
+    otherAnatomies,
+    group.questionMode,
+    categoryMap,
+    answers,
+    maxTier,
+  ]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
 

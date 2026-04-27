@@ -120,20 +120,16 @@ test.describe("admin 2-person flow", () => {
   });
 
   test("question with description + help popover", async ({ page }) => {
-    // `phone-sex` is the first Foundations question with a description;
-    // `dirty-talk` and `sexting` each split into give + receive screens, so
-    // four No clicks advance past them to phone-sex.
+    // `eye-contact` is the first Foundations question and has a description,
+    // so we land directly on a question that exercises the description slot.
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Foundations");
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    for (let i = 0; i < 4; i++) {
-      await page.getByRole("radio", { name: "No", exact: true }).click();
-    }
 
-    await expect(page.getByText("Phone sex / voice notes")).toBeVisible();
-    await expect(page.getByText(/Sexual conversation or erotic audio/)).toBeVisible();
+    await expect(page.getByText("Eye contact during intimate moments")).toBeVisible();
+    await expect(page.getByText(/Looking at each other while we're being intimate/)).toBeVisible();
     await expect(page).toHaveScreenshot("question-with-description.png");
 
     // Help popover open — verifies the rating-mode glossary

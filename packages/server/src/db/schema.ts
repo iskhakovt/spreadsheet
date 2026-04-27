@@ -2,7 +2,18 @@
 // migrator wraps migrations in a transaction (drizzle-orm#860). Safe for our
 // single-container deploy where downtime is inherent. For zero-downtime
 // deploys, apply indices out-of-band with CONCURRENTLY before migrating.
-import { bigserial, boolean, index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigserial,
+  boolean,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const targetEnum = pgEnum("target", ["all", "amab", "afab"]);
 export const questionModeEnum = pgEnum("question_mode", ["all", "filtered"]);
@@ -55,12 +66,29 @@ export const questions = pgTable(
     giveText: text(),
     receiveText: text(),
     description: text(),
+    notePrompt: text(),
     targetGive: targetEnum().notNull(),
     targetReceive: targetEnum().notNull(),
     tier: integer().notNull().default(1),
     sortOrder: integer().notNull(),
   },
   (t) => [index("questions_category_sort_idx").on(t.categoryId, t.sortOrder)],
+);
+
+export const questionDependencies = pgTable(
+  "question_dependencies",
+  {
+    questionId: text()
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    requiresQuestionId: text()
+      .notNull()
+      .references(() => questions.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.questionId, t.requiresQuestionId] }),
+    index("question_dependencies_requires_idx").on(t.requiresQuestionId),
+  ],
 );
 
 export const journalEntries = pgTable(

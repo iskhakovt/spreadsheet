@@ -6,7 +6,7 @@ test.describe("answer variety", () => {
     await createGroupAndSetup(page, { showTiming: true });
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
-    await narrowToCategory(page, "Group & External");
+    await narrowToCategory(page, "Aftercare");
     // Dismiss category welcome screen
     await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByRole("button", { name: "Start", exact: true }).click();
@@ -41,7 +41,7 @@ test.describe("answer variety", () => {
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
-    await narrowToCategory(page, "Group & External");
+    await narrowToCategory(page, "Aftercare");
     await expect(page.getByText(/\d+ questions/)).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByRole("button", { name: "Start", exact: true }).click();
 

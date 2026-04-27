@@ -22,7 +22,7 @@ test.describe("multi-tab isolation", () => {
     // Admin answers one question with "No"
     await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
-    await narrowToCategory(admin, "Group & External");
+    await narrowToCategory(admin, "Aftercare");
     await expect(admin.getByText(/\d+ questions/)).toBeVisible();
     await admin.getByRole("button", { name: "Start", exact: true }).click();
     await admin.getByRole("radio", { name: "No", exact: true }).click();
@@ -39,7 +39,7 @@ test.describe("multi-tab isolation", () => {
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
     await goThroughIntro(bob);
-    await narrowToCategory(bob, "Group & External");
+    await narrowToCategory(bob, "Aftercare");
     await expect(bob.getByText(/\d+ questions/)).toBeVisible();
     await bob.getByRole("button", { name: "Start", exact: true }).click();
     await bob.getByRole("radio", { name: "Yes", exact: true }).click();
@@ -90,7 +90,7 @@ test.describe("multi-tab isolation", () => {
     await admin.bringToFront();
     await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
-    await narrowToCategory(admin, "Group & External");
+    await narrowToCategory(admin, "Aftercare");
     await answerAllQuestions(admin, "no");
     await admin.getByRole("button", { name: "I'm done", exact: true }).click();
 
@@ -120,7 +120,7 @@ test.describe("multi-tab isolation", () => {
     // Alice answers and completes
     await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
-    await narrowToCategory(admin, "Group & External");
+    await narrowToCategory(admin, "Aftercare");
     await answerAllQuestions(admin, "yes");
     await admin.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(admin.getByText("Waiting for everyone")).toBeVisible();
@@ -129,7 +129,7 @@ test.describe("multi-tab isolation", () => {
     const bob = await ctx.newPage();
     await bob.goto(bobLink);
     await goThroughIntro(bob);
-    await narrowToCategory(bob, "Group & External");
+    await narrowToCategory(bob, "Aftercare");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 

@@ -1,4 +1,4 @@
-import type { Answer } from "@spreadsheet/shared";
+import { type Answer, MAX_TIER } from "@spreadsheet/shared";
 import { useSyncExternalStore } from "react";
 import { getScope } from "./session.js";
 
@@ -167,7 +167,7 @@ export function getSelectedTier(): number {
   const raw = getRaw("selectedTier");
   if (raw) {
     const n = Number(raw);
-    if (n >= 1 && n <= 3) return n;
+    if (n >= 1 && n <= MAX_TIER) return n;
   }
   return 2;
 }

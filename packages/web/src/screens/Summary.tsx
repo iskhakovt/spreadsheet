@@ -1,4 +1,4 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import { type CategoryData, MAX_TIER, type QuestionData, type Tier } from "@spreadsheet/shared";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
@@ -12,11 +12,15 @@ import {
   useAnswers,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
+import { type Side, visibleSides } from "../lib/visibility.js";
 
 interface SummaryProps {
   questions: QuestionData[];
   categories: CategoryData[];
   isAdmin: boolean;
+  anatomy: string;
+  otherAnatomies: string[];
+  questionMode: string;
   onNavigateToCategory: (categoryId: string) => void;
   onBack: () => void;
   onReview: () => void;
@@ -27,6 +31,9 @@ export function Summary({
   questions,
   categories,
   isAdmin,
+  anatomy,
+  otherAnatomies,
+  questionMode,
   onNavigateToCategory,
   onBack,
   onReview,
@@ -37,23 +44,36 @@ export function Summary({
   const [tier, setTier] = useState(getSelectedTier);
 
   const grouped = useMemo(() => {
+    const questionsById = new Map(questions.map((q) => [q.id, q]));
+    const memo = new Map<string, Set<Side>>();
+
     return categories.map((cat) => {
       const catQuestions = questions.filter((q) => q.categoryId === cat.id && q.tier <= tier);
       let total = 0;
       let answered = 0;
       for (const q of catQuestions) {
-        if (q.giveText && q.receiveText) {
-          total += 2;
+        const v = visibleSides(q, anatomy, otherAnatomies, questionMode, answers, questionsById, memo);
+        if (v.canGive) {
+          total++;
           if (answers[`${q.id}:give`]) answered++;
+        }
+        if (v.canReceive) {
+          total++;
           if (answers[`${q.id}:receive`]) answered++;
-        } else {
-          total += 1;
+        }
+        if (v.canMutual) {
+          total++;
           if (answers[`${q.id}:mutual`]) answered++;
         }
       }
       return { category: cat, total, answered, enabled: selected.has(cat.id) };
     });
-  }, [questions, categories, answers, selected, tier]);
+  }, [questions, categories, answers, selected, tier, anatomy, otherAnatomies, questionMode]);
+
+  // Hide categories that have no visible questions for this user/group.
+  // Without this filter, all-amab groups would see "Reproductive — 0 of 0"
+  // because anatomy filtering happens in the question flow but not here.
+  const visibleGrouped = useMemo(() => grouped.filter((g) => g.total > 0), [grouped]);
 
   function toggleCategory(catId: string) {
     setSelected((prev) => {
@@ -70,8 +90,9 @@ export function Summary({
     setSelectedTier(newTier);
   }
 
-  const totalAnswered = grouped.reduce((sum, g) => sum + g.answered, 0);
-  const totalQuestions = grouped.filter((g) => g.enabled).reduce((sum, g) => sum + g.total, 0);
+  const enabledGrouped = visibleGrouped.filter((g) => g.enabled);
+  const totalAnswered = enabledGrouped.reduce((sum, g) => sum + g.answered, 0);
+  const totalQuestions = enabledGrouped.reduce((sum, g) => sum + g.total, 0);
   const overallPct = totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0;
 
   return (
@@ -102,16 +123,16 @@ export function Summary({
           />
         </div>
 
-        {/* Tier selector */}
-        <fieldset className="flex gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
+        {/* Tier selector — 2×2 grid on mobile so the four labels fit; 4 in a row on sm+ */}
+        <fieldset className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
           <legend className="sr-only">Question depth</legend>
-          {([1, 2, 3] as const).map((t) => {
+          {Array.from({ length: MAX_TIER }, (_, i) => (i + 1) as Tier).map((t) => {
             const info = UI.intro.tiers[t];
             return (
               <label
                 key={t}
                 className={cn(
-                  "flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200",
+                  "px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200",
                   tier === t
                     ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-accent-sm"
                     : "text-text-muted hover:text-text",
@@ -133,7 +154,7 @@ export function Summary({
 
         {/* Category list */}
         <div className="space-y-2">
-          {grouped.map(({ category, total, answered, enabled }) => {
+          {visibleGrouped.map(({ category, total, answered, enabled }) => {
             const catPct = total > 0 ? (answered / total) * 100 : 0;
             return (
               <div

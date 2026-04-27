@@ -1,4 +1,5 @@
-import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
+import { type Answer, type CategoryData, MAX_TIER, type QuestionData } from "@spreadsheet/shared";
+import { type Side, visibleSides } from "./visibility.js";
 
 /** Discriminated union: welcome interstitials + question screens */
 export type Screen =
@@ -14,13 +15,6 @@ export type Screen =
 
 export type QuestionScreen = Extract<Screen, { type: "question" }>;
 
-function anatomyMatches(target: string, anatomy: string): boolean {
-  if (target === "all") return true;
-  if (anatomy === "both") return true;
-  if (anatomy === "none") return false;
-  return target === anatomy;
-}
-
 export function buildScreens(
   questions: QuestionData[],
   selectedCategories: string[],
@@ -28,46 +22,39 @@ export function buildScreens(
   memberAnatomies: string[],
   questionMode: string,
   categoryMap: Record<string, CategoryData>,
-  maxTier = 3,
+  answers: Readonly<Record<string, Answer>>,
+  maxTier: number = MAX_TIER,
 ): Screen[] {
+  const questionsById = new Map<string, QuestionData>(questions.map((q) => [q.id, q]));
+  const memo = new Map<string, Set<Side>>();
+
+  const visibilityFor = (q: QuestionData) =>
+    visibleSides(q, anatomy, memberAnatomies, questionMode, answers, questionsById, memo);
+
   const screens: Screen[] = [];
   let lastCategoryId: string | null = null;
 
-  // Pre-count questions per category for welcome screens
+  // Pre-count visible questions per category for welcome screens.
   const categoryCounts = new Map<string, number>();
   for (const q of questions) {
     if (!selectedCategories.includes(q.categoryId)) continue;
     if (q.tier > maxTier) continue;
-    const count = categoryCounts.get(q.categoryId) ?? 0;
-    if (q.giveText && q.receiveText) {
-      if (questionMode === "all") {
-        categoryCounts.set(q.categoryId, count + 2);
-      } else {
-        const otherAnats = memberAnatomies.filter(Boolean);
-        let add = 0;
-        if (
-          anatomyMatches(q.targetGive, anatomy) &&
-          (q.targetReceive === "all" || otherAnats.some((a) => anatomyMatches(q.targetReceive, a)))
-        )
-          add++;
-        if (
-          anatomyMatches(q.targetReceive, anatomy) &&
-          (q.targetGive === "all" || otherAnats.some((a) => anatomyMatches(q.targetGive, a)))
-        )
-          add++;
-        categoryCounts.set(q.categoryId, count + add);
-      }
-    } else {
-      if (questionMode === "all" || anatomyMatches(q.targetGive, anatomy)) {
-        categoryCounts.set(q.categoryId, count + 1);
-      }
-    }
+    const v = visibilityFor(q);
+    let add = 0;
+    if (v.canGive) add++;
+    if (v.canReceive) add++;
+    if (v.canMutual) add++;
+    if (add === 0) continue;
+    categoryCounts.set(q.categoryId, (categoryCounts.get(q.categoryId) ?? 0) + add);
   }
 
   for (const q of questions) {
     if (!selectedCategories.includes(q.categoryId)) continue;
     if (q.tier > maxTier) continue;
     const catId = q.categoryId;
+
+    const v = visibilityFor(q);
+    if (!v.canGive && !v.canReceive && !v.canMutual) continue;
 
     if (catId !== lastCategoryId && categoryMap[catId] && (categoryCounts.get(catId) ?? 0) > 0) {
       screens.push({
@@ -79,66 +66,35 @@ export function buildScreens(
       lastCategoryId = catId;
     }
 
-    if (q.giveText && q.receiveText) {
-      if (questionMode === "all") {
-        screens.push({
-          type: "question",
-          question: q,
-          role: "give",
-          displayText: q.giveText,
-          key: `${q.id}:give`,
-          categoryId: catId,
-        });
-        screens.push({
-          type: "question",
-          question: q,
-          role: "receive",
-          displayText: q.receiveText,
-          key: `${q.id}:receive`,
-          categoryId: catId,
-        });
-        continue;
-      }
-
-      const otherAnatomies = memberAnatomies.filter(Boolean);
-      const canGive =
-        anatomyMatches(q.targetGive, anatomy) &&
-        (q.targetReceive === "all" || otherAnatomies.some((a) => anatomyMatches(q.targetReceive, a)));
-      const canReceive =
-        anatomyMatches(q.targetReceive, anatomy) &&
-        (q.targetGive === "all" || otherAnatomies.some((a) => anatomyMatches(q.targetGive, a)));
-
-      if (canGive) {
-        screens.push({
-          type: "question",
-          question: q,
-          role: "give",
-          displayText: q.giveText,
-          key: `${q.id}:give`,
-          categoryId: catId,
-        });
-      }
-      if (canReceive) {
-        screens.push({
-          type: "question",
-          question: q,
-          role: "receive",
-          displayText: q.receiveText,
-          key: `${q.id}:receive`,
-          categoryId: catId,
-        });
-      }
-    } else {
-      if (questionMode === "all" || anatomyMatches(q.targetGive, anatomy)) {
-        screens.push({
-          type: "question",
-          question: q,
-          role: "mutual",
-          displayText: q.text,
-          key: `${q.id}:mutual`,
-          categoryId: catId,
-        });
-      }
+    if (v.canGive && q.giveText) {
+      screens.push({
+        type: "question",
+        question: q,
+        role: "give",
+        displayText: q.giveText,
+        key: `${q.id}:give`,
+        categoryId: catId,
+      });
+    }
+    if (v.canReceive && q.receiveText) {
+      screens.push({
+        type: "question",
+        question: q,
+        role: "receive",
+        displayText: q.receiveText,
+        key: `${q.id}:receive`,
+        categoryId: catId,
+      });
+    }
+    if (v.canMutual) {
+      screens.push({
+        type: "question",
+        question: q,
+        role: "mutual",
+        displayText: q.text,
+        key: `${q.id}:mutual`,
+        categoryId: catId,
+      });
     }
   }
   return screens;

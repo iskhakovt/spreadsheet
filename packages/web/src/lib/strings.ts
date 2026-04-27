@@ -41,8 +41,9 @@ export const UI = {
     tierTitle: "How many questions?",
     tiers: {
       1: { label: "Essentials", description: "The stuff most couples should talk about" },
-      2: { label: "Curious", description: "Common fantasies, toys, and more to explore" },
-      3: { label: "Adventurous", description: "Niche kinks, edge play, advanced dynamics" },
+      2: { label: "Common", description: "Broadly recognized practices and preferences" },
+      3: { label: "Adventurous", description: "Niche but mainstream-aware kinks and dynamics" },
+      4: { label: "Edge", description: "Higher-risk activities that need expertise" },
     } as Record<number, { label: string; description: string }>,
   },
   question: {

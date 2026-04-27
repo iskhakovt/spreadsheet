@@ -19,7 +19,7 @@ test.describe("admin /group primary CTA — state machine", () => {
 
     // Narrow to a small category, answer a couple of questions (enough to
     // have local answers but far short of finishing the whole flow).
-    await narrowToCategory(page, "Group & External");
+    await narrowToCategory(page, "Aftercare");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await page.getByRole("radio", { name: "No", exact: true }).click();
     await page.getByRole("radio", { name: "No", exact: true }).click();

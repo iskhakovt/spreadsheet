@@ -1,3 +1,4 @@
+import { MAX_TIER, type Tier } from "@spreadsheet/shared";
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -5,7 +6,8 @@ import { cn } from "../lib/cn.js";
 import { getSelectedTier, setHasSeenIntro, setSelectedTier } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
-const TIER_QUESTIONS: Record<number, string> = { 1: "~65", 2: "~150", 3: "~190" };
+const TIER_QUESTIONS: Record<number, string> = { 1: "~90", 2: "~250", 3: "~360", 4: "~400" };
+const TIERS: Tier[] = Array.from({ length: MAX_TIER }, (_, i) => (i + 1) as Tier);
 
 export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; onDone: () => void }>) {
   const [tier, setTier] = useState(getSelectedTier);
@@ -55,7 +57,7 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{UI.intro.tierTitle}</h2>
           <div role="radiogroup" aria-label="Question depth" className="space-y-2">
-            {([1, 2, 3] as const).map((t) => {
+            {TIERS.map((t) => {
               const info = UI.intro.tiers[t];
               const selected = tier === t;
               return (
