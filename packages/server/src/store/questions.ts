@@ -28,7 +28,6 @@ export interface SeedData {
 }
 
 function validateDependencies(qs: SeedQuestion[]) {
-  const byId = new Map(qs.map((q) => [q.id, q]));
   const indexById = new Map(qs.map((q, i) => [q.id, i]));
 
   for (let i = 0; i < qs.length; i++) {
@@ -37,10 +36,11 @@ function validateDependencies(qs: SeedQuestion[]) {
       if (parent === q.id) {
         throw new Error(`Question "${q.id}" cannot require itself`);
       }
-      const p = byId.get(parent);
-      if (!p) {
+      const parentIdx = indexById.get(parent);
+      if (parentIdx === undefined) {
         throw new Error(`Question "${q.id}" requires unknown question "${parent}"`);
       }
+      const p = qs[parentIdx];
       if (q.tier < p.tier) {
         throw new Error(
           `Question "${q.id}" (tier ${q.tier}) requires "${parent}" (tier ${p.tier}); child tier must be >= parent tier`,
@@ -49,8 +49,7 @@ function validateDependencies(qs: SeedQuestion[]) {
       // Seed array order = participant flow order. A child must come after
       // its parent so the gate question is answered before its dependents
       // appear in the flow.
-      const parentIdx = indexById.get(parent);
-      if (parentIdx !== undefined && parentIdx >= i) {
+      if (parentIdx >= i) {
         throw new Error(
           `Question "${q.id}" (position ${i}) must appear after its parent "${parent}" (position ${parentIdx})`,
         );
