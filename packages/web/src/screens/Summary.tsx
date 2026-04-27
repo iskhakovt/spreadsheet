@@ -123,8 +123,8 @@ export function Summary({
           />
         </div>
 
-        {/* Tier selector */}
-        <fieldset className="flex gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
+        {/* Tier selector — 2×2 grid on mobile so the four labels fit; 4 in a row on sm+ */}
+        <fieldset className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
           <legend className="sr-only">Question depth</legend>
           {([1, 2, 3, 4] as const).map((t) => {
             const info = UI.intro.tiers[t];
@@ -132,7 +132,7 @@ export function Summary({
               <label
                 key={t}
                 className={cn(
-                  "flex-1 px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200",
+                  "px-3 py-1.5 rounded-[10px] text-sm font-medium text-center cursor-pointer transition-all duration-200",
                   tier === t
                     ? "bg-gradient-to-b from-accent to-accent-dark text-white shadow-accent-sm"
                     : "text-text-muted hover:text-text",

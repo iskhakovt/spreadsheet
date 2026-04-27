@@ -95,13 +95,13 @@ questions:
     category: foundations
     tier: 1
     text: Eye contact during intimate moments
-    description: Looking at each other while we're being intimate.
+    description: Looking at each other while we're being intimate
 
   - id: laughing-during
     category: foundations
     tier: 1
     text: Laughing during intimacy is welcome
-    description: Awkward moments, funny noises, mishaps — laughing is welcome, not a mood-killer.
+    description: Awkward moments, funny noises, mishaps — laughing is welcome, not a mood-killer
 
   - id: verbal-affirmation
     category: foundations
@@ -116,7 +116,7 @@ questions:
     text: Sharing sexual fantasies with each other
     giveText: Telling your partner your fantasies
     receiveText: Hearing your partner's fantasies
-    description: Telling each other what turns us on — even fantasies we never plan to act on.
+    description: Telling each other what turns us on — even fantasies we never plan to act on
     notePrompt: anything specific you want to share now?
 
   - id: initiating
@@ -125,25 +125,25 @@ questions:
     text: Initiating intimacy
     giveText: Initiating intimacy
     receiveText: Being initiated on
-    description: Who starts intimate moments, expected response, freedom to say no.
+    description: Who starts intimate moments, expected response, freedom to say no
 
   - id: spontaneous
     category: foundations
     tier: 1
     text: Spontaneous intimacy
-    description: Intimate moments without planning, when the mood strikes.
+    description: Intimate moments without planning, when the mood strikes
 
   - id: scheduling
     category: foundations
     tier: 1
     text: Scheduling intimate time
-    description: Planning intimate time into our calendar — predictable, prepared.
+    description: Planning intimate time into our calendar — predictable, prepared
 
   - id: frequency-conversation
     category: foundations
     tier: 1
     text: Talking openly about frequency or drive mismatch
-    description: Naming any difference in how often each of us wants intimacy or sex, without it being a fight.
+    description: Naming any difference in how often each of us wants intimacy or sex, without it being a fight
 
   # ROOT GATE — divides pre-sex friendly content from sex-domain content
   - id: sex-generally
@@ -160,7 +160,7 @@ questions:
     category: foundations
     tier: 1
     text: Being vocal / noisy during sex
-    description: Moaning, vocalizing, making noise.
+    description: Moaning, vocalizing, making noise
     requires: sex-generally
 
   - id: period-sex
@@ -170,7 +170,7 @@ questions:
     giveText: Sex with your partner during their period
     receiveText: Sex during your period
     targetReceive: afab
-    description: Sex during menstruation.
+    description: Sex during menstruation
     requires: sex-generally
 
   # T2 ungated
@@ -178,13 +178,13 @@ questions:
     category: foundations
     tier: 2
     text: Talking about our intimacy with close friends
-    description: Discussing what happens between us with people we trust outside the relationship.
+    description: Discussing what happens between us with people we trust outside the relationship
 
   - id: discuss-with-therapist
     category: foundations
     tier: 2
     text: Talking about our intimacy with a therapist
-    description: Bringing our relationship and intimacy into therapy — individually or together.
+    description: Bringing our relationship and intimacy into therapy — individually or together
 
   # T2 gated
   - id: dirty-talk
@@ -201,7 +201,7 @@ questions:
     text: Sexting (texts, photos, or videos)
     giveText: Sending sexual texts, photos, or videos
     receiveText: Receiving sexual texts, photos, or videos
-    description: Sending sexual content to each other when apart — texts, photos, recorded videos.
+    description: Sending sexual content to each other when apart — texts, photos, recorded videos
     notePrompt: photos only, videos too, anything off-limits?
     requires: sex-generally
 
@@ -209,28 +209,28 @@ questions:
     category: foundations
     tier: 2
     text: Phone sex / voice notes
-    description: Sexual conversation or erotic audio over the phone — voice only, no video.
+    description: Sexual conversation or erotic audio over the phone — voice only, no video
     requires: sex-generally
 
   - id: slow-sex
     category: foundations
     tier: 2
     text: Slow, deliberate sex
-    description: Savoring every moment — breathing together, no rush, connection over speed.
+    description: Savoring every moment — breathing together, no rush, connection over speed
     requires: sex-generally
 
   - id: long-foreplay
     category: foundations
     tier: 2
     text: Long, drawn-out foreplay
-    description: Extended buildup — kissing, touching, teasing for an hour or more before sex.
+    description: Extended buildup — kissing, touching, teasing for an hour or more before sex
     requires: sex-generally
 
   - id: quickie
     category: foundations
     tier: 2
     text: Quickies (fast, urgent sex)
-    description: Five minutes, clothes barely off, no long buildup.
+    description: Five minutes, clothes barely off, no long buildup
     requires: sex-generally
 
   - id: morning-sex
@@ -239,42 +239,42 @@ questions:
     text: Being woken up with sex
     giveText: Waking your partner with sexual touch
     receiveText: Being woken up by your partner's touch
-    description: Pre-negotiated — your partner starts while you're still half asleep.
+    description: Pre-negotiated — your partner starts while you're still half asleep
     requires: sex-generally
 
   - id: shower-bath-sex
     category: foundations
     tier: 2
     text: Shower or bath sex
-    description: Sex while we're showering or bathing together.
+    description: Sex while we're showering or bathing together
     requires: sex-generally
 
   - id: watching-porn
     category: foundations
     tier: 2
     text: Watching porn together
-    description: Watching pornography together as part of sex or to set the mood.
+    description: Watching pornography together as part of sex or to set the mood
     requires: sex-generally
 
   - id: reading-erotica
     category: foundations
     tier: 2
     text: Reading erotica together
-    description: Reading erotic stories aloud or to each other.
+    description: Reading erotic stories aloud or to each other
     requires: sex-generally
 
   - id: mirror-watching
     category: foundations
     tier: 2
     text: Watching ourselves in a mirror
-    description: Positioned so we can see ourselves having sex.
+    description: Positioned so we can see ourselves having sex
     requires: sex-generally
 
   - id: filming
     category: foundations
     tier: 2
     text: Filming / photos (private, just for us)
-    description: Filming sex or taking photos — kept private, never shared.
+    description: Filming sex or taking photos — kept private, never shared
     requires: sex-generally
 
   # ── Communication & Language ─────────────────────────────────
@@ -282,21 +282,21 @@ questions:
     category: communication
     tier: 1
     text: Use clinical terms during intimacy (penis, vulva, breasts)
-    description: Anatomical/medical language as the default vocabulary.
+    description: Anatomical/medical language as the default vocabulary
     notePrompt: any specific words to use or avoid?
 
   - id: slang-terms
     category: communication
     tier: 1
     text: Use casual / slang terms (cock, pussy, tits)
-    description: Casual or slang language as the default vocabulary.
+    description: Casual or slang language as the default vocabulary
     notePrompt: any specific words you like or want avoided?
 
   - id: avoid-specific-words
     category: communication
     tier: 1
     text: There are specific words I don't want used
-    description: I'll tell you which words are off-limits — write them in the note.
+    description: I'll tell you which words are off-limits — write them in the note
     notePrompt: which words?
 
   # ── Sexual Response Norms ────────────────────────────────────
@@ -304,27 +304,27 @@ questions:
     category: response
     tier: 1
     text: Emotional reactions during or after intimacy are welcome
-    description: Crying, laughing, sudden vulnerability — all welcome and okay.
+    description: Crying, laughing, sudden vulnerability — all welcome and okay
 
   - id: orgasm-not-required
     category: response
     tier: 1
     text: Sex without orgasm is fine — no pressure to come
-    description: Reaching orgasm isn't the goal of every session.
+    description: Reaching orgasm isn't the goal of every session
     requires: sex-generally
 
   - id: multiple-orgasms
     category: response
     tier: 1
     text: Aiming for multiple orgasms when possible
-    description: We try for more than one when the body is up for it.
+    description: We try for more than one when the body is up for it
     requires: sex-generally
 
   - id: no-faking
     category: response
     tier: 1
     text: Honesty about not coming — no faking it
-    description: We don't fake orgasms to spare each other's feelings.
+    description: We don't fake orgasms to spare each other's feelings
     requires: sex-generally
 
   - id: erection-lubrication-ok
@@ -340,92 +340,92 @@ questions:
     category: environment
     tier: 1
     text: Dim lighting / candles
-    description: Soft, low light during intimacy.
+    description: Soft, low light during intimacy
 
   - id: full-dark
     category: environment
     tier: 1
     text: Complete darkness
-    description: Lights off, dark room.
+    description: Lights off, dark room
 
   - id: bright-light
     category: environment
     tier: 1
     text: Bright light — wanting to see everything
-    description: Lights fully on, bodies clearly visible.
+    description: Lights fully on, bodies clearly visible
 
   - id: music
     category: environment
     tier: 1
     text: Music / playlist during
-    description: Music playing in the background.
+    description: Music playing in the background
 
   - id: silence
     category: environment
     tier: 1
     text: Silence (no music, no TV)
-    description: Quiet — just us, no audio backdrop.
+    description: Quiet — just us, no audio backdrop
 
   - id: white-noise
     category: environment
     tier: 1
     text: White noise / fan
-    description: Fan or white-noise machine running.
+    description: Fan or white-noise machine running
 
   - id: unscented
     category: environment
     tier: 1
     text: Unscented everything
-    description: No perfume, no scented candles, no scented products.
+    description: No perfume, no scented candles, no scented products
 
   - id: weighted-blanket
     category: environment
     tier: 1
     text: Weighted blanket during or after
-    description: Heavy blanket for deep-pressure comfort.
+    description: Heavy blanket for deep-pressure comfort
 
   - id: firm-pressure
     category: environment
     tier: 1
     text: Firm pressure over light touch
-    description: I prefer firm, steady contact rather than light or unpredictable touch.
+    description: I prefer firm, steady contact rather than light or unpredictable touch
 
   - id: warn-before-touch
     category: environment
     tier: 1
     text: Warn me before touching a new body area
-    description: A heads-up before reaching a new place on my body for the first time.
+    description: A heads-up before reaching a new place on my body for the first time
 
   - id: non-verbal-signals
     category: environment
     tier: 1
     text: Non-verbal check-in signals
-    description: Agreed signals like tapping or hand-squeeze for stop / slow / more, when speaking is hard.
+    description: Agreed signals like tapping or hand-squeeze for stop / slow / more, when speaking is hard
     notePrompt: which signal means what (stop / slow / more)?
 
   - id: transition-time
     category: environment
     tier: 1
     text: Need transition time from daily activity to intimacy
-    description: A buffer period to mentally shift into being intimate.
+    description: A buffer period to mentally shift into being intimate
 
   - id: breaks-ok
     category: environment
     tier: 1
     text: Breaks without killing the mood
-    description: Pausing for water, bathroom, or a breather, and picking up again.
+    description: Pausing for water, bathroom, or a breather, and picking up again
 
   - id: eyes-closed-ok
     category: environment
     tier: 1
     text: Eyes closed during intimacy is welcome
-    description: Closing eyes to manage sensory input — not a sign of disconnection.
+    description: Closing eyes to manage sensory input — not a sign of disconnection
 
   - id: stimming-ok
     category: environment
     tier: 1
     text: Stimming during intimacy is welcome
-    description: Self-soothing repetitive movements — rocking, hand-flapping, fidgeting.
+    description: Self-soothing repetitive movements — rocking, hand-flapping, fidgeting
 
   - id: flat-affect-ok
     category: environment
@@ -437,25 +437,25 @@ questions:
     category: environment
     tier: 2
     text: Scented candles / incense
-    description: Scent in the room — candles, incense, or similar.
+    description: Scent in the room — candles, incense, or similar
 
   - id: clean-sheets
     category: environment
     tier: 2
     text: Fresh / clean sheets specifically
-    description: Recently-washed sheets matter to me.
+    description: Recently-washed sheets matter to me
 
   - id: shower-before
     category: environment
     tier: 2
     text: Shower together before
-    description: Showering together as part of warm-up.
+    description: Showering together as part of warm-up
 
   - id: warmup-hands
     category: environment
     tier: 2
     text: Warm hands and toys before touching
-    description: Cold contact is a sensory interruption — warming up first matters.
+    description: Cold contact is a sensory interruption — warming up first matters
 
   - id: verbal-narration
     category: environment
@@ -467,48 +467,48 @@ questions:
     category: environment
     tier: 2
     text: One type of stimulation at a time
-    description: Building gradually rather than combining kissing + touching + penetration simultaneously.
+    description: Building gradually rather than combining kissing + touching + penetration simultaneously
 
   - id: predictable-rhythm
     category: environment
     tier: 2
     text: Predictable rhythm and pattern
-    description: Consistent sequences — knowing roughly what comes next reduces anxiety.
+    description: Consistent sequences — knowing roughly what comes next reduces anxiety
 
   # ── Health & Safer Sex ───────────────────────────────────────
   - id: lube-default
     category: health
     tier: 1
     text: Lube as a default
-    description: Lube applied as a starting point, not just when something feels dry.
+    description: Lube applied as a starting point, not just when something feels dry
     requires: sex-generally
 
   - id: sti-test-before
     category: health
     tier: 1
     text: STI test results shared before our first sex
-    description: Recent test results exchanged before we have sex for the first time.
+    description: Recent test results exchanged before we have sex for the first time
     requires: sex-generally
 
   - id: sti-test-regular
     category: health
     tier: 1
     text: Regular STI testing while we're sleeping together
-    description: Periodic re-testing — every 3, 6, or 12 months — as a routine.
+    description: Periodic re-testing — every 3, 6, or 12 months — as a routine
     requires: sex-generally
 
   - id: condoms-always
     category: health
     tier: 1
     text: Always using condoms
-    description: Condom every time, no exceptions.
+    description: Condom every time, no exceptions
     requires: sex-generally
 
   - id: condoms-fluid-bonded
     category: health
     tier: 1
     text: Sex without condoms (fluid-bonded)
-    description: Fluid-bonded with this partner — no condom needed.
+    description: Fluid-bonded with this partner — no condom needed
     notePrompt: any conditions or qualifiers?
     requires: sex-generally
 
@@ -520,35 +520,35 @@ questions:
     receiveText: Trusting partner to withdraw before ejaculation
     targetGive: amab
     targetReceive: afab
-    description: Withdrawal before ejaculation as the contraception strategy.
+    description: Withdrawal before ejaculation as the contraception strategy
     requires: sex-generally
 
   - id: sex-drunk
     category: health
     tier: 1
     text: Sex while drunk
-    description: Sex when one or both of us is drunk.
+    description: Sex when one or both of us is drunk
     requires: sex-generally
 
   - id: sex-high
     category: health
     tier: 1
     text: Sex while high
-    description: Sex when one or both of us is high — cannabis or other substances.
+    description: Sex when one or both of us is high — cannabis or other substances
     requires: sex-generally
 
   - id: dental-dams
     category: health
     tier: 2
     text: Dental dams for oral on a vulva or anus
-    description: Latex barrier between mouth and partner during oral.
+    description: Latex barrier between mouth and partner during oral
     requires: sex-generally
 
   - id: latex-gloves
     category: health
     tier: 2
     text: Latex / nitrile gloves for fingering or anal
-    description: Glove on the hand during fingering or anal play.
+    description: Glove on the hand during fingering or anal play
     requires: sex-generally
 
   # ── Reproductive ─────────────────────────────────────────────
@@ -559,7 +559,7 @@ questions:
     giveText: Supporting partner using emergency contraception
     receiveText: Taking emergency contraception
     targetReceive: afab
-    description: Plan B or similar — okay to take or support partner taking, if needed.
+    description: Plan B or similar — okay to take or support partner taking, if needed
     requires: sex-generally
 
   - id: birth-control-only
@@ -570,7 +570,7 @@ questions:
     receiveText: Using birth control as the only barrier
     targetGive: amab
     targetReceive: afab
-    description: Birth control with no condom — birth control is the only barrier.
+    description: Birth control with no condom — birth control is the only barrier
     requires: sex-generally
 
   - id: pregnancy-risk-bare
@@ -581,7 +581,7 @@ questions:
     receiveText: Sex with pregnancy risk (no birth control)
     targetGive: amab
     targetReceive: afab
-    description: Penis-in-vagina sex with nothing preventing pregnancy.
+    description: Penis-in-vagina sex with nothing preventing pregnancy
     requires: sex-generally
 
   # ── Touch & Body ─────────────────────────────────────────────
@@ -590,56 +590,56 @@ questions:
     category: touch
     tier: 1
     text: Holding hands
-    description: Hand-in-hand contact — sustained, intentional.
+    description: Hand-in-hand contact — sustained, intentional
 
   - id: hugging
     category: touch
     tier: 1
     text: Sustained hugging
-    description: Long, full hugs that linger — not perfunctory.
+    description: Long, full hugs that linger — not perfunctory
 
   - id: kissing-mouth
     category: touch
     tier: 1
     text: Kissing (mouth)
-    description: Kissing on the mouth.
+    description: Kissing on the mouth
 
   - id: making-out
     category: touch
     tier: 1
     text: Making out (extended kissing)
-    description: Long kissing sessions without it needing to escalate.
+    description: Long kissing sessions without it needing to escalate
 
   - id: cuddling-naked
     category: touch
     tier: 1
     text: Cuddling naked (non-sexual skin-to-skin)
-    description: Being naked together without it needing to lead to sex.
+    description: Being naked together without it needing to lead to sex
 
   - id: sleeping-naked-together
     category: touch
     tier: 1
     text: Sleeping naked together
-    description: Sharing a bed naked overnight — distinct from cuddling, which is awake.
+    description: Sharing a bed naked overnight — distinct from cuddling, which is awake
 
   - id: being-watched-naked
     category: touch
     tier: 1
     text: Being looked at while naked (non-sexual)
-    description: Partner sees me naked outside of sex itself — getting dressed, around the house.
+    description: Partner sees me naked outside of sex itself — getting dressed, around the house
 
   # T2 ungated: light touch that works pre-sex
   - id: kissing-neck
     category: touch
     tier: 2
     text: Kissing / licking neck and ears
-    description: Mouth on neck, ears, jaw.
+    description: Mouth on neck, ears, jaw
 
   - id: kissing-body
     category: touch
     tier: 2
     text: Kissing all over the body
-    description: Mouth across chest, stomach, back, thighs.
+    description: Mouth across chest, stomach, back, thighs
 
   - id: general-massage
     category: touch
@@ -647,7 +647,7 @@ questions:
     text: Plain (non-sensual) massage
     giveText: Giving a plain massage
     receiveText: Receiving a plain massage
-    description: Back, shoulders, neck — straightforward massage to relax.
+    description: Back, shoulders, neck — straightforward massage to relax
 
   - id: pubic-hair-self
     category: touch
@@ -670,7 +670,7 @@ questions:
     text: Sensual massage
     giveText: Giving a sensual massage
     receiveText: Receiving a sensual massage
-    description: Slow, full-body massage with intent — usually flowing into sex.
+    description: Slow, full-body massage with intent — usually flowing into sex
     requires: sex-generally
 
   - id: nipple-play
@@ -693,14 +693,14 @@ questions:
     category: touch
     tier: 2
     text: Dry humping / grinding
-    description: Grinding against each other, clothed or naked, without penetration.
+    description: Grinding against each other, clothed or naked, without penetration
     requires: sex-generally
 
   - id: lap-grinding
     category: touch
     tier: 2
     text: Clothed lap-sitting / lap-grinding
-    description: Sitting in partner's lap, fully clothed, sustained grinding as foreplay.
+    description: Sitting in partner's lap, fully clothed, sustained grinding as foreplay
     requires: sex-generally
 
   - id: hand-job
@@ -728,14 +728,14 @@ questions:
     giveText: Playing with your partner's testes
     receiveText: Having your testes played with
     targetReceive: amab
-    description: Touching, holding, gently playing with testicles.
+    description: Touching, holding, gently playing with testicles
     requires: sex-generally
 
   - id: mutual-masturbation
     category: touch
     tier: 2
     text: Mutual masturbation
-    description: Both masturbating side by side at the same time.
+    description: Both masturbating side by side at the same time
     requires: sex-generally
 
   - id: watching-partner-masturbate
@@ -753,19 +753,19 @@ questions:
     text: Deep tissue / firm massage
     giveText: Giving a firm massage
     receiveText: Receiving a firm massage
-    description: Deeper, firmer pressure than sensual massage — closer to therapeutic.
+    description: Deeper, firmer pressure than sensual massage — closer to therapeutic
 
   - id: tickling
     category: touch
     tier: 3
     text: Tickling
-    description: Tickling each other, playfully or sexually.
+    description: Tickling each other, playfully or sexually
 
   - id: wrestling
     category: touch
     tier: 3
     text: Wrestling / play-fighting
-    description: Playful physical struggle — pinning each other, testing strength.
+    description: Playful physical struggle — pinning each other, testing strength
 
   # T3 gated
   - id: body-worship
@@ -774,7 +774,7 @@ questions:
     text: Body worship
     giveText: Worshipping your partner's body
     receiveText: Having your body worshipped
-    description: Kissing, licking, and touching every part of partner's body with reverence.
+    description: Kissing, licking, and touching every part of partner's body with reverence
     requires: sex-generally
 
   - id: scratching
@@ -799,7 +799,7 @@ questions:
     text: Leaving marks (hickeys, bite marks, bruises)
     giveText: Leaving marks on your partner
     receiveText: Having marks left on you
-    description: Visible marks that last — hickeys, bite marks, light bruising.
+    description: Visible marks that last — hickeys, bite marks, light bruising
     requires: sex-generally
 
   - id: foot-play
@@ -816,7 +816,7 @@ questions:
     text: Footjob
     giveText: Stimulating partner's genitals with feet
     receiveText: Genitals stimulated by partner's feet
-    description: Using feet to stimulate partner's genitals.
+    description: Using feet to stimulate partner's genitals
     requires: sex-generally
 
   - id: mammary-sex
@@ -827,7 +827,7 @@ questions:
     receiveText: Partner's penis between your breasts
     targetGive: amab
     targetReceive: afab
-    description: Penis stimulated between partner's breasts pressed together.
+    description: Penis stimulated between partner's breasts pressed together
     requires: sex-generally
 
   - id: intercrural-sex
@@ -837,7 +837,7 @@ questions:
     giveText: Penis between partner's thighs
     receiveText: Partner's penis between your thighs
     targetGive: amab
-    description: Penis between partner's thighs without penetrating.
+    description: Penis between partner's thighs without penetrating
     requires: sex-generally
 
   - id: frot
@@ -846,7 +846,7 @@ questions:
     text: Frot (penis-to-penis grinding)
     targetGive: amab
     targetReceive: amab
-    description: Two penises rubbed against each other.
+    description: Two penises rubbed against each other
     requires: sex-generally
 
   - id: tribadism
@@ -855,7 +855,7 @@ questions:
     text: Tribadism / scissoring (vulva-to-vulva)
     targetGive: afab
     targetReceive: afab
-    description: Two vulvas rubbed against each other.
+    description: Two vulvas rubbed against each other
     requires: sex-generally
 
   - id: edging-by-hand
@@ -864,7 +864,7 @@ questions:
     text: Edging by hand (without orgasm)
     giveText: Edging your partner by hand
     receiveText: Being edged by hand
-    description: Bringing partner close to orgasm by hand, then stopping — no orgasm at the end.
+    description: Bringing partner close to orgasm by hand, then stopping — no orgasm at the end
     requires: sex-generally
 
   # ── Oral ─────────────────────────────────────────────────────
@@ -899,7 +899,7 @@ questions:
     category: oral
     tier: 2
     text: 69 (simultaneous oral)
-    description: Both partners give and receive oral at the same time.
+    description: Both partners give and receive oral at the same time
     requires: oral-generally
 
   - id: vibrator-during-oral
@@ -916,7 +916,7 @@ questions:
     text: Face-sitting
     giveText: Sitting on your partner's face
     receiveText: Having your partner sit on your face
-    description: One partner sits on the other's face for oral.
+    description: One partner sits on the other's face for oral
     requires: oral-generally
 
   - id: rimming
@@ -925,7 +925,7 @@ questions:
     text: Rimming (oral on anus)
     giveText: Rimming your partner
     receiveText: Being rimmed
-    description: Oral stimulation of the anus with mouth and tongue.
+    description: Oral stimulation of the anus with mouth and tongue
     requires: oral-generally
 
   - id: deep-throat
@@ -935,7 +935,7 @@ questions:
     giveText: Deep throating your partner
     receiveText: Being deep throated
     targetReceive: amab
-    description: Taking a penis deep into the mouth and throat.
+    description: Taking a penis deep into the mouth and throat
     requires: fellatio
 
   - id: cum-in-mouth-no-swallow
@@ -945,7 +945,7 @@ questions:
     giveText: Coming in partner's mouth (no swallow)
     receiveText: Partner coming in your mouth (no swallow)
     targetGive: amab
-    description: Coming in partner's mouth without them swallowing.
+    description: Coming in partner's mouth without them swallowing
     requires: fellatio
 
   - id: swallowing
@@ -955,7 +955,7 @@ questions:
     giveText: Ejaculating in your partner's mouth
     receiveText: Swallowing your partner's ejaculate
     targetGive: amab
-    description: Swallowing partner's ejaculate after coming in mouth.
+    description: Swallowing partner's ejaculate after coming in mouth
     requires: fellatio
 
   - id: facial
@@ -974,7 +974,7 @@ questions:
     giveText: Coming on your partner's body (chest, stomach, back)
     receiveText: Partner coming on your body
     targetGive: amab
-    description: Coming on partner's chest, stomach, or back.
+    description: Coming on partner's chest, stomach, or back
     requires: sex-generally
 
   # ── Penetration & Positions ──────────────────────────────────
@@ -1008,28 +1008,28 @@ questions:
     category: penetration
     tier: 2
     text: Missionary
-    description: Receiving partner on back, giving partner on top, face-to-face.
+    description: Receiving partner on back, giving partner on top, face-to-face
     requires: penetration-generally
 
   - id: doggy-style
     category: penetration
     tier: 2
     text: Doggy style
-    description: Receiving partner on hands and knees, penetrated from behind.
+    description: Receiving partner on hands and knees, penetrated from behind
     requires: penetration-generally
 
   - id: cowgirl
     category: penetration
     tier: 2
     text: Cowgirl / partner on top
-    description: Receiver straddles giver, riding while facing each other.
+    description: Receiver straddles giver, riding while facing each other
     requires: penetration-generally
 
   - id: spooning
     category: penetration
     tier: 2
     text: Spooning / side by side
-    description: Both partners on their sides, facing the same direction.
+    description: Both partners on their sides, facing the same direction
     requires: penetration-generally
 
   - id: cat-position
@@ -1038,14 +1038,14 @@ questions:
     text: Coital alignment technique (CAT)
     targetGive: amab
     targetReceive: afab
-    description: Missionary variant where the penis angles down to rub against the clitoris.
+    description: Missionary variant where the penis angles down to rub against the clitoris
     requires: vaginal-penetration
 
   - id: butterfly
     category: penetration
     tier: 2
     text: Butterfly (receiver on bed edge)
-    description: Receiver on bed edge with legs lifted onto giver's shoulders.
+    description: Receiver on bed edge with legs lifted onto giver's shoulders
     requires: penetration-generally
 
   - id: creampie-vaginal
@@ -1056,7 +1056,7 @@ questions:
     receiveText: Partner coming inside your vagina
     targetGive: amab
     targetReceive: afab
-    description: Coming inside a vagina, no withdrawal.
+    description: Coming inside a vagina, no withdrawal
     requires: vaginal-penetration
 
   - id: creampie-anal
@@ -1066,70 +1066,70 @@ questions:
     giveText: Coming inside an anus
     receiveText: Partner coming inside your anus
     targetGive: amab
-    description: Coming inside an anus, no withdrawal.
+    description: Coming inside an anus, no withdrawal
     requires: anal-penetration
 
   - id: reverse-cowgirl
     category: penetration
     tier: 3
     text: Reverse cowgirl
-    description: Receiver on top, facing away from giver.
+    description: Receiver on top, facing away from giver
     requires: penetration-generally
 
   - id: prone-bone
     category: penetration
     tier: 3
     text: Prone bone (face down, flat)
-    description: Receiver lying flat on stomach, legs together.
+    description: Receiver lying flat on stomach, legs together
     requires: penetration-generally
 
   - id: lotus
     category: penetration
     tier: 3
     text: Lotus (seated, face to face)
-    description: Seated face-to-face with receiver wrapping legs around giver.
+    description: Seated face-to-face with receiver wrapping legs around giver
     requires: penetration-generally
 
   - id: side-saddle
     category: penetration
     tier: 3
     text: Side-saddle
-    description: Receiver sitting sideways on giver's hips.
+    description: Receiver sitting sideways on giver's hips
     requires: penetration-generally
 
   - id: amazon
     category: penetration
     tier: 3
     text: Amazon (top-down riding)
-    description: Receiver on top facing forward with giver's legs raised.
+    description: Receiver on top facing forward with giver's legs raised
     requires: penetration-generally
 
   - id: edge-of-bed
     category: penetration
     tier: 3
     text: Edge of bed / furniture
-    description: Receiver on the edge of bed or furniture, giver standing.
+    description: Receiver on the edge of bed or furniture, giver standing
     requires: penetration-generally
 
   - id: against-wall
     category: penetration
     tier: 3
     text: Against a wall
-    description: Receiver pressed against a wall.
+    description: Receiver pressed against a wall
     requires: penetration-generally
 
   - id: standing
     category: penetration
     tier: 3
     text: Standing up
-    description: Sex while standing, face to face.
+    description: Sex while standing, face to face
     requires: penetration-generally
 
   - id: belly-bulge
     category: penetration
     tier: 3
     text: Belly / stomach bulge during penetration
-    description: Penetration deep enough to visibly outline against the receiver's lower belly.
+    description: Penetration deep enough to visibly outline against the receiver's lower belly
     requires: penetration-generally
 
   - id: pegging
@@ -1139,14 +1139,14 @@ questions:
     giveText: Pegging your partner
     receiveText: Being pegged
     targetReceive: amab
-    description: Penetrating partner's anus with a strap-on dildo.
+    description: Penetrating partner's anus with a strap-on dildo
     requires: anal-penetration
 
   - id: piledriver
     category: penetration
     tier: 4
     text: Piledriver (receiver inverted)
-    description: Receiver lying with hips raised vertically; giver penetrates downward.
+    description: Receiver lying with hips raised vertically; giver penetrates downward
     requires: penetration-generally
 
   - id: double-pen-toy
@@ -1155,7 +1155,7 @@ questions:
     text: Double penetration (partner + toy)
     giveText: Penetrating your partner while they use a toy
     receiveText: Being penetrated by partner and toy at the same time
-    description: Vaginal and anal penetration at the same time — partner + toy.
+    description: Vaginal and anal penetration at the same time — partner + toy
     requires: penetration-generally
 
   - id: fisting
@@ -1164,7 +1164,7 @@ questions:
     text: Fisting
     giveText: Fisting your partner
     receiveText: Being fisted
-    description: Inserting the entire hand into the vagina or anus.
+    description: Inserting the entire hand into the vagina or anus
     requires: penetration-generally
 
   # ── Toys & Accessories ───────────────────────────────────────
@@ -1190,7 +1190,7 @@ questions:
     text: Wand massager (e.g. Magic Wand)
     giveText: Using a wand massager on your partner
     receiveText: Having a wand massager used on you
-    description: Large body-wand vibrator — deeper, more powerful than a typical bullet vibe.
+    description: Large body-wand vibrator — deeper, more powerful than a typical bullet vibe
     requires: sex-generally
 
   - id: suction-toy
@@ -1200,7 +1200,7 @@ questions:
     giveText: Using a suction toy on your partner
     receiveText: Having a suction toy used on you
     targetReceive: afab
-    description: Air-pulse toy that suctions around the clitoris.
+    description: Air-pulse toy that suctions around the clitoris
     requires: sex-generally
 
   - id: stroker
@@ -1210,7 +1210,7 @@ questions:
     giveText: Using a stroker on your partner
     receiveText: Having a stroker used on you
     targetReceive: amab
-    description: Sleeve designed to wrap around a penis.
+    description: Sleeve designed to wrap around a penis
     requires: sex-generally
 
   - id: cock-ring
@@ -1244,7 +1244,7 @@ questions:
     text: Anal beads
     giveText: Using anal beads on your partner
     receiveText: Having anal beads used on you
-    description: A string of graduated beads inserted then slowly removed.
+    description: A string of graduated beads inserted then slowly removed
     requires: anal-penetration
 
   - id: prostate-massager
@@ -1262,14 +1262,14 @@ questions:
     text: Glass or metal toy (temperature play)
     giveText: Using a temperature toy on your partner
     receiveText: Having a temperature toy used on you
-    description: Toy that holds temperature — warm in water, chilled in fridge.
+    description: Toy that holds temperature — warm in water, chilled in fridge
     requires: sex-generally
 
   - id: remote-toy
     category: toys
     tier: 2
     text: Remote-controlled toy (in public or at home)
-    description: Vibrator with remote control — partner controls it.
+    description: Vibrator with remote control — partner controls it
     requires: sex-generally
 
   - id: strap-on
@@ -1284,7 +1284,7 @@ questions:
     category: toys
     tier: 3
     text: Sex furniture (wedge, swing, bench)
-    description: Shaped pillows, swings, or furniture designed to support specific positions.
+    description: Shaped pillows, swings, or furniture designed to support specific positions
     requires: sex-generally
 
   - id: gag
@@ -1293,7 +1293,7 @@ questions:
     text: Gag (ball gag, ring gag, bit)
     giveText: Gagging your partner
     receiveText: Being gagged
-    description: A device placed in or over the mouth to restrict speech.
+    description: A device placed in or over the mouth to restrict speech
     requires: sex-generally
 
   # ── Sensation Play ───────────────────────────────────────────
@@ -1309,7 +1309,7 @@ questions:
     category: sensation
     tier: 2
     text: Different textures (silk, leather, fur, rubber)
-    description: Different materials against skin for varied sensation.
+    description: Different materials against skin for varied sensation
     requires: sex-generally
 
   - id: blindfold
@@ -1344,7 +1344,7 @@ questions:
     category: sensation
     tier: 2
     text: Video-call sex
-    description: Mutual masturbation over video call — watching each other on screen.
+    description: Mutual masturbation over video call — watching each other on screen
     requires: sex-generally
 
   - id: wax
@@ -1353,7 +1353,7 @@ questions:
     text: Wax play (warm candles)
     giveText: Dripping wax on your partner
     receiveText: Having wax dripped on you
-    description: Dripping warm low-melt candle wax on the body.
+    description: Dripping warm low-melt candle wax on the body
     requires: sex-generally
 
   - id: pinwheel
@@ -1362,7 +1362,7 @@ questions:
     text: Wartenberg pinwheel
     giveText: Using a pinwheel on your partner
     receiveText: Having a pinwheel used on you
-    description: A small wheel with sharp points rolled across the skin for prickling sensation.
+    description: A small wheel with sharp points rolled across the skin for prickling sensation
     requires: sex-generally
 
   - id: electrostim
@@ -1371,7 +1371,7 @@ questions:
     text: Electrostimulation (e-stim / TENS / violet wand)
     giveText: Using electrical stimulation on your partner
     receiveText: Having electrical stimulation used on you
-    description: Devices that send mild electrical pulses — gentle tingling to intense pulsing.
+    description: Devices that send mild electrical pulses — gentle tingling to intense pulsing
     requires: sex-generally
 
   # ── Bondage & Restraint ──────────────────────────────────────
@@ -1422,7 +1422,7 @@ questions:
     text: Rope bondage / shibari
     giveText: Tying your partner with rope
     receiveText: Being tied with rope
-    description: Tying with rope — functional or decorative shibari.
+    description: Tying with rope — functional or decorative shibari
     requires: bondage-generally
 
   - id: spreader-bar
@@ -1431,7 +1431,7 @@ questions:
     text: Spreader bar
     giveText: Using a spreader bar on your partner
     receiveText: Being restrained with a spreader bar
-    description: A rigid bar attached to cuffs that holds limbs apart.
+    description: A rigid bar attached to cuffs that holds limbs apart
     requires: bondage-generally
 
   - id: breast-bondage
@@ -1448,7 +1448,7 @@ questions:
     text: Mummification / body wrapping
     giveText: Wrapping your partner
     receiveText: Being wrapped
-    description: Wrapped entirely in cling film, tape, or bandages — total immobilization.
+    description: Wrapped entirely in cling film, tape, or bandages — total immobilization
     requires: bondage-generally
 
   - id: suspension
@@ -1492,7 +1492,7 @@ questions:
     text: Flogging
     giveText: Flogging your partner
     receiveText: Being flogged
-    description: Striking with a flogger — handle with multiple soft tails.
+    description: Striking with a flogger — handle with multiple soft tails
     requires: impact-generally
 
   - id: crop
@@ -1509,7 +1509,7 @@ questions:
     text: Caning
     giveText: Caning your partner
     receiveText: Being caned
-    description: Striking with a thin, rigid cane — sharp and stinging.
+    description: Striking with a thin, rigid cane — sharp and stinging
     requires: impact-generally
 
   - id: face-slapping
@@ -1526,7 +1526,7 @@ questions:
     text: Whipping (single-tail)
     giveText: Whipping your partner
     receiveText: Being whipped
-    description: A single-tail whip — requires skill and trust.
+    description: A single-tail whip — requires skill and trust
     requires: impact-generally
 
   # ── Power Exchange ───────────────────────────────────────────
@@ -1536,7 +1536,7 @@ questions:
     text: Some form of dominance / submission dynamic is welcome
     giveText: Being dominant is welcome
     receiveText: Being submissive is welcome
-    description: Sub-gate for Power Exchange.
+    description: Sub-gate for Power Exchange
     requires: sex-generally
 
   - id: praise-kink
@@ -1621,7 +1621,7 @@ questions:
     text: Forced orgasm (consensual)
     giveText: Forcing your partner to orgasm
     receiveText: Being forced to orgasm
-    description: Consensually stimulating a partner past the point where they want to stop.
+    description: Consensually stimulating a partner past the point where they want to stop
     requires: power-generally
 
   - id: protocol-rituals
@@ -1646,7 +1646,7 @@ questions:
     category: power
     tier: 3
     text: 24/7 dynamic (vs. scene-only)
-    description: D/s dynamic that's on continuously, not limited to scenes.
+    description: D/s dynamic that's on continuously, not limited to scenes
     requires: power-generally
 
   - id: degradation
@@ -1655,7 +1655,7 @@ questions:
     text: Degradation / humiliation (verbal)
     giveText: Degrading your partner (consensual)
     receiveText: Being degraded (consensual)
-    description: Consensual verbal humiliation during sex — name-calling, put-downs.
+    description: Consensual verbal humiliation during sex — name-calling, put-downs
     notePrompt: what's okay, what's off-limits?
     requires: power-generally
 
@@ -1663,7 +1663,7 @@ questions:
     category: power
     tier: 3
     text: Financial domination
-    description: Submissive cedes financial control or sends tribute.
+    description: Submissive cedes financial control or sends tribute
     requires: power-generally
 
   - id: free-use
@@ -1672,14 +1672,14 @@ questions:
     text: Free use (consensual)
     giveText: Having free use of your partner
     receiveText: Being available for your partner anytime
-    description: Pre-negotiated arrangement where one partner can initiate anytime.
+    description: Pre-negotiated arrangement where one partner can initiate anytime
     requires: power-generally
 
   - id: cnc
     category: power
     tier: 4
     text: Consensual non-consent (CNC / ravishment play)
-    description: A pre-negotiated scene where one partner pretends to resist.
+    description: A pre-negotiated scene where one partner pretends to resist
     requires: power-generally
 
   - id: chastity
@@ -1714,7 +1714,7 @@ questions:
     category: roleplay
     tier: 2
     text: Partner pretends to be a stranger ('we just met')
-    description: Partner enters as a stranger — at home as someone unknown.
+    description: Partner enters as a stranger — at home as someone unknown
     requires: roleplay-generally
 
   - id: boss-employee
@@ -1747,7 +1747,7 @@ questions:
     category: roleplay
     tier: 3
     text: Primal play (raw, instinctual)
-    description: Wrestling, biting, growling, chasing — raw animal instinct.
+    description: Wrestling, biting, growling, chasing — raw animal instinct
     requires: roleplay-generally
 
   - id: pet-play
@@ -1773,7 +1773,7 @@ questions:
     text: Age-gap fantasy (older / younger partner)
     giveText: Playing the older partner
     receiveText: Playing the younger partner
-    description: Adults only — pretending an age gap.
+    description: Adults only — pretending an age gap
     notePrompt: which side, what specific framing?
     requires: roleplay-generally
 
@@ -1789,7 +1789,7 @@ questions:
     category: roleplay
     tier: 3
     text: Breeding / impregnation fantasy
-    description: Arousal from the idea of impregnation — the fantasy, not the desire for actual pregnancy.
+    description: Arousal from the idea of impregnation — the fantasy, not the desire for actual pregnancy
     requires: roleplay-generally
 
   - id: hotwife
@@ -1798,7 +1798,7 @@ questions:
     text: Hotwife / hotpartner (pride frame)
     giveText: Being with someone else while partner is turned on by it
     receiveText: Watching partner with someone else (with arousal, not humiliation)
-    description: Pride frame — distinct from cuckolding.
+    description: Pride frame — distinct from cuckolding
     notePrompt: public, private, written about, in-the-moment?
     requires: roleplay-generally
 
@@ -1814,13 +1814,13 @@ questions:
     category: exhibitionism
     tier: 1
     text: Being nude around the house
-    description: Comfortable being naked in shared spaces at home.
+    description: Comfortable being naked in shared spaces at home
 
   - id: skinny-dipping
     category: exhibitionism
     tier: 2
     text: Skinny dipping
-    description: Swimming naked together — possibly leading to more.
+    description: Swimming naked together — possibly leading to more
     requires: exhibitionism-generally
 
   - id: strip-tease
@@ -1835,7 +1835,7 @@ questions:
     category: exhibitionism
     tier: 2
     text: Sex in an unusual location (car, hotel, kitchen)
-    description: Somewhere that isn't your bed.
+    description: Somewhere that isn't your bed
     requires: exhibitionism-generally
 
   - id: outdoor-sex
@@ -1860,7 +1860,7 @@ questions:
     category: exhibitionism
     tier: 4
     text: Livestream / cam sex (broadcast to viewers)
-    description: Streaming or broadcasting sex live to viewers.
+    description: Streaming or broadcasting sex live to viewers
     requires: exhibitionism-generally
 
   # ── Group & External ─────────────────────────────────────────
@@ -1868,7 +1868,7 @@ questions:
     category: group
     tier: 1
     text: External people involved in our sex life is welcome
-    description: Sub-gate for Group & External.
+    description: Sub-gate for Group & External
     requires: sex-generally
 
   - id: being-watched
@@ -1895,7 +1895,7 @@ questions:
     category: group
     tier: 2
     text: Threesome with an additional partner who has a vulva
-    description: Adding a person with a vulva to make a threesome.
+    description: Adding a person with a vulva to make a threesome
     notePrompt: any specific framing or arrangement?
     requires: external-people-generally
 
@@ -1903,28 +1903,28 @@ questions:
     category: group
     tier: 2
     text: Swinging / partner swap
-    description: Partner-swap with another couple — full sexual contact across pairs.
+    description: Partner-swap with another couple — full sexual contact across pairs
     requires: external-people-generally
 
   - id: sex-club
     category: group
     tier: 2
     text: Sex club / play party
-    description: Going to a sex club or play party — public venue with other people having sex.
+    description: Going to a sex club or play party — public venue with other people having sex
     requires: external-people-generally
 
   - id: soft-swap
     category: group
     tier: 3
     text: Soft swap with another couple
-    description: Kissing, touching, or oral with another couple — but no penetration outside your pair.
+    description: Kissing, touching, or oral with another couple — but no penetration outside your pair
     requires: external-people-generally
 
   - id: spit-roast
     category: group
     tier: 3
     text: Spit roast
-    description: One person between two others — receives oral on one end and penetration on the other simultaneously.
+    description: One person between two others — receives oral on one end and penetration on the other simultaneously
     requires: external-people-generally
 
   - id: foursome
@@ -1940,14 +1940,14 @@ questions:
     text: Cuckolding / cuckqueaning
     giveText: Being with someone else while your partner watches
     receiveText: Watching your partner with someone else (humiliation/jealousy frame)
-    description: Distinct from hotwife — humiliation/jealousy frame, not pride.
+    description: Distinct from hotwife — humiliation/jealousy frame, not pride
     requires: external-people-generally
 
   - id: dvp
     category: group
     tier: 4
     text: Double penetration by two partners (DVP)
-    description: Two partners penetrate one receiver simultaneously — vaginal + anal or both vaginal.
+    description: Two partners penetrate one receiver simultaneously — vaginal + anal or both vaginal
     requires: external-people-generally
 
   # ── Materials & Fetish ───────────────────────────────────────
@@ -1975,14 +1975,14 @@ questions:
     category: fetish
     tier: 2
     text: Sex while partially clothed
-    description: Some clothes on — skirt pushed up, shirt still on, underwear pulled aside.
+    description: Some clothes on — skirt pushed up, shirt still on, underwear pulled aside
     requires: sex-generally
 
   - id: body-hair
     category: fetish
     tier: 2
     text: Body hair as a turn-on
-    description: Body hair on partner is a turn-on — kept rather than groomed off.
+    description: Body hair on partner is a turn-on — kept rather than groomed off
     notePrompt: where (chest, legs, face, back)?
     requires: sex-generally
 
@@ -2010,7 +2010,7 @@ questions:
     category: fetish
     tier: 3
     text: Masks / masquerade
-    description: Wearing decorative masks during sex — anonymity with someone you know.
+    description: Wearing decorative masks during sex — anonymity with someone you know
     requires: sex-generally
 
   - id: body-paint
@@ -2031,7 +2031,7 @@ questions:
     category: fetish
     tier: 3
     text: Used underwear / scent fetish
-    description: Smelling, wearing, or playing with used underwear for sexual gratification.
+    description: Smelling, wearing, or playing with used underwear for sexual gratification
     requires: sex-generally
 
   # ── Edge Play ────────────────────────────────────────────────
@@ -2041,7 +2041,7 @@ questions:
     text: Higher-risk activities (edge play) are something I want to explore
     giveText: Doing higher-risk activities is welcome
     receiveText: Receiving higher-risk activities is welcome
-    description: Sub-gate for Edge Play.
+    description: Sub-gate for Edge Play
     requires: sex-generally
 
   - id: spit-play
@@ -2056,7 +2056,7 @@ questions:
     category: edge
     tier: 3
     text: Cum play (where it goes, playing with it)
-    description: Playing with ejaculate after coming.
+    description: Playing with ejaculate after coming
     requires: edge-generally
 
   - id: breath-play
@@ -2090,7 +2090,7 @@ questions:
     tier: 4
     text: Cock and ball torture (CBT)
     targetReceive: amab
-    description: Pressure, impact, or restriction applied to penis and testicles.
+    description: Pressure, impact, or restriction applied to penis and testicles
     requires: edge-generally
 
   - id: sounding
@@ -2107,7 +2107,7 @@ questions:
     text: Knife play (sensation, not cutting)
     giveText: Using a blade on your partner
     receiveText: Having a blade used on you
-    description: Using a blade on the skin for sensation, not cutting.
+    description: Using a blade on the skin for sensation, not cutting
     requires: edge-generally
 
   - id: fire-play
@@ -2153,14 +2153,14 @@ questions:
     category: aftercare
     tier: 1
     text: Specific comfort items afterward (pillow, blanket, plush)
-    description: A specific pillow, blanket, or plush as part of coming down.
+    description: A specific pillow, blanket, or plush as part of coming down
     notePrompt: which item?
 
   - id: reassurance-after
     category: aftercare
     tier: 1
     text: Verbal reassurance after intense play
-    description: Hearing "you're amazing, I love you, you did so well" — especially after intense sex.
+    description: Hearing "you're amazing, I love you, you did so well" — especially after intense sex
 
   - id: falling-asleep
     category: aftercare
@@ -2188,7 +2188,7 @@ questions:
     category: aftercare
     tier: 2
     text: Lights gradually on after
-    description: Gradual transition to lights-on after, rather than straight to dark sleep.
+    description: Gradual transition to lights-on after, rather than straight to dark sleep
 
   - id: no-phone-after
     category: aftercare
@@ -2199,4 +2199,4 @@ questions:
     category: aftercare
     tier: 2
     text: Next-day check-in
-    description: A text or conversation the next day.
+    description: A text or conversation the next day
