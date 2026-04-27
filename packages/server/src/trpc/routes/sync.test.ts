@@ -88,6 +88,19 @@ describe("sync.push", () => {
     );
   });
 
+  it("throws BAD_REQUEST when store returns encryption_mismatch", async () => {
+    const push = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
+    const ctx = mockCtx({ person, group, sync: { push } });
+    const caller = createCaller(ctx);
+    await expect(
+      caller.sync.push({
+        stoken: null,
+        operations: ["e:1:encryptedpayload"],
+        progress: null,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Operation encryption does not match group setting" });
+  });
+
   it("passes valid operations to store", async () => {
     const push = vi.fn().mockResolvedValue(pushOk());
     const ctx = mockCtx({ person, group, sync: { push } });
@@ -97,11 +110,15 @@ describe("sync.push", () => {
       operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
       progress: null,
     });
-    expect(push).toHaveBeenCalledWith("p1", {
-      stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
+    expect(push).toHaveBeenCalledWith(
+      "p1",
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      false,
+    );
   });
 
   it("requires auth", async () => {

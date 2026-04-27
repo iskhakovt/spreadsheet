@@ -25,10 +25,10 @@ beforeEach(async () => {
   await truncateAll(db);
 });
 
-async function createTestPerson() {
+async function createTestPerson(encrypted = false) {
   const [group] = await db
     .insert(groups)
-    .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
+    .values({ encrypted, isReady: true, questionMode: "all", showTiming: true })
     .returning();
   const [person] = await db
     .insert(persons)
@@ -41,69 +41,167 @@ async function createTestPerson() {
       isCompleted: false,
     })
     .returning();
-  return { groupId: group.id, personId: person.id };
+  return { groupId: group.id, personId: person.id, encrypted: group.encrypted };
 }
 
 describe("SyncStore.push", () => {
   it("accepts first push with null stoken", async () => {
-    const { personId } = await createTestPerson();
-    const result = await store.push(personId, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
-    expect(result.pushRejected).toBe(false);
-    expect(result.stoken).toBeDefined();
-    expect(result.entries).toHaveLength(1);
+    const { personId, encrypted } = await createTestPerson();
+    const result = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    expect(result).not.toHaveProperty("error");
+    if ("pushRejected" in result) {
+      expect(result.pushRejected).toBe(false);
+      expect(result.stoken).toBeDefined();
+      expect(result.entries).toHaveLength(1);
+    }
   });
 
   it("accepts sequential pushes with correct stoken", async () => {
-    const { personId } = await createTestPerson();
-    const first = await store.push(personId, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
-    const second = await store.push(personId, {
-      stoken: first.stoken,
-      operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
-      progress: null,
-    });
-    expect(second.pushRejected).toBe(false);
-    expect(second.entries).toHaveLength(1);
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+    const second = await store.push(
+      personId,
+      {
+        stoken: first.stoken,
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    expect(second).not.toHaveProperty("error");
+    if ("pushRejected" in second) {
+      expect(second.pushRejected).toBe(false);
+      expect(second.entries).toHaveLength(1);
+    }
   });
 
   it("rejects push with stale stoken", async () => {
-    const { personId } = await createTestPerson();
-    const first = await store.push(personId, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
-    await store.push(personId, {
-      stoken: first.stoken,
-      operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
-      progress: null,
-    });
-    const stale = await store.push(personId, {
-      stoken: first.stoken,
-      operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
-      progress: null,
-    });
-    expect(stale.pushRejected).toBe(true);
-    expect(stale.entries.length).toBeGreaterThan(0);
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+    await store.push(
+      personId,
+      {
+        stoken: first.stoken,
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    const stale = await store.push(
+      personId,
+      {
+        stoken: first.stoken,
+        operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
+        progress: null,
+      },
+      encrypted,
+    );
+    expect(stale).not.toHaveProperty("error");
+    if ("pushRejected" in stale) {
+      expect(stale.pushRejected).toBe(true);
+      expect(stale.entries.length).toBeGreaterThan(0);
+    }
   });
 
   it("updates progress", async () => {
-    const { personId } = await createTestPerson();
-    await store.push(personId, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: 'p:1:{"answered":1,"total":10}',
-    });
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: 'p:1:{"answered":1,"total":10}',
+      },
+      encrypted,
+    );
     // Verify via raw DB query (store doesn't expose progress directly)
     const [row] = await db.select().from(persons).where(eq(persons.id, personId));
     expect(row.progress).toBe('p:1:{"answered":1,"total":10}');
+  });
+
+  it("returns encryption_mismatch when plaintext op sent to encrypted group", async () => {
+    const { personId } = await createTestPerson(true);
+    const result = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      true,
+    );
+    expect(result).toEqual({ error: "encryption_mismatch" });
+  });
+
+  it("returns encryption_mismatch when encrypted op sent to plaintext group", async () => {
+    const { personId } = await createTestPerson(false);
+    const result = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ["e:1:encryptedpayload"],
+        progress: null,
+      },
+      false,
+    );
+    expect(result).toEqual({ error: "encryption_mismatch" });
+  });
+
+  it("returns encryption_mismatch when any op in a batch mismatches", async () => {
+    const { personId } = await createTestPerson(false);
+    const result = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}', "e:1:encryptedpayload"],
+        progress: null,
+      },
+      false,
+    );
+    expect(result).toEqual({ error: "encryption_mismatch" });
+  });
+
+  it("accepts encrypted ops on encrypted group", async () => {
+    const { personId } = await createTestPerson(true);
+    const result = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ["e:1:encryptedpayload"],
+        progress: null,
+      },
+      true,
+    );
+    expect(result).not.toHaveProperty("error");
+    if ("pushRejected" in result) {
+      expect(result.pushRejected).toBe(false);
+    }
   });
 });
 
@@ -153,16 +251,24 @@ describe("SyncStore.journalSince", () => {
 
   it("returns all entries when sinceId is null", async () => {
     const { group, alice, bob } = await setupCompleteGroup();
-    await store.push(alice.id, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
-    await store.push(bob.id, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
+    await store.push(
+      alice.id,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      false,
+    );
+    await store.push(
+      bob.id,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      false,
+    );
 
     const result = await store.journalSince(group.id, null);
     expect("members" in result && result.members).toHaveLength(2);
@@ -179,21 +285,29 @@ describe("SyncStore.journalSince", () => {
 
   it("returns only entries with id > sinceId when sinceId is set", async () => {
     const { group, alice, bob } = await setupCompleteGroup();
-    await store.push(alice.id, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
+    await store.push(
+      alice.id,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      false,
+    );
     const firstFetch = await store.journalSince(group.id, null);
     if (!("entries" in firstFetch)) throw new Error("expected entries");
     const cursorAfterFirst = firstFetch.cursor;
 
     // Now a second write
-    await store.push(bob.id, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
-      progress: null,
-    });
+    await store.push(
+      bob.id,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
+        progress: null,
+      },
+      false,
+    );
 
     const delta = await store.journalSince(group.id, cursorAfterFirst);
     expect("entries" in delta).toBe(true);
@@ -207,11 +321,15 @@ describe("SyncStore.journalSince", () => {
 
   it("returns empty delta with cursor unchanged when nothing new", async () => {
     const { group, alice } = await setupCompleteGroup();
-    await store.push(alice.id, {
-      stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
-    });
+    await store.push(
+      alice.id,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: null,
+      },
+      false,
+    );
     const first = await store.journalSince(group.id, null);
     if (!("entries" in first)) throw new Error("expected entries");
 

@@ -1,3 +1,4 @@
+import { decodeOpaque, PREFIX_ENCRYPTED, PREFIX_PLAINTEXT } from "@spreadsheet/shared";
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
@@ -11,7 +12,27 @@ export class SyncStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
-  async push(personId: string, input: { stoken: string | null; operations: string[]; progress: string | null }) {
+  async push(
+    personId: string,
+    input: { stoken: string | null; operations: string[]; progress: string | null },
+    groupEncrypted: boolean,
+  ): Promise<
+    | { error: "encryption_mismatch" }
+    | {
+        stoken: string | null;
+        entries: string[];
+        committedEntries: { id: number; personId: string; operation: string }[];
+        pushRejected: boolean;
+      }
+  > {
+    const expectedMode = groupEncrypted ? PREFIX_ENCRYPTED : PREFIX_PLAINTEXT;
+    for (const op of input.operations) {
+      const { mode } = decodeOpaque(op);
+      if (mode !== expectedMode) {
+        return { error: "encryption_mismatch" };
+      }
+    }
+
     return this.#tx(async (tx) => {
       if (input.progress !== null) {
         await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
