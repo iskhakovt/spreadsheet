@@ -7,7 +7,7 @@ for (const encrypted of [false, true]) {
       await createGroupAndSetup(page, { encrypted });
       await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
-      await narrowToCategory(page, "Group & External");
+      await narrowToCategory(page, "Aftercare");
 
       // Answer a couple of questions so Review has something to show, then
       // navigate: question header → Progress → Summary → Review answers.
@@ -32,7 +32,7 @@ for (const encrypted of [false, true]) {
       await createGroupAndSetup(page, { encrypted });
       await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
-      await narrowToCategory(page, "Group & External");
+      await narrowToCategory(page, "Aftercare");
       await answerAllQuestions(page, "no");
 
       // Mark complete from "All done!" screen
@@ -46,7 +46,7 @@ for (const encrypted of [false, true]) {
       await createGroupAndSetup(page, { encrypted });
       await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
-      await narrowToCategory(page, "Group & External");
+      await narrowToCategory(page, "Aftercare");
       await answerAllQuestions(page, "no");
       await page.getByRole("button", { name: "I'm done", exact: true }).click();
       await expect(page.getByText("Waiting for everyone")).toBeVisible({ timeout: NAV_TIMEOUT });

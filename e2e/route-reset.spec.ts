@@ -11,7 +11,7 @@ test.describe("RouteReset — scroll + focus on SPA navigation", () => {
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
-    await narrowToCategory(page, "Group & External");
+    await narrowToCategory(page, "Aftercare");
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Seed 2 answers so Review has rows to render. Stay on /questions —
@@ -63,7 +63,7 @@ test.describe("useScrollReset — scroll on sub-state transitions", () => {
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
-    await narrowToCategory(page, "Group & External");
+    await narrowToCategory(page, "Aftercare");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible({ timeout: NAV_TIMEOUT });
 

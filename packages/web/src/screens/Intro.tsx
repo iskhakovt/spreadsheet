@@ -55,7 +55,7 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{UI.intro.tierTitle}</h2>
           <div role="radiogroup" aria-label="Question depth" className="space-y-2">
-            {([1, 2, 3] as const).map((t) => {
+            {([1, 2, 3, 4] as const).map((t) => {
               const info = UI.intro.tiers[t];
               const selected = tier === t;
               return (

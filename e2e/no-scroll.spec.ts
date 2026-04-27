@@ -38,10 +38,10 @@ type ScreenName =
  */
 const EXPECTED_TO_SCROLL: Partial<Record<ScreenName, ReadonlySet<ViewportName>>> = {
   // Intro is first-run-only onboarding — 3 "how it works" steps, a 5-item
-  // answer legend, and a 3-option tier picker. At ~1068px content height
-  // it only fits on 1920×1080+. Trimming it further would cost
-  // comprehension for a screen users see once, so we accept the scroll.
-  intro: new Set(["mobile-sm", "mobile-md", "mobile-lg", "tablet", "laptop-sm", "laptop-md"]),
+  // answer legend, and a 4-option tier picker. The 4th tier (Edge) added
+  // ~80px of content height, pushing intro past the 1080px desktop budget
+  // too. Trimming would cost comprehension for a screen users see once.
+  intro: new Set(["mobile-sm", "mobile-md", "mobile-lg", "tablet", "laptop-sm", "laptop-md", "desktop"]),
   // Long-description questions (e.g. reassurance-after, primal-play — 100+
   // char descriptions wrapping to 3 lines) plus the 5-button rating stack
   // are one line short of fitting on iPhone SE (375×667). Closing the gap
