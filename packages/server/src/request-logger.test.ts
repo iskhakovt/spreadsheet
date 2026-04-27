@@ -34,7 +34,7 @@ describe("sanitizePath", () => {
     expect(sanitizePath("/p/abc123/questions/oral")).toBe("/p/[REDACTED]/questions/oral");
   });
 
-  it("does not touch the API path (tokens here travel in the x-person-token header)", () => {
+  it("does not touch the API path (auth travels via X-Session-Key + cookie, not in the URL)", () => {
     expect(sanitizePath("/api/trpc/groups.create")).toBe("/api/trpc/groups.create");
     expect(sanitizePath("/api/trpc/sync.push")).toBe("/api/trpc/sync.push");
     expect(sanitizePath("/api/trpc-ws")).toBe("/api/trpc-ws");

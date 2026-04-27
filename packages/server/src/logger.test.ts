@@ -24,10 +24,10 @@ const REDACTED = "[REDACTED]";
 
 describe("logger redact paths", () => {
   describe("request headers (deep paths)", () => {
-    it("redacts req.headers['x-person-token']", () => {
+    it("redacts req.headers['x-session-key']", () => {
       const { logger, records } = captureLogger();
-      logger.info({ req: { headers: { "x-person-token": "secret" } } }, "test");
-      expect((records[0].req as { headers: Record<string, unknown> }).headers["x-person-token"]).toBe(REDACTED);
+      logger.info({ req: { headers: { "x-session-key": "hash-value" } } }, "test");
+      expect((records[0].req as { headers: Record<string, unknown> }).headers["x-session-key"]).toBe(REDACTED);
     });
 
     it("redacts req.headers.authorization", () => {

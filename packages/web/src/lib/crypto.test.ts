@@ -158,23 +158,23 @@ describe("getGroupKeyFromUrl scope isolation", () => {
 
   async function loadModules() {
     const { getGroupKeyFromUrl } = await import("./crypto.js");
-    const { setSession } = await import("./session.js");
-    return { getGroupKeyFromUrl, setSession };
+    const { adoptSession } = await import("./session.js");
+    return { getGroupKeyFromUrl, adoptSession };
   }
 
   it("caches the URL hash key under the current scope", async () => {
-    const { getGroupKeyFromUrl, setSession } = await loadModules();
+    const { getGroupKeyFromUrl, adoptSession } = await loadModules();
     locationStub.hash = "#key=firstGroupKey";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("firstGroupKey");
   });
 
   it("does not leak a previously-cached key across tokens in the same tab", async () => {
-    const { getGroupKeyFromUrl, setSession } = await loadModules();
+    const { getGroupKeyFromUrl, adoptSession } = await loadModules();
 
     // Visit encrypted group A — key is in URL hash
     locationStub.hash = "#key=GROUP_A_KEY";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
 
     // Navigate to an unencrypted group B in the same tab — no hash,
@@ -184,29 +184,29 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     // would return GROUP_A_KEY from the module-level + sessionStorage
     // cache, and TOKEN_B's answers would be encrypted with A's key.
     locationStub.hash = "";
-    setSession("TOKEN_B");
+    adoptSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBeNull();
 
     // Going back to token A should still surface A's key because it
     // was stored scoped under A's hash in sessionStorage.
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
   });
 
   it("keeps separate keys for two encrypted groups visited in the same tab", async () => {
-    const { getGroupKeyFromUrl, setSession } = await loadModules();
+    const { getGroupKeyFromUrl, adoptSession } = await loadModules();
 
     locationStub.hash = "#key=KEY_A";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("KEY_A");
 
     locationStub.hash = "#key=KEY_B";
-    setSession("TOKEN_B");
+    adoptSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBe("KEY_B");
 
     // Switch back — each scope remembers its own key via sessionStorage
     locationStub.hash = "";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("KEY_A");
   });
 });
@@ -234,28 +234,28 @@ describe("buildPersonLink", () => {
 
   async function loadModules() {
     const { buildPersonLink, getGroupKeyFromUrl } = await import("./crypto.js");
-    const { setSession } = await import("./session.js");
-    return { buildPersonLink, getGroupKeyFromUrl, setSession };
+    const { adoptSession } = await import("./session.js");
+    return { buildPersonLink, getGroupKeyFromUrl, adoptSession };
   }
 
   it("includes #key= fragment when group key is available", async () => {
-    const { buildPersonLink, setSession } = await loadModules();
+    const { buildPersonLink, adoptSession } = await loadModules();
     locationStub.hash = "#key=MY_KEY";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(buildPersonLink("SOME_TOKEN")).toBe("https://example.com/p/SOME_TOKEN#key=MY_KEY");
   });
 
   it("omits fragment when no group key", async () => {
-    const { buildPersonLink, setSession } = await loadModules();
+    const { buildPersonLink, adoptSession } = await loadModules();
     locationStub.hash = "";
-    setSession("TOKEN_A");
+    adoptSession("TOKEN_A");
     expect(buildPersonLink("SOME_TOKEN")).toBe("https://example.com/p/SOME_TOKEN");
   });
 
   it("works for a different token than the current session", async () => {
-    const { buildPersonLink, setSession } = await loadModules();
+    const { buildPersonLink, adoptSession } = await loadModules();
     locationStub.hash = "#key=SHARED_KEY";
-    setSession("ADMIN_TOKEN");
+    adoptSession("ADMIN_TOKEN");
     // Build a link for a partner using the admin's key
     expect(buildPersonLink("PARTNER_TOKEN")).toBe("https://example.com/p/PARTNER_TOKEN#key=SHARED_KEY");
   });

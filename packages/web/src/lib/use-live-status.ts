@@ -26,14 +26,14 @@ import { useTRPC } from "./trpc.js";
  * Suspense-query surfaces to the nearest ErrorBoundary. No separate
  * "error" state tracked in the hook.
  */
-export function useLiveStatus(token: string): { status: GroupStatus | null; refresh: () => Promise<void> } {
+export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Promise<void> } {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   // Grab the proxy-generated options (stable queryKey, typed queryFn) and
   // override the queryFn to decrypt before returning. The cache stores the
   // decrypted shape — readers don't need an extra useEffect cycle.
-  const baseOptions = trpc.groups.status.queryOptions({ token });
+  const baseOptions = trpc.groups.status.queryOptions();
   const { data: status } = useSuspenseQuery({
     ...baseOptions,
     queryFn: async (context) => {

@@ -35,6 +35,7 @@ interface ComparisonProps {
   viewerId: string;
   showTiming: boolean;
   encrypted: boolean;
+  token: string;
   onBack?: () => void;
 }
 
@@ -111,7 +112,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: Readonly<ComparisonProps>) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -341,7 +342,7 @@ export function Comparison({ viewerId, showTiming, encrypted, onBack }: Readonly
           </div>
         )}
 
-        <CopyMyLink encrypted={encrypted} />
+        <CopyMyLink encrypted={encrypted} token={token} />
 
         <div className="text-center pt-2">
           <SourceLink />

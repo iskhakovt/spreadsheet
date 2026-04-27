@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
+import { parse as parseCookies } from "cookie-es";
 import type { Context as HonoContext } from "hono";
+import { getCookie } from "hono/cookie";
 import type { Logger } from "pino";
 import { type HonoLoggerEnv, logger as rootLogger } from "../logger.js";
 import type { GroupStore } from "../store/groups.js";
@@ -60,13 +62,22 @@ async function buildContext(stores: Stores, token: string | null, log: Logger): 
 }
 
 export async function createContext(stores: Stores, c: HonoContext<HonoLoggerEnv>): Promise<TrpcContext> {
-  return buildContext(stores, c.req.header("x-person-token") ?? null, c.var.logger);
+  // Auth: client sends `X-Session-Key: $hash`; server reads cookie `s_$hash`.
+  // The hash is non-secret (it's fnv1a(token)), used only to disambiguate which
+  // cookie to look up — multiple persons on the same device coexist via
+  // separately-named `s_*` cookies.
+  const sessionKey = c.req.header("x-session-key");
+  const token = sessionKey ? (getCookie(c, `s_${sessionKey}`) ?? null) : null;
+  return buildContext(stores, token, c.var.logger);
 }
 
 export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOptions): Promise<TrpcContext> {
-  const params = opts.info.connectionParams as { token?: string } | undefined;
+  const raw = opts.info.connectionParams as Record<string, unknown> | undefined;
+  const sessionKey = typeof raw?.sessionKey === "string" ? raw.sessionKey : null;
   // `connId` is per-WS-connection (analogous to `reqId` for HTTP) — without it,
   // log lines from concurrent WS subscriptions can't be correlated.
   const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
-  return buildContext(stores, params?.token ?? null, connLogger);
+  const cookies = parseCookies(opts.req.headers.cookie ?? "");
+  const token = sessionKey ? (cookies[`s_${sessionKey}`] ?? null) : null;
+  return buildContext(stores, token, connLogger);
 }

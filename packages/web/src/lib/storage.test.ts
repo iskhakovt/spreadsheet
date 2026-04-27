@@ -2,7 +2,7 @@
 import type { Answer } from "@spreadsheet/shared";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getScope, setSession } from "./session.js";
+import { adoptSession, getScope } from "./session.js";
 import {
   addPendingOp,
   clearPendingOps,
@@ -18,7 +18,7 @@ const yes: Answer = { rating: "yes", timing: null };
 
 beforeEach(() => {
   // Each test gets a fresh session scope + clean localStorage for that scope.
-  setSession(token);
+  adoptSession(token);
   localStorage.clear();
 });
 

@@ -1,11 +1,11 @@
 import { Check, Link } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { buildPersonLink } from "../lib/crypto.js";
-import { getAuthToken } from "../lib/session.js";
 import { useCopy } from "../lib/use-copy.js";
 
 interface CopyMyLinkProps {
   encrypted: boolean;
+  token: string;
 }
 
 /**
@@ -14,15 +14,13 @@ interface CopyMyLinkProps {
  * reopen on another device or save it as a bookmark.
  * Renders nothing when the group is not encrypted.
  */
-export function CopyMyLink({ encrypted }: Readonly<CopyMyLinkProps>) {
+export function CopyMyLink({ encrypted, token }: Readonly<CopyMyLinkProps>) {
   const { copiedIndex, copy } = useCopy();
   const copied = copiedIndex !== null;
 
   if (!encrypted) return null;
 
   function handleCopy() {
-    const token = getAuthToken();
-    if (!token) throw new Error("CopyMyLink rendered outside PersonApp — no auth token");
     copy(buildPersonLink(token));
   }
 

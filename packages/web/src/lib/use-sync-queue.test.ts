@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setSession } from "./session.js";
+import { adoptSession } from "./session.js";
 import { addPendingOp, setPendingOps } from "./storage.js";
 
 const { pushFn } = vi.hoisted(() => ({ pushFn: vi.fn() }));
@@ -35,7 +35,7 @@ function wrapper({ children }: { children: ReactNode }) {
 const token = "test-token-" + Math.random().toString(36).slice(2);
 
 beforeEach(() => {
-  setSession(token);
+  adoptSession(token);
   localStorage.clear();
   pushFn.mockReset();
   pushFn.mockResolvedValue({ stoken: "s", pushRejected: false, entries: [] });

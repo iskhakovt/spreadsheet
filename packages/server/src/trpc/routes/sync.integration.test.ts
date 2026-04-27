@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
 import { seed } from "../../db/seed.js";
 import { QuestionStore } from "../../store/questions.js";
-import { anonCtx, authedCtx, createCaller, defaultCreate } from "../../test/factories.js";
+import { anonCtx, authedCtx, createCaller, defaultCreate, tokenCtx } from "../../test/factories.js";
 
 let db: Database;
 
@@ -30,10 +30,10 @@ async function createGroupWithMembers() {
   });
   const bobToken = partnerTokens[0];
 
-  const aliceStatus = await caller.groups.status({ token: adminToken });
+  const aliceStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
   const aliceCtx = authedCtx(db, aliceStatus!, adminToken);
 
-  const bobStatus = await caller.groups.status({ token: bobToken });
+  const bobStatus = await createCaller(tokenCtx(db, bobToken)).groups.status();
   const bobCtx = authedCtx(db, bobStatus!, bobToken);
 
   return {
@@ -157,7 +157,7 @@ describe("full sync flow (real Postgres)", () => {
       partners: [],
     });
 
-    const status = await caller.groups.status({ token: adminToken });
+    const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
     expect(status!.group.encrypted).toBe(true);
     expect(status!.person!.name).toBe("e:1:encryptedAlice");
     expect(status!.person!.anatomy).toBe("e:1:encryptedAfab");

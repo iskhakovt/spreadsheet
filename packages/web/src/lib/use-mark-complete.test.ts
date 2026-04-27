@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setSession } from "./session.js";
+import { adoptSession } from "./session.js";
 import { getPendingOps, setPendingOps } from "./storage.js";
 
 interface NavigateCall {
@@ -47,7 +47,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
-  setSession(token);
+  adoptSession(token);
   localStorage.clear();
   pushFn.mockReset();
   markCompleteFn.mockReset();

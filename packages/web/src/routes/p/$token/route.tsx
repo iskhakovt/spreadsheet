@@ -1,7 +1,7 @@
 import type { CategoryData, Group as GroupData, Person, QuestionData } from "@spreadsheet/shared";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../../../components/Card.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
@@ -13,11 +13,12 @@ import {
   PersonAppContext,
   type PersonAppContextValue,
 } from "../../../lib/person-app-context.js";
-import { setSession } from "../../../lib/session.js";
+import { adoptSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
-import { useTRPC, useTRPCClient, wsClient } from "../../../lib/trpc.js";
+import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
 import { useMarkComplete } from "../../../lib/use-mark-complete.js";
+import { useTokenSwitchCleanup } from "../../../lib/use-token-switch-cleanup.js";
 import { GroupSetup } from "../../../screens/GroupSetup.js";
 
 function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
@@ -33,10 +34,12 @@ function resolveRoute(person: Person, group: GroupData, allComplete: boolean): s
 }
 
 export const Route = createFileRoute("/p/$token")({
-  // setSession before any tRPC call so the auth token is in place. The
+  // adoptSession before any tRPC call so the session hash is in place. The
   // Zustand vanilla store works outside React so this is safe in a loader.
+  // The server's /p/:token route has already set the httpOnly cookie on
+  // this navigation; this just records which session this tab is on.
   loader: ({ params }) => {
-    setSession(params.token);
+    adoptSession(params.token);
   },
   component: PersonAppLayout,
 });
@@ -47,24 +50,14 @@ function PersonAppLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // setSession again in the component for the token-change case (useEffect
-  // below closes the WS; setSession re-establishes the auth scope for the
+  // adoptSession again in the component for the token-change case (useEffect
+  // below closes the WS; adoptSession re-establishes the auth scope for the
   // new token so tRPC hooks pick up the right credentials on next render).
-  setSession(token);
+  adoptSession(token);
 
-  // On in-tab navigation between two /p/:token URLs: close WS for a clean
-  // auth handshake and drop any non-token-keyed cache entries.
-  const prevTokenRef = useRef(token);
-  useEffect(() => {
-    if (prevTokenRef.current !== token) {
-      wsClient.close();
-      queryClient.invalidateQueries({ queryKey: [["sync"]] });
-      queryClient.invalidateQueries({ queryKey: [["questions"]] });
-      prevTokenRef.current = token;
-    }
-  }, [token, queryClient]);
+  useTokenSwitchCleanup(token);
 
-  const { status, refresh: refreshStatus } = useLiveStatus(token);
+  const { status, refresh: refreshStatus } = useLiveStatus();
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
