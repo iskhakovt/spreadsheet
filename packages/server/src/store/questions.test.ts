@@ -46,6 +46,56 @@ function q(overrides: { id: string; category: string; requires?: string[] }) {
   };
 }
 
+describe("validateDependencies error paths", () => {
+  it("rejects a self-loop", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [q({ id: "loop", category: "c", requires: ["loop"] })],
+      }),
+    ).rejects.toThrow(/cannot require itself/);
+  });
+
+  it("rejects an unknown parent reference", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [q({ id: "child", category: "c", requires: ["nope"] })],
+      }),
+    ).rejects.toThrow(/requires unknown question/);
+  });
+
+  it("rejects a child whose tier is lower than its parent's", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [
+          { ...q({ id: "parent", category: "c" }), tier: 3 },
+          { ...q({ id: "child", category: "c", requires: ["parent"] }), tier: 2 },
+        ],
+      }),
+    ).rejects.toThrow(/child tier must be >= parent tier/);
+  });
+});
+
+describe("QuestionStore.list — field round-trip", () => {
+  it("preserves notePrompt through seed → list", async () => {
+    const seed: SeedData = {
+      categories: [{ id: "c", label: "C", description: "" }],
+      questions: [
+        { ...q({ id: "with-prompt", category: "c" }), notePrompt: "any specific words?" },
+        q({ id: "without-prompt", category: "c" }),
+      ],
+    };
+    await store.seed(seed);
+    const { questions: rows } = await store.list();
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+
+    expect(byId["with-prompt"].notePrompt).toBe("any specific words?");
+    expect(byId["without-prompt"].notePrompt).toBeNull();
+  });
+});
+
 describe("QuestionStore.seed — upgrade equivalence", () => {
   it("applying old then new yields the same state as applying only new", async () => {
     // "Old" seed: three categories, deps point in various directions, one

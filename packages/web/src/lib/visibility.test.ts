@@ -138,6 +138,18 @@ describe("gatedSides", () => {
 });
 
 describe("gatedSides + anatomy interaction", () => {
+  it("treats anatomy='both' user the same as any other for gating purposes", () => {
+    // gatedSides reads only answers, not anatomy — a 'both' user with a
+    // parent answered "no" still has the same gated sides as anyone else.
+    const parent = q({ id: "p" });
+    const child = q({ id: "c", requires: ["p"] });
+    const map = new Map([
+      [parent.id, parent],
+      [child.id, child],
+    ]);
+    expect(gatedSides("c", { "p:mutual": ans("no") }, map)).toEqual(new Set(["mutual"]));
+  });
+
   it("does not gate a child when the parent's anatomy-hidden side is unanswered", () => {
     // Parent's give-side is afab-only; for an amab user, that side never
     // renders, so it stays unanswered. The child must NOT be treated as
