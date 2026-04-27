@@ -56,22 +56,10 @@ function validateDependencies(qs: SeedQuestion[]) {
       }
     }
   }
-
-  // Topological sort to detect cycles.
-  const remaining = new Set(qs.map((q) => q.id));
-  const incoming = new Map<string, Set<string>>();
-  for (const q of qs) incoming.set(q.id, new Set(q.requires));
-
-  while (remaining.size > 0) {
-    const ready = [...remaining].filter((id) => (incoming.get(id) ?? new Set()).size === 0);
-    if (ready.length === 0) {
-      throw new Error(`Dependency cycle detected involving: ${[...remaining].join(", ")}`);
-    }
-    for (const id of ready) {
-      remaining.delete(id);
-      for (const r of remaining) incoming.get(r)?.delete(id);
-    }
-  }
+  // No separate cycle check: the position constraint above proves acyclicity.
+  // Every edge u→v has index(v) < index(u), so the array index itself is a
+  // topological order. A cycle would require an edge that violates the
+  // position constraint, which would have thrown above.
 }
 
 export class QuestionStore {

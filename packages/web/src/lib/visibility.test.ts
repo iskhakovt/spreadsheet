@@ -1,6 +1,6 @@
 import type { Answer, QuestionData } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
-import { gatedSides, isQuestionVisible } from "./visibility.js";
+import { gatedSides } from "./visibility.js";
 
 function q(overrides: Partial<QuestionData> & { id: string }): QuestionData {
   return {
@@ -137,30 +137,24 @@ describe("gatedSides", () => {
   });
 });
 
-describe("isQuestionVisible", () => {
-  it("invisible when fully gated", () => {
-    const parent = q({ id: "parent" });
-    const child = q({ id: "child", requires: ["parent"] });
-    const map = new Map([
-      [parent.id, parent],
-      [child.id, child],
-    ]);
-    expect(isQuestionVisible(child, "amab", ["afab"], "all", { "parent:mutual": ans("no") }, map)).toBe(false);
-  });
-
-  it("visible when one side survives gating", () => {
-    const parent = q({ id: "parent", giveText: "g", receiveText: "r" });
-    const child = q({
-      id: "child",
-      requires: ["parent"],
-      giveText: "cg",
-      receiveText: "cr",
+describe("gatedSides + anatomy interaction", () => {
+  it("does not gate a child when the parent's anatomy-hidden side is unanswered", () => {
+    // Parent's give-side is afab-only; for an amab user, that side never
+    // renders, so it stays unanswered. The child must NOT be treated as
+    // gated because of the absent give answer — gating only triggers on
+    // explicit "no" replies, not on anatomy-suppressed silence.
+    const parent = q({
+      id: "p",
+      giveText: "p give",
+      receiveText: "p receive",
+      targetGive: "afab",
+      targetReceive: "all",
     });
+    const child = q({ id: "c", requires: ["p"], giveText: "c give", receiveText: "c receive" });
     const map = new Map([
       [parent.id, parent],
       [child.id, child],
     ]);
-    // Parent give=no hides child give-side, but receive-side still visible.
-    expect(isQuestionVisible(child, "amab", ["afab"], "all", { "parent:give": ans("no") }, map)).toBe(true);
+    expect(gatedSides("c", { "p:receive": ans("yes") }, map)).toEqual(new Set());
   });
 });

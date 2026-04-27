@@ -133,17 +133,3 @@ export function visibleSides(
     canMutual: anat.canMutual && !gated.has("mutual"),
   };
 }
-
-/** True if at least one side of the question is visible to the user. */
-export function isQuestionVisible(
-  q: QuestionData,
-  anatomy: string,
-  otherAnatomies: readonly string[],
-  questionMode: string,
-  answers: Readonly<Record<string, Answer>>,
-  questionsById: ReadonlyMap<string, QuestionData>,
-  memo?: Map<string, Set<Side>>,
-): boolean {
-  const v = visibleSides(q, anatomy, otherAnatomies, questionMode, answers, questionsById, memo);
-  return v.canGive || v.canReceive || v.canMutual;
-}
