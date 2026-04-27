@@ -1,4 +1,4 @@
-import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import { type CategoryData, MAX_TIER, type QuestionData, type Tier } from "@spreadsheet/shared";
 import { useMemo, useState } from "react";
 import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
@@ -126,7 +126,7 @@ export function Summary({
         {/* Tier selector — 2×2 grid on mobile so the four labels fit; 4 in a row on sm+ */}
         <fieldset className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-surface/70 rounded-[var(--radius-sm)] border border-border/30">
           <legend className="sr-only">Question depth</legend>
-          {([1, 2, 3, 4] as const).map((t) => {
+          {Array.from({ length: MAX_TIER }, (_, i) => (i + 1) as Tier).map((t) => {
             const info = UI.intro.tiers[t];
             return (
               <label

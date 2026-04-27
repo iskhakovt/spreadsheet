@@ -1,4 +1,4 @@
-import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
+import { type Answer, type CategoryData, MAX_TIER, type QuestionData } from "@spreadsheet/shared";
 import { type Side, visibleSides } from "./visibility.js";
 
 /** Discriminated union: welcome interstitials + question screens */
@@ -23,7 +23,7 @@ export function buildScreens(
   questionMode: string,
   categoryMap: Record<string, CategoryData>,
   answers: Readonly<Record<string, Answer>>,
-  maxTier = 4,
+  maxTier: number = MAX_TIER,
 ): Screen[] {
   const questionsById = new Map<string, QuestionData>(questions.map((q) => [q.id, q]));
   const memo = new Map<string, Set<Side>>();

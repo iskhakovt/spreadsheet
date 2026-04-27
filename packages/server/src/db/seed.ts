@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { MAX_TIER } from "@spreadsheet/shared";
 import YAML from "yaml";
 import { z } from "zod";
 import type { QuestionStore, SeedData } from "../store/questions.js";
@@ -18,7 +19,7 @@ const RequiresSchema = z
 const QuestionSchema = z.object({
   id: z.string(),
   category: z.string(),
-  tier: z.number().int().min(1).max(4).default(1),
+  tier: z.number().int().min(1).max(MAX_TIER).default(1),
   text: z.string(),
   giveText: z.string().optional(),
   receiveText: z.string().optional(),

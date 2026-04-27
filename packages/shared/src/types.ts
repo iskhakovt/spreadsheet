@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+/** Highest valid tier number. Adding tier 5 means bumping this; the four
+ *  tier labels in lib/strings.ts and the slider arrays follow from it. */
+export const MAX_TIER = 4;
+export type Tier = 1 | 2 | 3 | 4;
+
 export const Rating = z.enum(["yes", "if-partner-wants", "maybe", "fantasy", "no"]);
 export type Rating = z.infer<typeof Rating>;
 

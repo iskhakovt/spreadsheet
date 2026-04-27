@@ -11,6 +11,7 @@ export {
   type GroupStatus,
   groupSchema,
   groupStatusSchema,
+  MAX_TIER,
   type Member,
   memberSchema,
   type OperationPayload,
@@ -21,5 +22,6 @@ export {
   Rating,
   Role,
   Target,
+  type Tier,
   Timing,
 } from "./types.js";
