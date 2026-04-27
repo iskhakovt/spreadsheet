@@ -10,16 +10,23 @@ const CategorySchema = z.object({
   description: z.string(),
 });
 
+const RequiresSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((v) => (v == null ? [] : Array.isArray(v) ? v : [v]));
+
 const QuestionSchema = z.object({
   id: z.string(),
   category: z.string(),
-  tier: z.number().int().min(1).max(3).default(1),
+  tier: z.number().int().min(1).max(4).default(1),
   text: z.string(),
   giveText: z.string().optional(),
   receiveText: z.string().optional(),
   description: z.string().optional(),
+  notePrompt: z.string().optional(),
   targetGive: z.enum(["all", "amab", "afab"]).default("all"),
   targetReceive: z.enum(["all", "amab", "afab"]).default("all"),
+  requires: RequiresSchema,
 });
 
 const SeedDataSchema = z.object({

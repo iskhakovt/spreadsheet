@@ -38,11 +38,11 @@ describe("seed data on real Postgres", () => {
     expect(before.n).toBe(after.n);
   });
 
-  it("all questions have a valid tier (1, 2, or 3)", async () => {
+  it("all questions have a valid tier (1, 2, 3, or 4)", async () => {
     const rows = await db.select({ tier: questions.tier }).from(questions);
 
     for (const row of rows) {
-      expect([1, 2, 3]).toContain(row.tier);
+      expect([1, 2, 3, 4]).toContain(row.tier);
     }
   });
 
@@ -53,6 +53,7 @@ describe("seed data on real Postgres", () => {
     expect(tierMap[1]).toBeGreaterThan(0);
     expect(tierMap[2]).toBeGreaterThan(0);
     expect(tierMap[3]).toBeGreaterThan(0);
+    expect(tierMap[4]).toBeGreaterThan(0);
   });
 
   it("upsert preserves tier values on re-seed", async () => {

@@ -113,9 +113,19 @@ export function Question({
       otherAnatomies,
       group.questionMode,
       categoryMap,
+      answers,
       maxTier,
     );
-  }, [questions, selectedCategories, person.anatomy, otherAnatomies, group.questionMode, categoryMap, maxTier]);
+  }, [
+    questions,
+    selectedCategories,
+    person.anatomy,
+    otherAnatomies,
+    group.questionMode,
+    categoryMap,
+    answers,
+    maxTier,
+  ]);
 
   const qScreens = useMemo(() => filterQuestionScreens(screens), [screens]);
 

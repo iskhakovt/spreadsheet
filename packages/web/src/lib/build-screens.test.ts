@@ -19,17 +19,21 @@ function q(overrides: Partial<QuestionData> & { id: string; categoryId: string }
     giveText: null,
     receiveText: null,
     description: null,
+    notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
     tier: 1,
+    requires: [],
     ...overrides,
   };
 }
 
+const NO_ANSWERS: Record<string, Answer> = {};
+
 describe("buildScreens", () => {
   it("inserts welcome screens at category boundaries", () => {
     const questions = [q({ id: "q1", categoryId: "oral" }), q({ id: "q2", categoryId: "touch" })];
-    const screens = buildScreens(questions, ["oral", "touch"], "amab", ["afab"], "all", categories);
+    const screens = buildScreens(questions, ["oral", "touch"], "amab", ["afab"], "all", categories, NO_ANSWERS);
 
     expect(screens[0]).toMatchObject({ type: "welcome", categoryId: "oral" });
     expect(screens[1]).toMatchObject({ type: "question", key: "q1:mutual" });
@@ -48,7 +52,7 @@ describe("buildScreens", () => {
         targetReceive: "afab",
       }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(2);
@@ -68,7 +72,7 @@ describe("buildScreens", () => {
       }),
     ];
     // User is amab → can't give (targetGive=afab), but can receive (targetReceive=all)
-    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "filtered", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "filtered", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(1);
@@ -87,7 +91,7 @@ describe("buildScreens", () => {
       }),
     ];
     // User is amab, all partners are also amab → no one can receive (targetReceive=afab)
-    const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "filtered", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "filtered", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     // Give screen hidden (no afab partner to receive), receive screen hidden (user is amab, not afab)
@@ -105,7 +109,7 @@ describe("buildScreens", () => {
         targetReceive: "amab",
       }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "all", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", ["amab"], "all", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(2);
@@ -113,7 +117,7 @@ describe("buildScreens", () => {
 
   it("skips categories not in selectedCategories", () => {
     const questions = [q({ id: "q1", categoryId: "oral" }), q({ id: "q2", categoryId: "touch" })];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS);
 
     expect(screens.some((s) => s.type === "welcome" && s.categoryId === "touch")).toBe(false);
     expect(filterQuestionScreens(screens)).toHaveLength(1);
@@ -132,12 +136,12 @@ describe("buildScreens", () => {
     ];
     // User "both" + partner "amab": give shows (user matches afab, partner matches amab)
     // Receive hidden (user matches amab, but no partner matches afab to give)
-    const screens = buildScreens(questions, ["oral"], "both", ["amab"], "filtered", categories);
+    const screens = buildScreens(questions, ["oral"], "both", ["amab"], "filtered", categories, NO_ANSWERS);
     expect(filterQuestionScreens(screens)).toHaveLength(1);
     expect(filterQuestionScreens(screens)[0].key).toBe("q1:give");
 
     // With an afab partner too, both screens show
-    const screens2 = buildScreens(questions, ["oral"], "both", ["amab", "afab"], "filtered", categories);
+    const screens2 = buildScreens(questions, ["oral"], "both", ["amab", "afab"], "filtered", categories, NO_ANSWERS);
     expect(filterQuestionScreens(screens2)).toHaveLength(2);
   });
 
@@ -152,7 +156,7 @@ describe("buildScreens", () => {
         targetReceive: "amab",
       }),
     ];
-    const screens = buildScreens(questions, ["oral"], "none", ["amab"], "filtered", categories);
+    const screens = buildScreens(questions, ["oral"], "none", ["amab"], "filtered", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(0);
@@ -164,7 +168,7 @@ describe("buildScreens", () => {
       q({ id: "q2", categoryId: "oral" }),
       q({ id: "q3", categoryId: "oral", giveText: "Give", receiveText: "Receive" }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", ["afab"], "all", categories, NO_ANSWERS);
     const welcome = screens.find((s) => s.type === "welcome");
 
     // 2 mutual + 1 give + 1 receive = 4
@@ -179,7 +183,7 @@ describe("tier filtering", () => {
       q({ id: "q2", categoryId: "oral", tier: 2 }),
       q({ id: "q3", categoryId: "oral", tier: 3 }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, 1);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 1);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(1);
@@ -192,7 +196,7 @@ describe("tier filtering", () => {
       q({ id: "q2", categoryId: "oral", tier: 2 }),
       q({ id: "q3", categoryId: "oral", tier: 3 }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, 2);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 2);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(2);
@@ -205,7 +209,7 @@ describe("tier filtering", () => {
       q({ id: "q2", categoryId: "oral", tier: 2 }),
       q({ id: "q3", categoryId: "oral", tier: 3 }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, 3);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 3);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(3);
@@ -213,7 +217,7 @@ describe("tier filtering", () => {
 
   it("defaults to showing all tiers when maxTier omitted", () => {
     const questions = [q({ id: "q1", categoryId: "oral", tier: 1 }), q({ id: "q2", categoryId: "oral", tier: 3 })];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(2);
@@ -225,7 +229,7 @@ describe("tier filtering", () => {
       q({ id: "q2", categoryId: "oral", tier: 2 }),
       q({ id: "q3", categoryId: "oral", tier: 3 }),
     ];
-    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, 1);
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 1);
     const welcome = screens.find((s) => s.type === "welcome");
 
     expect(welcome?.type === "welcome" && welcome.questionCount).toBe(1);
@@ -233,7 +237,7 @@ describe("tier filtering", () => {
 
   it("skips welcome screen when tier filters remove all questions in a category", () => {
     const questions = [q({ id: "q1", categoryId: "oral", tier: 3 }), q({ id: "q2", categoryId: "touch", tier: 1 })];
-    const screens = buildScreens(questions, ["oral", "touch"], "amab", [], "all", categories, 1);
+    const screens = buildScreens(questions, ["oral", "touch"], "amab", [], "all", categories, NO_ANSWERS, 1);
 
     // oral should be skipped entirely (only tier 3), touch should appear
     expect(screens.some((s) => s.type === "welcome" && s.categoryId === "oral")).toBe(false);
@@ -264,7 +268,7 @@ describe("tier filtering", () => {
       q({ id: "q3", categoryId: "touch", tier: 1 }),
     ];
     // amab user, afab partner, maxTier=1: q1 receive only (user is amab=targetReceive), q3 mutual, q2 excluded by tier
-    const screens = buildScreens(questions, ["oral", "touch"], "amab", ["afab"], "filtered", categories, 1);
+    const screens = buildScreens(questions, ["oral", "touch"], "amab", ["afab"], "filtered", categories, NO_ANSWERS, 1);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(2);

@@ -50,9 +50,12 @@ export interface QuestionData {
   giveText: string | null;
   receiveText: string | null;
   description: string | null;
+  notePrompt: string | null;
   targetGive: string;
   targetReceive: string;
   tier: number;
+  /** Single-parent dependencies; transitively gated when a parent is answered "no". Empty when none. */
+  requires: string[];
 }
 
 /** Category as returned by the questions.list query */
