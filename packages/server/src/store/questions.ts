@@ -125,14 +125,22 @@ export class QuestionStore {
 
     await this.#tx(async (tx) => {
       // Sync reference data: delete rows that disappeared from the seed
-      // before upserting current rows. Without this, removed questions
+      // around upserting current rows. Without this, removed questions
       // (e.g. threesome-mff after the bank reorg) would linger and `list()`
       // would still return them.
       //
-      // Order matters because of FK constraints: dependencies first
-      // (FK restrict on the referenced parent), then questions, then
-      // categories. Empty `seedQuestionIds`/`seedCategoryIds` are
-      // defensively guarded so a misconfigured seed can't wipe the table.
+      // Order is constrained by FKs:
+      //   1. Stale dependency rows first — `requires_question_id` has
+      //      `onDelete: restrict`, so a stale parent can't be deleted while
+      //      a stale dep still references it.
+      //   2. Stale questions next — only safe once their deps are gone.
+      //   3. Upsert categories then questions — this moves any kept
+      //      question off a soon-to-be-removed category onto its new one.
+      //   4. Stale categories LAST — `questions.categoryId` has default
+      //      NO ACTION, so deleting an old category before the question
+      //      upsert moves a kept question off it would FK-violate.
+      // Empty `seed*Ids` are defensively guarded so a misconfigured seed
+      // can't wipe the table.
       if (seedQuestionIds.length > 0) {
         await tx
           .delete(questionDependencies)
@@ -143,9 +151,6 @@ export class QuestionStore {
             ),
           );
         await tx.delete(questions).where(notInArray(questions.id, seedQuestionIds));
-      }
-      if (seedCategoryIds.length > 0) {
-        await tx.delete(categories).where(notInArray(categories.id, seedCategoryIds));
       }
 
       for (let i = 0; i < data.categories.length; i++) {
@@ -204,6 +209,13 @@ export class QuestionStore {
               sortOrder: sortWithinCategory,
             },
           });
+      }
+
+      // Now that every kept question has been upserted with its current
+      // categoryId, stale categories are no longer referenced and safe to
+      // delete.
+      if (seedCategoryIds.length > 0) {
+        await tx.delete(categories).where(notInArray(categories.id, seedCategoryIds));
       }
 
       // Sync dependencies: delete all rows for questions in the seed, then re-insert.
