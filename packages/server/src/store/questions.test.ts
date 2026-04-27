@@ -112,6 +112,21 @@ describe("QuestionStore.seed — upgrade equivalence", () => {
     expect(deps).toEqual([]);
   });
 
+  it("rejects a seed where a child appears before its parent", async () => {
+    // Array order = participant flow order; the child question must appear
+    // AFTER its parent so the gate is answered before dependents render.
+    const badSeed: SeedData = {
+      categories: [{ id: "cat-a", label: "Cat A", description: "" }],
+      questions: [
+        // child listed first
+        q({ id: "child", category: "cat-a", requires: ["parent"] }),
+        q({ id: "parent", category: "cat-a" }),
+      ],
+    };
+
+    await expect(store.seed(badSeed)).rejects.toThrow(/must appear after its parent/);
+  });
+
   it("moves a kept question to a new category when its old category is removed", async () => {
     // Regression test: deleting `cat-old` before the question upsert moves
     // q-kept off it would FK-violate (questions.categoryId NO ACTION).
