@@ -90,8 +90,9 @@ export function Summary({
     setSelectedTier(newTier);
   }
 
-  const totalAnswered = visibleGrouped.reduce((sum, g) => sum + g.answered, 0);
-  const totalQuestions = visibleGrouped.filter((g) => g.enabled).reduce((sum, g) => sum + g.total, 0);
+  const enabledGrouped = visibleGrouped.filter((g) => g.enabled);
+  const totalAnswered = enabledGrouped.reduce((sum, g) => sum + g.answered, 0);
+  const totalQuestions = enabledGrouped.reduce((sum, g) => sum + g.total, 0);
   const overallPct = totalQuestions > 0 ? (totalAnswered / totalQuestions) * 100 : 0;
 
   return (

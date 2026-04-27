@@ -5,7 +5,7 @@ import { cn } from "../lib/cn.js";
 import { getSelectedTier, setHasSeenIntro, setSelectedTier } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
-const TIER_QUESTIONS: Record<number, string> = { 1: "~65", 2: "~150", 3: "~190" };
+const TIER_QUESTIONS: Record<number, string> = { 1: "~90", 2: "~250", 3: "~360", 4: "~400" };
 
 export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; onDone: () => void }>) {
   const [tier, setTier] = useState(getSelectedTier);

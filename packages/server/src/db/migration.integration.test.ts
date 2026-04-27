@@ -75,5 +75,6 @@ describe("seed data on real Postgres", () => {
     expect(tierMap[1]).toBeGreaterThan(30);
     expect(tierMap[2]).toBeGreaterThan(30);
     expect(tierMap[3]).toBeGreaterThan(20);
+    expect(tierMap[4]).toBeGreaterThan(0);
   });
 });

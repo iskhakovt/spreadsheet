@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, notInArray, or } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { categories, questionDependencies, questions } from "../db/schema.js";
 
@@ -120,7 +120,34 @@ export class QuestionStore {
   async seed(data: SeedData) {
     validateDependencies(data.questions);
 
+    const seedCategoryIds = data.categories.map((c) => c.id);
+    const seedQuestionIds = data.questions.map((q) => q.id);
+
     await this.#tx(async (tx) => {
+      // Sync reference data: delete rows that disappeared from the seed
+      // before upserting current rows. Without this, removed questions
+      // (e.g. threesome-mff after the bank reorg) would linger and `list()`
+      // would still return them.
+      //
+      // Order matters because of FK constraints: dependencies first
+      // (FK restrict on the referenced parent), then questions, then
+      // categories. Empty `seedQuestionIds`/`seedCategoryIds` are
+      // defensively guarded so a misconfigured seed can't wipe the table.
+      if (seedQuestionIds.length > 0) {
+        await tx
+          .delete(questionDependencies)
+          .where(
+            or(
+              notInArray(questionDependencies.questionId, seedQuestionIds),
+              notInArray(questionDependencies.requiresQuestionId, seedQuestionIds),
+            ),
+          );
+        await tx.delete(questions).where(notInArray(questions.id, seedQuestionIds));
+      }
+      if (seedCategoryIds.length > 0) {
+        await tx.delete(categories).where(notInArray(categories.id, seedCategoryIds));
+      }
+
       for (let i = 0; i < data.categories.length; i++) {
         const cat = data.categories[i];
         await tx

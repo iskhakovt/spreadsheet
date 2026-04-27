@@ -203,24 +203,43 @@ describe("tier filtering", () => {
     expect(qScreens.map((s) => s.key)).toEqual(["q1:mutual", "q2:mutual"]);
   });
 
-  it("maxTier=3 shows all questions", () => {
+  it("maxTier=3 hides tier 4 questions", () => {
     const questions = [
       q({ id: "q1", categoryId: "oral", tier: 1 }),
       q({ id: "q2", categoryId: "oral", tier: 2 }),
       q({ id: "q3", categoryId: "oral", tier: 3 }),
+      q({ id: "q4", categoryId: "oral", tier: 4 }),
     ];
     const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 3);
     const qScreens = filterQuestionScreens(screens);
 
     expect(qScreens).toHaveLength(3);
+    expect(qScreens.map((s) => s.key)).toEqual(["q1:mutual", "q2:mutual", "q3:mutual"]);
+  });
+
+  it("maxTier=4 shows all questions", () => {
+    const questions = [
+      q({ id: "q1", categoryId: "oral", tier: 1 }),
+      q({ id: "q2", categoryId: "oral", tier: 2 }),
+      q({ id: "q3", categoryId: "oral", tier: 3 }),
+      q({ id: "q4", categoryId: "oral", tier: 4 }),
+    ];
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS, 4);
+    const qScreens = filterQuestionScreens(screens);
+
+    expect(qScreens).toHaveLength(4);
   });
 
   it("defaults to showing all tiers when maxTier omitted", () => {
-    const questions = [q({ id: "q1", categoryId: "oral", tier: 1 }), q({ id: "q2", categoryId: "oral", tier: 3 })];
+    const questions = [
+      q({ id: "q1", categoryId: "oral", tier: 1 }),
+      q({ id: "q2", categoryId: "oral", tier: 3 }),
+      q({ id: "q3", categoryId: "oral", tier: 4 }),
+    ];
     const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS);
     const qScreens = filterQuestionScreens(screens);
 
-    expect(qScreens).toHaveLength(2);
+    expect(qScreens).toHaveLength(3);
   });
 
   it("welcome screen question count respects tier filter", () => {

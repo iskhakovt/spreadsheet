@@ -57,7 +57,7 @@ export function gatedSides(
   answers: Readonly<Record<string, Answer>>,
   questionsById: ReadonlyMap<string, QuestionData>,
   memo: Map<string, Set<Side>> = new Map(),
-): Set<Side> {
+): ReadonlySet<Side> {
   const cached = memo.get(qId);
   if (cached) return cached;
   const result = new Set<Side>();
@@ -72,7 +72,19 @@ export function gatedSides(
 
   for (const parentId of q.requires) {
     const parent = questionsById.get(parentId);
-    if (!parent) continue;
+    if (!parent) {
+      // Seed-time validation rejects unknown refs, so this is unreachable in
+      // practice — but if dependency metadata is somehow incomplete at
+      // runtime, fail closed: hide the child rather than silently treat the
+      // dependency as satisfied.
+      if (isChildGR) {
+        result.add("give");
+        result.add("receive");
+      } else {
+        result.add("mutual");
+      }
+      continue;
+    }
 
     const parentGated = gatedSides(parentId, answers, questionsById, memo);
     const isParentGR = !!(parent.giveText && parent.receiveText);
