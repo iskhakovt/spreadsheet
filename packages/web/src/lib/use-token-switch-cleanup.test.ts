@@ -23,27 +23,27 @@ beforeEach(() => {
 describe("useTokenSwitchCleanup", () => {
   it("does nothing on initial mount", () => {
     const qc = new QueryClient();
-    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const reset = vi.spyOn(qc, "resetQueries");
     renderHook(() => useTokenSwitchCleanup("token-A"), { wrapper: makeWrapper(qc) });
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
     expect(wsClose).not.toHaveBeenCalled();
   });
 
   it("does nothing when re-rendered with the same token", () => {
     const qc = new QueryClient();
-    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const reset = vi.spyOn(qc, "resetQueries");
     const { rerender } = renderHook(({ t }) => useTokenSwitchCleanup(t), {
       wrapper: makeWrapper(qc),
       initialProps: { t: "token-A" },
     });
     rerender({ t: "token-A" });
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
     expect(wsClose).not.toHaveBeenCalled();
   });
 
-  it("on token change: closes the WS and invalidates groups, sync, questions", () => {
+  it("on token change: closes the WS and resets groups, sync, questions", () => {
     const qc = new QueryClient();
-    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const reset = vi.spyOn(qc, "resetQueries");
     const { rerender } = renderHook(({ t }) => useTokenSwitchCleanup(t), {
       wrapper: makeWrapper(qc),
       initialProps: { t: "token-A" },
@@ -53,29 +53,29 @@ describe("useTokenSwitchCleanup", () => {
 
     expect(wsClose).toHaveBeenCalledOnce();
     // groups.status has no token in its input, so its cache key is shared
-    // across persons. Without this invalidation, useLiveStatus() would
-    // serve the previous person's status to the new tab session until the
-    // next WS push lands.
-    const calls = invalidate.mock.calls.map((c) => c[0]);
+    // across persons. Reset (not invalidate) — invalidate keeps the previous
+    // data in the cache until refetch lands, leaking person-A's name /
+    // anatomy / completion state into person-B's tab during the round-trip.
+    const calls = reset.mock.calls.map((c) => c[0]);
     expect(calls).toContainEqual({ queryKey: [["groups"]] });
     expect(calls).toContainEqual({ queryKey: [["sync"]] });
     expect(calls).toContainEqual({ queryKey: [["questions"]] });
   });
 
-  it("does not re-fire when the token changes back to the previous value of the SAME render's prevRef", () => {
+  it("removes the cached data immediately (no leak window)", () => {
     const qc = new QueryClient();
-    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    qc.setQueryData([["groups", "status"]], { person: { name: "Alice" }, group: { id: "g1" } });
+    qc.setQueryData([["sync", "journal"]], { entries: [{ key: "secret" }] });
+
     const { rerender } = renderHook(({ t }) => useTokenSwitchCleanup(t), {
       wrapper: makeWrapper(qc),
       initialProps: { t: "token-A" },
     });
-
     rerender({ t: "token-B" });
-    invalidate.mockClear();
-    wsClose.mockClear();
 
-    rerender({ t: "token-B" });
-    expect(invalidate).not.toHaveBeenCalled();
-    expect(wsClose).not.toHaveBeenCalled();
+    // After reset, the cache no longer has the previous person's data —
+    // a stale read pre-refetch returns undefined, not Alice's profile.
+    expect(qc.getQueryData([["groups", "status"]])).toBeUndefined();
+    expect(qc.getQueryData([["sync", "journal"]])).toBeUndefined();
   });
 });
