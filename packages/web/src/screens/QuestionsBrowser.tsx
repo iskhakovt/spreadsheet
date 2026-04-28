@@ -353,7 +353,7 @@ function QuestionRow({
           )}
           {(q.requires.length > 0 || (childrenCount > 0 && !gate)) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {q.requires.map((parentId) => {
+              {Array.from(new Set(q.requires)).map((parentId) => {
                 const parent = questionMap.get(parentId);
                 // Disable when the search filter has hidden the parent —
                 // clicking would silently no-op since there's no element to
