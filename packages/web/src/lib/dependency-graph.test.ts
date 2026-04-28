@@ -40,6 +40,13 @@ describe("buildChildrenOf", () => {
     expect(map.get("p1")).toEqual(["c"]);
     expect(map.get("p2")).toEqual(["c"]);
   });
+
+  it("dedupes a child that lists the same parent multiple times", () => {
+    // The seed validator allows duplicate parents in `requires`; a child
+    // referenced twice should still appear once in the parent's list.
+    const map = buildChildrenOf([q("p"), q("c", ["p", "p"])]);
+    expect(map.get("p")).toEqual(["c"]);
+  });
 });
 
 describe("isGate", () => {

@@ -5,15 +5,23 @@ import type { QuestionData } from "@spreadsheet/shared";
  * Single source of truth is the seed's `requires` graph; this map is a
  * derived view for components that need to render "→ N children" or
  * decide whether a question is a gate.
+ *
+ * Dedupes per parent — a question that lists the same parent multiple
+ * times in `requires` (the seed validator doesn't reject this) appears
+ * only once in the parent's child list.
  */
 export function buildChildrenOf(questions: readonly QuestionData[]): Map<string, string[]> {
-  const map = new Map<string, string[]>();
+  const sets = new Map<string, Set<string>>();
   for (const q of questions) {
     for (const parentId of q.requires) {
-      const list = map.get(parentId) ?? [];
-      list.push(q.id);
-      map.set(parentId, list);
+      const set = sets.get(parentId) ?? new Set<string>();
+      set.add(q.id);
+      sets.set(parentId, set);
     }
+  }
+  const map = new Map<string, string[]>();
+  for (const [parentId, set] of sets) {
+    map.set(parentId, Array.from(set));
   }
   return map;
 }

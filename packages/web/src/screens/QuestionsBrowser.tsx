@@ -2,7 +2,7 @@ import { type CategoryData, MAX_TIER, type QuestionData, type Tier } from "@spre
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowLeft, Pencil, Search } from "lucide-react";
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { buildChildrenOf, isGate } from "../lib/dependency-graph.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -41,6 +41,12 @@ export function QuestionsBrowser() {
     }
     return qs;
   }, [data.questions, tier, deferredQuery]);
+
+  // ID-set view of `visibleQuestions` so child rows can tell at render time
+  // whether a parent they'd like to jump to is mounted right now. Used to
+  // disable the "requires X" chip when the search filter has hidden the
+  // parent — without this, the click would silently no-op.
+  const visibleIds = useMemo(() => new Set(visibleQuestions.map((q) => q.id)), [visibleQuestions]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, QuestionData[]>();
@@ -110,27 +116,7 @@ export function QuestionsBrowser() {
             narrow viewports. */}
         <div className="sticky top-0 z-10 -mx-4 px-4 py-3 mb-8 bg-bg/80 backdrop-blur-md border-b border-border/40">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div role="radiogroup" aria-label="Question depth" className="grid grid-cols-4 gap-1.5 flex-1">
-              {TIERS.map((t) => (
-                // biome-ignore lint/a11y/useSemanticElements: button[role=radio] for custom radio group
-                <button
-                  key={t}
-                  type="button"
-                  role="radio"
-                  aria-checked={tier === t}
-                  onClick={() => setTier(t)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200",
-                    tier === t
-                      ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md"
-                      : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface",
-                  )}
-                  title={`Tiers 1–${t}`}
-                >
-                  {TIER_LABELS[t]}
-                </button>
-              ))}
-            </div>
+            <TierPicker tier={tier} onChange={setTier} />
             <label className="relative flex-1 sm:max-w-xs">
               <Search
                 size={14}
@@ -166,6 +152,7 @@ export function QuestionsBrowser() {
                 questions={qs}
                 questionMap={questionMap}
                 childrenOf={childrenOf}
+                visibleIds={visibleIds}
                 onParentClick={flashCard}
                 registerCard={registerCard}
               />
@@ -198,11 +185,81 @@ export function matchesQuery(q: QuestionData, needle: string): boolean {
   );
 }
 
+/**
+ * Tier filter — WAI-ARIA radio group with roving tabindex. Only the selected
+ * radio is in tab order; ArrowLeft/Right move + commit, Home/End jump to
+ * ends. Mirrors the pattern in `RatingGroup` (QuestionCard.tsx).
+ */
+function TierPicker({ tier, onChange }: Readonly<{ tier: Tier; onChange: (t: Tier) => void }>) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [shouldFocusSelected, setShouldFocusSelected] = useState(false);
+  const selectedIdx = TIERS.indexOf(tier);
+
+  // Focus the newly-selected radio after a keyboard arrow commit so the
+  // tab-order anchor follows the user. Only fires when explicitly set —
+  // mouse clicks shouldn't steal focus.
+  useEffect(() => {
+    if (!shouldFocusSelected) return;
+    refs.current[selectedIdx]?.focus();
+    setShouldFocusSelected(false);
+  }, [shouldFocusSelected, selectedIdx]);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    const len = TIERS.length;
+    let next: number | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (selectedIdx + 1) % len;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (selectedIdx - 1 + len) % len;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = len - 1;
+    if (next === null) return;
+    e.preventDefault();
+    onChange(TIERS[next]);
+    setShouldFocusSelected(true);
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Question depth"
+      className="grid grid-cols-4 gap-1.5 flex-1"
+      onKeyDown={handleKeyDown}
+    >
+      {TIERS.map((t, i) => {
+        const checked = tier === t;
+        return (
+          // biome-ignore lint/a11y/useSemanticElements: button[role=radio] is the WAI-ARIA APG pattern for custom radio groups
+          <button
+            key={t}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked ? 0 : -1}
+            onClick={() => onChange(t)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200",
+              checked
+                ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md"
+                : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface",
+            )}
+            title={`Tiers 1–${t}`}
+          >
+            {TIER_LABELS[t]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function CategorySection({
   category,
   questions,
   questionMap,
   childrenOf,
+  visibleIds,
   onParentClick,
   registerCard,
 }: Readonly<{
@@ -210,6 +267,7 @@ function CategorySection({
   questions: QuestionData[];
   questionMap: Map<string, QuestionData>;
   childrenOf: Map<string, string[]>;
+  visibleIds: ReadonlySet<string>;
   onParentClick: (id: string) => void;
   registerCard: (id: string, el: HTMLElement | null) => void;
 }>) {
@@ -228,6 +286,7 @@ function CategorySection({
             question={q}
             questionMap={questionMap}
             childrenOf={childrenOf}
+            visibleIds={visibleIds}
             onParentClick={onParentClick}
             registerCard={registerCard}
           />
@@ -248,12 +307,14 @@ function QuestionRow({
   question: q,
   questionMap,
   childrenOf,
+  visibleIds,
   onParentClick,
   registerCard,
 }: Readonly<{
   question: QuestionData;
   questionMap: Map<string, QuestionData>;
   childrenOf: Map<string, string[]>;
+  visibleIds: ReadonlySet<string>;
   onParentClick: (id: string) => void;
   registerCard: (id: string, el: HTMLElement | null) => void;
 }>) {
@@ -291,13 +352,32 @@ function QuestionRow({
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {q.requires.map((parentId) => {
                 const parent = questionMap.get(parentId);
+                // Disable when the search filter has hidden the parent —
+                // clicking would silently no-op since there's no element to
+                // scroll to. Tier filter alone can't hide a parent (seed
+                // validation rejects child-tier < parent-tier), so this only
+                // bites under search.
+                const parentHidden = !visibleIds.has(parentId);
                 return (
                   <button
                     key={parentId}
                     type="button"
                     onClick={() => onParentClick(parentId)}
-                    className="inline-flex items-center gap-1 text-[11px] text-text-muted/85 hover:text-accent transition-colors duration-200 px-2 py-0.5 rounded-full bg-surface/70 hover:bg-white border border-border/40"
-                    title={parent ? `Jump to: ${parent.text}` : parentId}
+                    disabled={parentHidden}
+                    aria-disabled={parentHidden}
+                    className={cn(
+                      "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-surface/70 border border-border/40 transition-colors duration-200",
+                      parentHidden
+                        ? "text-text-muted/45 line-through cursor-not-allowed"
+                        : "text-text-muted/85 hover:text-accent hover:bg-white",
+                    )}
+                    title={
+                      parentHidden
+                        ? `${parentId} is hidden by your search — clear it to jump`
+                        : parent
+                          ? `Jump to: ${parent.text}`
+                          : parentId
+                    }
                   >
                     <ArrowDownToLine size={10} strokeWidth={1.75} aria-hidden="true" />
                     requires {parentId}
