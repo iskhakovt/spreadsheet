@@ -35,10 +35,18 @@ const stores = {
   questions: new QuestionStore(db),
 };
 
-// Runtime config injected into index.html as window.__ENV
+// Runtime config injected into index.html as window.__ENV. Replace
+// every `<` with the JSON unicode escape so a string value containing
+// `</script>` cannot terminate the inline <script> tag and inject
+// arbitrary HTML/JS. The browser's JS parser unescapes back to `<`
+// when it evaluates the literal, so runtime semantics are unchanged
+// — only the HTML parser sees a different byte sequence and refuses
+// to break out. The CSP hash below is computed on the escaped
+// content, so it stays consistent end-to-end.
 const runtimeEnv = JSON.stringify({
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
-});
+  TIP_JAR_URL: process.env.TIP_JAR_URL ?? null,
+}).replace(/</g, "\\u003c");
 const envScriptContent = `window.__ENV=${runtimeEnv}`;
 const envScript = `<script>${envScriptContent}</script>`;
 const envScriptHash = createHash("sha256").update(envScriptContent).digest("base64");
