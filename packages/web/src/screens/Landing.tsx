@@ -1,6 +1,7 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -87,6 +88,16 @@ export function Landing() {
             Private <span className="text-text-muted/20 mx-2">&middot;</span>
             Encrypted <span className="text-text-muted/20 mx-2">&middot;</span>
             No account needed
+          </p>
+
+          <p className="text-xs text-text-muted/70">
+            <Link
+              to="/questions"
+              className="hover:text-accent transition-colors duration-200 underline decoration-text-muted/30 underline-offset-4 hover:decoration-accent/40"
+            >
+              Browse the questions
+            </Link>{" "}
+            <span className="text-text-muted/40">— see what we'd ask before you sign up</span>
           </p>
 
           <div className="pt-2">

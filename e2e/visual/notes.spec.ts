@@ -1,6 +1,7 @@
 import { expect, test } from "../fixtures.js";
 import {
   answerAllQuestions,
+  assertNoOverflowingText,
   createGroupAndSetup,
   dismissNotePromptIfPresent,
   goThroughIntro,
@@ -8,6 +9,8 @@ import {
   personBase,
   WS_TIMEOUT,
 } from "../helpers.js";
+
+const RATING_RADIOS = '[role="radiogroup"][aria-label="Rate this activity"] [role="radio"]';
 
 /**
  * Visual coverage for the note-input UI states. These complement the
@@ -45,6 +48,7 @@ test.describe("notes UI", () => {
     await expect(page.getByText("Telling your partner your fantasies")).toBeVisible();
     await expect(page.getByRole("textbox")).toBeVisible();
     await expect(page.getByTestId("note-next")).toBeDisabled();
+    await assertNoOverflowingText(page, RATING_RADIOS, "rating buttons (Layout B)");
     await expect(page).toHaveScreenshot("note-card-fresh-prompted.png");
   });
 

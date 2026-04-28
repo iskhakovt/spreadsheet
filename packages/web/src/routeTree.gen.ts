@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as QuestionsRouteImport } from './routes/questions'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PTokenRouteRouteImport } from './routes/p/$token/route'
 import { Route as PTokenWaitingRouteImport } from './routes/p/$token/waiting'
@@ -22,6 +23,11 @@ import { Route as PTokenIntroRouteImport } from './routes/p/$token/intro'
 import { Route as PTokenGroupRouteImport } from './routes/p/$token/group'
 import { Route as PTokenAnatomyRouteImport } from './routes/p/$token/anatomy'
 
+const QuestionsRoute = QuestionsRouteImport.update({
+  id: '/questions',
+  path: '/questions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -85,6 +91,7 @@ const PTokenAnatomyRoute = PTokenAnatomyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/questions': typeof QuestionsRoute
   '/p/$token': typeof PTokenRouteRouteWithChildren
   '/p/$token/anatomy': typeof PTokenAnatomyRoute
   '/p/$token/group': typeof PTokenGroupRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/questions': typeof QuestionsRoute
   '/p/$token': typeof PTokenRouteRouteWithChildren
   '/p/$token/anatomy': typeof PTokenAnatomyRoute
   '/p/$token/group': typeof PTokenGroupRoute
@@ -114,6 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/questions': typeof QuestionsRoute
   '/p/$token': typeof PTokenRouteRouteWithChildren
   '/p/$token/anatomy': typeof PTokenAnatomyRoute
   '/p/$token/group': typeof PTokenGroupRoute
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/questions'
     | '/p/$token'
     | '/p/$token/anatomy'
     | '/p/$token/group'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/questions'
     | '/p/$token'
     | '/p/$token/anatomy'
     | '/p/$token/group'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/questions'
     | '/p/$token'
     | '/p/$token/anatomy'
     | '/p/$token/group'
@@ -173,11 +185,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  QuestionsRoute: typeof QuestionsRoute
   PTokenRouteRoute: typeof PTokenRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/questions': {
+      id: '/questions'
+      path: '/questions'
+      fullPath: '/questions'
+      preLoaderRoute: typeof QuestionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -297,6 +317,7 @@ const PTokenRouteRouteWithChildren = PTokenRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  QuestionsRoute: QuestionsRoute,
   PTokenRouteRoute: PTokenRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport

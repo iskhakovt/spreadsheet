@@ -90,6 +90,39 @@ export async function scopedSet(page: Page, key: string, value: string): Promise
   await page.evaluate(({ p, k, v }) => localStorage.setItem(p + k, v), { p: prefix, k: key, v: value });
 }
 
+/**
+ * Assert that no element matching `selector` has its content overflowing
+ * its box (text clipped or hidden behind a sibling). Catches things like
+ * "Adventurous" not fitting in a 4-up tier picker on a 375px viewport
+ * without depending on a screenshot pixel diff to surface it.
+ *
+ * Tolerates 1px so sub-pixel rounding doesn't trip the assertion.
+ *
+ * Fails loudly when the selector matches zero elements — a stale selector
+ * (component refactored, label changed, etc.) shouldn't silently pass.
+ */
+export async function assertNoOverflowingText(page: Page, selector: string, label = selector): Promise<void> {
+  const measurements = await page.locator(selector).evaluateAll((els) =>
+    els.map((el) => {
+      const html = el as HTMLElement;
+      return {
+        text: html.textContent?.trim() ?? "",
+        scrollWidth: html.scrollWidth,
+        clientWidth: html.clientWidth,
+      };
+    }),
+  );
+  expect(measurements, `${label}: selector ${selector} matched zero elements — stale or wrong selector?`).not.toEqual(
+    [],
+  );
+  const overflows = measurements.filter((r) => r.scrollWidth - r.clientWidth > 1);
+  expect(
+    overflows,
+    `${label}: ${overflows.length} element(s) have content wider than their box — ` +
+      overflows.map((o) => `"${o.text}" (${o.scrollWidth}>${o.clientWidth})`).join(", "),
+  ).toEqual([]);
+}
+
 /** Create a group (all-questions mode by default), set up admin + partners. Returns partner links. */
 export async function createGroupAndSetup(
   page: Page,

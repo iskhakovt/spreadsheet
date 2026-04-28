@@ -1,12 +1,25 @@
 import { expect, test } from "../fixtures.js";
 import {
   answerQuestionsCycling,
+  assertNoOverflowingText,
   createGroupAndSetup,
   goThroughIntro,
   narrowToCategory,
   personBase,
   WS_TIMEOUT,
 } from "../helpers.js";
+
+// Selectors for elements where label overflow has historically hidden
+// regressions (e.g. "Adventurous" tier label, "If partner wants" rating
+// label at narrow viewports). Keep these tight — generic `button`
+// selectors would flag intentional truncations.
+//
+// Intro + /questions browser use a custom radiogroup (button[role=radio]).
+// Summary uses a native <fieldset> with <input type="radio" name="tier">
+// inside a styled <label>. Two patterns, two selectors.
+const TIER_PICKER_RADIOS = '[role="radiogroup"][aria-label="Question depth"] [role="radio"]';
+const SUMMARY_TIER_LABELS = 'label:has(input[name="tier"])';
+const RATING_RADIOS = '[role="radiogroup"][aria-label="Rate this activity"] [role="radio"]';
 
 test.describe("admin 2-person flow", () => {
   test("setup → invite → intro → questions → summary → review → waiting → results", async ({ alice, bob }) => {
@@ -39,6 +52,7 @@ test.describe("admin 2-person flow", () => {
     // --- Intro screen (without timing) ---
     await alice.goto(base + "/intro");
     await expect(alice.getByText("Here's how it works")).toBeVisible();
+    await assertNoOverflowingText(alice, TIER_PICKER_RADIOS, "intro tier picker");
     await expect(alice).toHaveScreenshot("intro-no-timing.png");
 
     await goThroughIntro(alice);
@@ -53,6 +67,7 @@ test.describe("admin 2-person flow", () => {
     // --- Question card (unanswered) ---
     await alice.getByRole("button", { name: "Start", exact: true }).click();
     await expect(alice.getByText("Yes", { exact: true })).toBeVisible();
+    await assertNoOverflowingText(alice, RATING_RADIOS, "rating buttons");
     await expect(alice).toHaveScreenshot("question-unanswered.png");
 
     // Answer with mixed ratings for review variety
@@ -70,6 +85,7 @@ test.describe("admin 2-person flow", () => {
     await alice.getByRole("button", { name: "Edit my answers", exact: true }).click();
     await alice.goto(base + "/summary");
     await expect(alice.getByText("Your progress")).toBeVisible();
+    await assertNoOverflowingText(alice, SUMMARY_TIER_LABELS, "summary tier picker");
     await expect(alice).toHaveScreenshot("summary.png");
 
     // --- Review screen with mixed ratings ---
@@ -105,6 +121,7 @@ test.describe("admin 2-person flow", () => {
     await createGroupAndSetup(page, { showTiming: true });
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
+    await assertNoOverflowingText(page, TIER_PICKER_RADIOS, "intro tier picker (with timing)");
     await expect(page).toHaveScreenshot("intro-with-timing.png");
 
     // Question with timing sub-question
@@ -129,6 +146,7 @@ test.describe("admin 2-person flow", () => {
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     await expect(page.getByText("Eye contact during intimate moments")).toBeVisible();
+    await assertNoOverflowingText(page, RATING_RADIOS, "rating buttons (long description)");
     await expect(page.getByText(/Looking at each other while we're being intimate/)).toBeVisible();
     await expect(page).toHaveScreenshot("question-with-description.png");
 

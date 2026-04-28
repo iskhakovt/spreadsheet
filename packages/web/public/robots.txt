@@ -1,5 +1,10 @@
 # /p/ is per-person invite URLs — not for indexing (privacy)
 # /api/ is the tRPC endpoint — not useful to crawlers
+# /questions is the public question-bank browser — accessible by direct URL,
+#   but we don't want it ranked. The route also sets `<meta name="robots"
+#   content="noindex">`, but that only renders after JS hydrates (no SSR),
+#   so this disallow is the primary mechanism for non-JS crawlers.
 User-agent: *
 Disallow: /api/
 Disallow: /p/
+Disallow: /questions
