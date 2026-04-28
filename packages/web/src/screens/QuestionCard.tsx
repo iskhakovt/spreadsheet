@@ -57,6 +57,18 @@ function trimNote(value: string | null | undefined): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/**
+ * True when the keyboard event originated from an editable element. Used to
+ * suppress global keyboard shortcuts while the user is typing in the note
+ * textarea — without this guard, "1"-"5" or "n"/"l" inside the textarea would
+ * preventDefault the keystroke and hijack-commit a rating/timing.
+ */
+export function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.matches !== "function") return false;
+  return el.matches("textarea, input, [contenteditable=''], [contenteditable='true']");
+}
+
 export function QuestionCard({
   screen,
   categoryMap,
@@ -295,7 +307,13 @@ export function QuestionCard({
           user already has a note, or they tapped "+ Add a note". Stays open
           across rating commits in Layout B (auto-advance suppressed). */}
       {noteVisible && (
-        <NoteSection key={`note-${screen.key}`} notePrompt={notePrompt} value={noteDraft} onChange={setNoteDraft} />
+        <NoteSection
+          key={`note-${screen.key}`}
+          notePrompt={notePrompt}
+          value={noteDraft}
+          onChange={setNoteDraft}
+          onSubmit={existingAnswer ? handleNext : undefined}
+        />
       )}
 
       {/* Action row — primary Next when the note section is visible (Layout B),
@@ -343,14 +361,15 @@ export function QuestionCard({
           </button>
           {/* Inline "+ Add a note" — only for ordinary questions without a
               saved note. Sits between Back and Skip so it adds zero vertical
-              chrome to the card. */}
+              chrome to the card; styled to match Back/Skip prominence so it
+              reads as a peer action, not a footnote. */}
           <button
             type="button"
             onClick={handleAddNote}
             aria-label="Add a note"
-            className="inline-flex items-center gap-1 text-xs text-text-muted/55 hover:text-accent transition-colors duration-200"
+            className="flex items-center gap-1 text-text-muted/70 hover:text-accent transition-colors duration-200"
           >
-            <Pencil size={11} strokeWidth={1.5} aria-hidden="true" />
+            <Pencil size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
             <span>Add a note</span>
           </button>
           <button
@@ -393,10 +412,13 @@ function NoteSection({
   notePrompt,
   value,
   onChange,
+  onSubmit,
 }: Readonly<{
   notePrompt: string | null;
   value: string;
   onChange: (next: string) => void;
+  /** Cmd/Ctrl+Enter from the textarea. Undefined when no rating yet (no answer to commit). */
+  onSubmit?: () => void;
 }>) {
   const id = useId();
   const placeholder = notePrompt ?? "A line or two, only if it helps.";
@@ -411,6 +433,16 @@ function NoteSection({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter inside the textarea → save & next. Plain Enter
+            // adds a newline (default). The submit handler is undefined when
+            // there's no rating to commit, so the shortcut is inert until
+            // the user has answered.
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+              e.preventDefault();
+              onSubmit();
+            }
+          }}
           placeholder={placeholder}
           rows={3}
           className="flex-1 min-h-[3.75rem] bg-transparent text-sm leading-[1.55] text-text placeholder:italic placeholder:text-text-muted/55 resize-none outline-none focus-visible:outline-none"
@@ -439,10 +471,13 @@ export function RatingGroup({
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Number-key shortcut (1-5). Window-scoped — no need to focus the group
-  // first. Ignored while a commit animation is running.
+  // first. Ignored while a commit animation is running, AND ignored when
+  // focus is inside an editable element (textarea/input/contenteditable),
+  // so typing in the note doesn't hijack-commit a rating.
   useEffect(() => {
     if (committing) return;
     function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
       const rating = KEY_TO_RATING[e.key];
       if (rating) {
         e.preventDefault();
@@ -544,6 +579,7 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => 
   useEffect(() => {
     if (committing) return;
     function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
       if (e.key === "1" || e.key === "n") {
         e.preventDefault();
         setCommitting("now");

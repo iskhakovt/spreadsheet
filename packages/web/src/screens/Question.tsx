@@ -25,7 +25,7 @@ import { useTRPC } from "../lib/trpc.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { useSyncQueue } from "../lib/use-sync-queue.js";
 import { CategoryWelcomeScreen } from "./CategoryWelcomeScreen.js";
-import { QuestionCard } from "./QuestionCard.js";
+import { isEditableTarget, QuestionCard } from "./QuestionCard.js";
 
 interface QuestionProps {
   person: { id: string; anatomy: string | null };
@@ -193,6 +193,9 @@ export function Question({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.defaultPrevented) return;
+      // Skip when the user is typing in the note textarea — Arrow keys
+      // are for cursor movement there, not page navigation.
+      if (isEditableTarget(e.target)) return;
       if (e.key === "ArrowLeft") {
         setIndex((i) => Math.max(0, i - 1));
       } else if (e.key === "ArrowRight") {

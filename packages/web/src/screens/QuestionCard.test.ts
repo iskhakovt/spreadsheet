@@ -511,3 +511,74 @@ describe("QuestionCard — note commit", () => {
     });
   });
 });
+
+describe("QuestionCard — keyboard interaction with the note textarea", () => {
+  it("typing '1' inside the textarea does NOT hijack-commit a rating", () => {
+    const onCommit = vi.fn();
+    renderCard({
+      existingAnswer: { rating: "maybe", timing: null, note: null },
+      question: makeQuestion({ notePrompt: "what works" }),
+      onCommit,
+    });
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    // Window-level keydown with the textarea as target. Without the
+    // editable-target guard, RatingGroup would preventDefault + commit "yes".
+    act(() => {
+      fireEvent.keyDown(textarea, { key: "1" });
+    });
+    // The maybe radio should NOT have flipped to committing.
+    const maybeBtn = screen.getByRole("radio", { name: /maybe/i });
+    expect(maybeBtn.className).not.toContain(COMMIT_ANIMATION_NAME);
+    // No commit fired from the keystroke.
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("Cmd+Enter inside the textarea triggers Save & next when rated", async () => {
+    const { onAdvance } = renderCard({
+      existingAnswer: { rating: "yes", timing: null, note: "i wrote a thing" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
+    });
+    await waitFor(() => expect(onAdvance).toHaveBeenCalledTimes(1));
+  });
+
+  it("Ctrl+Enter inside the textarea also triggers Save & next", async () => {
+    const { onAdvance } = renderCard({
+      existingAnswer: { rating: "yes", timing: null, note: "another thing" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+    });
+    await waitFor(() => expect(onAdvance).toHaveBeenCalledTimes(1));
+  });
+
+  it("Cmd+Enter is inert before a rating is committed", () => {
+    const { onAdvance } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+      // no existingAnswer — primary Next is disabled, no submit handler attached.
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
+    });
+    expect(onAdvance).not.toHaveBeenCalled();
+  });
+
+  it("plain Enter inside the textarea does not advance — it's reserved for newlines", () => {
+    const { onAdvance } = renderCard({
+      existingAnswer: { rating: "yes", timing: null, note: "draft" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.keyDown(textarea, { key: "Enter" });
+    });
+    expect(onAdvance).not.toHaveBeenCalled();
+  });
+});
