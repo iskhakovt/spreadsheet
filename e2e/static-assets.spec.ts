@@ -13,12 +13,16 @@ test.describe("static assets + meta-tag variants", () => {
     expect(res.headers()["content-type"]).toMatch(/^image\/png\b/i);
   });
 
-  test("/robots.txt disallows /p/ and /api/", async ({ request, baseURL }) => {
+  test("/robots.txt disallows /p/, /api/, and /questions", async ({ request, baseURL }) => {
     const res = await request.get(`${baseURL}/robots.txt`);
     expect(res.status()).toBe(200);
     const body = await res.text();
     expect(body).toContain("Disallow: /p/");
     expect(body).toContain("Disallow: /api/");
+    // /questions is the public browser — accessible by direct URL but
+    // shouldn't be indexed. The HTML noindex meta only renders post-hydration
+    // (no SSR), so robots.txt is the canonical block for non-JS crawlers.
+    expect(body).toContain("Disallow: /questions");
   });
 
   test("/ HTML advertises the landing og:image", async ({ request, baseURL }) => {
