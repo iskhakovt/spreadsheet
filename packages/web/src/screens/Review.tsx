@@ -85,16 +85,23 @@ export function Review({
                   type="button"
                   key={item.key}
                   onClick={() => onEditQuestion(item.key)}
-                  className="w-full text-left flex items-center justify-between px-4 py-2.5 rounded-[var(--radius-sm)] hover:bg-surface/70 transition-colors duration-200"
+                  className="w-full text-left flex flex-col px-4 py-2.5 rounded-[var(--radius-sm)] hover:bg-surface/70 transition-colors duration-200"
                 >
-                  <span className="text-sm truncate mr-4">{item.label}</span>
-                  {item.answer ? (
-                    <span className={cn("text-sm shrink-0", ratingStyle(item.answer.rating))}>
-                      {RATING_LABELS[item.answer.rating]}
-                      {item.answer.timing ? ` (${item.answer.timing})` : ""}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-text-muted/40 shrink-0">&mdash;</span>
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span className="text-sm truncate">{item.label}</span>
+                    {item.answer ? (
+                      <span className={cn("text-sm shrink-0", ratingStyle(item.answer.rating))}>
+                        {RATING_LABELS[item.answer.rating]}
+                        {item.answer.timing ? ` (${item.answer.timing})` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-text-muted/40 shrink-0">&mdash;</span>
+                    )}
+                  </div>
+                  {item.answer?.note && (
+                    <p className="mt-1 text-xs italic text-text-muted/85 leading-[1.55] text-pretty">
+                      {item.answer.note}
+                    </p>
                   )}
                 </button>
               ))}

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { classifyMatch, type MatchType } from "./classify-match.js";
 
 function a(rating: Answer["rating"], timing: Answer["timing"] = null): Answer {
-  return { rating, timing };
+  return { rating, timing, note: null };
 }
 
 describe("classifyMatch", () => {

@@ -1,8 +1,10 @@
 /** @vitest-environment happy-dom */
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { Answer, CategoryData, QuestionData } from "@spreadsheet/shared";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RatingGroup, TimingButtons } from "./QuestionCard.js";
+import type { QuestionScreen } from "../lib/build-screens.js";
+import { QuestionCard, RatingGroup, TimingButtons } from "./QuestionCard.js";
 
 // Must stay in sync with the COMMIT_ANIMATION_NAME constant in QuestionCard.tsx.
 // If that name ever changes, these tests break loudly (good).
@@ -217,7 +219,7 @@ describe("RatingGroup — existing answer highlights the checked radio", () => {
   it("sets aria-checked on the matching button", () => {
     render(
       createElement(RatingGroup, {
-        existingAnswer: { rating: "maybe", timing: null },
+        existingAnswer: { rating: "maybe", timing: null, note: null },
         onRating: vi.fn(),
       }),
     );
@@ -280,5 +282,232 @@ describe("TimingButtons", () => {
     // Only one button should carry commit-alpha.
     const committing = document.querySelectorAll(`.${COMMIT_ANIMATION_NAME}`);
     expect(committing).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Note-section behavior on the QuestionCard wrapper.
+// ---------------------------------------------------------------------------
+
+const CATEGORY: CategoryData = {
+  id: "affection",
+  label: "Affection",
+  description: "",
+  sortOrder: 1,
+};
+
+function makeQuestion(overrides: Partial<QuestionData> = {}): QuestionData {
+  return {
+    id: "massage",
+    categoryId: "affection",
+    text: "Massage",
+    giveText: null,
+    receiveText: null,
+    description: null,
+    notePrompt: null,
+    targetGive: "all",
+    targetReceive: "all",
+    tier: 1,
+    requires: [],
+    ...overrides,
+  };
+}
+
+function makeScreen(question: QuestionData): QuestionScreen {
+  return {
+    type: "question",
+    question,
+    role: "mutual",
+    displayText: question.text,
+    key: `${question.id}:mutual`,
+    categoryId: question.categoryId,
+  };
+}
+
+interface CardOpts {
+  question?: QuestionData;
+  existingAnswer?: Answer;
+  showTimingFlow?: boolean;
+  onCommit?: (a: Answer) => void;
+  onAdvance?: () => void;
+}
+
+function renderCard(opts: CardOpts = {}) {
+  const question = opts.question ?? makeQuestion();
+  const screenObj = makeScreen(question);
+  const onCommit = opts.onCommit ?? vi.fn();
+  const onAdvance = opts.onAdvance ?? vi.fn();
+  const result = render(
+    createElement(QuestionCard, {
+      screen: screenObj,
+      categoryMap: { [CATEGORY.id]: CATEGORY },
+      allQuestionScreens: [screenObj],
+      existingAnswer: opts.existingAnswer,
+      index: 0,
+      totalAnswered: 0,
+      totalQuestions: 1,
+      showTimingFlow: opts.showTimingFlow ?? false,
+      syncing: false,
+      showSyncIndicator: false,
+      pendingCount: 0,
+      onCommit,
+      onAdvance,
+      onBack: vi.fn(),
+      onSync: vi.fn(),
+    }),
+  );
+  return { ...result, onCommit, onAdvance };
+}
+
+describe("QuestionCard — note section visibility", () => {
+  it("ordinary question with no note shows '+ Add a note' link, not the textarea", () => {
+    renderCard();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("button", { name: /add a note/i })).toBeTruthy();
+  });
+
+  it("notePrompt question reveals the textarea from first paint", () => {
+    renderCard({ question: makeQuestion({ notePrompt: "depths, positions, prep" }) });
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(textarea).toBeTruthy();
+    expect(textarea.placeholder).toBe("depths, positions, prep");
+    // No "+ Add a note" link — note section already open.
+    expect(screen.queryByRole("button", { name: /add a note/i })).toBeNull();
+  });
+
+  it("returning to a question with an existing note pre-fills the textarea", () => {
+    renderCard({
+      existingAnswer: { rating: "yes", timing: null, note: "low light, sandalwood" },
+    });
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("low light, sandalwood");
+  });
+
+  it("tapping '+ Add a note' opens the textarea inline", () => {
+    renderCard();
+    const link = screen.getByRole("button", { name: /add a note/i });
+    act(() => {
+      fireEvent.click(link);
+    });
+    expect(screen.getByRole("textbox")).toBeTruthy();
+  });
+});
+
+describe("QuestionCard — auto-advance vs Layout B", () => {
+  it("ordinary question + rating click auto-advances", async () => {
+    const { onCommit, onAdvance } = renderCard();
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    // handleRating awaits onCommit before calling onAdvance; both land
+    // after the click handler's microtask resolves.
+    await waitFor(() => expect(onAdvance).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith({ rating: "yes", timing: null, note: null });
+  });
+
+  it("notePrompt question + rating click commits without advancing", async () => {
+    const { onCommit, onAdvance } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledWith({ rating: "yes", timing: null, note: null }));
+    expect(onAdvance).not.toHaveBeenCalled();
+  });
+
+  it("Layout B 'Next' button is disabled until a rating is set", () => {
+    renderCard({ question: makeQuestion({ notePrompt: "what works" }) });
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+  });
+
+  it("Layout B 'Next' fires onAdvance after rating + note", () => {
+    const { onCommit, onAdvance } = renderCard({
+      existingAnswer: { rating: "yes", timing: null, note: "draft note" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.disabled).toBe(false);
+    act(() => {
+      fireEvent.click(next);
+    });
+    expect(onAdvance).toHaveBeenCalledTimes(1);
+    // No re-commit because the draft equals the existing note.
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe("QuestionCard — note commit", () => {
+  it("typing in the textarea debounces a commit with the new note", async () => {
+    vi.useFakeTimers();
+    try {
+      const { onCommit } = renderCard({
+        existingAnswer: { rating: "yes", timing: null, note: null },
+        question: makeQuestion({ notePrompt: "what works" }),
+      });
+      const textarea = screen.getByRole("textbox");
+      act(() => {
+        fireEvent.change(textarea, { target: { value: "a quick note" } });
+      });
+      // Debounce hasn't fired yet.
+      expect(onCommit).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith({
+        rating: "yes",
+        timing: null,
+        note: "a quick note",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("whitespace-only notes persist as null, not ''", async () => {
+    vi.useFakeTimers();
+    try {
+      const { onCommit } = renderCard({
+        existingAnswer: { rating: "yes", timing: null, note: "kept" },
+        question: makeQuestion({ notePrompt: "what works" }),
+      });
+      const textarea = screen.getByRole("textbox");
+      act(() => {
+        fireEvent.change(textarea, { target: { value: "   " } });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith({
+        rating: "yes",
+        timing: null,
+        note: null,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rating commit on a notePrompt question carries the typed-but-uncommitted note", async () => {
+    const { onCommit } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "before rating" } });
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    expect(onCommit).toHaveBeenCalledWith({
+      rating: "yes",
+      timing: null,
+      note: "before rating",
+    });
   });
 });

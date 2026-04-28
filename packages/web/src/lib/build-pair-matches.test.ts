@@ -5,12 +5,12 @@ import { buildGroupedMatches, buildPairMatches } from "./build-pair-matches.js";
 
 // --- Helpers ---
 
-const yes: Answer = { rating: "yes", timing: "now" };
-const yesLater: Answer = { rating: "yes", timing: "later" };
-const no: Answer = { rating: "no", timing: null };
-const maybe: Answer = { rating: "maybe", timing: null };
-const fantasy: Answer = { rating: "fantasy", timing: null };
-const ifPartner: Answer = { rating: "if-partner-wants", timing: "now" };
+const yes: Answer = { rating: "yes", timing: "now", note: null };
+const yesLater: Answer = { rating: "yes", timing: "later", note: null };
+const no: Answer = { rating: "no", timing: null, note: null };
+const maybe: Answer = { rating: "maybe", timing: null, note: null };
+const fantasy: Answer = { rating: "fantasy", timing: null, note: null };
+const ifPartner: Answer = { rating: "if-partner-wants", timing: "now", note: null };
 
 const mutualQ: QuestionInfo = { text: "Kissing", categoryId: "basics", giveText: null, receiveText: null };
 const giveReceiveQ: QuestionInfo = {

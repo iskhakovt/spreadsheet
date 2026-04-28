@@ -14,7 +14,7 @@ import {
 } from "./storage.js";
 
 const token = "test-token-" + Math.random().toString(36).slice(2);
-const yes: Answer = { rating: "yes", timing: null };
+const yes: Answer = { rating: "yes", timing: null, note: null };
 
 beforeEach(() => {
   // Each test gets a fresh session scope + clean localStorage for that scope.

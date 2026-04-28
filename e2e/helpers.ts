@@ -223,6 +223,24 @@ function doneLocator(page: Page) {
 
 type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
 
+/**
+ * If the question has a notePrompt, the card stays open after rating
+ * (Layout B) waiting for a note. The helper doesn't write notes — it taps
+ * the primary Next button instead so the loop advances.
+ *
+ * No-op when:
+ *  - The Next button isn't on the page (Layout A, auto-advanced).
+ *  - The Next button is present but disabled (we're on a fresh Layout B
+ *    card that hasn't been rated yet — the next loop iteration will rate
+ *    it, and dismiss runs again then).
+ */
+export async function dismissNotePromptIfPresent(page: Page) {
+  const nextBtn = page.getByTestId("note-next");
+  if (!(await nextBtn.isVisible().catch(() => false))) return;
+  if (await nextBtn.isDisabled().catch(() => true)) return;
+  await nextBtn.click();
+}
+
 /** Answer all visible questions cycling through the given ratings. Handles welcome screens automatically. */
 export async function answerQuestionsCycling(page: Page, ratings: readonly Rating[]) {
   let i = 0;
@@ -274,6 +292,7 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
         await nowBtn.click();
       }
     }
+    await dismissNotePromptIfPresent(page);
   }
   await expect(doneLocator(page)).toBeVisible();
 }
@@ -320,6 +339,7 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
     } else {
       await page.getByRole("radio", { name: "Maybe", exact: true }).click();
     }
+    await dismissNotePromptIfPresent(page);
   }
   await expect(doneLocator(page)).toBeVisible();
 }
