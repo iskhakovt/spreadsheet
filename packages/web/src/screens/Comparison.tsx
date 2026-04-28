@@ -45,12 +45,49 @@ interface PairComparisonProps {
   aDisplayName: string;
   bDisplayName: string;
   aIsViewer: boolean;
+  bIsViewer: boolean;
   showTiming: boolean;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
   categoryOrder: string[];
   questionOrder: Record<string, number>;
   showHeading?: boolean;
+}
+
+/**
+ * Per-match-type top-border for the notes block. Color-mixed with the
+ * row's container tint so the divider sits inside the mood of the row
+ * (peach hairline on accent rows, muted on neutrals, dashed on fantasy).
+ */
+function noteDividerClass(type: MatchType): string {
+  switch (type) {
+    case "green-light":
+      return "border-accent/20";
+    case "match":
+      return "border-accent/15";
+    case "fantasy":
+      return "border-dashed border-border/60";
+    default:
+      return "border-text-muted/15";
+  }
+}
+
+/** One note line — attribution column on the left, italic body on the right. */
+function NoteLine({ who, isViewer, text }: Readonly<{ who: string; isViewer: boolean; text: string }>) {
+  const label = isViewer ? "You" : who;
+  return (
+    <p className="text-[13px] leading-[1.55] text-text/75 italic flex gap-2.5 items-baseline">
+      <span
+        className={cn(
+          "shrink-0 not-italic font-medium text-[12px] min-w-[3rem] text-right",
+          isViewer ? "text-accent-dark" : "text-text/75",
+        )}
+      >
+        {label}
+      </span>
+      <span className="text-pretty">{text}</span>
+    </p>
+  );
 }
 
 const MATCH_STYLES: Record<MatchType, MatchStyle> = {
@@ -307,6 +344,7 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
                   aDisplayName={displayName(visiblePair.a)}
                   bDisplayName={displayName(visiblePair.b)}
                   aIsViewer={visiblePair.a.id === viewerId}
+                  bIsViewer={visiblePair.b.id === viewerId}
                   showTiming={showTiming}
                   questions={questions}
                   categories={categories}
@@ -358,6 +396,7 @@ function PairComparison({
   aDisplayName,
   bDisplayName,
   aIsViewer,
+  bIsViewer,
   showTiming,
   questions,
   categories,
@@ -428,6 +467,12 @@ function PairComparison({
               <div className="space-y-2">
                 {group.matches.map((match) => {
                   const style = MATCH_STYLES[match.matchType];
+                  // `replayJournal` and the storage layer normalize `note` to
+                  // null when missing, but use a truthiness check anyway so
+                  // legacy in-flight data never opens an empty notes block.
+                  const noteA = match.answerA.note;
+                  const noteB = match.answerB.note;
+                  const showNotes = !!noteA || !!noteB;
                   return (
                     <div
                       key={`${match.questionId}-${match.displayText}`}
@@ -450,6 +495,15 @@ function PairComparison({
                           {style.label}
                         </span>
                       </div>
+                      {showNotes && (
+                        <div
+                          className={cn("mt-2.5 pt-2.5 space-y-1.5", "border-t", noteDividerClass(match.matchType))}
+                          data-testid="match-notes"
+                        >
+                          {noteA && <NoteLine who={aDisplayName} isViewer={aIsViewer} text={noteA} />}
+                          {noteB && <NoteLine who={bDisplayName} isViewer={bIsViewer} text={noteB} />}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

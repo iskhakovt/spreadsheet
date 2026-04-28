@@ -1,6 +1,6 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
-import { ChevronLeft, ChevronRight, HelpCircle } from "lucide-react";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, HelpCircle, Pencil } from "lucide-react";
+import { type RefObject, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
@@ -27,6 +27,9 @@ const KEY_TO_RATING: Record<string, Rating> = {
 
 const COMMIT_ANIMATION_NAME = "commit-alpha";
 
+/** ms after the last keystroke before a note edit is persisted. */
+const NOTE_DEBOUNCE_MS = 500;
+
 interface QuestionCardProps {
   screen: QuestionScreen;
   categoryMap: Record<string, CategoryData>;
@@ -35,17 +38,35 @@ interface QuestionCardProps {
   index: number;
   totalAnswered: number;
   totalQuestions: number;
-  showTiming: boolean;
+  /** group.showTiming — whether yes/willing fans out to a now/later sub-question. */
+  showTimingFlow: boolean;
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
   headingRef?: RefObject<HTMLHeadingElement | null>;
-  onRating: (rating: Rating) => void;
-  onTiming: (timing: Timing) => void;
+  onCommit: (answer: Answer) => void | Promise<void>;
+  onAdvance: () => void;
   onBack: () => void;
-  onSkip: () => void;
   onSync: () => void;
   onSummary?: () => void;
+}
+
+function trimNote(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+/**
+ * True when the keyboard event originated from an editable element. Used to
+ * suppress global keyboard shortcuts while the user is typing in the note
+ * textarea — without this guard, "1"-"5" or "n"/"l" inside the textarea would
+ * preventDefault the keystroke and hijack-commit a rating/timing.
+ */
+export function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.matches !== "function") return false;
+  return el.matches("textarea, input, [contenteditable=''], [contenteditable='true']");
 }
 
 export function QuestionCard({
@@ -56,15 +77,14 @@ export function QuestionCard({
   index,
   totalAnswered,
   totalQuestions,
-  showTiming,
+  showTimingFlow,
   syncing,
   showSyncIndicator,
   pendingCount,
   headingRef,
-  onRating,
-  onTiming,
+  onCommit,
+  onAdvance,
   onBack,
-  onSkip,
   onSync,
   onSummary,
 }: Readonly<QuestionCardProps>) {
@@ -78,6 +98,34 @@ export function QuestionCard({
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const helpPopoverRef = useRef<HTMLDivElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
+
+  // Note state — local while editing, debounced into onCommit. The textarea
+  // is reseeded from existingAnswer when the user navigates between questions
+  // (screen.key change), so per-question notes don't leak across cards.
+  const notePrompt = screen.question.notePrompt;
+  const [noteDraft, setNoteDraft] = useState<string>(existingAnswer?.note ?? "");
+  const [pillExpanded, setPillExpanded] = useState(false);
+  // Reseed local UI state on navigation only (screen.key change). Including
+  // existingAnswer in the dep array would re-clobber the live noteDraft on
+  // every commit (the parent re-passes a new existingAnswer right after each
+  // onCommit call), losing whatever the user is typing.
+  useEffect(() => {
+    setNoteDraft(existingAnswer?.note ?? "");
+    setPillExpanded(false);
+    setPendingRating(null);
+  }, [screen.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const draftHasContent = trimNote(noteDraft) !== null;
+  // Layout B (note section visible) when the question prompts for a note,
+  // when there's already a note, or when the user opted in via the hairline
+  // link. Pre-rating prompted questions also start in Layout B so the prompt
+  // is visible from the beginning.
+  const noteVisible = notePrompt !== null || draftHasContent || pillExpanded;
+
+  // Pending timing flow — yes/willing on showTimingFlow groups fans out to
+  // the now/later sub-question. The TimingButtons component owns the keys.
+  const [pendingRating, setPendingRating] = useState<Rating | null>(null);
+  const showTiming = pendingRating !== null;
 
   // `pointerdown` not `mousedown` so touch + pen dismiss uniformly.
   useEffect(() => {
@@ -105,11 +153,75 @@ export function QuestionCard({
     if (helpOpen) helpCloseRef.current?.focus();
   }, [helpOpen]);
 
-  // Dismiss on transitions that signal the user moved on (mode flip or
-  // commit/Back/Skip/category jump).
+  // Dismiss help on mode flip / commit / category jump.
   useEffect(() => {
     setHelpOpen(false);
   }, [showTiming, screen.key]);
+
+  // Debounced note commit — only persists when there's a rating to attach
+  // the note to. Pre-rating typing stays in local draft state until the user
+  // commits a rating (which carries the current note).
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
+  useEffect(() => {
+    if (!existingAnswer) return;
+    const trimmed = trimNote(noteDraft);
+    if (trimmed === existingAnswer.note) return;
+    const t = setTimeout(() => {
+      void onCommitRef.current({ ...existingAnswer, note: trimmed });
+    }, NOTE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [noteDraft, existingAnswer]);
+
+  // --- handlers wrapped in useCallback so child memos stay stable ---
+
+  // Await commit before advance — letting the storage event propagate and
+  // useAnswers update before setIndex schedules the next render. Without
+  // the await, gating-based visibility on the *next* question would
+  // briefly read stale answers (the original saveAnswer had a microtask
+  // yield via `await encodeValue(...)` between setAnswer and setIndex,
+  // which we preserve here).
+  const handleRating = useCallback(
+    async (rating: Rating) => {
+      if (showTimingFlow && (rating === "yes" || rating === "if-partner-wants")) {
+        setPendingRating(rating);
+        return;
+      }
+      const answer: Answer = { rating, timing: null, note: trimNote(noteDraft) };
+      await onCommit(answer);
+      if (!noteVisible) onAdvance();
+    },
+    [showTimingFlow, noteDraft, noteVisible, onCommit, onAdvance],
+  );
+
+  const handleTiming = useCallback(
+    async (timing: Timing) => {
+      if (!pendingRating) return;
+      const answer: Answer = { rating: pendingRating, timing, note: trimNote(noteDraft) };
+      await onCommit(answer);
+      setPendingRating(null);
+      if (!noteVisible) onAdvance();
+    },
+    [pendingRating, noteDraft, noteVisible, onCommit, onAdvance],
+  );
+
+  const handleNext = useCallback(async () => {
+    // Flush any pending note debounce before advancing.
+    if (existingAnswer) {
+      const trimmed = trimNote(noteDraft);
+      if (trimmed !== existingAnswer.note) {
+        await onCommit({ ...existingAnswer, note: trimmed });
+      }
+    }
+    onAdvance();
+  }, [existingAnswer, noteDraft, onCommit, onAdvance]);
+
+  const handleSkip = useCallback(() => {
+    setPendingRating(null);
+    onAdvance();
+  }, [onAdvance]);
+
+  const handleAddNote = useCallback(() => setPillExpanded(true), []);
 
   return (
     <Card>
@@ -190,33 +302,91 @@ export function QuestionCard({
           keyboard listeners locally (scoped by mount) and their commit
           animation state (local useState). */}
       {showTiming ? (
-        <TimingButtons onTiming={onTiming} />
+        <TimingButtons onTiming={handleTiming} />
       ) : (
-        <RatingGroup existingAnswer={existingAnswer} onRating={onRating} />
+        <RatingGroup existingAnswer={existingAnswer} onRating={handleRating} />
       )}
 
-      {/* Navigation */}
-      <div className="flex justify-between text-sm">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={index === 0}
-          aria-label="Previous question"
-          className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
-        >
-          <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
-          {UI.question.back}
-        </button>
-        <button
-          type="button"
-          onClick={onSkip}
-          aria-label="Skip question"
-          className="flex items-center gap-1 text-text-muted/70 hover:text-accent transition-colors duration-200"
-        >
-          {UI.question.skip}
-          <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
-        </button>
-      </div>
+      {/* Note section — visible when notePrompt is set on this question, the
+          user already has a note, or they tapped "+ Add a note". Stays open
+          across rating commits in Layout B (auto-advance suppressed). */}
+      {noteVisible && (
+        <NoteSection
+          key={`note-${screen.key}`}
+          notePrompt={notePrompt}
+          value={noteDraft}
+          onChange={setNoteDraft}
+          onSubmit={existingAnswer ? handleNext : undefined}
+        />
+      )}
+
+      {/* Action row — primary Next when the note section is visible (Layout B),
+          thin Back/Skip otherwise (Layout A). The Layout A row also carries
+          the inline "+ Add a note" affordance for ordinary questions, so we
+          don't add vertical chrome below the ratings. */}
+      {noteVisible ? (
+        <div className="mt-4 space-y-2">
+          <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next">
+            {existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}
+          </Button>
+          <div className="flex justify-between text-xs text-text-muted/65 px-1">
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={index === 0}
+              aria-label="Previous question"
+              className="hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/65 transition-colors duration-200"
+            >
+              {UI.question.back}
+            </button>
+            {!draftHasContent && (
+              <button
+                type="button"
+                onClick={handleSkip}
+                aria-label="Skip question"
+                className="hover:text-accent transition-colors duration-200"
+              >
+                {UI.question.skip}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between text-sm">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={index === 0}
+            aria-label="Previous question"
+            className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
+          >
+            <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
+            {UI.question.back}
+          </button>
+          {/* Inline "+ Add a note" — only for ordinary questions without a
+              saved note. Sits between Back and Skip so it adds zero vertical
+              chrome to the card; styled to match Back/Skip prominence so it
+              reads as a peer action, not a footnote. */}
+          <button
+            type="button"
+            onClick={handleAddNote}
+            aria-label="Add a note"
+            className="flex items-center gap-1 text-text-muted/70 hover:text-accent transition-colors duration-200"
+          >
+            <Pencil size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
+            <span>Add a note</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSkip}
+            aria-label="Skip question"
+            className="flex items-center gap-1 text-text-muted/70 hover:text-accent transition-colors duration-200"
+          >
+            {UI.question.skip}
+            <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
+          </button>
+        </div>
+      )}
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
           gives the track depth. */}
       <div
@@ -241,6 +411,51 @@ export function QuestionCard({
   );
 }
 
+/** Inline note input — pencil icon left, textarea right, dashed peach hairline above. */
+function NoteSection({
+  notePrompt,
+  value,
+  onChange,
+  onSubmit,
+}: Readonly<{
+  notePrompt: string | null;
+  value: string;
+  onChange: (next: string) => void;
+  /** Cmd/Ctrl+Enter from the textarea. Undefined when no rating yet (no answer to commit). */
+  onSubmit?: () => void;
+}>) {
+  const id = useId();
+  const placeholder = notePrompt ?? "A line or two, only if it helps.";
+  return (
+    <div className="mt-3 mb-2 pt-3 border-t border-dashed border-accent/30">
+      <label htmlFor={id} className="sr-only">
+        Note (optional)
+      </label>
+      <div className="flex items-start gap-2.5">
+        <Pencil size={14} strokeWidth={1.5} className="shrink-0 mt-1 text-accent/60" aria-hidden="true" />
+        <textarea
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter inside the textarea → save & next. Plain Enter
+            // adds a newline (default). The submit handler is undefined when
+            // there's no rating to commit, so the shortcut is inert until
+            // the user has answered.
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+              e.preventDefault();
+              onSubmit();
+            }
+          }}
+          placeholder={placeholder}
+          rows={3}
+          className="flex-1 min-h-[3.75rem] bg-transparent text-sm leading-[1.55] text-text placeholder:italic placeholder:text-text-muted/55 resize-none outline-none focus-visible:outline-none"
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Roving-tabindex radio group — button[role="radio"] pattern (Radix/React Aria
  * style). Owns its own number-key listener (1-5) so the shortcut scopes to
@@ -260,10 +475,13 @@ export function RatingGroup({
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Number-key shortcut (1-5). Window-scoped — no need to focus the group
-  // first. Ignored while a commit animation is running.
+  // first. Ignored while a commit animation is running, AND ignored when
+  // focus is inside an editable element (textarea/input/contenteditable),
+  // so typing in the note doesn't hijack-commit a rating.
   useEffect(() => {
     if (committing) return;
     function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
       const rating = KEY_TO_RATING[e.key];
       if (rating) {
         e.preventDefault();
@@ -365,6 +583,7 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => 
   useEffect(() => {
     if (committing) return;
     function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return;
       if (e.key === "1" || e.key === "n") {
         e.preventDefault();
         setCommitting("now");

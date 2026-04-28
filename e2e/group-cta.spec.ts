@@ -1,5 +1,11 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, narrowToCategory, personBase } from "./helpers.js";
+import {
+  createGroupAndSetup,
+  dismissNotePromptIfPresent,
+  goThroughIntro,
+  narrowToCategory,
+  personBase,
+} from "./helpers.js";
 
 test.describe("admin /group primary CTA — state machine", () => {
   test("cycles through Start / Continue / View my answers as admin progresses", async ({ page }) => {
@@ -22,7 +28,9 @@ test.describe("admin /group primary CTA — state machine", () => {
     await narrowToCategory(page, "Aftercare");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await page.getByRole("radio", { name: "No", exact: true }).click();
+    await dismissNotePromptIfPresent(page);
     await page.getByRole("radio", { name: "No", exact: true }).click();
+    await dismissNotePromptIfPresent(page);
 
     // -- State 2: "Continue" (some answers, not done) --
     await page.goto(base + "/group");
@@ -47,6 +55,7 @@ test.describe("admin /group primary CTA — state machine", () => {
       const noRadio = page.getByRole("radio", { name: "No", exact: true });
       if (await noRadio.isVisible().catch(() => false)) {
         await noRadio.click();
+        await dismissNotePromptIfPresent(page);
         continue;
       }
       // Skip over any welcome interstitials if narrowing produced one.

@@ -40,6 +40,7 @@ export const ANATOMY_LABEL_PRESETS: Record<AnatomyLabels, Record<Anatomy, string
 export interface Answer {
   rating: Rating;
   timing: Timing | null;
+  note: string | null;
 }
 
 export interface OperationPayload {
