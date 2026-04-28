@@ -190,7 +190,7 @@ export function matchesQuery(q: QuestionData, needle: string): boolean {
  * radio is in tab order; ArrowLeft/Right move + commit, Home/End jump to
  * ends. Mirrors the pattern in `RatingGroup` (QuestionCard.tsx).
  */
-function TierPicker({ tier, onChange }: Readonly<{ tier: Tier; onChange: (t: Tier) => void }>) {
+export function TierPicker({ tier, onChange }: Readonly<{ tier: Tier; onChange: (t: Tier) => void }>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const [shouldFocusSelected, setShouldFocusSelected] = useState(false);
   const selectedIdx = TIERS.indexOf(tier);
@@ -312,7 +312,7 @@ const TIER_BADGE_STYLES: Record<Tier, string> = {
  * All callable props are wrapped in `useCallback` upstream and the data
  * Maps come from `useMemo`, so shallow equality is sufficient.
  */
-const QuestionRow = memo(function QuestionRow({
+export const QuestionRow = memo(function QuestionRow({
   question: q,
   questionMap,
   childrenOf,
