@@ -233,11 +233,16 @@ type Rating = "yes" | "no" | "maybe" | "if-partner-wants" | "fantasy";
  *  - The Next button is present but disabled (we're on a fresh Layout B
  *    card that hasn't been rated yet — the next loop iteration will rate
  *    it, and dismiss runs again then).
+ *
+ * Bare `isVisible()` / `isEnabled()` (no `.catch()`) so a strict-mode
+ * violation — multiple elements matching the test id — surfaces as a
+ * test failure instead of being silently swallowed.
  */
 export async function dismissNotePromptIfPresent(page: Page) {
   const nextBtn = page.getByTestId("note-next");
-  if (!(await nextBtn.isVisible().catch(() => false))) return;
-  if (await nextBtn.isDisabled().catch(() => true)) return;
+  if ((await nextBtn.count()) === 0) return;
+  if (!(await nextBtn.isVisible())) return;
+  if (!(await nextBtn.isEnabled())) return;
   await nextBtn.click();
 }
 

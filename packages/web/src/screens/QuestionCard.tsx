@@ -105,6 +105,10 @@ export function QuestionCard({
   const notePrompt = screen.question.notePrompt;
   const [noteDraft, setNoteDraft] = useState<string>(existingAnswer?.note ?? "");
   const [pillExpanded, setPillExpanded] = useState(false);
+  // Reseed local UI state on navigation only (screen.key change). Including
+  // existingAnswer in the dep array would re-clobber the live noteDraft on
+  // every commit (the parent re-passes a new existingAnswer right after each
+  // onCommit call), losing whatever the user is typing.
   useEffect(() => {
     setNoteDraft(existingAnswer?.note ?? "");
     setPillExpanded(false);

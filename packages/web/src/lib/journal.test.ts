@@ -57,6 +57,18 @@ describe("replayJournal", () => {
     expect(state["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
   });
 
+  it("backfills note: null for legacy envelopes that predate the field", async () => {
+    // Pre-PR-89 journal entries serialize `{ rating, timing }` with no
+    // `note` key. New code consumes `Answer` as `{ rating, timing, note }`,
+    // so replay must normalize undefined → null to keep the schema honest.
+    const legacyPayload = `p:1:${JSON.stringify({
+      key: "blindfold:mutual",
+      data: { rating: "yes", timing: null },
+    })}`;
+    const state = await replayJournal([{ operation: legacyPayload }], null);
+    expect(state["blindfold:mutual"]).toEqual({ rating: "yes", timing: null, note: null });
+  });
+
   it("round-trips a note inside the encrypted answer payload", async () => {
     const key = await generateGroupKey();
     const noteText = "Side-lying first, never on my back.";

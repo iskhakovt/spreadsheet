@@ -467,9 +467,12 @@ function PairComparison({
               <div className="space-y-2">
                 {group.matches.map((match) => {
                   const style = MATCH_STYLES[match.matchType];
+                  // `replayJournal` and the storage layer normalize `note` to
+                  // null when missing, but use a truthiness check anyway so
+                  // legacy in-flight data never opens an empty notes block.
                   const noteA = match.answerA.note;
                   const noteB = match.answerB.note;
-                  const showNotes = noteA !== null || noteB !== null;
+                  const showNotes = !!noteA || !!noteB;
                   return (
                     <div
                       key={`${match.questionId}-${match.displayText}`}
