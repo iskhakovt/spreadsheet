@@ -13,11 +13,12 @@ import { Coffee } from "lucide-react";
  * story is preserved for every visitor who never clicks.
  */
 export function TipJarLink() {
-  const url = typeof window !== "undefined" ? window.__ENV?.TIP_JAR_URL : null;
+  const rawUrl = typeof window !== "undefined" ? window.__ENV?.TIP_JAR_URL : null;
+  const url = parseSafeUrl(rawUrl);
   if (!url) return null;
   return (
     <a
-      href={url}
+      href={url.toString()}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1.5 text-[11px] text-text-muted/50 hover:text-accent transition-colors duration-200 tracking-wide"
@@ -26,4 +27,20 @@ export function TipJarLink() {
       Buy me a coffee
     </a>
   );
+}
+
+/**
+ * Accept only absolute http(s) URLs. Rejects malformed strings,
+ * `javascript:`/`data:` and any other scheme — without this, a misset
+ * deploy config could turn a click into a script execution.
+ */
+function parseSafeUrl(raw: string | null | undefined): URL | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
