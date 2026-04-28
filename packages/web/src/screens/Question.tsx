@@ -1,4 +1,4 @@
-import type { Answer, CategoryData, OperationPayload, QuestionData, Rating, Timing } from "@spreadsheet/shared";
+import type { Answer, CategoryData, OperationPayload, QuestionData } from "@spreadsheet/shared";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
@@ -25,7 +25,7 @@ import { useTRPC } from "../lib/trpc.js";
 import { useMarkComplete } from "../lib/use-mark-complete.js";
 import { useSyncQueue } from "../lib/use-sync-queue.js";
 import { CategoryWelcomeScreen } from "./CategoryWelcomeScreen.js";
-import { QuestionCard } from "./QuestionCard.js";
+import { isEditableTarget, QuestionCard } from "./QuestionCard.js";
 
 interface QuestionProps {
   person: { id: string; anatomy: string | null };
@@ -56,8 +56,6 @@ export function Question({
 
   const [index, setIndex] = useState(0);
   useScrollReset(index);
-  const [showTiming, setShowTiming] = useState(false);
-  const [pendingRating, setPendingRating] = useState<Rating | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusHeading = useRef(false);
   const answers = useAnswers();
@@ -195,12 +193,13 @@ export function Question({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.defaultPrevented) return;
+      // Skip when the user is typing in the note textarea — Arrow keys
+      // are for cursor movement there, not page navigation.
+      if (isEditableTarget(e.target)) return;
       if (e.key === "ArrowLeft") {
         setIndex((i) => Math.max(0, i - 1));
-        setShowTiming(false);
       } else if (e.key === "ArrowRight") {
         setIndex((i) => Math.min(screens.length, i + 1));
-        setShowTiming(false);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -274,29 +273,18 @@ export function Question({
     );
   }
 
-  // --- Answer handlers ---
-  function handleRating(rating: Rating) {
-    if (group.showTiming && (rating === "yes" || rating === "if-partner-wants")) {
-      setPendingRating(rating);
-      setShowTiming(true);
-    } else {
-      saveAnswer(rating, null);
-    }
-  }
-
-  function handleTiming(timing: Timing) {
-    if (pendingRating) saveAnswer(pendingRating, timing);
-    setShowTiming(false);
-    setPendingRating(null);
-  }
-
-  async function saveAnswer(rating: Rating, timing: Timing | null) {
+  // QuestionCard owns the rating/timing/note interaction; Question.tsx just
+  // persists and advances. Splitting commit from advance lets QuestionCard
+  // suppress auto-advance when the note section is open (Layout B).
+  async function commitAnswer(answer: Answer) {
     const current = screens[Math.min(index, screens.length - 1)];
     if (current.type !== "question") return;
-    const answer: Answer = { rating, timing };
     setAnswer(current.key, answer);
     const op = await encodeValue({ key: current.key, data: answer } satisfies OperationPayload);
     addPendingOp(op);
+  }
+
+  function advance() {
     shouldFocusHeading.current = true;
     setIndex((i) => i + 1);
   }
@@ -329,6 +317,11 @@ export function Question({
 
   return (
     <QuestionCard
+      // Force remount per screen so per-question component state (note draft,
+      // pill expansion, pending timing) starts fresh — sidesteps the brief
+      // post-advance render where a useEffect-based reset would still see
+      // the previous screen's draft.
+      key={current.key}
       screen={current}
       categoryMap={categoryMap}
       allQuestionScreens={qScreens}
@@ -336,20 +329,13 @@ export function Question({
       index={index}
       totalAnswered={Object.keys(answers).length}
       totalQuestions={qScreens.length}
-      showTiming={showTiming}
+      showTimingFlow={group.showTiming}
       syncing={syncing}
       showSyncIndicator={showSyncIndicator}
       pendingCount={pendingOps.length}
-      onRating={handleRating}
-      onTiming={handleTiming}
-      onBack={() => {
-        setIndex((i) => Math.max(0, i - 1));
-        setShowTiming(false);
-      }}
-      onSkip={() => {
-        setIndex((i) => i + 1);
-        setShowTiming(false);
-      }}
+      onCommit={commitAnswer}
+      onAdvance={advance}
+      onBack={() => setIndex((i) => Math.max(0, i - 1))}
       onSync={handleSync}
       onSummary={onSummary}
       headingRef={headingRef}

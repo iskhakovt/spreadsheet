@@ -38,6 +38,7 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
               </div>
             ))}
           </dl>
+          <p className="text-xs italic text-text-muted/80 leading-[1.55]">{UI.intro.answersFootnote}</p>
           {showTiming && (
             <div className="pt-3 border-t border-border/40">
               <p className="text-sm font-medium mb-1.5">{UI.intro.timingTitle}</p>

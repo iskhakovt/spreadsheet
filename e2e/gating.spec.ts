@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import { createGroupAndSetup, dismissNotePromptIfPresent, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("dependency gating", () => {
   test("answering no to sex-generally hides sex-domain Foundations content", async ({ page }) => {
@@ -27,12 +27,14 @@ test.describe("dependency gating", () => {
         break;
       }
       await page.getByRole("radio", { name: "Yes", exact: true }).click();
+      await dismissNotePromptIfPresent(page);
     }
 
     await expect(page.getByText(gateText).first()).toBeVisible();
 
     // Answer "No" to the gate. The flow should skip every gated child.
     await page.getByRole("radio", { name: "No", exact: true }).click();
+    await dismissNotePromptIfPresent(page);
 
     // Continue forward, capturing every question heading until we hit the
     // end-of-questions screen. Cap iterations to keep the test bounded if
@@ -48,6 +50,7 @@ test.describe("dependency gating", () => {
       const yes = page.getByRole("radio", { name: "Yes", exact: true });
       if (await yes.isVisible({ timeout: 200 }).catch(() => false)) {
         await yes.click();
+        await dismissNotePromptIfPresent(page);
       } else {
         break;
       }
@@ -88,10 +91,12 @@ test.describe("dependency gating", () => {
         break;
       }
       await page.getByRole("radio", { name: "Yes", exact: true }).click();
+      await dismissNotePromptIfPresent(page);
     }
 
     await expect(page.getByText(gateText).first()).toBeVisible();
     await page.getByRole("radio", { name: "Yes", exact: true }).click();
+    await dismissNotePromptIfPresent(page);
 
     // Walk forward and confirm a gated item appears.
     let foundDirtyTalk = false;
@@ -109,6 +114,7 @@ test.describe("dependency gating", () => {
       const yes = page.getByRole("radio", { name: "Yes", exact: true });
       if (!(await yes.isVisible({ timeout: 200 }).catch(() => false))) break;
       await yes.click();
+      await dismissNotePromptIfPresent(page);
     }
 
     expect(foundDirtyTalk).toBe(true);

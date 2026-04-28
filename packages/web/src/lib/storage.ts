@@ -90,13 +90,31 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 
 // === answers ===
 
+/**
+ * Backfill `note: null` on legacy answer shapes. Pre-PR-89 data persisted
+ * `{ rating, timing }` only; new code expects `{ rating, timing, note }`.
+ * Reading old data through the new type would surface `note: undefined`,
+ * which fails the schema contract and lets `!== null` truthy checks slip
+ * through. Normalize on every load — write paths already produce the
+ * canonical shape.
+ */
+function normalizeAnswers(raw: unknown): Record<string, Answer> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, Answer> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, Partial<Answer>>)) {
+    if (!value || typeof value !== "object") continue;
+    out[key] = { ...value, note: value.note ?? null } as Answer;
+  }
+  return out;
+}
+
 export const useAnswers = makeLocalStorageHook(
   "answers",
-  (raw): Record<string, Answer> => (raw ? JSON.parse(raw) : {}),
+  (raw): Record<string, Answer> => normalizeAnswers(raw ? JSON.parse(raw) : {}),
 );
 
 export function getAnswers(): Record<string, Answer> {
-  return getJson("answers", {});
+  return normalizeAnswers(getJson("answers", {}));
 }
 
 export function setAnswers(answers: Record<string, Answer>): void {

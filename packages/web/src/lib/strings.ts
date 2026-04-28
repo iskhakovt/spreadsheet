@@ -33,6 +33,7 @@ export const UI = {
       fantasy: ["Fantasy only", "Fun to think about, not ready to try"],
       no: ["No", "Not for me — your partner won't see this"],
     } as Record<string, [string, string]>,
+    answersFootnote: "Any answer can carry an optional note — context only, not part of matching.",
     timingTitle: "Timing",
     timing: {
       now: ["Now", "I'd like to try this soon"],

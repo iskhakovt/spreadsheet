@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  dismissNotePromptIfPresent,
+  goThroughIntro,
+  narrowToCategory,
+} from "./helpers.js";
 
 /**
  * Curated viewport matrix — a representative slice of real-world sizes,
@@ -141,6 +147,7 @@ for (const vp of VIEWPORTS) {
       const target = page.getByText("Verbal reassurance after intense play");
       for (let i = 0; i < 20 && !(await target.isVisible().catch(() => false)); i++) {
         await page.getByRole("radio", { name: "No", exact: true }).click();
+        await dismissNotePromptIfPresent(page);
       }
       await expect(target).toBeVisible();
       await expect(page.getByText(/you're amazing, I love you/)).toBeVisible();

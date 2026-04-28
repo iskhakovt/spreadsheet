@@ -5,6 +5,10 @@ import { decodeValue } from "./crypto.js";
  * Replay journal entries to build current answer state.
  * Last operation for each key wins. Null data = delete.
  *
+ * Backfills `note: null` on legacy entries that pre-date the field —
+ * journal payloads from before PR #89 only carry `{ rating, timing }`,
+ * and new code reads `Answer.note` as `string | null`, never undefined.
+ *
  * groupKey: omit to use session key, pass explicitly in tests.
  */
 export async function replayJournal(
@@ -18,7 +22,7 @@ export async function replayJournal(
       if (payload.data === null) {
         delete state[payload.key];
       } else {
-        state[payload.key] = payload.data;
+        state[payload.key] = { ...payload.data, note: payload.data.note ?? null };
       }
     } catch (err) {
       console.error("Skipping malformed journal entry:", entry.operation.slice(0, 50), err);
