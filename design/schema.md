@@ -55,8 +55,22 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 | description | text | Nullable. One-line explanation shown via "What's this?" |
 | target_give | enum ("all", "amab", "afab") | Who sees the give screen |
 | target_receive | enum ("all", "amab", "afab") | Who sees the receive screen |
-| tier | integer | 1 (essentials), 2 (curious), 3 (adventurous). Default 1. Reserved for future UI that filters the question set by appetite. |
+| tier | integer | 1 (essentials), 2 (common), 3 (adventurous), 4 (edge / risk). Default 1. Filtered by the user's tier picker — answers above the picker level are hidden from the flow. |
+| note_prompt | text | Nullable. Placeholder text + "encourage a free-text note here" signal. Presence prompts the UI to expand the note input by default; absence renders a collapsed "Add a note" affordance. |
 | sort_order | integer | Display order within category |
+
+### question_dependencies
+
+Junction table expressing single- or multi-parent dependencies between questions. AND-only semantics: a child is hidden when ANY required parent is answered "no" (transitively). OR-multi-parent is not supported by design — if a child has multiple plausible parents, pick one canonical parent or leave it independent.
+
+| Column | Type | Notes |
+|-|-|-|
+| question_id | text | FK → questions, `ON DELETE CASCADE`. The child. |
+| requires_question_id | text | FK → questions, `ON DELETE RESTRICT`. The parent — can't be deleted while a dependency still references it. |
+
+Composite primary key on `(question_id, requires_question_id)`. Reverse-lookup index on `requires_question_id` for FK perf and "find children of P" queries.
+
+Seed-time validation in `QuestionStore.seed` rejects: self-loops, unknown refs, child tier < parent tier, and child appearing at-or-before parent in the seed array (the array order becomes the participant flow order — children must come after their gate).
 
 ### journal_entries
 
@@ -74,6 +88,7 @@ Append-only log of answer operations. See [sync.md](sync.md) for protocol detail
 ```
 group 1──* person 1──* journal_entry
 question *──1 category
+question 1──* question_dependency *──1 question  (self-edge: child → parent)
 ```
 
 ## Admin Token Flow
@@ -97,6 +112,14 @@ The presence of `give_text`/`receive_text` determines which type.
 ### Anatomy targeting
 
 `target_give` and `target_receive` filter who sees each screen. Group-aware: a screen only appears if both the giver and receiver anatomy exist in the group.
+
+### Dependency gating
+
+A question may declare `requires:` (one or more parent question IDs). The child is hidden from a user's flow when any required parent is answered "no" — transitively, and per-side when both parent and child are give/receive (give-no on the parent hides only the child's give-side; receive-no hides only receive). Mutual ↔ give/receive combinations propagate "any-side no" to the corresponding child side. See `packages/web/src/lib/visibility.ts` for the full mapping table.
+
+A handful of gateway questions (`sex-generally`, `oral-generally`, `penetration-generally`, `external-people-generally`, `bondage-generally`, `impact-generally`, `power-generally`, `roleplay-generally`, `exhibitionism-generally`, `edge-generally`) sit at the top of their respective subtrees so a user who's a flat "no" to a domain can skip the whole branch with one answer. Pre-sex-friendly content (kissing, cuddling, environment, communication) has no gate and stays visible to everyone.
+
+Gating is enforced client-side. The server stores the dependency graph and returns it via `questions.list`; the client's `visibleSides` helper combines anatomy + dependency state per render. For matching, a gated-as-no answer is treated as an implicit "no" — gating doesn't classify as missing.
 
 ## Rating Scale
 
