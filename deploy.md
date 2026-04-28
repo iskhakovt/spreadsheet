@@ -19,6 +19,7 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `PORT` | No | `8080` | HTTP port |
 | `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
+| `REQUIRE_ENCRYPTION` | No | enforced | Set to literal `false` to let the create-group form expose an encryption opt-out checkbox (dev convenience). Any other value, or unset, keeps E2E encryption mandatory. Production should leave this unset. |
 | `TIP_JAR_URL` | No | unset | Optional `http(s)://` URL — when set, a quiet "Buy me a coffee" link renders next to the GitHub source link on Landing and `/results`. Unset hides the link entirely. |
 
 Generate `STOKEN_SECRET`:
