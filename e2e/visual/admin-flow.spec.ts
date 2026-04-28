@@ -13,7 +13,12 @@ import {
 // regressions (e.g. "Adventurous" tier label, "If partner wants" rating
 // label at narrow viewports). Keep these tight — generic `button`
 // selectors would flag intentional truncations.
+//
+// Intro + /questions browser use a custom radiogroup (button[role=radio]).
+// Summary uses a native <fieldset> with <input type="radio" name="tier">
+// inside a styled <label>. Two patterns, two selectors.
 const TIER_PICKER_RADIOS = '[role="radiogroup"][aria-label="Question depth"] [role="radio"]';
+const SUMMARY_TIER_LABELS = 'label:has(input[name="tier"])';
 const RATING_RADIOS = '[role="radiogroup"][aria-label="Rate this activity"] [role="radio"]';
 
 test.describe("admin 2-person flow", () => {
@@ -80,7 +85,7 @@ test.describe("admin 2-person flow", () => {
     await alice.getByRole("button", { name: "Edit my answers", exact: true }).click();
     await alice.goto(base + "/summary");
     await expect(alice.getByText("Your progress")).toBeVisible();
-    await assertNoOverflowingText(alice, TIER_PICKER_RADIOS, "summary tier picker");
+    await assertNoOverflowingText(alice, SUMMARY_TIER_LABELS, "summary tier picker");
     await expect(alice).toHaveScreenshot("summary.png");
 
     // --- Review screen with mixed ratings ---
