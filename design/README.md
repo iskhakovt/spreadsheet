@@ -35,6 +35,8 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | **Person** | A member of a group. Has a name, anatomy (amab/afab), and a unique token used in their personal URL. |
 | **Category** | A grouping of questions (e.g. "Oral", "Bondage", "Sensory Environment"). Opt-in per person — you pick which categories to answer. |
 | **Question** | An activity to rate. Can be **mutual** (one rating, e.g. "Blindfolds") or **role-based** (give + receive ratings, e.g. "Cunnilingus"). |
+| **Tier** | Question depth: 1 (essentials) → 4 (edge / risk). Picked once on Intro, revisable from Summary. Hides questions above the picked level. |
+| **Gate** | A question whose answer hides dependent children. A "no" to a gate skips the entire subtree (transitively, per-side for give/receive). Gateway questions like `oral-generally` and `penetration-generally` let users opt out of whole domains in one tap. |
 | **Rating** | A person's answer to a question: yes, if-partner-wants, maybe, fantasy, no. |
 | **Timing** | When you want something: now or later. Only applies to "yes" and "if-partner-wants" ratings. Configurable per group (`showTiming` toggle). When off, all answers have null timing. |
 | **Comparison** | The result view — shows overlaps between group members. Only available when all members mark complete. |

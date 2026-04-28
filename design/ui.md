@@ -102,7 +102,9 @@ Auto-advances via universal guard when `group.isReady` becomes true. Updates arr
 
 ### 7. Intro
 
-One-time tutorial screen. Four steps explaining how it works. "Let's go" button.
+One-time tutorial screen. Four steps explaining how it works, an answer-legend (what each rating means), and a tier picker. "Let's go" button.
+
+The tier picker is a four-button radiogroup: **Essentials**, **Common**, **Adventurous**, **Edge / Risk**. Each button shows an approximate question count. The selected tier becomes `maxTier` for the question flow — answers above the picked level are hidden. Default is tier 2 (Common). Persisted to localStorage; can be revised on the Summary screen.
 
 ### 8. Category Welcome (interstitial)
 
@@ -152,12 +154,21 @@ After tapping Yes or If partner wants → timing sub-question (Now / Later) → 
 
 "Progress" link → Summary screen. Sync indicator uses `visibility: hidden` to avoid layout shifts.
 
+**Dependency-gated questions** disappear when their parent gate is answered "no". For example, answering "no" to *Penetrative sex is welcome* hides every position, creampie, and toy that requires penetration. Per-side gating: a g/r child whose g/r parent has give-no but receive-yes still shows its receive-side. The gate question itself stays visible — gating only affects descendants.
+
 ### 10. Summary / Progress
 
-Accessible from question header's "Progress" link. Shows all categories with:
-- Toggle checkbox (enable/disable category)
-- Category label + "X of Y answered" progress bar
-- Tap to jump to that category's welcome screen
+Accessible from question header's "Progress" link. Shows:
+
+- **Tier slider** at the top — re-pick the tier (1–4) without going back to Intro. 4-up row on `sm+`, 2×2 grid on mobile (the four labels don't fit horizontally below 640px).
+- **Category list** with:
+  - Toggle checkbox (enable/disable category)
+  - Category label + "X of Y answered" progress bar
+  - Tap to jump to that category's welcome screen
+
+Categories whose visible-question count would be zero for this user/group are hidden entirely. This includes: tier filter removes everything; anatomy filter removes everything (e.g. all-amab group with the Reproductive category); dependency gating removes everything (every question requires a gate that's answered "no"). The picker only lists categories with at least one applicable question.
+
+Overall progress (`totalAnswered / totalQuestions` at top) sums only across **enabled** categories, so toggling a category off shrinks both numerator and denominator together — the bar can't exceed 100%.
 
 Buttons: "Back to questions", "Review answers", "Group members" (admin only).
 
