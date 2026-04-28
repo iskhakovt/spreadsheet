@@ -363,6 +363,18 @@ input[type="checkbox"]:checked::after {
   box-shadow: 0 0 10px rgb(208 128 88 / 30%);
 }
 
+/* Flash a question card when scrolled to via a `requires` chip on the
+   public /questions browser. Brief peach ring fades to nothing. */
+@keyframes question-flash {
+  0%   { box-shadow: 0 0 0 0 rgb(208 128 88 / 0%); }
+  20%  { box-shadow: 0 0 0 4px rgb(208 128 88 / 35%); }
+  100% { box-shadow: 0 0 0 0 rgb(208 128 88 / 0%); }
+}
+
+.question-flash {
+  animation: question-flash 1.4s var(--ease-spring);
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-in,
