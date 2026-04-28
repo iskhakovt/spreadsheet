@@ -221,7 +221,10 @@ function TierPicker({ tier, onChange }: Readonly<{ tier: Tier; onChange: (t: Tie
     <div
       role="radiogroup"
       aria-label="Question depth"
-      className="grid grid-cols-4 gap-1.5 flex-1"
+      // 2-up on phone — "Adventurous" doesn't fit comfortably alongside three
+      // siblings at 375-390px. 4-up unlocks once the row has room (≥sm).
+      // Mirrors the Summary tier picker's responsive grid.
+      className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1"
       onKeyDown={handleKeyDown}
     >
       {TIERS.map((t, i) => {
