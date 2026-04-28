@@ -38,6 +38,7 @@ const stores = {
 // Runtime config injected into index.html as window.__ENV
 const runtimeEnv = JSON.stringify({
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
+  TIP_JAR_URL: process.env.TIP_JAR_URL ?? null,
 });
 const envScriptContent = `window.__ENV=${runtimeEnv}`;
 const envScript = `<script>${envScriptContent}</script>`;

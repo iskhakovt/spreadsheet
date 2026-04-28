@@ -7,6 +7,7 @@ import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { TipJarLink } from "../components/tip-jar-link.js";
 import { cn } from "../lib/cn.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
@@ -100,8 +101,9 @@ export function Landing() {
             <span className="text-text-muted/40">— see what we'd ask before you sign up</span>
           </p>
 
-          <div className="pt-2">
+          <div className="pt-2 inline-flex items-center gap-4">
             <SourceLink />
+            <TipJarLink />
           </div>
         </div>
       </div>

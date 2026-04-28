@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { SourceLink } from "../components/source-link.js";
+import { TipJarLink } from "../components/tip-jar-link.js";
 import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
@@ -382,8 +383,9 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
 
         <CopyMyLink encrypted={encrypted} token={token} />
 
-        <div className="text-center pt-2">
+        <div className="text-center pt-2 inline-flex items-center justify-center gap-4 w-full">
           <SourceLink />
+          <TipJarLink />
         </div>
       </div>
     </div>
