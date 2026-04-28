@@ -2,7 +2,7 @@ import { type CategoryData, MAX_TIER, type QuestionData, type Tier } from "@spre
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowLeft, Pencil, Search } from "lucide-react";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { buildChildrenOf, isGate } from "../lib/dependency-graph.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -306,7 +306,13 @@ const TIER_BADGE_STYLES: Record<Tier, string> = {
   4: "bg-transparent text-text-muted border border-dashed border-border/60 italic",
 };
 
-function QuestionRow({
+/**
+ * Memoized so a search keystroke (which only narrows `visibleIds` and may
+ * not change which rows are mounted) doesn't re-render every visible row.
+ * All callable props are wrapped in `useCallback` upstream and the data
+ * Maps come from `useMemo`, so shallow equality is sufficient.
+ */
+const QuestionRow = memo(function QuestionRow({
   question: q,
   questionMap,
   childrenOf,
@@ -353,8 +359,14 @@ function QuestionRow({
           )}
           {(q.requires.length > 0 || (childrenCount > 0 && !gate)) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {Array.from(new Set(q.requires)).map((parentId) => {
+              {[...new Set(q.requires)].map((parentId) => {
+                // Invariant: every parentId in `requires` resolves in
+                // `questionMap` because the seed validator rejects unknown
+                // refs and the dependency table is FK-constrained. The
+                // non-null assertion makes that explicit instead of leaving
+                // a silent fallback that would mask a future bug.
                 const parent = questionMap.get(parentId);
+                if (!parent) throw new Error(`Unknown parent in requires: ${parentId}`);
                 // Disable when the search filter has hidden the parent —
                 // clicking would silently no-op since there's no element to
                 // scroll to. Tier filter alone can't hide a parent (seed
@@ -376,10 +388,8 @@ function QuestionRow({
                     )}
                     title={
                       parentHidden
-                        ? `${parentId} is hidden by your search — clear it to jump`
-                        : parent
-                          ? `Jump to: ${parent.text}`
-                          : parentId
+                        ? `${parent.text} is hidden by your search — clear it to jump`
+                        : `Jump to: ${parent.text}`
                     }
                   >
                     <ArrowDownToLine size={10} strokeWidth={1.75} aria-hidden="true" />
@@ -398,7 +408,7 @@ function QuestionRow({
       </div>
     </li>
   );
-}
+});
 
 function RoleMarker() {
   return (
