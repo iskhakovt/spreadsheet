@@ -385,6 +385,7 @@ export const QuestionRow = memo(function QuestionRow({
             <span className="font-medium text-[15px] leading-[1.4] text-pretty">{q.text}</span>
             {isRoleBased && <RoleMarker />}
             {q.notePrompt && <NotePromptMarker prompt={q.notePrompt} />}
+            {q.requiresGroupAnatomy.length > 0 && <GroupAnatomyMarker anatomies={q.requiresGroupAnatomy} />}
             {gate && <GateMarker count={childrenCount} />}
           </div>
           {q.description && (
@@ -462,6 +463,18 @@ function NotePromptMarker({ prompt }: Readonly<{ prompt: string }>) {
     >
       <Pencil size={9} strokeWidth={1.75} aria-hidden="true" />
       note
+    </span>
+  );
+}
+
+function GroupAnatomyMarker({ anatomies }: Readonly<{ anatomies: readonly string[] }>) {
+  const label = anatomies.join(" + ");
+  return (
+    <span
+      className="inline-flex items-center text-[10px] font-medium uppercase tracking-[0.1em] text-text-muted px-1.5 py-0.5 rounded bg-surface/80 border border-border/40"
+      title={`Only renders when the group includes: ${label}`}
+    >
+      group: {label}
     </span>
   );
 }

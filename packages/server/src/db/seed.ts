@@ -41,7 +41,7 @@ const SeedDataSchema = z.object({
   questions: z.array(QuestionSchema),
 });
 
-function loadSeedData(): SeedData {
+export function loadSeedData(): SeedData {
   // In dev/tests: tsx doesn't bundle, import.meta.dirname is src/db/.
   // In Docker: tsup bundles to a single dist/main.js, so
   // import.meta.dirname is dist/. The Dockerfile copies questions.yml
