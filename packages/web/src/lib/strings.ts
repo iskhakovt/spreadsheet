@@ -1,10 +1,9 @@
 // All UI text in one place — ready for i18n later.
 export const UI = {
   appName: "Spreadsheet",
-  tagline: "Discover what you're both into",
+  tagline: "Discover what you're into",
   landing: {
-    description:
-      "A yes/no/maybe list for you and your partner. Rate activities privately, then see only the things you both want to try.",
+    description: "A yes/no/maybe list for couples and groups. Rate activities privately, then see only your matches.",
     getStarted: "Get started",
   },
   createGroup: {
@@ -21,7 +20,7 @@ export const UI = {
     steps: [
       "You'll see activities one at a time",
       "Rate each one honestly — there are no wrong answers",
-      "Only matches are revealed — if either of you says no, it stays private",
+      "You'll only see your matches",
       "Take your time. You can pause and come back anytime.",
     ],
     start: "Let's go",
@@ -31,7 +30,7 @@ export const UI = {
       willing: ["If partner wants", "I'm open to it if you are"],
       maybe: ["Maybe", "Not sure yet, open to talking about it"],
       fantasy: ["Fantasy only", "Fun to think about, not ready to try"],
-      no: ["No", "Not for me — your partner won't see this"],
+      no: ["No", "Not for me — won't appear in matches"],
     } as Record<string, [string, string]>,
     answersFootnote: "Any answer can carry an optional note — context only, not part of matching.",
     timingTitle: "Timing",
@@ -41,7 +40,7 @@ export const UI = {
     } as Record<string, [string, string]>,
     tierTitle: "How many questions?",
     tiers: {
-      1: { label: "Essentials", description: "The stuff most couples should talk about" },
+      1: { label: "Essentials", description: "The basics worth talking about" },
       2: { label: "Common", description: "Broadly recognized practices and preferences" },
       3: { label: "Adventurous", description: "Niche but mainstream-aware kinks and dynamics" },
       4: { label: "Edge", description: "Higher-risk activities that need expertise" },
@@ -71,7 +70,7 @@ export const UI = {
     answered: (n: number, total: number) => `${n} of ${total} answered`,
   },
   group: {
-    title: "Invite your partner",
+    title: (partnerCount: number) => (partnerCount === 1 ? "Invite your partner" : "Invite your partners"),
     titleReady: "Your group",
     copyLink: "Copy link",
     copied: "Copied!",

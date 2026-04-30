@@ -97,8 +97,8 @@ export function Landing() {
               className="hover:text-accent transition-colors duration-200 underline decoration-text-muted/30 underline-offset-4 hover:decoration-accent/40"
             >
               Browse the questions
-            </Link>{" "}
-            <span className="text-text-muted/40">— see what we'd ask before you sign up</span>
+            </Link>
+            <span className="hidden sm:inline text-text-muted/40"> — see what we'd ask before you start</span>
           </p>
 
           <div className="pt-2 inline-flex items-center gap-4">
