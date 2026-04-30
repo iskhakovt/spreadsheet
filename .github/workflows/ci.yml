@@ -98,6 +98,10 @@ jobs:
       # write amd64 layers into the `scope=arm64` cache and degrade arm64
       # cache hits in the next publish run.
       - uses: docker/bake-action@a66e1c87e2eca0503c343edf1d208c716d54b8a8 # v7.1.0
+        env:
+          # Disable provenance/SBOM attestations — they attach as a manifest
+          # list, which `--load` into the docker daemon cannot import.
+          WITH_ATTEST: "false"
         with:
           source: .
           files: ./docker-bake.hcl

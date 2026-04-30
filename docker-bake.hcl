@@ -8,6 +8,14 @@ variable "VERSION" {
   default = "dev"
 }
 
+// Attestations attach as separate manifests in an OCI manifest list. The
+// docker daemon's `--load` cannot import manifest lists, so e2e (which
+// loads the image locally) must disable this. Publish (which pushes to
+// a registry) leaves it on for supply-chain provenance.
+variable "WITH_ATTEST" {
+  default = "true"
+}
+
 target "app" {
   context    = "."
   dockerfile = "Dockerfile"
@@ -28,8 +36,8 @@ target "app" {
     "type=gha,scope=arm64,mode=max",
   ]
 
-  attest = [
+  attest = WITH_ATTEST == "true" ? [
     "type=provenance,mode=max",
     "type=sbom",
-  ]
+  ] : []
 }
