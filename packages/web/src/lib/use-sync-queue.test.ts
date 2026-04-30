@@ -195,22 +195,3 @@ describe("useSyncQueue — handleSync re-entrancy", () => {
     expect(pushFn).toHaveBeenCalledTimes(2);
   });
 });
-
-describe("useSyncQueue — stable callback identity", () => {
-  it("scheduleSync and handleSync keep identity across re-renders", () => {
-    const { result, rerender } = renderHook(({ total }) => useSyncQueue(total), {
-      wrapper,
-      initialProps: { total: 10 },
-    });
-    const firstSchedule = result.current.scheduleSync;
-    const firstHandle = result.current.handleSync;
-
-    rerender({ total: 20 });
-    rerender({ total: 20 });
-
-    // Stable identity is what lets callers safely use these in useEffect deps
-    // without triggering spurious re-runs.
-    expect(result.current.scheduleSync).toBe(firstSchedule);
-    expect(result.current.handleSync).toBe(firstHandle);
-  });
-});

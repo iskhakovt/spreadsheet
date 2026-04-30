@@ -18,9 +18,6 @@ import { useTRPC } from "./trpc.js";
  * Use this hook from every component that calls markComplete. Do not
  * roll your own mark-complete flow: the whole point is that every
  * mark-complete goes through the same flush.
- *
- * The returned callback is identity-stable (same pattern as useSyncQueue:
- * mutations are read through refs so the useCallback dep array is empty).
  */
 export function useMarkComplete(token: string): () => Promise<void> {
   const trpc = useTRPC();
@@ -30,26 +27,23 @@ export function useMarkComplete(token: string): () => Promise<void> {
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
   const markCompleteMutation = useMutation(trpc.sync.markComplete.mutationOptions({ onSuccess: invalidateStatus }));
 
+  // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
-  const pushRef = useRef(pushMutation);
-  pushRef.current = pushMutation;
-  const markCompleteRef = useRef(markCompleteMutation);
-  markCompleteRef.current = markCompleteMutation;
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
 
   return useCallback(async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
       await flushPendingOps(
-        (input) => pushRef.current.mutateAsync(input),
+        (input) => pushMutation.mutateAsync(input),
         async () => null,
       );
-      await markCompleteRef.current.mutateAsync();
-      void navigate({ to: "/p/$token/waiting", params: { token: tokenRef.current } });
-    } finally {
+      await markCompleteMutation.mutateAsync();
+      void navigate({ to: "/p/$token/waiting", params: { token } });
       inFlightRef.current = false;
+    } catch (err) {
+      inFlightRef.current = false;
+      throw err;
     }
-  }, [navigate]);
+  }, [pushMutation, markCompleteMutation, navigate, token]);
 }

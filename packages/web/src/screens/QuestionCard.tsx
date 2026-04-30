@@ -1,6 +1,6 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
 import { ChevronLeft, ChevronRight, HelpCircle, Pencil } from "lucide-react";
-import { type RefObject, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
@@ -105,6 +105,10 @@ export function QuestionCard({
   const notePrompt = screen.question.notePrompt;
   const [noteDraft, setNoteDraft] = useState<string>(existingAnswer?.note ?? "");
   const [pillExpanded, setPillExpanded] = useState(false);
+  // Pending timing flow — yes/willing on showTimingFlow groups fans out to
+  // the now/later sub-question. The TimingButtons component owns the keys.
+  const [pendingRating, setPendingRating] = useState<Rating | null>(null);
+  const showTiming = pendingRating !== null;
   // Reseed local UI state on navigation only (screen.key change). Including
   // existingAnswer in the dep array would re-clobber the live noteDraft on
   // every commit (the parent re-passes a new existingAnswer right after each
@@ -113,7 +117,7 @@ export function QuestionCard({
     setNoteDraft(existingAnswer?.note ?? "");
     setPillExpanded(false);
     setPendingRating(null);
-  }, [screen.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [screen.key]);
 
   const draftHasContent = trimNote(noteDraft) !== null;
   // Layout B (note section visible) when the question prompts for a note,
@@ -121,11 +125,6 @@ export function QuestionCard({
   // link. Pre-rating prompted questions also start in Layout B so the prompt
   // is visible from the beginning.
   const noteVisible = notePrompt !== null || draftHasContent || pillExpanded;
-
-  // Pending timing flow — yes/willing on showTimingFlow groups fans out to
-  // the now/later sub-question. The TimingButtons component owns the keys.
-  const [pendingRating, setPendingRating] = useState<Rating | null>(null);
-  const showTiming = pendingRating !== null;
 
   // `pointerdown` not `mousedown` so touch + pen dismiss uniformly.
   useEffect(() => {
@@ -161,14 +160,13 @@ export function QuestionCard({
   // Debounced note commit — only persists when there's a rating to attach
   // the note to. Pre-rating typing stays in local draft state until the user
   // commits a rating (which carries the current note).
-  const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit;
+  const commitNote = useEffectEvent((answer: Answer) => onCommit(answer));
   useEffect(() => {
     if (!existingAnswer) return;
     const trimmed = trimNote(noteDraft);
     if (trimmed === existingAnswer.note) return;
     const t = setTimeout(() => {
-      void onCommitRef.current({ ...existingAnswer, note: trimmed });
+      void commitNote({ ...existingAnswer, note: trimmed });
     }, NOTE_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [noteDraft, existingAnswer]);

@@ -151,6 +151,12 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
 export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: Readonly<ComparisonProps>) {
+  // React Compiler reports a false-positive "Cannot access refs during render"
+  // — `seqRef.current` is only touched inside the async `onData` callback. The
+  // compiler can't prove the callback isn't synchronous, so it falls back to
+  // the unmemoized form for THIS function. `PairComparison` and `NoteLine` in
+  // the same file still compile normally. See facebook/react#35982.
+  "use no memo";
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
