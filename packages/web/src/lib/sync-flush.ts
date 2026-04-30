@@ -1,5 +1,5 @@
 import { mergeAfterRejection } from "./journal.js";
-import { getAnswers, getPendingOps, getStoken, setAnswers, setPendingOps, setStoken } from "./storage.js";
+import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
 
 interface PushInput {
   stoken: string | null;
@@ -74,13 +74,12 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
 
 /**
  * Remove the first `count` entries from the pending-ops queue, keeping
- * any that were appended while the push was in flight.
+ * any that were appended while the push was in flight. Delegates to
+ * `drainPendingOps` so the in-memory dedup index shifts in lockstep —
+ * naive slice-and-replace would invalidate the whole index and lose
+ * dedup state for any unsent ops appended during the flush.
  */
 function drainSent(count: number): void {
   const current = getPendingOps();
-  if (current.length <= count) {
-    setPendingOps([]);
-  } else {
-    setPendingOps(current.slice(count));
-  }
+  drainPendingOps(Math.min(count, current.length));
 }
