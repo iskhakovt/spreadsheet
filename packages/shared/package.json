@@ -10,7 +10,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "zod": "^4.3.0"
+    "zod": "^4.4.1"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
