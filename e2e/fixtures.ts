@@ -34,6 +34,34 @@ const PORT_FILE = resolve(import.meta.dirname, ".e2e-port");
  * Cleanup runs in `use()` teardown regardless of pass/fail, and swallows
  * individual close errors so a partial teardown doesn't suppress others.
  */
+/**
+ * Helper used by every fixture below. Subscribes at the context level so
+ * pages opened later in the test (`ctx.newPage()` from `multiTab`, etc.)
+ * are tracked too. Returns the live errors array; the fixture asserts on
+ * it at teardown.
+ *
+ * Only `pageerror` — not `console.error`. console.error mixes app signal
+ * with framework/browser noise (HTTP auto-logs without URLs, CSP, SW
+ * lifecycle, devtools nudges) and a filter list grows with every quirk,
+ * risking real-bug suppression. Unhandled rejections are unambiguous and
+ * are the actual smoking gun for silent-failure bugs (e.g. the dead "Add
+ * person" button regression — server rejected `addPerson`, the client
+ * never caught it, mutateAsync's rejection became an unhandled rejection).
+ */
+function trackContextPageErrors(ctx: BrowserContext): string[] {
+  const errors: string[] = [];
+  ctx.on("page", (page) => {
+    page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
+  });
+  return errors;
+}
+
+function assertNoPageErrors(errors: string[], who: string) {
+  if (errors.length > 0) {
+    throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+  }
+}
+
 export const test = base.extend<{
   alice: Page;
   bob: Page;
@@ -53,69 +81,63 @@ export const test = base.extend<{
     }
     await use(`http://${hostPort}`);
   },
+  // Override the built-in `context` so single-user tests using the default
+  // `page` fixture get pageerror tracking automatically — no per-test code,
+  // no per-fixture boilerplate. Playwright's default `page` fixture is
+  // derived from this `context`, so the tracking transparently applies.
+  context: async ({ context }, use) => {
+    const errors = trackContextPageErrors(context);
+    try {
+      await use(context);
+      assertNoPageErrors(errors, "context");
+    } finally {
+      // Built-in teardown closes the context.
+    }
+  },
   alice: async ({ browser }, use) => {
     const ctx = await browser.newContext();
+    const errors = trackContextPageErrors(ctx);
     const page = await ctx.newPage();
-    const errors = trackPageErrors(page);
-    await use(page);
-    assertNoPageErrors(errors, "alice");
-    await ctx.close().catch(() => {});
+    try {
+      await use(page);
+      assertNoPageErrors(errors, "alice");
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   },
   bob: async ({ browser }, use) => {
     const ctx = await browser.newContext();
+    const errors = trackContextPageErrors(ctx);
     const page = await ctx.newPage();
-    const errors = trackPageErrors(page);
-    await use(page);
-    assertNoPageErrors(errors, "bob");
-    await ctx.close().catch(() => {});
+    try {
+      await use(page);
+      assertNoPageErrors(errors, "bob");
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   },
   carol: async ({ browser }, use) => {
     const ctx = await browser.newContext();
+    const errors = trackContextPageErrors(ctx);
     const page = await ctx.newPage();
-    const errors = trackPageErrors(page);
-    await use(page);
-    assertNoPageErrors(errors, "carol");
-    await ctx.close().catch(() => {});
+    try {
+      await use(page);
+      assertNoPageErrors(errors, "carol");
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   },
   multiTab: async ({ browser }, use) => {
     const ctx = await browser.newContext();
+    const errors = trackContextPageErrors(ctx);
     const admin = await ctx.newPage();
-    const errors = trackPageErrors(admin);
-    await use({ ctx, admin });
-    assertNoPageErrors(errors, "multiTab.admin");
-    await ctx.close().catch(() => {});
+    try {
+      await use({ ctx, admin });
+      assertNoPageErrors(errors, "multiTab");
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   },
 });
-
-// Catches silent failures: a server-side TRPCError that the client surfaces
-// only as an `error` console.log and the user sees as a no-op (e.g. dead
-// "Add person" button regression in PR #115). Tests that don't explicitly
-// assert against the failed UX still fail at teardown.
-function trackPageErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
-  page.on("console", (msg) => {
-    if (msg.type() !== "error") return;
-    const text = msg.text();
-    // Filter framework noise that fires on every page load and is unrelated
-    // to test correctness:
-    //   - React DevTools download nudge
-    //   - Workbox / service-worker lifecycle logs
-    //   - 404s on optional assets (Failed to load resource)
-    //   - CSP violations from data:-URI background images in screenshot.css
-    //     (intentional noise filter; meta-csp is strict in dev)
-    if (/Download the React DevTools|workbox|skipWaiting|Failed to load resource|Content Security Policy/i.test(text)) {
-      return;
-    }
-    errors.push(`console.error: ${text}`);
-  });
-  return errors;
-}
-
-function assertNoPageErrors(errors: string[], who: string) {
-  if (errors.length > 0) {
-    throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
-  }
-}
 
 export { expect };

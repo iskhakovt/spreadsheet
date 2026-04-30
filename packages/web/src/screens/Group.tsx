@@ -48,7 +48,7 @@ export function Group({
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<{ url: string; name: string } | null>(null);
   const { copiedIndex, copy } = useCopy();
 
   const addPersonMutation = useMutation(
@@ -63,15 +63,11 @@ export function Group({
     ? ANATOMY_LABEL_PRESETS[group.anatomyLabels as AnatomyLabels]
     : ANATOMY_LABEL_PRESETS.anatomical;
 
-  // Post-isReady: admin may have returned to this screen. Branch the title +
-  // primary CTA by their own progress. `hasAnswers` reads localStorage — the
-  // per-person source of truth for partial answers not yet flushed to server.
-  // Branch on isAdminReady (server-truth: setupAdmin finalized the group), not
-  // the client-computed isReady which also requires allAnatomySet. Otherwise
-  // we'd show "Add person" while server-side addPerson rejects (group already
-  // finalized), leaving a dead button on screen.
-  // Members includes self, so partners = total - 1. Floor at 1 so the
-  // admin-only edge case (no partners added yet) defaults to singular wording.
+  // Branch on isAdminReady (server: setupAdmin finalized), not the client's
+  // isReady (which also requires allAnatomySet) — otherwise we'd show "Add
+  // person" while the server rejects, leaving a dead button.
+  // partnerCount excludes self; min 1 so the unreachable admin-only state
+  // still yields singular wording.
   const partnerCount = Math.max(1, members.length - 1);
   const title = group.isAdminReady ? UI.group.titleReady : UI.group.title(partnerCount);
   const answers = useAnswers();
@@ -96,7 +92,7 @@ export function Group({
       anatomy: encAnatomy,
       isAdmin,
     });
-    setGeneratedLink(buildPersonLink(result.token));
+    setGeneratedLink({ url: buildPersonLink(result.token), name });
     setName("");
     setAnatomy("");
     setIsAdmin(false);
@@ -146,14 +142,12 @@ export function Group({
         {/* Generated link */}
         {generatedLink && (
           <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-3">
-            <p className="text-sm text-text-muted">
-              {partnerCount === 1 ? "Share this link with your partner:" : "Share this link with them:"}
-            </p>
+            <p className="text-sm text-text-muted">Share this link with {generatedLink.name}:</p>
             <CopyLinkField
-              value={generatedLink}
-              label={partnerCount === 1 ? "Partner's invite link" : "Invite link"}
+              value={generatedLink.url}
+              label={`${generatedLink.name}'s invite link`}
               copied={copiedIndex !== null}
-              onCopy={() => copy(generatedLink)}
+              onCopy={() => copy(generatedLink.url)}
             />
           </div>
         )}
