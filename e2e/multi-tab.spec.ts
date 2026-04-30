@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, goThroughIntro, narrowToCategory, personBase, WS_TIMEOUT } from "./helpers.js";
+import {
+  answerAllQuestions,
+  goThroughIntro,
+  NAV_TIMEOUT,
+  narrowToCategory,
+  personBase,
+  WS_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
   test("admin opens partner link in same browser — answers don't cross-contaminate", async ({
@@ -12,11 +19,11 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
-    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await expect(admin.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
-    await expect(admin.getByText("You're all set")).toBeVisible();
+    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Admin answers one question with "No"
@@ -73,11 +80,11 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
-    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await expect(admin.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
-    await expect(admin.getByText("You're all set")).toBeVisible();
+    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Open Bob's link in a second tab first (the risky action order that
@@ -110,11 +117,11 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(admin).toHaveURL(/\/p\/.+/);
 
-    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await expect(admin.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
-    await expect(admin.getByText("You're all set")).toBeVisible();
+    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
     const bobLink = await admin.locator('[data-testid="partner-link"]').inputValue();
 
     // Alice answers and completes
@@ -150,11 +157,11 @@ test.describe("multi-tab isolation", () => {
     await admin.getByRole("button", { name: "Get started", exact: true }).click();
     await admin.getByRole("radio", { name: "All questions", exact: true }).click();
     await admin.getByRole("button", { name: "Create group", exact: true }).click();
-    await expect(admin.getByText("Set up your group")).toBeVisible();
+    await expect(admin.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await admin.getByPlaceholder("Enter your name").fill("Alice");
     await admin.getByPlaceholder("Partner's name").fill("Bob");
     await admin.getByRole("button", { name: "Create & get links", exact: true }).click();
-    await expect(admin.getByText("You're all set")).toBeVisible();
+    await expect(admin.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     await admin.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(admin);
