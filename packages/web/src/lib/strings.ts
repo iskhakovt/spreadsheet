@@ -1,10 +1,10 @@
 // All UI text in one place — ready for i18n later.
 export const UI = {
   appName: "Spreadsheet",
-  tagline: "Discover what you're all into",
+  tagline: "Discover what you're into",
   landing: {
     description:
-      "A yes/no/maybe list for couples and groups. Rate activities privately, then see only the things you all want to try.",
+      "A yes/no/maybe list for couples and groups. Rate activities privately, then see only the things you want to try.",
     getStarted: "Get started",
   },
   createGroup: {
@@ -21,7 +21,7 @@ export const UI = {
     steps: [
       "You'll see activities one at a time",
       "Rate each one honestly — there are no wrong answers",
-      "You'll only see things everyone wants to try",
+      "You'll only see your matches",
       "Take your time. You can pause and come back anytime.",
     ],
     start: "Let's go",
