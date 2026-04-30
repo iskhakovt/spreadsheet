@@ -2,7 +2,6 @@
 
 ## Next
 
-- [ ] `p3` Consider replacing `window.__ENV` inline injection with a startup-generated `env-config.js` static file to avoid the route-ordering dependency on `serveStatic`
 - [ ] `p3` E2E test for `REQUIRE_ENCRYPTION=true` enforcement path — server injects flag → browser shows disabled checkbox → `groups.create` correctly sends `encrypted: true`
 - [ ] `p3` `requiresGroupAnatomy` field for group-composition gating — a few questions (`pull-out`, `condoms-always`, fertility) currently render for groups that physically can't produce pregnancy. Per-person `targetGive`/`targetReceive` doesn't fully express "both anatomies must coexist". Small schema add + filter in `visibleSides`, ~5 questions migrated.
 - [ ] `p3` Memoize Comparison match rows — every WS journal push triggers a full `PairComparison` re-render and all ~20-50 match rows recompute. Extract row JSX into a memoized component. Profile first: only worth it if RUM or React Profiler shows lag during active sessions.

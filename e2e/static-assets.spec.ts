@@ -43,4 +43,49 @@ test.describe("static assets + meta-tag variants", () => {
     expect(html).toContain("You\u2019ve been invited");
     expect(html).not.toContain('property="og:image" content="/og-image.png"');
   });
+
+  test("/env-config.js sets window.__ENV with no-store caching", async ({ request, baseURL }) => {
+    const res = await request.get(`${baseURL}/env-config.js`);
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"]).toMatch(/^application\/javascript\b/i);
+    // no-store: a stale CDN/proxy copy would defeat the whole point of
+    // runtime-flippable flags (TIP_JAR_URL, REQUIRE_ENCRYPTION).
+    expect(res.headers()["cache-control"]).toBe("no-store");
+    const body = await res.text();
+    expect(body).toMatch(/^window\.__ENV=\{.*\};$/s);
+    // Both runtime keys are always present (default values when env vars unset).
+    expect(body).toContain("REQUIRE_ENCRYPTION");
+    expect(body).toContain("TIP_JAR_URL");
+  });
+
+  test("/ HTML references /env-config.js via parser-blocking script tag", async ({ request, baseURL }) => {
+    const res = await request.get(`${baseURL}/`);
+    const html = await res.text();
+    // Must be a <script src="...">, not inline, so CSP can stay
+    // `script-src 'self'` with no per-deploy hash. No async/defer so
+    // window.__ENV is set synchronously before the main bundle parses.
+    expect(html).toContain('<script src="/env-config.js"></script>');
+    expect(html).not.toMatch(/<script[^>]*>\s*window\.__ENV/);
+  });
+
+  test("loading / actually populates window.__ENV in the browser", async ({ page }) => {
+    // Belt-and-suspenders for the parser-blocking script tag: HTTP text
+    // assertions don't catch a regression where the file is served but
+    // the browser refuses to execute it (CSP, MIME sniffing, etc.).
+    await page.goto("/");
+    const env = await page.evaluate(() => window.__ENV);
+    expect(env).toBeDefined();
+    expect(env).toHaveProperty("REQUIRE_ENCRYPTION");
+    expect(env).toHaveProperty("TIP_JAR_URL");
+  });
+
+  test("service worker precache manifest excludes /env-config.js", async ({ request, baseURL }) => {
+    // If the SW ever precached env-config.js, flag flips would be
+    // invisible to anyone whose SW already installed — they'd keep
+    // serving the build-time stub forever. globIgnores in vite.config
+    // is what prevents this; assert the result.
+    const res = await request.get(`${baseURL}/sw.js`);
+    expect(res.status()).toBe(200);
+    expect(await res.text()).not.toContain("env-config");
+  });
 });
