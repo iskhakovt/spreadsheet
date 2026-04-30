@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
@@ -35,21 +34,16 @@ const stores = {
   questions: new QuestionStore(db),
 };
 
-// Runtime config injected into index.html as window.__ENV. Replace
-// every `<` with the JSON unicode escape so a string value containing
-// `</script>` cannot terminate the inline <script> tag and inject
-// arbitrary HTML/JS. The browser's JS parser unescapes back to `<`
-// when it evaluates the literal, so runtime semantics are unchanged
-// — only the HTML parser sees a different byte sequence and refuses
-// to break out. The CSP hash below is computed on the escaped
-// content, so it stays consistent end-to-end.
-const runtimeEnv = JSON.stringify({
+// Runtime config served as a separate /env-config.js file rather than inlined
+// into index.html. The HTML references it with a parser-blocking
+// `<script src="/env-config.js">` so window.__ENV is set before the main
+// bundle parses. Decoupling env from the HTML lets `script-src 'self'` cover
+// it (no per-deploy hash) and removes the ordering requirement that the /
+// and /index.html routes had to come before serveStatic.
+const envConfigJs = `window.__ENV=${JSON.stringify({
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
   TIP_JAR_URL: process.env.TIP_JAR_URL ?? null,
-}).replace(/</g, "\\u003c");
-const envScriptContent = `window.__ENV=${runtimeEnv}`;
-const envScript = `<script>${envScriptContent}</script>`;
-const envScriptHash = createHash("sha256").update(envScriptContent).digest("base64");
+})};`;
 
 const app = new Hono<HonoLoggerEnv>();
 
@@ -59,7 +53,7 @@ app.use("*", async (c, next) => {
   await next();
   c.header(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self' 'sha256-${envScriptHash}'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
   );
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
@@ -91,14 +85,11 @@ app.use(
 //   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
 // Messenger crawlers (Facebook, iMessage, WhatsApp) fetch og:image from the
 // HTML at the invite URL, so per-token links unfurl with invite-framed copy.
-//
-// Registered BEFORE serveStatic so that / and /index.html are always served
-// through this handler (with window.__ENV injected) rather than the raw file.
 let indexHtmlDefault: string | null = null;
 let indexHtmlInvite: string | null = null;
 const staticRoot = process.env.STATIC_ROOT ?? "../web/dist";
 try {
-  const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8").replace("</head>", `${envScript}</head>`);
+  const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8");
   indexHtmlDefault = renderIndex(raw, {
     ogImage: "/og-image.png",
     ogTitle: "Spreadsheet",
@@ -124,15 +115,14 @@ const { serveBootstrap, serveDefault } = makeSpaRoutes(indexHtmlInvite, indexHtm
 // per-person httpOnly session cookie, serves the invite-flavoured HTML.
 // Client-side `replaceState`s the URL to root once it's read its session
 // identity (the hash) — see web-side bootstrap route.
+//
+// Registered before serveStatic so the per-token cookie is always set and
+// the invite-flavoured OG meta is served, even though /p/* doesn't exist
+// as a file in dist/.
 app.get("/p/:token", serveBootstrap);
 app.get("/p/:token/*", serveBootstrap);
 
-// Explicit routes for the HTML entry points — must come before serveStatic so
-// serveStatic never intercepts index.html and strips window.__ENV.
-app.get("/", serveDefault);
-app.get("/index.html", serveDefault);
-
-// Static files
+// Static files (handles /, /index.html, /assets/*, /favicon.svg, etc.).
 app.use(
   "/*",
   serveStatic({
@@ -149,6 +139,16 @@ app.use(
     },
   }),
 );
+
+// Runtime env config — served only when no static file at this path exists,
+// so a stray dist/env-config.js can never shadow the live values. `no-store`
+// because flipping a flag (e.g. TIP_JAR_URL) without a rebuild is the whole
+// point of this file; any cached copy defeats it.
+app.get("/env-config.js", (c) => {
+  c.header("Content-Type", "application/javascript; charset=utf-8");
+  c.header("Cache-Control", "no-store");
+  return c.body(envConfigJs);
+});
 
 // SPA fallback for all remaining non-/p/ routes (e.g. /setup, /results, /group).
 app.get("/*", serveDefault);
