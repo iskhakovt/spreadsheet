@@ -140,10 +140,13 @@ app.use(
   }),
 );
 
-// Runtime env config — served only when no static file at this path exists,
-// so a stray dist/env-config.js can never shadow the live values. `no-store`
-// because flipping a flag (e.g. TIP_JAR_URL) without a rebuild is the whole
-// point of this file; any cached copy defeats it.
+// Runtime env config — registered after serveStatic, so a static file at
+// dist/env-config.js (if one ever ended up there) would win and shadow these
+// live values. Today nothing in the build pipeline emits that name into dist/,
+// which is why this works; if that ever changes, either delete the static
+// file at startup or move this route above serveStatic. `no-store` because
+// flipping a flag (e.g. TIP_JAR_URL) without a rebuild is the whole point of
+// this file; any cached copy defeats it.
 app.get("/env-config.js", (c) => {
   c.header("Content-Type", "application/javascript; charset=utf-8");
   c.header("Cache-Control", "no-store");
