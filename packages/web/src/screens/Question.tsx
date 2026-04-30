@@ -8,7 +8,7 @@ import { encodeValue } from "../lib/crypto.js";
 import { usePersonApp } from "../lib/person-app-context.js";
 import { useScrollReset } from "../lib/route-reset.js";
 import {
-  addPendingOp,
+  addPendingOpForKey,
   getCurrentScreenKey,
   getPendingOps,
   getSelectedCategories,
@@ -281,7 +281,7 @@ export function Question({
     if (current.type !== "question") return;
     setAnswer(current.key, answer);
     const op = await encodeValue({ key: current.key, data: answer } satisfies OperationPayload);
-    addPendingOp(op);
+    addPendingOpForKey(op, current.key);
   }
 
   function advance() {
