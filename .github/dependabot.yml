@@ -16,8 +16,62 @@ updates:
     #
     # Majors stay ungrouped — they deserve individual review.
     # Security and version updates can't share a group (Dependabot rule),
-    # hence the third group.
+    # hence the security group.
+    #
+    # Family-specific groups precede the catch-alls so peer-dep-coupled
+    # packages (tanstack, trpc, drizzle, etc.) merge into a single PR even
+    # when Dependabot's broad grouping splits them — observed with
+    # @tanstack/react-query + devtools and @trpc/client + tanstack-react-query
+    # arriving as separate PRs despite matching npm-minor.
     groups:
+      tanstack:
+        applies-to: version-updates
+        patterns: ["@tanstack/*"]
+        update-types: ["minor", "patch"]
+      trpc:
+        applies-to: version-updates
+        patterns: ["@trpc/*"]
+        update-types: ["minor", "patch"]
+      sentry:
+        applies-to: version-updates
+        patterns: ["@sentry/*"]
+        update-types: ["minor", "patch"]
+      hono:
+        applies-to: version-updates
+        patterns: ["hono", "@hono/*"]
+        update-types: ["minor", "patch"]
+      drizzle:
+        applies-to: version-updates
+        patterns: ["drizzle-orm", "drizzle-kit"]
+        update-types: ["minor", "patch"]
+      testcontainers:
+        applies-to: version-updates
+        patterns: ["testcontainers", "@testcontainers/*"]
+        update-types: ["minor", "patch"]
+      vite:
+        applies-to: version-updates
+        patterns: ["vite", "@vitejs/*", "vite-plugin-*", "@tailwindcss/vite"]
+        update-types: ["minor", "patch"]
+      vitest:
+        applies-to: version-updates
+        patterns: ["vitest", "@vitest/*", "vitest-mock-extended"]
+        update-types: ["minor", "patch"]
+      react:
+        applies-to: version-updates
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["minor", "patch"]
+      pino:
+        applies-to: version-updates
+        patterns: ["pino", "pino-pretty"]
+        update-types: ["minor", "patch"]
+      testing-library:
+        applies-to: version-updates
+        patterns: ["@testing-library/*"]
+        update-types: ["minor", "patch"]
+      stylelint:
+        applies-to: version-updates
+        patterns: ["stylelint", "stylelint-*", "@dreamsicle.io/stylelint-*"]
+        update-types: ["minor", "patch"]
       npm-patch:
         applies-to: version-updates
         patterns: ["*"]
