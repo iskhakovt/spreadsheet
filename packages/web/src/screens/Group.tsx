@@ -66,6 +66,8 @@ export function Group({
   // Post-isReady: admin may have returned to this screen. Branch the title +
   // primary CTA by their own progress. `hasAnswers` reads localStorage — the
   // per-person source of truth for partial answers not yet flushed to server.
+  // Members includes self, so partners = total - 1. Floor at 1 so the
+  // admin-only edge case (no partners added yet) defaults to singular wording.
   const partnerCount = Math.max(1, members.length - 1);
   const title = group.isReady ? UI.group.titleReady : UI.group.title(partnerCount);
   const answers = useAnswers();
