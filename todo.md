@@ -2,8 +2,6 @@
 
 ## Next
 
-- [ ] `p3` E2E test for `REQUIRE_ENCRYPTION=true` enforcement path — server injects flag → browser shows disabled checkbox → `groups.create` correctly sends `encrypted: true`
-
 ## Later
 
 - [ ] `p2` Rotate person token on first land — admin currently knows partner tokens (returned by `setupAdmin`), so they could use a partner's token to read unsubmitted answers via the sync journal. Rotating the token when the partner first opens their link would close this.

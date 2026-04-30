@@ -58,6 +58,22 @@ function tokenFromUrl(url: string): string {
   return match[1];
 }
 
+/**
+ * Stub `/env-config.js` to set `window.__ENV.REQUIRE_ENCRYPTION` to the given
+ * value, simulating a deployment with the flag flipped without restarting the
+ * server. Must be called before `page.goto("/")` so the route is registered
+ * when the parser-blocking script tag fires.
+ */
+export async function stubRequireEncryption(page: Page, value: boolean): Promise<void> {
+  await page.route("**/env-config.js", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript; charset=utf-8",
+      body: `window.__ENV=${JSON.stringify({ REQUIRE_ENCRYPTION: value })};`,
+    }),
+  );
+}
+
 /** Extract the /p/{token} base path from a full URL. */
 export function personBase(url: string): string {
   const match = url.match(/(\/p\/[^/#?]+)/);
