@@ -519,7 +519,7 @@ questions:
     receiveText: Trusting partner to withdraw before ejaculation
     targetGive: amab
     targetReceive: afab
-    description: Withdrawal before ejaculation as the contraception strategy
+    description: Withdrawal before ejaculation as the contraception strategy — low efficacy on its own; discuss alongside birth control
     requiresGroupAnatomy: [amab, afab]
     requires: sex-generally
 
