@@ -56,27 +56,66 @@ export const test = base.extend<{
   alice: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    const errors = trackPageErrors(page);
     await use(page);
+    assertNoPageErrors(errors, "alice");
     await ctx.close().catch(() => {});
   },
   bob: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    const errors = trackPageErrors(page);
     await use(page);
+    assertNoPageErrors(errors, "bob");
     await ctx.close().catch(() => {});
   },
   carol: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    const errors = trackPageErrors(page);
     await use(page);
+    assertNoPageErrors(errors, "carol");
     await ctx.close().catch(() => {});
   },
   multiTab: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const admin = await ctx.newPage();
+    const errors = trackPageErrors(admin);
     await use({ ctx, admin });
+    assertNoPageErrors(errors, "multiTab.admin");
     await ctx.close().catch(() => {});
   },
 });
+
+// Catches silent failures: a server-side TRPCError that the client surfaces
+// only as an `error` console.log and the user sees as a no-op (e.g. dead
+// "Add person" button regression in PR #115). Tests that don't explicitly
+// assert against the failed UX still fail at teardown.
+function trackPageErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
+  page.on("console", (msg) => {
+    if (msg.type() !== "error") return;
+    const text = msg.text();
+    // Filter framework noise that fires on every page load and is unrelated
+    // to test correctness:
+    //   - React DevTools download nudge
+    //   - Workbox / service-worker lifecycle logs
+    //   - 404s on optional assets (Failed to load resource)
+    //   - CSP violations from data:-URI background images in screenshot.css
+    //     (intentional noise filter; meta-csp is strict in dev)
+    if (/Download the React DevTools|workbox|skipWaiting|Failed to load resource|Content Security Policy/i.test(text)) {
+      return;
+    }
+    errors.push(`console.error: ${text}`);
+  });
+  return errors;
+}
+
+function assertNoPageErrors(errors: string[], who: string) {
+  if (errors.length > 0) {
+    throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+  }
+}
 
 export { expect };

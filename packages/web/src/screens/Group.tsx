@@ -24,7 +24,7 @@ import { useCopy } from "../lib/use-copy.js";
 interface GroupProps {
   members: Member[];
   person: Pick<Person, "isCompleted">;
-  group: Pick<GroupData, "encrypted" | "isReady" | "questionMode" | "anatomyLabels" | "anatomyPicker">;
+  group: Pick<GroupData, "encrypted" | "isReady" | "isAdminReady" | "questionMode" | "anatomyLabels" | "anatomyPicker">;
   token: string;
   onGroupReady: () => void;
   onStartFilling: () => void;
@@ -66,10 +66,14 @@ export function Group({
   // Post-isReady: admin may have returned to this screen. Branch the title +
   // primary CTA by their own progress. `hasAnswers` reads localStorage — the
   // per-person source of truth for partial answers not yet flushed to server.
+  // Branch on isAdminReady (server-truth: setupAdmin finalized the group), not
+  // the client-computed isReady which also requires allAnatomySet. Otherwise
+  // we'd show "Add person" while server-side addPerson rejects (group already
+  // finalized), leaving a dead button on screen.
   // Members includes self, so partners = total - 1. Floor at 1 so the
   // admin-only edge case (no partners added yet) defaults to singular wording.
   const partnerCount = Math.max(1, members.length - 1);
-  const title = group.isReady ? UI.group.titleReady : UI.group.title(partnerCount);
+  const title = group.isAdminReady ? UI.group.titleReady : UI.group.title(partnerCount);
   const answers = useAnswers();
   const hasAnswers = Object.keys(answers).length > 0;
   const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
@@ -210,13 +214,13 @@ export function Group({
               </Button>
             </div>
           </form>
-        ) : !group.isReady ? (
+        ) : !group.isAdminReady ? (
           <Button variant="neutral" fullWidth onClick={() => setShowAdd(true)}>
             {UI.group.addPerson}
           </Button>
         ) : null}
 
-        {group.isReady ? (
+        {group.isAdminReady ? (
           <Button fullWidth onClick={primaryCtaProps.onClick}>
             {primaryCtaProps.label}
           </Button>
