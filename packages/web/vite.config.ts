@@ -41,7 +41,11 @@ function rasterizeOG(): Plugin {
 
 export default defineConfig({
   plugins: [
-    tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    tanstackRouter({
+      target: "react",
+      autoCodeSplitting: true,
+      routeFileIgnorePattern: "\\.(test|spec)\\.",
+    }),
     react({
       babel: {
         plugins: [["babel-plugin-react-compiler", {}]],
