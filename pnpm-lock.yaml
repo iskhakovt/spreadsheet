@@ -53,13 +53,13 @@ importers:
         version: 2.0.1(hono@4.12.16)
       '@hono/trpc-server':
         specifier: ^0.4.0
-        version: 0.4.2(@trpc/server@11.16.0(typescript@6.0.3))(hono@4.12.16)
+        version: 0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.16)
       '@spreadsheet/shared':
         specifier: workspace:*
         version: link:../shared
       '@trpc/server':
-        specifier: ^11.16.0
-        version: 11.16.0(typescript@6.0.3)
+        specifier: ^11.17.0
+        version: 11.17.0(typescript@6.0.3)
       cookie-es:
         specifier: ^3.1.1
         version: 3.1.1
@@ -147,17 +147,17 @@ importers:
         specifier: ^1.168.26
         version: 1.168.26(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@trpc/client':
-        specifier: ^11.16.0
-        version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
+        specifier: ^11.17.0
+        version: 11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3)
       '@trpc/tanstack-react-query':
-        specifier: 11.16.0
-        version: 11.16.0(@tanstack/react-query@5.100.6(react@19.2.5))(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)
+        specifier: 11.17.0
+        version: 11.17.0(@tanstack/react-query@5.100.6(react@19.2.5))(@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.17.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       lucide-react:
-        specifier: ^1.8.0
-        version: 1.8.0(react@19.2.5)
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.5)
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -190,8 +190,8 @@ importers:
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@trpc/server':
-        specifier: 11.16.0
-        version: 11.16.0(typescript@6.0.3)
+        specifier: 11.17.0
+        version: 11.17.0(typescript@6.0.3)
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
@@ -2073,26 +2073,26 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@trpc/client@11.16.0':
-    resolution: {integrity: sha512-TxIzm7OoK3baKZ0XCbuMUbI3GhgjcbKHIc4nWVKaRpCRnbSh0T31BT6fTPYwtnA/Nur8pBCGqC2B4J5hEPiPFQ==}
+  '@trpc/client@11.17.0':
+    resolution: {integrity: sha512-KpJBFrbKTDeVCFv/3ckL1XBBH5Yssn8hethI/rUy7GIpTj+VzjtPjykDqJpzobuVOz+d26cXCSu1t4I6MYI5Zg==}
     hasBin: true
     peerDependencies:
-      '@trpc/server': 11.16.0
+      '@trpc/server': 11.17.0
       typescript: '>=5.7.2'
 
-  '@trpc/server@11.16.0':
-    resolution: {integrity: sha512-XgGuUMddrUTd04+za/WE5GFuZ1/YU9XQG0t3VL5WOIu2JspkOlq6k4RYEiqS6HSJt+S0RXaPdIoE2anIP/BBRQ==}
+  '@trpc/server@11.17.0':
+    resolution: {integrity: sha512-jbAOUe0PpUTCYqziyu+8vYXZdDXPudZgnEhWCQ2NjKnVEjfE93RqHTt1oycZJv/HNf51YlRXfEEwSIAbb161rw==}
     hasBin: true
     peerDependencies:
       typescript: '>=5.7.2'
 
-  '@trpc/tanstack-react-query@11.16.0':
-    resolution: {integrity: sha512-kfNYJ5NCk67tmRCO/QWCycJmRamuEKmZf1HRG8yCBl8aTJdTwVq7l6AffFIMab3Q+NmQzwP8XXkAEK/EelKYOA==}
+  '@trpc/tanstack-react-query@11.17.0':
+    resolution: {integrity: sha512-OFxjvCgisP0yaCj7lgP6qPaFwJvJDgnrAUxH3cNIPPR89TpYbndn5vsdKNkc7EnvER9b6wq9Yz8aCcPcOBpDXg==}
     hasBin: true
     peerDependencies:
       '@tanstack/react-query': ^5.80.3
-      '@trpc/client': 11.16.0
-      '@trpc/server': 11.16.0
+      '@trpc/client': 11.17.0
+      '@trpc/server': 11.17.0
       react: '>=18.2.0'
       typescript: '>=5.7.2'
 
@@ -3479,8 +3479,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-react@1.8.0:
-    resolution: {integrity: sha512-WuvlsjngSk7TnTBJ1hsCy3ql9V9VOdcPkd3PKcSmM34vJD8KG6molxz7m7zbYFgICwsanQWmJ13JlYs4Zp7Arw==}
+  lucide-react@1.14.0:
+    resolution: {integrity: sha512-+1mdWcfSJVUsaTIjN9zoezmUhfXo5l0vP7ekBMPo3jcS/aIkxHnXqAPsByszMZx/Y8oQBRJxJx5xg+RH3urzxA==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -5738,9 +5738,9 @@ snapshots:
     dependencies:
       hono: 4.12.16
 
-  '@hono/trpc-server@0.4.2(@trpc/server@11.16.0(typescript@6.0.3))(hono@4.12.16)':
+  '@hono/trpc-server@0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.16)':
     dependencies:
-      '@trpc/server': 11.16.0(typescript@6.0.3)
+      '@trpc/server': 11.17.0(typescript@6.0.3)
       hono: 4.12.16
 
   '@isaacs/cliui@8.0.2':
@@ -6347,20 +6347,20 @@ snapshots:
       '@types/react': 19.2.14
       '@types/react-dom': 19.2.3(@types/react@19.2.14)
 
-  '@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)':
+  '@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3)':
     dependencies:
-      '@trpc/server': 11.16.0(typescript@6.0.3)
+      '@trpc/server': 11.17.0(typescript@6.0.3)
       typescript: 6.0.3
 
-  '@trpc/server@11.16.0(typescript@6.0.3)':
+  '@trpc/server@11.17.0(typescript@6.0.3)':
     dependencies:
       typescript: 6.0.3
 
-  '@trpc/tanstack-react-query@11.16.0(@tanstack/react-query@5.100.6(react@19.2.5))(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)':
+  '@trpc/tanstack-react-query@11.17.0(@tanstack/react-query@5.100.6(react@19.2.5))(@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.17.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)':
     dependencies:
       '@tanstack/react-query': 5.100.6(react@19.2.5)
-      '@trpc/client': 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
-      '@trpc/server': 11.16.0(typescript@6.0.3)
+      '@trpc/client': 11.17.0(@trpc/server@11.17.0(typescript@6.0.3))(typescript@6.0.3)
+      '@trpc/server': 11.17.0(typescript@6.0.3)
       react: 19.2.5
       typescript: 6.0.3
 
@@ -7747,7 +7747,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@1.8.0(react@19.2.5):
+  lucide-react@1.14.0(react@19.2.5):
     dependencies:
       react: 19.2.5
 

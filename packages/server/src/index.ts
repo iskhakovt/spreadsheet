@@ -11,6 +11,7 @@ import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
 import { registry, wsConnectionsGauge } from "./metrics.js";
+import { outboundHandler } from "./outbound.js";
 import { requestLogger } from "./request-logger.js";
 import { makeSpaRoutes } from "./spa-routes.js";
 import { GroupStore } from "./store/groups.js";
@@ -42,7 +43,6 @@ const stores = {
 // and /index.html routes had to come before serveStatic.
 const envConfigJs = `window.__ENV=${JSON.stringify({
   REQUIRE_ENCRYPTION: process.env.REQUIRE_ENCRYPTION !== "false",
-  TIP_JAR_URL: process.env.TIP_JAR_URL ?? null,
 })};`;
 
 const app = new Hono<HonoLoggerEnv>();
@@ -79,6 +79,11 @@ app.use(
     createContext: (_opts, c) => createContext(stores, c),
   }),
 );
+
+// Outbound click proxy — same-origin redirect with hardcoded allowlist of
+// destinations (source repo, tip jar). Increments a Prometheus counter so
+// click-through is visible without third-party analytics.
+app.get("/api/out", outboundHandler);
 
 // SPA fallback. Two pre-rendered variants:
 //   default — landing & free routes: og:image = /og-image.png, standard copy
@@ -145,8 +150,8 @@ app.use(
 // live values. Today nothing in the build pipeline emits that name into dist/,
 // which is why this works; if that ever changes, either delete the static
 // file at startup or move this route above serveStatic. `no-store` because
-// flipping a flag (e.g. TIP_JAR_URL) without a rebuild is the whole point of
-// this file; any cached copy defeats it.
+// flipping a flag (e.g. REQUIRE_ENCRYPTION) without a rebuild is the whole
+// point of this file; any cached copy defeats it.
 app.get("/env-config.js", (c) => {
   c.header("Content-Type", "application/javascript; charset=utf-8");
   c.header("Cache-Control", "no-store");
