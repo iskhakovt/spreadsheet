@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adoptSession, getScope } from "./session.js";
 import {
   addPendingOp,
+  addPendingOpForKey,
   clearPendingOps,
+  drainPendingOps,
+  getPendingOps,
   setAnswer,
   setAnswers,
   setPendingOps,
@@ -110,5 +113,99 @@ describe("usePendingOps", () => {
     const { result } = renderHook(() => usePendingOps());
     act(() => setPendingOps(["a", "b", "c"]));
     expect(result.current).toEqual(["a", "b", "c"]);
+  });
+});
+
+// Realistic op encoder used to test key-aware dedup. Mirrors the wire
+// shape produced by `encodeValue({ key, data: ... })` for plaintext
+// groups — a `p:1:` prefix followed by JSON containing `key`.
+function plain(key: string, note: string): string {
+  return `p:1:${JSON.stringify({ key, data: { rating: "yes", timing: null, note } })}`;
+}
+function encrypted(label: string): string {
+  // Stand-in for `e:1:` ciphertext. The label is opaque to the index —
+  // it can't extract a key from this, only the producer can via
+  // `addPendingOpForKey`.
+  return `e:1:${label}`;
+}
+
+describe("addPendingOpForKey — dedup", () => {
+  it("replaces an earlier same-key op instead of appending a duplicate", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
+    addPendingOpForKey(plain("oral:give", "abc"), "oral:give");
+    expect(getPendingOps()).toEqual([plain("oral:give", "abc")]);
+  });
+
+  it("keeps ops for distinct keys", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    addPendingOpForKey(plain("kissing:mutual", "b"), "kissing:mutual");
+    addPendingOpForKey(plain("oral:give", "aa"), "oral:give");
+    expect(getPendingOps()).toEqual([plain("kissing:mutual", "b"), plain("oral:give", "aa")]);
+  });
+
+  it("dedups encrypted ops within a session even though the key isn't recoverable from the cipher", () => {
+    addPendingOpForKey(encrypted("c1"), "oral:give");
+    addPendingOpForKey(encrypted("c2"), "kissing:mutual");
+    addPendingOpForKey(encrypted("c3"), "oral:give");
+    expect(getPendingOps()).toEqual([encrypted("c2"), encrypted("c3")]);
+  });
+
+  it("rebuilds the index from pre-existing p:1: ops on first call after a fresh module state", () => {
+    // Simulate an already-populated queue (e.g. left over from a previous
+    // session where we don't have an in-memory index yet) by writing
+    // through `setPendingOps` — that explicitly clears the index, so the
+    // next `addPendingOpForKey` is forced to seed from the queue.
+    setPendingOps([plain("oral:give", "x"), plain("kissing:mutual", "y")]);
+    addPendingOpForKey(plain("oral:give", "xx"), "oral:give");
+    expect(getPendingOps()).toEqual([plain("kissing:mutual", "y"), plain("oral:give", "xx")]);
+  });
+
+  it("falls back to append when the indexed position no longer matches (cross-tab race)", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    // Another tab rewrites the queue entirely. Our index believes
+    // "oral:give" is at position 0, but the actual op there is now
+    // unrelated.
+    setPendingOps(["e:1:foreign-tab-op"]);
+    // The next keyed enqueue must NOT splice position 0 (which is now
+    // someone else's encrypted op). `setPendingOps` cleared the index, so
+    // the rebuilt index seeds only from `p:1:` ops in the fresh queue —
+    // there are none — and we append safely.
+    addPendingOpForKey(plain("oral:give", "b"), "oral:give");
+    expect(getPendingOps()).toEqual(["e:1:foreign-tab-op", plain("oral:give", "b")]);
+  });
+
+  it("addPendingOp without a key still appends and invalidates the index", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    // A keyless append (legacy path or tests). Subsequent dedup must
+    // notice that positions shifted and not splice the wrong op.
+    addPendingOp("p:1:other");
+    addPendingOpForKey(plain("oral:give", "b"), "oral:give");
+    // The first "oral:give" op was at index 0; after the keyless append
+    // the index was dropped. Rebuild from the queue picks it back up —
+    // the new same-key write replaces it correctly.
+    expect(getPendingOps()).toEqual(["p:1:other", plain("oral:give", "b")]);
+  });
+});
+
+describe("drainPendingOps — keeps the dedup index consistent", () => {
+  it("removes drained ops and shifts index entries for survivors", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give"); // pos 0
+    addPendingOpForKey(plain("kissing:mutual", "b"), "kissing:mutual"); // pos 1
+    addPendingOpForKey(plain("anal:give", "c"), "anal:give"); // pos 2
+
+    drainPendingOps(2);
+    expect(getPendingOps()).toEqual([plain("anal:give", "c")]);
+
+    // Survivor's index entry should still be valid: a same-key write
+    // dedups against the now-position-0 op, not phantom positions.
+    addPendingOpForKey(plain("anal:give", "cc"), "anal:give");
+    expect(getPendingOps()).toEqual([plain("anal:give", "cc")]);
+  });
+
+  it("over-drain clears the queue entirely", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    drainPendingOps(5);
+    expect(getPendingOps()).toEqual([]);
   });
 });

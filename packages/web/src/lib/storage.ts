@@ -133,6 +133,21 @@ export function setAnswer(key: string, answer: Answer | null): void {
 }
 
 // === pendingOps ===
+//
+// The queue is `string[]` of opaque ops on disk (CLAUDE.md storage-shape
+// contract — never persist anything else under this key). To dedup
+// debounced same-key writes (typing a 50-char note used to enqueue ~6
+// redundant ops) we maintain an in-memory key→position index alongside
+// the queue. The index is NOT persisted: `p:1:` ops can be rebuilt from
+// the cleartext payload on first access, and `e:1:` ops can't be
+// decrypted synchronously — accepted, since auto-sync flushes within
+// 3s and the server-side last-write-wins keeps state correct even when
+// dedup misses across reloads.
+//
+// The privacy property of `e:1:` ops is preserved: the server still
+// can't tell which question a ciphertext targets. The index lives next
+// to the plaintext answers in localStorage in spirit, but is purely
+// in-memory.
 
 export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): string[] => (raw ? JSON.parse(raw) : []));
 
@@ -143,17 +158,112 @@ export function getPendingOps(): string[] {
 export function setPendingOps(ops: string[]): void {
   setJson("pendingOps", ops);
   notifyChanged("pendingOps");
+  // External replacement: any positions we tracked are now meaningless.
+  dedupIndexes.delete(getScope() + "pendingOps");
 }
 
 export function addPendingOp(op: string): void {
   const ops = getPendingOps();
   ops.push(op);
-  setPendingOps(ops);
+  setJson("pendingOps", ops);
+  notifyChanged("pendingOps");
+  // Position-shifting append without a key invalidates the index: prior
+  // positions are still valid for prior keys, but the new op has no key
+  // we can record. Drop the index so the next keyed enqueue rebuilds.
+  dedupIndexes.delete(getScope() + "pendingOps");
+}
+
+/**
+ * Enqueue an op tagged with the answer key it targets. If a prior op
+ * for the same key is still in the queue, splice it out so only the
+ * latest write survives the next push. Server still applies
+ * last-write-wins, this just trims redundant payload.
+ *
+ * The dedup is safe under cross-tab races: the index stores both the
+ * position and the op string, and we only splice when the queue still
+ * matches what we tracked. If another tab drained or rewrote the queue
+ * mid-session, we degrade to "no dedup" rather than splice the wrong op.
+ */
+export function addPendingOpForKey(op: string, key: string): void {
+  const fullKey = getScope() + "pendingOps";
+  const ops = getPendingOps();
+  const index = ensureDedupIndex(fullKey, ops);
+
+  let next: string[];
+  const prior = index.get(key);
+  if (prior && prior.position < ops.length && ops[prior.position] === prior.op) {
+    next = [...ops.slice(0, prior.position), ...ops.slice(prior.position + 1)];
+    for (const entry of index.values()) {
+      if (entry.position > prior.position) entry.position--;
+    }
+    index.delete(key);
+  } else {
+    next = [...ops];
+  }
+
+  next.push(op);
+  index.set(key, { position: next.length - 1, op });
+  setJson("pendingOps", next);
+  notifyChanged("pendingOps");
+}
+
+/**
+ * Remove the first `count` entries from the queue and shift index
+ * positions in lockstep. Replaces the manual slice-and-setPendingOps in
+ * the sync flush path so the dedup index survives a successful drain.
+ */
+export function drainPendingOps(count: number): void {
+  const fullKey = getScope() + "pendingOps";
+  const ops = getPendingOps();
+  const drained = count >= ops.length ? [] : ops.slice(count);
+
+  const index = dedupIndexes.get(fullKey);
+  if (index) {
+    for (const [k, entry] of [...index]) {
+      if (entry.position < count) index.delete(k);
+      else entry.position -= count;
+    }
+  }
+  setJson("pendingOps", drained);
+  notifyChanged("pendingOps");
 }
 
 export function clearPendingOps(): void {
   removeRaw("pendingOps");
   notifyChanged("pendingOps");
+  dedupIndexes.delete(getScope() + "pendingOps");
+}
+
+interface DedupEntry {
+  position: number;
+  op: string;
+}
+const dedupIndexes = new Map<string, Map<string, DedupEntry>>();
+
+function ensureDedupIndex(fullKey: string, ops: readonly string[]): Map<string, DedupEntry> {
+  const existing = dedupIndexes.get(fullKey);
+  if (existing) return existing;
+  // Seed from any `p:1:` ops already in the queue — their key sits in
+  // cleartext JSON, so we can extract it without async crypto. `e:1:` ops
+  // are skipped (we'd need the group key to decrypt). On a first enqueue
+  // after reload, `p:1:` dedup works; cross-reload `e:1:` dedup is best-
+  // effort within the current session only.
+  const index = new Map<string, DedupEntry>();
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i];
+    if (!op.startsWith("p:1:")) continue;
+    try {
+      const parsed = JSON.parse(op.slice(4));
+      if (parsed && typeof parsed === "object" && typeof parsed.key === "string") {
+        index.set(parsed.key, { position: i, op });
+      }
+    } catch {
+      // Malformed cleartext — skip; the op will still send and the server
+      // can decide what to do with it.
+    }
+  }
+  dedupIndexes.set(fullKey, index);
+  return index;
 }
 
 // === stoken ===
