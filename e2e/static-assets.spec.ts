@@ -49,13 +49,11 @@ test.describe("static assets + meta-tag variants", () => {
     expect(res.status()).toBe(200);
     expect(res.headers()["content-type"]).toMatch(/^application\/javascript\b/i);
     // no-store: a stale CDN/proxy copy would defeat the whole point of
-    // runtime-flippable flags (TIP_JAR_URL, REQUIRE_ENCRYPTION).
+    // runtime-flippable flags (REQUIRE_ENCRYPTION).
     expect(res.headers()["cache-control"]).toBe("no-store");
     const body = await res.text();
     expect(body).toMatch(/^window\.__ENV=\{.*\};$/s);
-    // Both runtime keys are always present (default values when env vars unset).
     expect(body).toContain("REQUIRE_ENCRYPTION");
-    expect(body).toContain("TIP_JAR_URL");
   });
 
   test("/ HTML references /env-config.js via parser-blocking script tag", async ({ request, baseURL }) => {
@@ -76,7 +74,6 @@ test.describe("static assets + meta-tag variants", () => {
     const env = await page.evaluate(() => window.__ENV);
     expect(env).toBeDefined();
     expect(env).toHaveProperty("REQUIRE_ENCRYPTION");
-    expect(env).toHaveProperty("TIP_JAR_URL");
   });
 
   test("service worker precache manifest excludes /env-config.js", async ({ request, baseURL }) => {

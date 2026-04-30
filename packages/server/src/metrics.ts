@@ -48,3 +48,10 @@ export const resultsViewedCounter = new Counter({
   help: "Total results views",
   registers: [registry],
 });
+
+export const outboundClicksCounter = new Counter({
+  name: "outbound_clicks_total",
+  help: "Total outbound link clicks via /api/out proxy",
+  labelNames: ["dest", "placement"],
+  registers: [registry],
+});

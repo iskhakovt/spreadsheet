@@ -102,8 +102,8 @@ export function Landing() {
           </p>
 
           <div className="pt-2 inline-flex items-center gap-4">
-            <SourceLink />
-            <TipJarLink />
+            <SourceLink placement="landing" />
+            <TipJarLink placement="landing" />
           </div>
         </div>
       </div>

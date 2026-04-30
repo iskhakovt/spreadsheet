@@ -20,7 +20,6 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
 | `REQUIRE_ENCRYPTION` | No | enforced | Set to literal `false` to let the create-group form expose an encryption opt-out checkbox (dev convenience). Any other value, or unset, keeps E2E encryption mandatory. Production should leave this unset. |
-| `TIP_JAR_URL` | No | unset | Optional `http(s)://` URL — when set, a quiet "Buy me a coffee" link renders next to the GitHub source link on Landing and `/results`. Unset hides the link entirely. |
 
 Generate `STOKEN_SECRET`:
 ```bash
@@ -88,7 +87,7 @@ curl http://localhost:9090/metrics
 
 The metrics server listens on a separate port from the main app (default `9090`) so it can be firewalled off from public traffic independently. Point your Prometheus scrape config at `host:9090/metrics` and bind `METRICS_PORT` to an internal-only network interface.
 
-Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, plus Node.js default metrics (event loop lag, memory, CPU).
+Key metrics: `ws_connections_active`, `http_request_duration_seconds`, `groups_created_total`, `groups_setup_completed_total`, `sync_push_total`, `mark_complete_total`, `results_viewed_total`, `outbound_clicks_total{dest, placement}`, plus Node.js default metrics (event loop lag, memory, CPU).
 
 ## Logging
 

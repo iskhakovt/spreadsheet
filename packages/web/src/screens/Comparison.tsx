@@ -387,8 +387,8 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
         <CopyMyLink encrypted={encrypted} token={token} />
 
         <div className="text-center pt-2 inline-flex items-center justify-center gap-4 w-full">
-          <SourceLink />
-          <TipJarLink />
+          <SourceLink placement="results" />
+          <TipJarLink placement="results" />
         </div>
       </div>
     </div>
