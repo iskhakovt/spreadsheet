@@ -30,6 +30,14 @@ export function anatomySides(
       : { canGive: false, canReceive: false, canMutual: true };
   }
 
+  if (q.requiresGroupAnatomy.length > 0) {
+    const groupAnatomies = [anatomy, ...otherAnatomies].filter(Boolean);
+    const present = (needed: string) => groupAnatomies.some((a) => anatomyMatches(needed, a));
+    if (!q.requiresGroupAnatomy.every(present)) {
+      return { canGive: false, canReceive: false, canMutual: false };
+    }
+  }
+
   if (isGR) {
     const others = otherAnatomies.filter(Boolean);
     const anyOther = (target: string) => target === "all" || others.some((a) => anatomyMatches(target, a));

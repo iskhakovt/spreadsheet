@@ -45,4 +45,20 @@ test.describe("public /questions browser", () => {
 
     await expect(page).toHaveScreenshot("questions-browser-tier1.png");
   });
+
+  test("health section — group-anatomy pills rendered on gated questions", async ({ page }) => {
+    // Element-level screenshot of the Health & Safer Sex section so the new
+    // "group: amab" / "group: amab + afab" pills on condoms-always,
+    // condoms-fluid-bonded, and pull-out are pinned to a baseline. Element
+    // capture (vs. fullPage) keeps the snapshot stable as the bank grows
+    // above this section.
+    await page.goto("/questions");
+    await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible();
+
+    const heading = page.getByRole("heading", { level: 2, name: "Health & Safer Sex" });
+    await heading.scrollIntoViewIfNeeded();
+    const section = page.locator("section").filter({ has: heading });
+    await expect(section).toBeVisible();
+    await expect(section).toHaveScreenshot("questions-browser-health-section.png");
+  });
 });

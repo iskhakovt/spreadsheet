@@ -1,6 +1,6 @@
 import type { Answer, QuestionData } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
-import { gatedSides } from "./visibility.js";
+import { anatomySides, gatedSides, visibleSides } from "./visibility.js";
 
 function q(overrides: Partial<QuestionData> & { id: string }): QuestionData {
   return {
@@ -12,6 +12,7 @@ function q(overrides: Partial<QuestionData> & { id: string }): QuestionData {
     notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
+    requiresGroupAnatomy: [],
     tier: 1,
     requires: [],
     ...overrides,
@@ -134,6 +135,107 @@ describe("gatedSides", () => {
     // grandparent give-no → parent give gated → child give gated.
     expect(gatedSides("c", { "gp:give": ans("no") }, map)).toEqual(new Set(["give"]));
     expect(gatedSides("c", { "gp:receive": ans("no") }, map)).toEqual(new Set(["receive"]));
+  });
+});
+
+describe("requiresGroupAnatomy gate", () => {
+  it("hides every side when a required anatomy is missing from the group", () => {
+    const question = q({
+      id: "pull-out",
+      giveText: "Withdrawing",
+      receiveText: "Trusting partner to withdraw",
+      targetGive: "amab",
+      targetReceive: "afab",
+      requiresGroupAnatomy: ["amab", "afab"],
+    });
+    expect(anatomySides(question, "amab", ["amab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: false,
+    });
+  });
+
+  it("renders normally when every required anatomy is present in the group", () => {
+    const question = q({
+      id: "pull-out",
+      giveText: "Withdrawing",
+      receiveText: "Trusting partner to withdraw",
+      targetGive: "amab",
+      targetReceive: "afab",
+      requiresGroupAnatomy: ["amab", "afab"],
+    });
+    expect(anatomySides(question, "amab", ["afab"], "filtered")).toEqual({
+      canGive: true,
+      canReceive: false,
+      canMutual: false,
+    });
+    expect(anatomySides(question, "afab", ["amab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: true,
+      canMutual: false,
+    });
+  });
+
+  it("treats a 'both'-anatomy member as satisfying any required anatomy", () => {
+    // A 'both' body covers both amab and afab requirements. Two 'both'
+    // members satisfy the gate AND give/receive each have a valid
+    // counterpart, which exercises the gate's reliance on anatomyMatches.
+    const question = q({
+      id: "pull-out",
+      giveText: "Withdrawing",
+      receiveText: "Trusting partner to withdraw",
+      targetGive: "amab",
+      targetReceive: "afab",
+      requiresGroupAnatomy: ["amab", "afab"],
+    });
+    expect(anatomySides(question, "both", ["both"], "filtered")).toEqual({
+      canGive: true,
+      canReceive: true,
+      canMutual: false,
+    });
+  });
+
+  it("bypasses the gate when questionMode is 'all'", () => {
+    const question = q({
+      id: "pull-out",
+      giveText: "Withdrawing",
+      receiveText: "Trusting partner to withdraw",
+      targetGive: "amab",
+      targetReceive: "afab",
+      requiresGroupAnatomy: ["amab", "afab"],
+    });
+    expect(anatomySides(question, "amab", ["amab"], "all")).toEqual({
+      canGive: true,
+      canReceive: true,
+      canMutual: false,
+    });
+  });
+
+  it("does not affect questions with no group-anatomy gate", () => {
+    const question = q({ id: "kissing" });
+    expect(anatomySides(question, "amab", ["amab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: true,
+    });
+  });
+
+  it("flows through visibleSides — gate failure hides the question entirely", () => {
+    const question = q({
+      id: "condoms-always",
+      requiresGroupAnatomy: ["amab"],
+    });
+    const map = new Map([[question.id, question]]);
+    expect(visibleSides(question, "afab", ["afab"], "filtered", {}, map)).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: false,
+    });
+    expect(visibleSides(question, "amab", ["afab"], "filtered", {}, map)).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: true,
+    });
   });
 });
 

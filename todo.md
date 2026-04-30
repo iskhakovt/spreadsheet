@@ -3,7 +3,6 @@
 ## Next
 
 - [ ] `p3` E2E test for `REQUIRE_ENCRYPTION=true` enforcement path — server injects flag → browser shows disabled checkbox → `groups.create` correctly sends `encrypted: true`
-- [ ] `p3` `requiresGroupAnatomy` field for group-composition gating — a few questions (`pull-out`, `condoms-always`, fertility) currently render for groups that physically can't produce pregnancy. Per-person `targetGive`/`targetReceive` doesn't fully express "both anatomies must coexist". Small schema add + filter in `visibleSides`, ~5 questions migrated.
 
 ## Later
 

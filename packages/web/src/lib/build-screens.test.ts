@@ -22,6 +22,7 @@ function q(overrides: Partial<QuestionData> & { id: string; categoryId: string }
     notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
+    requiresGroupAnatomy: [],
     tier: 1,
     requires: [],
     ...overrides,
@@ -301,6 +302,55 @@ describe("tier filtering", () => {
     const screens = buildScreens(questions, ["oral", "touch"], "amab", ["amab"], "filtered", categories, NO_ANSWERS);
     expect(screens.some((s) => s.type === "welcome" && s.categoryId === "oral")).toBe(false);
     expect(screens.some((s) => s.type === "welcome" && s.categoryId === "touch")).toBe(true);
+  });
+
+  it("hides requiresGroupAnatomy questions when the group is missing a required anatomy", () => {
+    // The PR's central guarantee: an all-afab group should not see the
+    // pregnancy / condom-norm questions even though the per-side targets
+    // would otherwise allow them through.
+    const questions = [
+      q({
+        id: "pull-out",
+        categoryId: "reproductive",
+        giveText: "Withdrawing",
+        receiveText: "Trusting partner to withdraw",
+        targetGive: "amab",
+        targetReceive: "afab",
+        requiresGroupAnatomy: ["amab", "afab"],
+      }),
+      q({
+        id: "condoms-always",
+        categoryId: "reproductive",
+        requiresGroupAnatomy: ["amab"],
+      }),
+      q({ id: "kissing", categoryId: "touch" }),
+    ];
+
+    const allAfab = buildScreens(
+      questions,
+      ["reproductive", "touch"],
+      "afab",
+      ["afab"],
+      "filtered",
+      categories,
+      NO_ANSWERS,
+    );
+    expect(allAfab.some((s) => s.type === "welcome" && s.categoryId === "reproductive")).toBe(false);
+    expect(filterQuestionScreens(allAfab).map((s) => s.key)).toEqual(["kissing:mutual"]);
+
+    // Flipping one partner to amab brings both questions back into the flow.
+    const mixed = buildScreens(
+      questions,
+      ["reproductive", "touch"],
+      "afab",
+      ["amab"],
+      "filtered",
+      categories,
+      NO_ANSWERS,
+    );
+    const mixedKeys = filterQuestionScreens(mixed).map((s) => s.key);
+    expect(mixedKeys).toContain("pull-out:receive");
+    expect(mixedKeys).toContain("condoms-always:mutual");
   });
 
   it("skips welcome screen when dependency gating removes all questions in a category", () => {

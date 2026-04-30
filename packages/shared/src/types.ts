@@ -59,6 +59,12 @@ export interface QuestionData {
   notePrompt: string | null;
   targetGive: string;
   targetReceive: string;
+  /**
+   * Anatomies that must all be present somewhere in the group for this
+   * question to render — covers cases (e.g. pregnancy) that no per-person
+   * targetGive/targetReceive combination can express. Empty = no group gate.
+   */
+  requiresGroupAnatomy: string[];
   tier: number;
   /** Single-parent dependencies; transitively gated when a parent is answered "no". Empty when none. */
   requires: string[];

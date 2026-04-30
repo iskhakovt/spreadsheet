@@ -13,6 +13,7 @@ function q(id: string, requires: string[] = []): QuestionData {
     notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
+    requiresGroupAnatomy: [],
     tier: 1,
     requires,
   };

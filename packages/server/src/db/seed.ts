@@ -16,6 +16,11 @@ const RequiresSchema = z
   .optional()
   .transform((v) => (v == null ? [] : Array.isArray(v) ? v : [v]));
 
+const RequiresGroupAnatomySchema = z
+  .array(z.enum(["amab", "afab"]))
+  .optional()
+  .transform((v) => v ?? []);
+
 const QuestionSchema = z.object({
   id: z.string(),
   category: z.string(),
@@ -27,6 +32,7 @@ const QuestionSchema = z.object({
   notePrompt: z.string().optional(),
   targetGive: z.enum(["all", "amab", "afab"]).default("all"),
   targetReceive: z.enum(["all", "amab", "afab"]).default("all"),
+  requiresGroupAnatomy: RequiresGroupAnatomySchema,
   requires: RequiresSchema,
 });
 
@@ -35,7 +41,7 @@ const SeedDataSchema = z.object({
   questions: z.array(QuestionSchema),
 });
 
-function loadSeedData(): SeedData {
+export function loadSeedData(): SeedData {
   // In dev/tests: tsx doesn't bundle, import.meta.dirname is src/db/.
   // In Docker: tsup bundles to a single dist/main.js, so
   // import.meta.dirname is dist/. The Dockerfile copies questions.yml
