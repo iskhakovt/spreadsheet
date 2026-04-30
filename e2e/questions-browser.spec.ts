@@ -42,7 +42,13 @@ test.describe("public /questions browser", () => {
   test("filter changes snap the user back to the filter bar instead of stranding them mid-list", async ({ page }) => {
     await page.goto("/questions");
     await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible();
-    await expect(page.getByText(/of \d+ questions shown/)).toBeVisible();
+
+    // The "X of Y questions shown" count is the readiness + change signal.
+    // Capture the initial text dynamically so the test isn't coupled to the
+    // current corpus size.
+    const count = page.getByText(/of \d+ questions shown/);
+    await expect(count).toBeVisible();
+    const initialCountText = (await count.textContent()) ?? "";
 
     // Scroll deep into the list. 2000px is well past the hero + filter bar
     // and lands somewhere in the middle of the question list.
@@ -53,21 +59,24 @@ test.describe("public /questions browser", () => {
     // that the page is taller than a single viewport, so the browser's
     // own scroll-clamp doesn't trivialise the snap. After the click, the
     // filter bar should be in viewport (sentinel snap brought us back).
+    // Wait for the count to change — that's the proof the filter committed
+    // and the layout effect ran.
     await page.getByRole("radio", { name: "Essentials", exact: true }).click();
-    await expect(page.getByText(/of 276 questions shown/)).toBeVisible();
+    await expect(count).not.toHaveText(initialCountText);
+    await expect(count).toHaveText(/of \d+ questions shown/);
     await expect(page.getByRole("searchbox", { name: "Search questions" })).toBeInViewport();
     expect(await page.evaluate(() => window.scrollY)).toBeLessThan(1000);
 
-    // Search filter — same property. Use a search that keeps several rows
-    // (so we exercise the snap, not the auto-clamp). After typing, the
-    // filter bar must still be in view.
+    // Search filter — same property. Reset to Edge tier (so the count
+    // returns to the full corpus), capture the new baseline, scroll deep,
+    // type a search, and wait for the count to change again.
     await page.getByRole("radio", { name: "Edge", exact: true }).click();
+    await expect(count).toHaveText(initialCountText);
     await page.evaluate(() => window.scrollTo(0, 2000));
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(1500);
     await page.getByRole("searchbox", { name: "Search questions" }).fill("oral");
-    // Wait for the deferred filter to commit by checking a known match
-    // is rendered.
-    await expect(page.getByText("Cunnilingus", { exact: true }).first()).toBeVisible();
+    await expect(count).not.toHaveText(initialCountText);
+    await expect(count).toHaveText(/of \d+ questions shown/);
     await expect(page.getByRole("searchbox", { name: "Search questions" })).toBeInViewport();
     expect(await page.evaluate(() => window.scrollY)).toBeLessThan(1000);
   });
