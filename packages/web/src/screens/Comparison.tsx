@@ -164,31 +164,28 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
   // Questions list — cached session-wide, feeds the category/question lookup tables.
   const { data: questionsData } = useSuspenseQuery(trpc.questions.list.queryOptions());
 
-  const questions = useMemo(() => {
-    const qMap: Record<string, QuestionInfo> = {};
-    for (const q of questionsData.questions) {
-      qMap[q.id] = { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText };
-    }
-    return qMap;
-  }, [questionsData.questions]);
+  const questions = useMemo<Record<string, QuestionInfo>>(
+    () =>
+      Object.fromEntries(
+        questionsData.questions.map((q) => [
+          q.id,
+          { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText },
+        ]),
+      ),
+    [questionsData.questions],
+  );
 
-  const categories = useMemo(() => {
-    const cMap: Record<string, string> = {};
-    for (const c of questionsData.categories) {
-      cMap[c.id] = c.label;
-    }
-    return cMap;
-  }, [questionsData.categories]);
+  const categories = useMemo<Record<string, string>>(
+    () => Object.fromEntries(questionsData.categories.map((c) => [c.id, c.label])),
+    [questionsData.categories],
+  );
 
   const categoryOrder = useMemo(() => questionsData.categories.map((c) => c.id), [questionsData.categories]);
 
-  const questionOrder = useMemo(() => {
-    const qOrder: Record<string, number> = {};
-    for (let i = 0; i < questionsData.questions.length; i++) {
-      qOrder[questionsData.questions[i].id] = i;
-    }
-    return qOrder;
-  }, [questionsData.questions]);
+  const questionOrder = useMemo<Record<string, number>>(
+    () => Object.fromEntries(questionsData.questions.map((q, i) => [q.id, i])),
+    [questionsData.questions],
+  );
 
   const { data: journal } = useSuspenseQuery({
     queryKey: JOURNAL_QUERY_KEY,

@@ -34,13 +34,10 @@ export function QuestionsBrowser() {
   const childrenOf = useMemo(() => buildChildrenOf(data.questions), [data.questions]);
   const questionMap = useMemo(() => new Map(data.questions.map((q) => [q.id, q] as const)), [data.questions]);
 
-  const visibleQuestions = useMemo(() => {
-    let qs = data.questions.filter((q) => q.tier <= tier);
-    if (deferredQuery) {
-      qs = qs.filter((q) => matchesQuery(q, deferredQuery));
-    }
-    return qs;
-  }, [data.questions, tier, deferredQuery]);
+  const visibleQuestions = useMemo(
+    () => data.questions.filter((q) => q.tier <= tier && (!deferredQuery || matchesQuery(q, deferredQuery))),
+    [data.questions, tier, deferredQuery],
+  );
 
   // ID-set view of `visibleQuestions` so child rows can tell at render time
   // whether a parent they'd like to jump to is mounted right now. Used to
@@ -48,15 +45,7 @@ export function QuestionsBrowser() {
   // parent — without this, the click would silently no-op.
   const visibleIds = useMemo(() => new Set(visibleQuestions.map((q) => q.id)), [visibleQuestions]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, QuestionData[]>();
-    for (const q of visibleQuestions) {
-      const list = map.get(q.categoryId) ?? [];
-      list.push(q);
-      map.set(q.categoryId, list);
-    }
-    return map;
-  }, [visibleQuestions]);
+  const grouped = useMemo(() => Map.groupBy(visibleQuestions, (q) => q.categoryId), [visibleQuestions]);
 
   // Refs for scroll-and-flash on `requires` chip clicks. Map ids → element so
   // clicking a parent chip from anywhere in the page can flash the target.
