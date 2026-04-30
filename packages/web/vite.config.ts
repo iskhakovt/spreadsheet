@@ -42,7 +42,11 @@ function rasterizeOG(): Plugin {
 export default defineConfig({
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
-    react(),
+    react({
+      babel: {
+        plugins: [["babel-plugin-react-compiler", {}]],
+      },
+    }),
     svgr(),
     tailwindcss(),
     rasterizeOG(),

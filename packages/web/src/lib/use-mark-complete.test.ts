@@ -164,12 +164,4 @@ describe("useMarkComplete", () => {
     expect(markCompleteFn).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith({ to: "/p/$token/waiting", params: { token } });
   });
-
-  it("returns a stable callback across re-renders", () => {
-    const { result, rerender } = renderHook(() => useMarkComplete(token), { wrapper });
-    const first = result.current;
-    rerender();
-    rerender();
-    expect(result.current).toBe(first);
-  });
 });

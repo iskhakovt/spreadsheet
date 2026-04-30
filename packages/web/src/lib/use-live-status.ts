@@ -27,6 +27,12 @@ import { useTRPC } from "./trpc.js";
  * "error" state tracked in the hook.
  */
 export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Promise<void> } {
+  // React Compiler reports a false-positive "Cannot access refs during render"
+  // — `seqRef.current` is only touched inside the async `onData` callback. The
+  // compiler can't prove the callback isn't synchronous, so it falls back to
+  // the unmemoized form. The directive marks intent and guards against stricter
+  // panicThreshold settings. See facebook/react#35982.
+  "use no memo";
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

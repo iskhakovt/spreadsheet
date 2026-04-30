@@ -143,7 +143,6 @@ export function Question({
     if (getPendingOps().length > 0) {
       setTimeout(handleSync, 500);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Navigate to startKey, saved position, or first unanswered
