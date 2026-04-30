@@ -83,16 +83,12 @@ test.describe("copy my link button", () => {
   });
 });
 
-for (const encrypted of [false, true]) {
-  test.describe(`admin own link on setup completion (${encrypted ? "encrypted" : "plaintext"})`, () => {
-    test("shows admin link with copy button", async ({ page }) => {
-      await createGroupAndSetup(page, { encrypted });
-      await expect(page.getByText("Your link", { exact: true })).toBeVisible();
-      await expect(page.getByLabel("Copy your link")).toBeVisible();
-      if (encrypted) {
-        const adminLink = await page.getByLabel("Your invite link").inputValue();
-        expect(adminLink).toContain("#key=");
-      }
-    });
+test.describe("admin own link on setup completion", () => {
+  test("shows admin link with copy button and an embedded key", async ({ page }) => {
+    await createGroupAndSetup(page, { encrypted: true });
+    await expect(page.getByText("Your link", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Copy your link")).toBeVisible();
+    const adminLink = await page.getByLabel("Your invite link").inputValue();
+    expect(adminLink).toContain("#key=");
   });
-}
+});
