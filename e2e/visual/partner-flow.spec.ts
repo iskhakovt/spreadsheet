@@ -72,6 +72,11 @@ test.describe("non-admin partner flow", () => {
   // branches on isAdminReady (server-truth), so admin returning to /group
   // mid-flow sees "Your group" + the primary CTA, not the dead button.
   test("group screen — no dead Add Person button while waiting for partner anatomy", async ({ alice }) => {
+    // Inline setup (not createGroupAndSetup) — this test needs filtered
+    // mode + self-pick anatomy + a 3rd partner, which the helper doesn't
+    // expose. Once Alice picks her own anatomy, the partners' anatomy
+    // remains null, putting the client in the !isReady && isAdminReady
+    // window the regression depends on.
     await alice.goto("/");
     await alice.getByRole("button", { name: "Get started", exact: true }).click();
     await alice.getByRole("radio", { name: "Each person", exact: true }).click();
