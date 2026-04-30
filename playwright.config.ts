@@ -14,11 +14,8 @@ const visualExpect = {
     caret: "hide" as const,
     scale: "device" as const,
     threshold: 0.2,
-    // 0.005 = 0.5% of pixels. Previously 0.01 (1%), which was lenient
-    // enough to let a full BackLink chevron slip through on mobile Review
-    // (PR #57 review). Our Docker-based rendering is deterministic enough
-    // to run at the tighter bound without noise flakes.
-    maxDiffPixelRatio: 0.005,
+    // 0.001 = 0.1% of pixels. Tight enough to catch a one-line copy change.
+    maxDiffPixelRatio: 0.001,
     stylePath: "./e2e/visual/screenshot.css",
     timeout: 15_000,
   },

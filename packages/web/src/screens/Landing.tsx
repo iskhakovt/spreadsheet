@@ -98,7 +98,7 @@ export function Landing() {
             >
               Browse the questions
             </Link>{" "}
-            <span className="text-text-muted/40">— see what we'd ask before you sign up</span>
+            <span className="text-text-muted/40">— see what we'd ask before you start</span>
           </p>
 
           <div className="pt-2 inline-flex items-center gap-4">
