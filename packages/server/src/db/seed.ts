@@ -16,6 +16,11 @@ const RequiresSchema = z
   .optional()
   .transform((v) => (v == null ? [] : Array.isArray(v) ? v : [v]));
 
+const RequiresGroupAnatomySchema = z
+  .array(z.enum(["amab", "afab"]))
+  .optional()
+  .transform((v) => v ?? []);
+
 const QuestionSchema = z.object({
   id: z.string(),
   category: z.string(),
@@ -27,6 +32,7 @@ const QuestionSchema = z.object({
   notePrompt: z.string().optional(),
   targetGive: z.enum(["all", "amab", "afab"]).default("all"),
   targetReceive: z.enum(["all", "amab", "afab"]).default("all"),
+  requiresGroupAnatomy: RequiresGroupAnatomySchema,
   requires: RequiresSchema,
 });
 

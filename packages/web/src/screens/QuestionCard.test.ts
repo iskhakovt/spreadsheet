@@ -307,6 +307,7 @@ function makeQuestion(overrides: Partial<QuestionData> = {}): QuestionData {
     notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
+    requiresGroupAnatomy: [],
     tier: 1,
     requires: [],
     ...overrides,

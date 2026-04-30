@@ -3,7 +3,6 @@
 ## Next
 
 - [ ] `p3` E2E test for `REQUIRE_ENCRYPTION=true` enforcement path — server injects flag → browser shows disabled checkbox → `groups.create` correctly sends `encrypted: true`
-- [ ] `p3` `requiresGroupAnatomy` field for group-composition gating — a few questions (`pull-out`, `condoms-always`, fertility) currently render for groups that physically can't produce pregnancy. Per-person `targetGive`/`targetReceive` doesn't fully express "both anatomies must coexist". Small schema add + filter in `visibleSides`, ~5 questions migrated.
 - [ ] `p3` Outbound click proxy + Prometheus counter — `/api/out?dest=source|tip` redirect with allowlist + `outbound_clicks_total{dest, placement}` counter. Pros: click-rate visibility, tighter allowlist (kills the "misset env XSS" risk). Cons: adds outbound logging to a privacy-marketed app, extra hop on click. Skip unless you actually want the click data.
 
 ## Later

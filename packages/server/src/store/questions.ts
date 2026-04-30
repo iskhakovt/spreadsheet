@@ -19,6 +19,7 @@ interface SeedQuestion {
   notePrompt?: string;
   targetGive: "all" | "amab" | "afab";
   targetReceive: "all" | "amab" | "afab";
+  requiresGroupAnatomy: ("amab" | "afab")[];
   requires: string[];
 }
 
@@ -85,6 +86,7 @@ export class QuestionStore {
           notePrompt: questions.notePrompt,
           targetGive: questions.targetGive,
           targetReceive: questions.targetReceive,
+          requiresGroupAnatomy: questions.requiresGroupAnatomy,
           tier: questions.tier,
           sortOrder: questions.sortOrder,
         })
@@ -189,6 +191,7 @@ export class QuestionStore {
             notePrompt: q.notePrompt ?? null,
             targetGive: q.targetGive,
             targetReceive: q.targetReceive,
+            requiresGroupAnatomy: q.requiresGroupAnatomy,
             tier: q.tier,
             sortOrder: sortWithinCategory,
           })
@@ -203,6 +206,7 @@ export class QuestionStore {
               notePrompt: q.notePrompt ?? null,
               targetGive: q.targetGive,
               targetReceive: q.targetReceive,
+              requiresGroupAnatomy: q.requiresGroupAnatomy,
               tier: q.tier,
               sortOrder: sortWithinCategory,
             },

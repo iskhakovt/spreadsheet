@@ -14,17 +14,14 @@
 # then gated content (gated by `requires:` chain).
 #
 # New optional fields beyond existing schema:
-#   - requires: <id>           # single-parent dependency. Hide if parent answered "no" (transitively).
-#   - notePrompt: "<text>"     # encourages a free-text note alongside the yes/no/maybe answer.
-#                              # Used as both placeholder text and as a "this question benefits from
-#                              # a note" signal. Notes are allowed on every question; this just
-#                              # surfaces the input prominently for items where a note adds value.
-#
-# Schema additions still pending implementation:
-#   - condoms / pull-out / repro items use targetGive/targetReceive where the
-#     act is naturally gendered. For broader items ("Always using condoms")
-#     we leave targetGive: all because group-anatomy filtering needs a new
-#     field — note flagged in /tmp/questions-reorg.html for later.
+#   - requires: <id>                # single-parent dependency. Hide if parent answered "no" (transitively).
+#   - notePrompt: "<text>"          # encourages a free-text note alongside the yes/no/maybe answer.
+#                                   # Used as both placeholder text and as a "this question benefits from
+#                                   # a note" signal. Notes are allowed on every question; this just
+#                                   # surfaces the input prominently for items where a note adds value.
+#   - requiresGroupAnatomy: [...]   # anatomies that must all be present in the group composition.
+#                                   # Used for items (pregnancy risk, condom norms) that no per-person
+#                                   # targetGive/targetReceive combination can express.
 
 categories:
   - id: foundations
@@ -502,6 +499,7 @@ questions:
     tier: 1
     text: Always using condoms
     description: Condom every time, no exceptions
+    requiresGroupAnatomy: [amab]
     requires: sex-generally
 
   - id: condoms-fluid-bonded
@@ -510,6 +508,7 @@ questions:
     text: Sex without condoms (fluid-bonded)
     description: Fluid-bonded with this partner — no condom needed
     notePrompt: any conditions or qualifiers?
+    requiresGroupAnatomy: [amab]
     requires: sex-generally
 
   - id: pull-out
@@ -521,6 +520,7 @@ questions:
     targetGive: amab
     targetReceive: afab
     description: Withdrawal before ejaculation as the contraception strategy
+    requiresGroupAnatomy: [amab, afab]
     requires: sex-generally
 
   - id: sex-drunk
@@ -560,6 +560,7 @@ questions:
     receiveText: Taking emergency contraception
     targetReceive: afab
     description: Plan B or similar — okay to take or support partner taking, if needed
+    requiresGroupAnatomy: [amab, afab]
     requires: sex-generally
 
   - id: birth-control-only
@@ -571,6 +572,7 @@ questions:
     targetGive: amab
     targetReceive: afab
     description: Birth control with no condom — birth control is the only barrier
+    requiresGroupAnatomy: [amab, afab]
     requires: sex-generally
 
   - id: pregnancy-risk-bare
@@ -582,6 +584,7 @@ questions:
     targetGive: amab
     targetReceive: afab
     description: Penis-in-vagina sex with nothing preventing pregnancy
+    requiresGroupAnatomy: [amab, afab]
     requires: sex-generally
 
   # ── Touch & Body ─────────────────────────────────────────────

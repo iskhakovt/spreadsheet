@@ -1,0 +1,1 @@
+ALTER TABLE "questions" ADD COLUMN "requiresGroupAnatomy" text[] DEFAULT '{}' NOT NULL;

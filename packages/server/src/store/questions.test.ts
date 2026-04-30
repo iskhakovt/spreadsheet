@@ -42,6 +42,7 @@ function q(overrides: { id: string; category: string; requires?: string[] }) {
     text: overrides.id,
     targetGive: "all" as const,
     targetReceive: "all" as const,
+    requiresGroupAnatomy: [],
     requires: overrides.requires ?? [],
   };
 }
@@ -93,6 +94,24 @@ describe("QuestionStore.list — field round-trip", () => {
 
     expect(byId["with-prompt"].notePrompt).toBe("any specific words?");
     expect(byId["without-prompt"].notePrompt).toBeNull();
+  });
+
+  it("preserves requiresGroupAnatomy through seed → list", async () => {
+    const seed: SeedData = {
+      categories: [{ id: "c", label: "C", description: "" }],
+      questions: [
+        { ...q({ id: "with-gate", category: "c" }), requiresGroupAnatomy: ["amab", "afab"] },
+        { ...q({ id: "amab-only", category: "c" }), requiresGroupAnatomy: ["amab"] },
+        q({ id: "no-gate", category: "c" }),
+      ],
+    };
+    await store.seed(seed);
+    const { questions: rows } = await store.list();
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+
+    expect(byId["with-gate"].requiresGroupAnatomy).toEqual(["amab", "afab"]);
+    expect(byId["amab-only"].requiresGroupAnatomy).toEqual(["amab"]);
+    expect(byId["no-gate"].requiresGroupAnatomy).toEqual([]);
   });
 });
 

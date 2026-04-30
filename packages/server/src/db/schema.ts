@@ -69,6 +69,7 @@ export const questions = pgTable(
     notePrompt: text(),
     targetGive: targetEnum().notNull(),
     targetReceive: targetEnum().notNull(),
+    requiresGroupAnatomy: text().array().notNull().default([]),
     tier: integer().notNull().default(1),
     sortOrder: integer().notNull(),
   },

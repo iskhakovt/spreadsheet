@@ -22,6 +22,7 @@ function q(overrides: Partial<QuestionData> & { id: string; categoryId: string }
     notePrompt: null,
     targetGive: "all",
     targetReceive: "all",
+    requiresGroupAnatomy: [],
     tier: 1,
     requires: [],
     ...overrides,
