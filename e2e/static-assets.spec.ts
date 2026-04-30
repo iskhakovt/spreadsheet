@@ -67,4 +67,25 @@ test.describe("static assets + meta-tag variants", () => {
     expect(html).toContain('<script src="/env-config.js"></script>');
     expect(html).not.toMatch(/<script[^>]*>\s*window\.__ENV/);
   });
+
+  test("loading / actually populates window.__ENV in the browser", async ({ page }) => {
+    // Belt-and-suspenders for the parser-blocking script tag: HTTP text
+    // assertions don't catch a regression where the file is served but
+    // the browser refuses to execute it (CSP, MIME sniffing, etc.).
+    await page.goto("/");
+    const env = await page.evaluate(() => window.__ENV);
+    expect(env).toBeDefined();
+    expect(env).toHaveProperty("REQUIRE_ENCRYPTION");
+    expect(env).toHaveProperty("TIP_JAR_URL");
+  });
+
+  test("service worker precache manifest excludes /env-config.js", async ({ request, baseURL }) => {
+    // If the SW ever precached env-config.js, flag flips would be
+    // invisible to anyone whose SW already installed — they'd keep
+    // serving the build-time stub forever. globIgnores in vite.config
+    // is what prevents this; assert the result.
+    const res = await request.get(`${baseURL}/sw.js`);
+    expect(res.status()).toBe(200);
+    expect(await res.text()).not.toContain("env-config");
+  });
 });
