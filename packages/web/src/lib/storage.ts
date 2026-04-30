@@ -134,20 +134,19 @@ export function setAnswer(key: string, answer: Answer | null): void {
 
 // === pendingOps ===
 //
-// The queue is `string[]` of opaque ops on disk (CLAUDE.md storage-shape
-// contract — never persist anything else under this key). To dedup
-// debounced same-key writes (typing a 50-char note used to enqueue ~6
-// redundant ops) we maintain an in-memory key→position index alongside
-// the queue. The index is NOT persisted: `p:1:` ops can be rebuilt from
-// the cleartext payload on first access, and `e:1:` ops can't be
-// decrypted synchronously — accepted, since auto-sync flushes within
-// 3s and the server-side last-write-wins keeps state correct even when
-// dedup misses across reloads.
+// The queue is `string[]` of opaque ops on disk — never persist anything
+// else under this key. To dedup debounced same-key writes (typing a
+// 50-char note used to enqueue ~6 redundant ops) we maintain an
+// in-memory key→position index alongside the queue. The index is NOT
+// persisted: `p:1:` ops can be rebuilt from the cleartext payload on
+// first access, and `e:1:` ops can't be decrypted synchronously —
+// accepted, since auto-sync flushes within 3s and the server-side
+// last-write-wins keeps state correct even when dedup misses across
+// reloads.
 //
 // The privacy property of `e:1:` ops is preserved: the server still
-// can't tell which question a ciphertext targets. The index lives next
-// to the plaintext answers in localStorage in spirit, but is purely
-// in-memory.
+// can't tell which question a ciphertext targets. The index is local-
+// only, never serialized into the queue or sent to the server.
 
 export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): string[] => (raw ? JSON.parse(raw) : []));
 
