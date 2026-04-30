@@ -2,7 +2,7 @@ import { type CategoryData, MAX_TIER, type QuestionData, type Tier } from "@spre
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowLeft, Pencil, Search } from "lucide-react";
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { buildChildrenOf, isGate } from "../lib/dependency-graph.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -78,6 +78,29 @@ export function QuestionsBrowser() {
   const totalVisible = visibleQuestions.length;
   const totalAll = data.questions.length;
 
+  // Snap the filter bar back into view when the active filter changes —
+  // matches the convention used by GitHub / Linear / Stripe / Algolia. Without
+  // this, narrowing the list (e.g. lowering the tier or typing a query) can
+  // strand the user in mid-empty space or past the new end of the list, since
+  // the rows they were reading just vanished.
+  //
+  // The sentinel above the sticky bar is the scroll target: a sticky element's
+  // own bounding rect reflects its pinned position (top: 0), not its natural
+  // document offset, so calling scrollIntoView on the bar itself is a no-op
+  // when it's already pinned. The non-sticky sentinel sits at the bar's true
+  // document position, so scrollIntoView always moves the user to the top of
+  // results. `block: "nearest"` means we only scroll when the sentinel is
+  // above the viewport — already-at-top users aren't yanked downward.
+  const filterAnchorRef = useRef<HTMLDivElement>(null);
+  const isInitialFilterRender = useRef(true);
+  useLayoutEffect(() => {
+    if (isInitialFilterRender.current) {
+      isInitialFilterRender.current = false;
+      return;
+    }
+    filterAnchorRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [tier, deferredQuery]);
+
   return (
     <div className="relative min-h-dvh px-4 py-10 sm:py-14 overflow-hidden">
       {/* Soft atmospheric backdrop, matching Comparison/Landing. */}
@@ -111,10 +134,20 @@ export function QuestionsBrowser() {
           </p>
         </header>
 
+        {/* Sentinel for filter-change scroll-snap. Lives outside the sticky
+            container so its document position reflects the bar's natural
+            offset rather than its pinned offset. */}
+        <div ref={filterAnchorRef} aria-hidden="true" />
+
         {/* Sticky filter bar — sits below the hero so the page scrolls past it
             cleanly. Tier picker on the left, search on the right; stacks on
-            narrow viewports. */}
-        <div className="sticky top-0 z-10 -mx-4 px-4 py-3 mb-8 bg-bg/80 backdrop-blur-md border-b border-border/40">
+            narrow viewports. `overflow-anchor: none` opts out of the
+            browser's native anchor algorithm so it doesn't fight the manual
+            snap-to-bar scroll on filter changes. */}
+        <div
+          className="sticky top-0 z-10 -mx-4 px-4 py-3 mb-8 bg-bg/80 backdrop-blur-md border-b border-border/40"
+          style={{ overflowAnchor: "none" }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <TierPicker tier={tier} onChange={setTier} />
             <label className="relative flex-1 sm:max-w-xs">
