@@ -1,10 +1,10 @@
 // All UI text in one place — ready for i18n later.
 export const UI = {
   appName: "Spreadsheet",
-  tagline: "Discover what you're both into",
+  tagline: "Discover what you're all into",
   landing: {
     description:
-      "A yes/no/maybe list for you and your partner. Rate activities privately, then see only the things you both want to try.",
+      "A yes/no/maybe list for couples and groups. Rate activities privately, then see only the things you all want to try.",
     getStarted: "Get started",
   },
   createGroup: {
@@ -21,7 +21,7 @@ export const UI = {
     steps: [
       "You'll see activities one at a time",
       "Rate each one honestly — there are no wrong answers",
-      "Only matches are revealed — if either of you says no, it stays private",
+      "You'll only see things everyone wants to try",
       "Take your time. You can pause and come back anytime.",
     ],
     start: "Let's go",
@@ -41,7 +41,7 @@ export const UI = {
     } as Record<string, [string, string]>,
     tierTitle: "How many questions?",
     tiers: {
-      1: { label: "Essentials", description: "The stuff most couples should talk about" },
+      1: { label: "Essentials", description: "The basics worth talking about" },
       2: { label: "Common", description: "Broadly recognized practices and preferences" },
       3: { label: "Adventurous", description: "Niche but mainstream-aware kinks and dynamics" },
       4: { label: "Edge", description: "Higher-risk activities that need expertise" },
