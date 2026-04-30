@@ -55,6 +55,7 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 | description | text | Nullable. One-line explanation shown via "What's this?" |
 | target_give | enum ("all", "amab", "afab") | Who sees the give screen |
 | target_receive | enum ("all", "amab", "afab") | Who sees the receive screen |
+| requires_group_anatomy | text[] | Anatomies that must all be present somewhere in the group for the question to render at all. Empty by default. Used for items (pregnancy risk, condom norms) that no per-person `target_give`/`target_receive` combination can express. |
 | tier | integer | 1 (essentials), 2 (common), 3 (adventurous), 4 (edge / risk). Default 1. Filtered by the user's tier picker — answers above the picker level are hidden from the flow. |
 | note_prompt | text | Nullable. Placeholder text + "encourage a free-text note here" signal. Presence prompts the UI to expand the note input by default; absence renders a collapsed "Add a note" affordance. |
 | sort_order | integer | Display order within category |
@@ -112,6 +113,8 @@ The presence of `give_text`/`receive_text` determines which type.
 ### Anatomy targeting
 
 `target_give` and `target_receive` filter who sees each screen. Group-aware: a screen only appears if both the giver and receiver anatomy exist in the group.
+
+`requires_group_anatomy` is a stricter, whole-question gate for cases per-side targeting can't express — pregnancy risk needs both `amab` and `afab` somewhere in the group, condom norms need at least one `amab`, etc. When any required anatomy is missing from `[self, ...others]` (treating `"both"` as covering either), the question is hidden entirely. `questionMode: "all"` bypasses the gate, matching the existing anatomy-bypass semantics.
 
 ### Dependency gating
 
