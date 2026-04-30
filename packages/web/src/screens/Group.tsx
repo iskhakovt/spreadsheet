@@ -66,7 +66,8 @@ export function Group({
   // Post-isReady: admin may have returned to this screen. Branch the title +
   // primary CTA by their own progress. `hasAnswers` reads localStorage — the
   // per-person source of truth for partial answers not yet flushed to server.
-  const title = group.isReady ? UI.group.titleReady : UI.group.title;
+  const partnerCount = Math.max(1, members.length - 1);
+  const title = group.isReady ? UI.group.titleReady : UI.group.title(partnerCount);
   const answers = useAnswers();
   const hasAnswers = Object.keys(answers).length > 0;
   const primaryCta = pickPrimaryCta({ isReady: group.isReady, person, hasAnswers });
@@ -139,10 +140,12 @@ export function Group({
         {/* Generated link */}
         {generatedLink && (
           <div className="p-4 bg-surface/50 rounded-[var(--radius-md)] border border-border/30 space-y-3">
-            <p className="text-sm text-text-muted">Share this link with your partner:</p>
+            <p className="text-sm text-text-muted">
+              {partnerCount === 1 ? "Share this link with your partner:" : "Share this link with them:"}
+            </p>
             <CopyLinkField
               value={generatedLink}
-              label="Partner's invite link"
+              label={partnerCount === 1 ? "Partner's invite link" : "Invite link"}
               copied={copiedIndex !== null}
               onCopy={() => copy(generatedLink)}
             />

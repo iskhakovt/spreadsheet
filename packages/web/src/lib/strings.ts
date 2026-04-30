@@ -3,8 +3,7 @@ export const UI = {
   appName: "Spreadsheet",
   tagline: "Discover what you're into",
   landing: {
-    description:
-      "A yes/no/maybe list for couples and groups. Rate activities privately, then see only the things you want to try.",
+    description: "A yes/no/maybe list for couples and groups. Rate activities privately, then see only your matches.",
     getStarted: "Get started",
   },
   createGroup: {
@@ -31,7 +30,7 @@ export const UI = {
       willing: ["If partner wants", "I'm open to it if you are"],
       maybe: ["Maybe", "Not sure yet, open to talking about it"],
       fantasy: ["Fantasy only", "Fun to think about, not ready to try"],
-      no: ["No", "Not for me — your partner won't see this"],
+      no: ["No", "Not for me — won't appear in matches"],
     } as Record<string, [string, string]>,
     answersFootnote: "Any answer can carry an optional note — context only, not part of matching.",
     timingTitle: "Timing",
@@ -71,7 +70,7 @@ export const UI = {
     answered: (n: number, total: number) => `${n} of ${total} answered`,
   },
   group: {
-    title: "Invite your partner",
+    title: (partnerCount: number) => (partnerCount === 1 ? "Invite your partner" : "Invite your partners"),
     titleReady: "Your group",
     copyLink: "Copy link",
     copied: "Copied!",
