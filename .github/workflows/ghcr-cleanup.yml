@@ -12,6 +12,9 @@ jobs:
   cleanup:
     name: Prune old container versions
     runs-on: ubuntu-latest
+    concurrency:
+      group: ghcr-cleanup-${{ github.repository }}
+      cancel-in-progress: false
     permissions:
       packages: write
     steps:
