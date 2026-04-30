@@ -65,7 +65,12 @@ export default defineConfig({
         // cookie on the response. If the SW navigation fallback intercepts
         // and serves cached index.html, the cookie never gets set. Force /p/*
         // to always hit the network.
-        navigateFallbackDenylist: [/^\/p\//],
+        // /api/* must also bypass the fallback. tRPC calls are fetch/XHR and
+        // never trigger navigation interception, but top-level navigations to
+        // /api/out (the outbound click proxy, opened via <a target="_blank">)
+        // do — without this, the SW serves index.html and the SPA renders its
+        // 404 instead of the redirect ever reaching the server.
+        navigateFallbackDenylist: [/^\/p\//, /^\/api\//],
       },
       manifest: {
         name: "Spreadsheet",
