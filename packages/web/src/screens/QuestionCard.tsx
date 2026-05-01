@@ -1,11 +1,12 @@
 import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
 import { ChevronLeft, ChevronRight, HelpCircle, Pencil } from "lucide-react";
-import { type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
 import type { QuestionScreen } from "../lib/build-screens.js";
 import { cn } from "../lib/cn.js";
+import { modKey, useHasKeyboard } from "../lib/keyboard-platform.js";
 import { UI } from "../lib/strings.js";
 import { type Variant, variantStyles } from "../lib/variant-styles.js";
 
@@ -88,6 +89,7 @@ export function QuestionCard({
   onSync,
   onSummary,
 }: Readonly<QuestionCardProps>) {
+  const hasKeyboard = useHasKeyboard();
   const category = categoryMap[screen.categoryId];
   const catQuestionScreens = allQuestionScreens.filter((s) => s.categoryId === screen.categoryId);
   const posInCategory = catQuestionScreens.indexOf(screen) + 1;
@@ -341,16 +343,34 @@ export function QuestionCard({
 
       {/* Note section — visible when notePrompt is set on this question, the
           user already has a note, or they tapped "+ Add a note". Stays open
-          across rating commits in Layout B (auto-advance suppressed). */}
+          across rating commits in Layout B (auto-advance suppressed).
+
+          The keyboard hint below it (focus-within only) advertises the
+          ⌘+Enter shortcut: jumps to the rating buttons pre-rate, advances
+          post-rate. Slot height is reserved so showing/hiding the hint
+          doesn't shift the layout. */}
       {noteVisible && (
-        <NoteSection
-          key={`note-${screen.key}`}
-          textareaRef={textareaRef}
-          notePrompt={notePrompt}
-          value={noteDraft}
-          onChange={setNoteDraft}
-          onCmdEnter={handleCmdEnter}
-        />
+        <div className="group">
+          <NoteSection
+            key={`note-${screen.key}`}
+            textareaRef={textareaRef}
+            notePrompt={notePrompt}
+            value={noteDraft}
+            onChange={setNoteDraft}
+            onCmdEnter={handleCmdEnter}
+          />
+          {hasKeyboard && (
+            <div
+              className="min-h-[1.4rem] pt-1.5 text-[11px] text-center text-text-muted/55 leading-none opacity-0 transition-opacity duration-150 group-focus-within:opacity-100"
+              aria-hidden="true"
+            >
+              <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-text">
+                {modKey()}+↵
+              </kbd>{" "}
+              {existingAnswer ? "save & next" : "jump to the rating"}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Action row — primary Next when the note section is visible (Layout B),
@@ -360,17 +380,7 @@ export function QuestionCard({
       {noteVisible ? (
         <div className="mt-4 space-y-2">
           <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next">
-            <span className="inline-flex items-center justify-center gap-2">
-              <span>{existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}</span>
-              {/* Keyboard hint — power-user shortcut for the textarea path.
-                  Hidden on touch (no physical keyboard) and when the button
-                  is disabled (the shortcut is inert pre-rating). */}
-              {existingAnswer && (
-                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-normal bg-white/15 border border-white/20 leading-none">
-                  ⌘↵
-                </kbd>
-              )}
-            </span>
+            {existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}
           </Button>
           <div className="flex justify-between text-xs text-text-muted/65 px-1">
             <button
@@ -698,27 +708,68 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing, sou
  * from `UI.intro.answers` / `UI.intro.timing` so the language matches the
  * intro screen verbatim — recall, not re-explanation.
  */
-const RATING_HELP: { key: string; label: string; desc: string; labelClass: string }[] = [
-  { key: "yes", label: UI.intro.answers.yes[0], desc: UI.intro.answers.yes[1], labelClass: "text-accent" },
+interface HelpItem {
+  key: string;
+  label: string;
+  desc: string;
+  labelClass: string;
+  /** Keyboard shortcut(s) that commit this option, surfaced in the popover's Keyboard section. */
+  shortcuts: string[];
+}
+
+const RATING_HELP: HelpItem[] = [
+  {
+    key: "yes",
+    label: UI.intro.answers.yes[0],
+    desc: UI.intro.answers.yes[1],
+    labelClass: "text-accent",
+    shortcuts: ["1"],
+  },
   {
     key: "willing",
     label: UI.intro.answers.willing[0],
     desc: UI.intro.answers.willing[1],
     labelClass: "text-accent-light-dark",
+    shortcuts: ["2"],
   },
-  { key: "maybe", label: UI.intro.answers.maybe[0], desc: UI.intro.answers.maybe[1], labelClass: "text-text" },
+  {
+    key: "maybe",
+    label: UI.intro.answers.maybe[0],
+    desc: UI.intro.answers.maybe[1],
+    labelClass: "text-text",
+    shortcuts: ["3"],
+  },
   {
     key: "fantasy",
     label: UI.intro.answers.fantasy[0],
     desc: UI.intro.answers.fantasy[1],
     labelClass: "text-text italic",
+    shortcuts: ["4"],
   },
-  { key: "no", label: UI.intro.answers.no[0], desc: UI.intro.answers.no[1], labelClass: "text-text-muted" },
+  {
+    key: "no",
+    label: UI.intro.answers.no[0],
+    desc: UI.intro.answers.no[1],
+    labelClass: "text-text-muted",
+    shortcuts: ["5"],
+  },
 ];
 
-const TIMING_HELP: { key: string; label: string; desc: string; labelClass: string }[] = [
-  { key: "now", label: UI.intro.timing.now[0], desc: UI.intro.timing.now[1], labelClass: "text-accent" },
-  { key: "later", label: UI.intro.timing.later[0], desc: UI.intro.timing.later[1], labelClass: "text-text" },
+const TIMING_HELP: HelpItem[] = [
+  {
+    key: "now",
+    label: UI.intro.timing.now[0],
+    desc: UI.intro.timing.now[1],
+    labelClass: "text-accent",
+    shortcuts: ["1", "N"],
+  },
+  {
+    key: "later",
+    label: UI.intro.timing.later[0],
+    desc: UI.intro.timing.later[1],
+    labelClass: "text-text",
+    shortcuts: ["2", "L"],
+  },
 ];
 
 function HelpPopover({
@@ -732,8 +783,13 @@ function HelpPopover({
   mode: "rating" | "timing";
   onClose: () => void;
 }>) {
+  const hasKeyboard = useHasKeyboard();
   const items = mode === "rating" ? RATING_HELP : TIMING_HELP;
   const title = mode === "rating" ? "What each rating means" : "What each option means";
+  // Three-column when the kbd column is rendered, two-column otherwise.
+  const rowCls = hasKeyboard
+    ? "grid grid-cols-[3.6rem_4.2rem_1fr] gap-3 items-center text-[13px] leading-snug"
+    : "grid grid-cols-[4.2rem_1fr] gap-3 items-center text-[13px] leading-snug";
   return (
     <div
       ref={ref}
@@ -741,7 +797,7 @@ function HelpPopover({
       aria-label={mode === "rating" ? "Rating glossary" : "Timing glossary"}
       // max-w caps the popover at the viewport's inner width minus a margin,
       // safety net if the card padding ever tightens on the smallest devices.
-      className="absolute top-9 right-0 w-72 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
+      className="absolute top-9 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
     >
       <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">{title}</p>
@@ -755,14 +811,49 @@ function HelpPopover({
           ×
         </button>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2">
         {items.map((item) => (
-          <li key={item.key} className="grid grid-cols-[88px_1fr] gap-3 text-[13px] leading-snug">
-            <span className={cn("font-semibold", item.labelClass)}>{item.label}</span>
+          <li key={item.key} className={rowCls}>
+            {hasKeyboard && (
+              <span className="flex items-center gap-0.5">
+                {item.shortcuts.map((s, i) => (
+                  <span key={s} className="contents">
+                    {i > 0 && <span className="text-text-muted/60 text-[0.72rem] mx-0.5">/</span>}
+                    <Kbd>{s}</Kbd>
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className={cn("font-medium", item.labelClass)}>{item.label}</span>
             <span className="text-text-muted">{item.desc}</span>
           </li>
         ))}
       </ul>
+
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85 mt-5 mb-2.5">Notes</p>
+      <p className="text-[13px] text-text-muted leading-relaxed mb-3">
+        Optional. Some questions show a prompt and reveal the field — for the rest,{" "}
+        <em className="not-italic text-text">+ Add a note</em> opens it. Only your group sees them
+      </p>
+      {hasKeyboard && (
+        <div className={rowCls}>
+          <span className="flex items-center">
+            <Kbd>{modKey()}</Kbd>
+            <span className="text-text-muted/60 text-[0.72rem] mx-1">+</span>
+            <Kbd>↵</Kbd>
+          </span>
+          <span className="font-medium">Save &amp; next</span>
+          <span className="text-text-muted">From inside the note</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Kbd({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <kbd className="font-mono text-[11px] leading-none px-1.5 py-0.5 rounded bg-surface border border-border text-text">
+      {children}
+    </kbd>
   );
 }
