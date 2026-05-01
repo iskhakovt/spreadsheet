@@ -887,6 +887,7 @@ questions:
     giveText: Going down on a vulva
     receiveText: Receiving oral on your vulva
     targetReceive: afab
+    description: Oral sex on a vulva — mouth and tongue on the clitoris and labia
     requires: oral-generally
 
   - id: fellatio
@@ -896,6 +897,7 @@ questions:
     giveText: Giving a blowjob
     receiveText: Receiving a blowjob
     targetReceive: amab
+    description: Oral sex on a penis — mouth and tongue on the shaft and head
     requires: oral-generally
 
   - id: sixty-nine
@@ -968,7 +970,8 @@ questions:
     giveText: Ejaculating on your partner's face
     receiveText: Having your partner ejaculate on your face
     targetGive: amab
-    requires: fellatio
+    description: Coming on partner's face — from oral, hand, or any other path to ejaculation
+    requires: sex-generally
 
   - id: cum-on-body
     category: oral
@@ -1133,7 +1136,7 @@ questions:
     tier: 3
     text: Belly / stomach bulge during penetration
     description: Penetration deep enough to visibly outline against the receiver's lower belly
-    requires: penetration-generally
+    requires: vaginal-penetration
 
   - id: pegging
     category: penetration
@@ -1255,7 +1258,7 @@ questions:
     tier: 2
     text: Prostate massager
     giveText: Using a prostate massager on your partner
-    receiveText: Using a prostate massager
+    receiveText: Having a prostate massager used on you
     targetReceive: amab
     requires: sex-generally
 
@@ -1443,6 +1446,7 @@ questions:
     text: Chest harness / breast bondage
     giveText: Tying your partner's chest
     receiveText: Having your chest tied
+    description: Rope wrapped around the torso and chest — decorative harness, or tighter wraps that compress and frame the breasts
     requires: bondage-generally
 
   - id: mummification
@@ -1504,6 +1508,7 @@ questions:
     text: Riding crop
     giveText: Using a crop on your partner
     receiveText: Having a crop used on you
+    description: A thin, flexible rod with a small leather flap at the tip — sharper, stingier, more precise than a paddle
     requires: impact-generally
 
   - id: caning
@@ -1521,6 +1526,7 @@ questions:
     text: Face slapping (consensual)
     giveText: Slapping your partner's face
     receiveText: Being face-slapped
+    description: Open-hand slaps to the face. Higher risk than other impact — easy to injure ear, eye, or jaw.
     requires: impact-generally
 
   - id: whipping
@@ -1606,8 +1612,8 @@ questions:
     category: power
     tier: 3
     text: Service submission
-    giveText: Receiving service (partner attends to you)
-    receiveText: Serving your partner (attending to their needs)
+    giveText: Serving your partner (attending to their needs)
+    receiveText: Receiving service (partner attends to you)
     requires: power-generally
 
   - id: orgasm-denial
@@ -1631,8 +1637,8 @@ questions:
     category: power
     tier: 3
     text: Formal D/s protocol (kneeling, honorifics, rituals)
-    giveText: Receiving formal protocol from partner
-    receiveText: Performing formal protocol for partner
+    giveText: Performing formal protocol for partner
+    receiveText: Receiving formal protocol from partner
     notePrompt: which protocols (kneeling, honorifics, opening rituals)?
     requires: power-generally
 
@@ -1705,12 +1711,15 @@ questions:
     category: roleplay
     tier: 2
     text: Uniform / cosplay / costume play
+    description: Wearing a uniform or costume during sex — military, schoolgirl, fictional character, etc.
+    notePrompt: which uniform or character?
     requires: roleplay-generally
 
   - id: stranger-pickup
     category: roleplay
     tier: 2
     text: Stranger / bar pickup scenario
+    description: Acting out a first meeting — flirting, going home with a stranger, no shared history
     requires: roleplay-generally
 
   - id: stranger-at-home
@@ -1724,26 +1733,30 @@ questions:
     category: roleplay
     tier: 2
     text: Boss and employee
+    description: Authority-imbalance roleplay set in a workplace — power dynamic with a professional framing
     requires: roleplay-generally
 
   - id: teacher-student
     category: roleplay
     tier: 2
     text: Teacher and student
+    description: Authority-imbalance roleplay between adults playing teacher and student
     requires: roleplay-generally
 
   - id: medical
     category: roleplay
     tier: 2
     text: Doctor / nurse / medical exam
+    description: Roleplay around a medical exam — examiner and patient, gloves, instruments
     requires: roleplay-generally
 
   - id: maid-service
     category: roleplay
     tier: 3
     text: Maid / butler / service role
-    giveText: Being served
-    receiveText: Serving in costume
+    giveText: Serving in costume
+    receiveText: Being served
+    description: One partner in a maid, butler, or service uniform — performing service tasks for the other
     requires: roleplay-generally
 
   - id: primal-play
@@ -1759,6 +1772,8 @@ questions:
     text: Pet play (puppy, kitten)
     giveText: Being the handler/owner
     receiveText: Being the pet
+    description: Pretending one partner is an animal — ranges from light (collar, ears, mannerisms) to full immersion (training, gear, non-verbal)
+    notePrompt: which animal, how immersive?
     requires: roleplay-generally
 
   - id: daddy-mommy
@@ -1960,13 +1975,11 @@ questions:
     text: Lingerie
     giveText: Seeing your partner in lingerie
     receiveText: Wearing lingerie
-    requires: sex-generally
 
   - id: stockings
     category: fetish
     tier: 1
     text: Stockings / thigh-highs
-    requires: sex-generally
 
   - id: heels
     category: fetish
@@ -1987,7 +2000,6 @@ questions:
     text: Body hair as a turn-on
     description: Body hair on partner is a turn-on — kept rather than groomed off
     notePrompt: where (chest, legs, face, back)?
-    requires: sex-generally
 
   - id: food-play
     category: fetish
@@ -1999,6 +2011,7 @@ questions:
     category: fetish
     tier: 2
     text: Latex / leather / PVC
+    description: Tight, shiny, second-skin materials — worn as clothing during sex
     requires: sex-generally
 
   - id: corset
@@ -2007,19 +2020,18 @@ questions:
     text: Corset
     giveText: Seeing your partner in a corset
     receiveText: Wearing a tightly-laced corset
-    requires: sex-generally
 
   - id: masks
     category: fetish
     tier: 3
     text: Masks / masquerade
-    description: Wearing decorative masks during sex — anonymity with someone you know
-    requires: sex-generally
+    description: Wearing decorative masks — anonymity with someone you know
 
   - id: body-paint
     category: fetish
     tier: 3
     text: Body paint
+    description: Painting on each other's skin as part of foreplay — finger paint, edible paint, brushes
     requires: sex-generally
 
   - id: cross-dressing
@@ -2027,14 +2039,13 @@ questions:
     tier: 3
     text: Cross-dressing
     giveText: Seeing your partner cross-dress
-    receiveText: Cross-dressing during sex
-    requires: sex-generally
+    receiveText: Cross-dressing
 
   - id: used-underwear
     category: fetish
     tier: 3
     text: Used underwear / scent fetish
-    description: Smelling, wearing, or playing with used underwear for sexual gratification
+    description: Smelling, wearing, or playing with worn underwear for sexual gratification — partner's body scent as the focus
     requires: sex-generally
 
   # ── Edge Play ────────────────────────────────────────────────
@@ -2053,6 +2064,7 @@ questions:
     text: Spit play
     giveText: Spitting on your partner
     receiveText: Being spat on
+    description: Spitting on partner's body, face, or into their mouth — usually in a degradation or power-exchange frame
     requires: edge-generally
 
   - id: cum-play
@@ -2086,6 +2098,7 @@ questions:
     text: Golden shower / watersports
     giveText: Peeing on your partner
     receiveText: Being peed on
+    description: Urinating on a partner's body — usually in shower or bath for cleanup
     requires: edge-generally
 
   - id: cbt
@@ -2133,6 +2146,8 @@ questions:
     category: edge
     tier: 4
     text: Blood play
+    description: Sexual play involving blood — light scratches that draw blood, menstrual blood, or blood drawn deliberately. Specify scope in note.
+    notePrompt: which kind (scratches, menstrual, deliberate)?
     requires: edge-generally
 
   # ── Aftercare ────────────────────────────────────────────────
