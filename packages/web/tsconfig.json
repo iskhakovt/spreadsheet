@@ -20,6 +20,8 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "noImplicitOverride": true,
+    "allowUnreachableCode": false,
     "skipLibCheck": true,
     "noEmit": true,
     "lib": ["ES2025", "DOM", "DOM.Iterable"]
