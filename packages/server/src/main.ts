@@ -51,5 +51,9 @@ const command = process.argv[2] ?? "serve";
 if (command === "serve") {
   await import("./index.js");
 } else {
-  process.exit(await runOneShot(command));
+  // process.exitCode (not process.exit) so pino's async writes flush before
+  // Node tears down — the event loop drains naturally once runOneShot returns
+  // because one-shot commands hold no listener handles. process.exit() would
+  // truncate the final log line.
+  process.exitCode = await runOneShot(command);
 }
