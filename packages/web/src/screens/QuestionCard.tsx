@@ -99,6 +99,11 @@ export function QuestionCard({
   const helpPopoverRef = useRef<HTMLDivElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
 
+  // Refs threaded through children for keyboard-flow focus moves:
+  // rating commit → focus textarea, Cmd+Enter pre-rating → focus first rating.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const firstRatingRef = useRef<HTMLButtonElement>(null);
+
   // Note state — local while editing, debounced into onCommit. The textarea
   // is reseeded from existingAnswer when the user navigates between questions
   // (screen.key change), so per-question notes don't leak across cards.
@@ -179,28 +184,46 @@ export function QuestionCard({
   // briefly read stale answers (the original saveAnswer had a microtask
   // yield via `await encodeValue(...)` between setAnswer and setIndex,
   // which we preserve here).
+  // Has the user typed into the note this session, vs. just inheriting an
+  // existing one on navigation? Used by handleRating below to advance after
+  // a "type → rate" sequence — the user's already done, no reason to make
+  // them Cmd+Enter or click Save & next.
+  const draftModified = noteDraft !== (existingAnswer?.note ?? "");
+
   const handleRating = useCallback(
-    async (rating: Rating) => {
+    async (rating: Rating, source: "keyboard" | "mouse") => {
       if (showTimingFlow && (rating === "yes" || rating === "if-partner-wants")) {
         setPendingRating(rating);
         return;
       }
       const answer: Answer = { rating, timing: null, note: trimNote(noteDraft) };
       await onCommit(answer);
-      if (!noteVisible) onAdvance();
+      // Advance when there's no note section, or when the user typed before
+      // rating (their workflow is done). Otherwise stay so they can type;
+      // for keyboard commits, move focus into the textarea so they don't
+      // have to Tab to find it.
+      if (!noteVisible || draftModified) {
+        onAdvance();
+      } else if (source === "keyboard") {
+        textareaRef.current?.focus();
+      }
     },
-    [showTimingFlow, noteDraft, noteVisible, onCommit, onAdvance],
+    [showTimingFlow, noteDraft, noteVisible, draftModified, onCommit, onAdvance],
   );
 
   const handleTiming = useCallback(
-    async (timing: Timing) => {
+    async (timing: Timing, source: "keyboard" | "mouse") => {
       if (!pendingRating) return;
       const answer: Answer = { rating: pendingRating, timing, note: trimNote(noteDraft) };
       await onCommit(answer);
       setPendingRating(null);
-      if (!noteVisible) onAdvance();
+      if (!noteVisible || draftModified) {
+        onAdvance();
+      } else if (source === "keyboard") {
+        textareaRef.current?.focus();
+      }
     },
-    [pendingRating, noteDraft, noteVisible, onCommit, onAdvance],
+    [pendingRating, noteDraft, noteVisible, draftModified, onCommit, onAdvance],
   );
 
   const handleNext = useCallback(async () => {
@@ -213,6 +236,17 @@ export function QuestionCard({
     }
     onAdvance();
   }, [existingAnswer, noteDraft, onCommit, onAdvance]);
+
+  // Cmd/Ctrl+Enter from the textarea. With a rating already in place, behaves
+  // like Save & next. Without a rating, focuses the first rating button so
+  // the user has a clear next step instead of a silent no-op.
+  const handleCmdEnter = useCallback(() => {
+    if (existingAnswer) {
+      void handleNext();
+    } else {
+      firstRatingRef.current?.focus();
+    }
+  }, [existingAnswer, handleNext]);
 
   const handleSkip = useCallback(() => {
     setPendingRating(null);
@@ -302,7 +336,7 @@ export function QuestionCard({
       {showTiming ? (
         <TimingButtons onTiming={handleTiming} />
       ) : (
-        <RatingGroup existingAnswer={existingAnswer} onRating={handleRating} />
+        <RatingGroup existingAnswer={existingAnswer} onRating={handleRating} firstButtonRef={firstRatingRef} />
       )}
 
       {/* Note section — visible when notePrompt is set on this question, the
@@ -311,10 +345,11 @@ export function QuestionCard({
       {noteVisible && (
         <NoteSection
           key={`note-${screen.key}`}
+          textareaRef={textareaRef}
           notePrompt={notePrompt}
           value={noteDraft}
           onChange={setNoteDraft}
-          onSubmit={existingAnswer ? handleNext : undefined}
+          onCmdEnter={handleCmdEnter}
         />
       )}
 
@@ -325,7 +360,17 @@ export function QuestionCard({
       {noteVisible ? (
         <div className="mt-4 space-y-2">
           <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next">
-            {existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}
+            <span className="inline-flex items-center justify-center gap-2">
+              <span>{existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}</span>
+              {/* Keyboard hint — power-user shortcut for the textarea path.
+                  Hidden on touch (no physical keyboard) and when the button
+                  is disabled (the shortcut is inert pre-rating). */}
+              {existingAnswer && (
+                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-normal bg-white/15 border border-white/20 leading-none">
+                  ⌘↵
+                </kbd>
+              )}
+            </span>
           </Button>
           <div className="flex justify-between text-xs text-text-muted/65 px-1">
             <button
@@ -411,16 +456,18 @@ export function QuestionCard({
 
 /** Inline note input — pencil icon left, textarea right, dashed peach hairline above. */
 function NoteSection({
+  textareaRef,
   notePrompt,
   value,
   onChange,
-  onSubmit,
+  onCmdEnter,
 }: Readonly<{
+  textareaRef?: RefObject<HTMLTextAreaElement | null>;
   notePrompt: string | null;
   value: string;
   onChange: (next: string) => void;
-  /** Cmd/Ctrl+Enter from the textarea. Undefined when no rating yet (no answer to commit). */
-  onSubmit?: () => void;
+  /** Cmd/Ctrl+Enter from the textarea. Always defined — handler decides what to do based on whether a rating exists. */
+  onCmdEnter: () => void;
 }>) {
   const id = useId();
   const placeholder = notePrompt ?? "A line or two, only if it helps.";
@@ -432,17 +479,17 @@ function NoteSection({
       <div className="flex items-start gap-2.5">
         <Pencil size={14} strokeWidth={1.5} className="shrink-0 mt-1 text-accent/60" aria-hidden="true" />
         <textarea
+          ref={textareaRef}
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            // Cmd/Ctrl+Enter inside the textarea → save & next. Plain Enter
-            // adds a newline (default). The submit handler is undefined when
-            // there's no rating to commit, so the shortcut is inert until
-            // the user has answered.
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+            // Cmd/Ctrl+Enter — Save & next when rated, otherwise hop focus
+            // to the rating buttons so the user has a visible next step.
+            // Plain Enter falls through to the browser default (newline).
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              onSubmit();
+              onCmdEnter();
             }
           }}
           placeholder={placeholder}
@@ -463,9 +510,12 @@ function NoteSection({
 export function RatingGroup({
   existingAnswer,
   onRating,
+  firstButtonRef,
 }: Readonly<{
   existingAnswer: Answer | undefined;
-  onRating: (r: Rating) => void;
+  onRating: (r: Rating, source: "keyboard" | "mouse") => void;
+  /** Exposed so the parent can focus the first rating from a Cmd+Enter pre-rating. */
+  firstButtonRef?: RefObject<HTMLButtonElement | null>;
 }>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
   const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
@@ -517,7 +567,7 @@ export function RatingGroup({
     if (e.detail === 0) {
       setCommitting(rating);
     } else {
-      onRating(rating);
+      onRating(rating, "mouse");
     }
   }
 
@@ -527,7 +577,7 @@ export function RatingGroup({
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== rating) return;
     setCommitting(null);
-    onRating(rating);
+    onRating(rating, "keyboard");
   }
 
   return (
@@ -543,6 +593,7 @@ export function RatingGroup({
           key={opt.rating}
           ref={(el) => {
             refs.current[i] = el;
+            if (i === 0 && firstButtonRef) firstButtonRef.current = el;
           }}
           type="button"
           role="radio"
@@ -575,7 +626,7 @@ export function RatingGroup({
  * with its own keyboard listener (1/n, 2/l). Only mounts when `showTiming`
  * is true; listener lifetime is scoped to the mount.
  */
-export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>) {
+export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing, source: "keyboard" | "mouse") => void }>) {
   const [committing, setCommitting] = useState<Timing | null>(null);
 
   useEffect(() => {
@@ -601,7 +652,7 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => 
     if (e.detail === 0) {
       setCommitting(timing);
     } else {
-      onTiming(timing);
+      onTiming(timing, "mouse");
     }
   }
 
@@ -609,7 +660,7 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => 
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== timing) return;
     setCommitting(null);
-    onTiming(timing);
+    onTiming(timing, "keyboard");
   }
 
   return (
