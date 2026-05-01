@@ -107,8 +107,8 @@ export function QuestionCard({
   const [pillExpanded, setPillExpanded] = useState(false);
   // Pending timing flow — yes/willing on showTimingFlow groups fans out to
   // the now/later sub-question. The TimingButtons component owns the keys.
-  const [pendingRating, setPendingRating] = useState<Rating | null>(null);
-  const showTiming = pendingRating !== null;
+  const [pendingRating, setPendingRating] = useState<Rating>();
+  const showTiming = pendingRating !== undefined;
   // Reseed local UI state on navigation only (screen.key change). Including
   // existingAnswer in the dep array would re-clobber the live noteDraft on
   // every commit (the parent re-passes a new existingAnswer right after each
@@ -116,7 +116,7 @@ export function QuestionCard({
   useEffect(() => {
     setNoteDraft(existingAnswer?.note ?? "");
     setPillExpanded(false);
-    setPendingRating(null);
+    setPendingRating(undefined);
   }, [screen.key]);
 
   const draftHasContent = trimNote(noteDraft) !== null;
@@ -197,7 +197,7 @@ export function QuestionCard({
       if (!pendingRating) return;
       const answer: Answer = { rating: pendingRating, timing, note: trimNote(noteDraft) };
       await onCommit(answer);
-      setPendingRating(null);
+      setPendingRating(undefined);
       if (!noteVisible) onAdvance();
     },
     [pendingRating, noteDraft, noteVisible, onCommit, onAdvance],
@@ -215,7 +215,7 @@ export function QuestionCard({
   }, [existingAnswer, noteDraft, onCommit, onAdvance]);
 
   const handleSkip = useCallback(() => {
-    setPendingRating(null);
+    setPendingRating(undefined);
     onAdvance();
   }, [onAdvance]);
 
@@ -469,7 +469,7 @@ export function RatingGroup({
 }>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
   const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
-  const [committing, setCommitting] = useState<Rating | null>(null);
+  const [committing, setCommitting] = useState<Rating>();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Number-key shortcut (1-5). Window-scoped — no need to focus the group
@@ -526,7 +526,7 @@ export function RatingGroup({
     // doesn't also fire this handler.
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== rating) return;
-    setCommitting(null);
+    setCommitting(undefined);
     onRating(rating);
   }
 
@@ -576,7 +576,7 @@ export function RatingGroup({
  * is true; listener lifetime is scoped to the mount.
  */
 export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => void }>) {
-  const [committing, setCommitting] = useState<Timing | null>(null);
+  const [committing, setCommitting] = useState<Timing>();
 
   useEffect(() => {
     if (committing) return;
@@ -608,7 +608,7 @@ export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing) => 
   function handleAnimationEnd(timing: Timing, e: React.AnimationEvent<HTMLButtonElement>) {
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== timing) return;
-    setCommitting(null);
+    setCommitting(undefined);
     onTiming(timing);
   }
 

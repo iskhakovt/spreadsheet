@@ -73,12 +73,12 @@ async function setupCompletedPair() {
   const alicePush = await aliceCaller0.sync.push({
     stoken: null,
     operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
-    progress: null,
+    progress: undefined,
   });
   const bobPush = await bobCaller0.sync.push({
     stoken: null,
     operations: ['p:1:{"key":"oral:receive","data":{"rating":"yes","timing":"now"}}'],
-    progress: null,
+    progress: undefined,
   });
 
   await aliceCaller0.sync.markComplete();
@@ -158,7 +158,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: ['p:1:{"key":"oral:give","data":{"rating":"no","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     const append = await sub.next(2000);
@@ -184,7 +184,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: ['p:1:{"key":"oral:give","data":{"rating":"no","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     // Fresh subscribe WITH the cursor — should only see the new entry
@@ -213,7 +213,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: ['p:1:{"key":"oral:give","data":{"rating":"maybe","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     // Fresh subscribe with the old cursor — backfill should include the new entry
@@ -239,7 +239,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: ['p:1:{"key":"oral:give","data":{"rating":"no","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     const aAppend = await aSub.next(1000);
@@ -270,7 +270,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: [racingOp],
-      progress: null,
+      progress: undefined,
     });
 
     // Drain at most 3 yields within 1s. The racing entry MUST appear
@@ -362,7 +362,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     await aliceCaller.sync.push({
       stoken: null,
       operations: [opaqueBlob],
-      progress: null,
+      progress: undefined,
     });
     await aliceCaller.sync.markComplete();
 

@@ -24,7 +24,7 @@ export const syncRouter = router({
       z.object({
         stoken: z.string().nullable(),
         operations: z.array(z.string()),
-        progress: z.string().nullable(),
+        progress: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -75,7 +75,7 @@ export const syncRouter = router({
   }),
 
   journal: authedProcedure
-    .input(z.object({ sinceId: z.number().int().nonnegative().nullable() }).optional())
+    .input(z.object({ sinceId: z.number().int().nonnegative().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const result = await ctx.sync.journalSince(ctx.group.id, input?.sinceId ?? null);
       if ("error" in result) {

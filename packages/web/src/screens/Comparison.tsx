@@ -133,8 +133,8 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * Compares answers between pairs of group members on /results.
  *
  * Data flow:
- * 1. `useSuspenseQuery(trpc.sync.journal, { sinceId: null })` fetches the
- *    initial backfill via HTTP and suspends until it lands.
+ * 1. `useSuspenseQuery(trpc.sync.journal)` fetches the initial backfill
+ *    via HTTP and suspends until it lands.
  * 2. `useSubscription(trpc.sync.onJournalChange, { lastEventId })` opens
  *    a tRPC v11 tracked subscription over WS. The initial `lastEventId`
  *    is seeded from the HTTP query's cursor so the subscription starts
@@ -192,9 +192,9 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
     queryFn: makeJournalQueryFn(trpcClient),
   });
 
-  const [initialLastEventId] = useState<string | null>(() => {
+  const [initialLastEventId] = useState<string | undefined>(() => {
     const last = journal.entries[journal.entries.length - 1];
-    return last ? String(last.id) : null;
+    return last ? String(last.id) : undefined;
   });
 
   const seqRef = useRef(0);
@@ -231,7 +231,7 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
 
   const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
 
-  const [activePairKey, setActivePairKey] = useState<string | null>(null);
+  const [activePairKey, setActivePairKey] = useState<string>();
 
   const pairs = useMemo(() => buildPairs(memberAnswers), [memberAnswers]);
 
@@ -244,7 +244,7 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
   const activeIndex = visiblePair
     ? pairs.findIndex((p) => pairKey(p.a, p.b) === pairKey(visiblePair.a, visiblePair.b))
     : 0;
-  // Scroll on pair switches only — activeIndex stays 0 on the null→firstKey
+  // Scroll on pair switches only — activeIndex stays 0 on the undefined→firstKey
   // transition (user clicks the tab that's already shown), so no spurious scroll.
   useScrollReset(activeIndex);
 
