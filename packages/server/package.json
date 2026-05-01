@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc && tsup",
+    "typecheck": "tsc",
     "start": "node dist/main.js"
   },
   "dependencies": {

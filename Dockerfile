@@ -20,9 +20,7 @@ COPY packages/shared/ packages/shared/
 COPY packages/server/ packages/server/
 COPY packages/web/ packages/web/
 
-# Build all packages in order
 RUN pnpm --filter @spreadsheet/shared build \
-    && pnpm --filter @spreadsheet/server run typecheck \
     && pnpm --filter @spreadsheet/web run build \
     && pnpm --filter @spreadsheet/server run build
 
