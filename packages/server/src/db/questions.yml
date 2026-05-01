@@ -1226,6 +1226,7 @@ questions:
     giveText: Using a cock ring on your partner
     receiveText: Wearing a cock ring
     targetReceive: amab
+    description: Tight ring at the base of the penis to maintain a firmer erection
     requires: sex-generally
 
   - id: nipple-clamps
@@ -1234,6 +1235,7 @@ questions:
     text: Nipple clamps
     giveText: Putting nipple clamps on your partner
     receiveText: Wearing nipple clamps
+    description: Clamps on the nipples — steady pressure, sharper sting when removed
     requires: sex-generally
 
   - id: butt-plug
@@ -1260,6 +1262,7 @@ questions:
     giveText: Using a prostate massager on your partner
     receiveText: Having a prostate massager used on you
     targetReceive: amab
+    description: Curved toy that stimulates the prostate through the anus
     requires: sex-generally
 
   - id: temperature-toy
@@ -1284,6 +1287,7 @@ questions:
     text: Strap-on (non-pegging use)
     giveText: Using a strap-on on your partner
     receiveText: Having a strap-on used on you
+    description: Dildo worn on a harness — non-pegging use such as vaginal or aesthetic
     requires: sex-generally
 
   - id: sex-furniture
@@ -1446,7 +1450,7 @@ questions:
     text: Chest harness / breast bondage
     giveText: Tying your partner's chest
     receiveText: Having your chest tied
-    description: Rope wrapped around the torso and chest — decorative harness, or tighter wraps that compress and frame the breasts
+    description: Rope around the torso — decorative or tightly framing the breasts
     requires: bondage-generally
 
   - id: mummification
@@ -1491,6 +1495,7 @@ questions:
     text: Paddling
     giveText: Paddling your partner
     receiveText: Being paddled
+    description: Flat paddle — broad, thuddy impact
     requires: impact-generally
 
   - id: flogging
@@ -1508,7 +1513,7 @@ questions:
     text: Riding crop
     giveText: Using a crop on your partner
     receiveText: Having a crop used on you
-    description: A thin, flexible rod with a small leather flap at the tip — sharper, stingier, more precise than a paddle
+    description: Thin rod with a leather flap at the tip — sharper sting than a paddle
     requires: impact-generally
 
   - id: caning
@@ -1554,6 +1559,7 @@ questions:
     text: Praise kink
     giveText: Praising your partner during sex
     receiveText: Being praised during sex
+    description: Arousal from being told you're good — "good girl", "so good for me"
     requires: power-generally
 
   - id: dominant-role
@@ -1582,6 +1588,7 @@ questions:
     text: Orgasm control / edging
     giveText: Controlling your partner's orgasm
     receiveText: Having your orgasm controlled
+    description: One partner controls when the other comes
     requires: power-generally
 
   - id: begging
@@ -1772,7 +1779,7 @@ questions:
     text: Pet play (puppy, kitten)
     giveText: Being the handler/owner
     receiveText: Being the pet
-    description: Pretending one partner is an animal — ranges from light (collar, ears, mannerisms) to full immersion (training, gear, non-verbal)
+    description: One partner plays an animal — light (collar, ears) to full immersion (training, gear)
     notePrompt: which animal, how immersive?
     requires: roleplay-generally
 
@@ -2040,7 +2047,7 @@ questions:
     text: Cross-dressing
     giveText: Seeing your partner cross-dress
     receiveText: Cross-dressing yourself
-    description: Wearing clothing typically associated with another gender as a turn-on or fantasy element — distinct from drag performance or gender identity
+    description: Wearing clothing typically of another gender — kink, not drag or gender identity
 
   - id: used-underwear
     category: fetish
@@ -2147,7 +2154,7 @@ questions:
     category: edge
     tier: 4
     text: Blood play
-    description: Sexual play involving blood — light scratches that draw blood, menstrual blood, or blood drawn deliberately
+    description: Play involving blood — scratches, menstrual, or deliberately drawn
     notePrompt: which kind (scratches, menstrual, deliberate)?
     requires: edge-generally
 
