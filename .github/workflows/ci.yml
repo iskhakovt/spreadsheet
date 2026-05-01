@@ -80,9 +80,6 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Authenticate Docker Hub before testcontainers pulls postgres:17 —
-      # GitHub-hosted runners share IPs and routinely hit the anonymous
-      # rate limit (100/6h). Skip on fork PRs where secrets are unavailable.
       - name: Log into Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
         env:
@@ -150,9 +147,6 @@ jobs:
         run: npx playwright install chromium
       - name: Install Chromium OS deps
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64
-      # Authenticate Docker Hub before testcontainers pulls postgres:17 —
-      # GitHub-hosted runners share IPs and routinely hit the anonymous
-      # rate limit (100/6h). Skip on fork PRs where secrets are unavailable.
       - name: Log into Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
         env:
@@ -183,10 +177,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      # Authenticate Docker Hub before testcontainers (in global-setup) pulls
-      # postgres:17 — GitHub-hosted runners share IPs and routinely hit the
-      # anonymous rate limit (100/6h). Skip on fork PRs where secrets are
-      # unavailable. The Playwright image below is on MCR, not Docker Hub.
       - name: Log into Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
         env:
