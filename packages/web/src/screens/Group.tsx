@@ -48,7 +48,7 @@ export function Group({
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState<{ url: string; name: string } | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<{ url: string; name: string }>();
   const { copiedIndex, copy } = useCopy();
 
   const addPersonMutation = useMutation(
@@ -146,7 +146,7 @@ export function Group({
             <CopyLinkField
               value={generatedLink.url}
               label={`${generatedLink.name}'s invite link`}
-              copied={copiedIndex !== null}
+              copied={copiedIndex !== undefined}
               onCopy={() => copy(generatedLink.url)}
             />
           </div>

@@ -52,7 +52,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -71,7 +71,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -81,7 +81,7 @@ describe("SyncStore.push", () => {
       {
         stoken: first.stoken,
         operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -99,7 +99,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -109,7 +109,7 @@ describe("SyncStore.push", () => {
       {
         stoken: first.stoken,
         operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -118,7 +118,7 @@ describe("SyncStore.push", () => {
       {
         stoken: first.stoken,
         operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
-        progress: null,
+        progress: undefined,
       },
       encrypted,
     );
@@ -152,7 +152,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       true,
     );
@@ -166,7 +166,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ["e:1:encryptedpayload"],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -180,7 +180,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}', "e:1:encryptedpayload"],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -194,7 +194,7 @@ describe("SyncStore.push", () => {
       {
         stoken: null,
         operations: ["e:1:encryptedpayload"],
-        progress: null,
+        progress: undefined,
       },
       true,
     );
@@ -256,7 +256,7 @@ describe("SyncStore.journalSince", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -265,7 +265,7 @@ describe("SyncStore.journalSince", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -290,7 +290,7 @@ describe("SyncStore.journalSince", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -304,7 +304,7 @@ describe("SyncStore.journalSince", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
-        progress: null,
+        progress: undefined,
       },
       false,
     );
@@ -326,7 +326,7 @@ describe("SyncStore.journalSince", () => {
       {
         stoken: null,
         operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-        progress: null,
+        progress: undefined,
       },
       false,
     );

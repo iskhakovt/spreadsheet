@@ -36,7 +36,7 @@ export function useMarkComplete(token: string): () => Promise<void> {
     try {
       await flushPendingOps(
         (input) => pushMutation.mutateAsync(input),
-        async () => null,
+        async () => undefined,
       );
       await markCompleteMutation.mutateAsync();
       void navigate({ to: "/p/$token/waiting", params: { token } });

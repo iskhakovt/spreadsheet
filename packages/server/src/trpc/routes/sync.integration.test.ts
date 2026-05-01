@@ -70,7 +70,7 @@ describe("full sync flow (real Postgres)", () => {
     await alice.caller.sync.markComplete();
     await bob.caller.sync.markComplete();
 
-    const journal = await alice.caller.sync.journal({ sinceId: null });
+    const journal = await alice.caller.sync.journal({ sinceId: undefined });
     expect(journal.members).toHaveLength(2);
     expect(journal.entries).toHaveLength(4);
     // cursor is the highest id; every entry has a numeric id
@@ -83,17 +83,17 @@ describe("full sync flow (real Postgres)", () => {
     const alicePushA = await alice.caller.sync.push({
       stoken: null,
       operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
+      progress: undefined,
     });
     await bob.caller.sync.push({
       stoken: null,
       operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
+      progress: undefined,
     });
     await alice.caller.sync.markComplete();
     await bob.caller.sync.markComplete();
 
-    const initial = await alice.caller.sync.journal({ sinceId: null });
+    const initial = await alice.caller.sync.journal({ sinceId: undefined });
     expect(initial.entries).toHaveLength(2);
     const initialCursor = initial.cursor;
 
@@ -102,15 +102,15 @@ describe("full sync flow (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: alicePushA.stoken,
       operations: ['p:1:{"key":"a:give","data":{"rating":"no","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
-    const delta = await alice.caller.sync.journal({ sinceId: initialCursor });
+    const delta = await alice.caller.sync.journal({ sinceId: initialCursor ?? undefined });
     expect(delta.entries).toHaveLength(1);
     expect(delta.cursor).toBeGreaterThan(initialCursor ?? 0);
 
     // Empty delta: fetching again with the new cursor returns nothing new
-    const empty = await alice.caller.sync.journal({ sinceId: delta.cursor });
+    const empty = await alice.caller.sync.journal({ sinceId: delta.cursor ?? undefined });
     expect(empty.entries).toHaveLength(0);
     expect(empty.cursor).toBe(delta.cursor);
   });
@@ -118,7 +118,7 @@ describe("full sync flow (real Postgres)", () => {
   it("rejects journal when not all complete", async () => {
     const { alice } = await createGroupWithMembers();
     await alice.caller.sync.markComplete();
-    await expect(alice.caller.sync.journal({ sinceId: null })).rejects.toThrow("All group members");
+    await expect(alice.caller.sync.journal({ sinceId: undefined })).rejects.toThrow("All group members");
   });
 
   it("handles stale stoken conflict", async () => {
@@ -127,19 +127,19 @@ describe("full sync flow (real Postgres)", () => {
     const first = await alice.caller.sync.push({
       stoken: null,
       operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
-      progress: null,
+      progress: undefined,
     });
 
     await alice.caller.sync.push({
       stoken: first.stoken,
       operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     const stale = await alice.caller.sync.push({
       stoken: first.stoken,
       operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
-      progress: null,
+      progress: undefined,
     });
 
     expect(stale.pushRejected).toBe(true);

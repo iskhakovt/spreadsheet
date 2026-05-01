@@ -19,7 +19,7 @@ vi.mock("../lib/storage.js", () => ({
 }));
 
 vi.mock("../lib/use-copy.js", () => ({
-  useCopy: () => ({ copiedIndex: null, copy: vi.fn() }),
+  useCopy: () => ({ copiedIndex: undefined, copy: vi.fn() }),
 }));
 
 vi.mock("../components/copy-my-link.js", () => ({

@@ -45,7 +45,7 @@ describe("flushPendingOps", () => {
     expect(localStorage.getItem("stoken")).toBe("new-stoken");
   });
 
-  test("passes null progress when the factory returns null", async () => {
+  test("passes undefined progress when the factory returns undefined", async () => {
     // This is the markComplete flush path — we don't want to touch the
     // progress column on the final flush because the user is about to
     // be marked complete and the value is moot.
@@ -56,9 +56,9 @@ describe("flushPendingOps", () => {
       entries: [],
     });
 
-    await flushPendingOps(push, async () => null);
+    await flushPendingOps(push, async () => undefined);
 
-    expect(push).toHaveBeenCalledWith(expect.objectContaining({ progress: null }));
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ progress: undefined }));
     expect(getPendingOps()).toEqual([]);
   });
 
@@ -66,7 +66,7 @@ describe("flushPendingOps", () => {
     localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
     const push = vi.fn().mockRejectedValue(new Error("network"));
 
-    await expect(flushPendingOps(push, async () => null)).rejects.toThrow("network");
+    await expect(flushPendingOps(push, async () => undefined)).rejects.toThrow("network");
 
     // Ops must still be in the queue so the next retry picks them up.
     expect(JSON.parse(localStorage.getItem("pendingOps") ?? "[]")).toEqual(["op1"]);
@@ -83,7 +83,7 @@ describe("flushPendingOps", () => {
       return { stoken: "s", pushRejected: false, entries: [] };
     });
 
-    await flushPendingOps(push, async () => null);
+    await flushPendingOps(push, async () => undefined);
 
     // Only op1 + op2 were sent; op3 was enqueued after the snapshot
     // and must survive in the queue for the next sync cycle.
@@ -166,7 +166,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     });
 
     // The exact sequence useMarkComplete executes:
-    await flushPendingOps(push, async () => null);
+    await flushPendingOps(push, async () => undefined);
     await markComplete();
 
     expect(callOrder).toEqual(["push", "markComplete"]);
@@ -187,7 +187,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
       expect(remainingOps).toEqual([]);
     });
 
-    await flushPendingOps(push, async () => null);
+    await flushPendingOps(push, async () => undefined);
     await markComplete();
 
     expect(markComplete).toHaveBeenCalledTimes(1);
@@ -200,7 +200,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     const push = vi.fn();
     const markComplete = vi.fn();
 
-    await flushPendingOps(push, async () => null);
+    await flushPendingOps(push, async () => undefined);
     await markComplete();
 
     expect(push).not.toHaveBeenCalled();
@@ -218,7 +218,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     // because their answers haven't been saved.
     await expect(
       (async () => {
-        await flushPendingOps(push, async () => null);
+        await flushPendingOps(push, async () => undefined);
         await markComplete();
       })(),
     ).rejects.toThrow("network");
@@ -246,7 +246,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
       if (inFlight) return;
       inFlight = true;
       try {
-        await flushPendingOps(push, async () => null);
+        await flushPendingOps(push, async () => undefined);
         await markComplete();
       } finally {
         inFlight = false;
