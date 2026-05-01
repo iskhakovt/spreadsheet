@@ -1526,7 +1526,7 @@ questions:
     text: Face slapping (consensual)
     giveText: Slapping your partner's face
     receiveText: Being face-slapped
-    description: Open-hand slaps to the face. Higher risk than other impact — easy to injure ear, eye, or jaw.
+    description: Open-hand slaps to the face — higher risk than other impact, easy to injure ear, eye, or jaw
     requires: impact-generally
 
   - id: whipping
@@ -2039,7 +2039,7 @@ questions:
     tier: 3
     text: Cross-dressing
     giveText: Seeing your partner cross-dress
-    receiveText: Cross-dressing
+    receiveText: Cross-dressing yourself
 
   - id: used-underwear
     category: fetish
@@ -2146,7 +2146,7 @@ questions:
     category: edge
     tier: 4
     text: Blood play
-    description: Sexual play involving blood — light scratches that draw blood, menstrual blood, or blood drawn deliberately. Specify scope in note.
+    description: Sexual play involving blood — light scratches that draw blood, menstrual blood, or blood drawn deliberately
     notePrompt: which kind (scratches, menstrual, deliberate)?
     requires: edge-generally
 
