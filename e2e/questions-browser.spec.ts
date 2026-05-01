@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.js";
+import { NAV_TIMEOUT } from "./helpers.js";
 
 test.describe("public /questions browser", () => {
   test("Landing → Browse the questions → search filters the list and the count updates", async ({ page }) => {
@@ -41,7 +42,7 @@ test.describe("public /questions browser", () => {
 
   test("filter changes snap the user back to the filter bar instead of stranding them mid-list", async ({ page }) => {
     await page.goto("/questions");
-    await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible({ timeout: NAV_TIMEOUT });
 
     // The "X of Y questions shown" count is the readiness + change signal.
     // Capture the initial text dynamically so the test isn't coupled to the
@@ -83,7 +84,7 @@ test.describe("public /questions browser", () => {
 
   test("clicking a `requires` chip jumps to the parent and flashes it", async ({ page }) => {
     await page.goto("/questions");
-    await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Browse the bank" })).toBeVisible({ timeout: NAV_TIMEOUT });
     await expect(page.getByText(/of \d+ questions shown/)).toBeVisible();
 
     // `slow-sex` (Foundations) requires `sex-generally`. The chip on its

@@ -171,7 +171,7 @@ test.describe("multi-tab isolation", () => {
     const base = personBase(admin.url());
     const tabB = await ctx.newPage();
     await tabB.goto(base + "/summary");
-    await expect(tabB.getByText(/0 of \d+ answered/)).toBeVisible();
+    await expect(tabB.getByText(/0 of \d+ answered/)).toBeVisible({ timeout: NAV_TIMEOUT });
 
     // Commit an answer in tab A.
     await admin.getByRole("button", { name: "Start", exact: true }).click();

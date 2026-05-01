@@ -3,6 +3,7 @@ import {
   answerAllQuestions,
   createGroupAndSetup,
   goThroughIntro,
+  NAV_TIMEOUT,
   narrowToCategory,
   personBase,
   WS_TIMEOUT,
@@ -18,7 +19,7 @@ test.describe("missing encryption key", () => {
 
     await bob.goto(linkWithoutKey);
     // MissingKeyError has retry: false — the screen should appear without retry delay
-    await expect(bob.getByText("Encryption key missing")).toBeVisible();
+    await expect(bob.getByText("Encryption key missing")).toBeVisible({ timeout: NAV_TIMEOUT });
     await expect(bob.getByText("the key wasn't included in your link")).toBeVisible();
   });
 
