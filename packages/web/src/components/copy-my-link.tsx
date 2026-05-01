@@ -16,7 +16,7 @@ interface CopyMyLinkProps {
  */
 export function CopyMyLink({ encrypted, token }: Readonly<CopyMyLinkProps>) {
   const { copiedIndex, copy } = useCopy();
-  const copied = copiedIndex !== null;
+  const copied = copiedIndex !== undefined;
 
   if (!encrypted) return null;
 

@@ -4,7 +4,7 @@ import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setS
 interface PushInput {
   stoken: string | null;
   operations: string[];
-  progress: string | null;
+  progress?: string;
 }
 
 interface PushResult {
@@ -25,7 +25,7 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  *
  * `getProgress` is a factory (not a value) so the caller can recompute
  * on the retry path, where the answered-count changes after merging
- * rejected entries. Pass `() => Promise.resolve(null)` to skip the
+ * rejected entries. Pass `() => Promise.resolve(undefined)` to skip the
  * server-side progress update — useful for the final flush on
  * mark-complete where progress is about to be moot anyway.
  *
@@ -37,7 +37,7 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  * another question while the push was in flight, that newer op was
  * appended after our snapshot and must survive.
  */
-export async function flushPendingOps(push: PushFn, getProgress: () => Promise<string | null>): Promise<void> {
+export async function flushPendingOps(push: PushFn, getProgress: () => Promise<string | undefined>): Promise<void> {
   const ops = getPendingOps();
   if (ops.length === 0) return;
   const sentCount = ops.length;

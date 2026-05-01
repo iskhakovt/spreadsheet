@@ -74,7 +74,10 @@ export default defineConfig({
         // /api/out (the outbound click proxy, opened via <a target="_blank">)
         // do — without this, the SW serves index.html and the SPA renders its
         // 404 instead of the redirect ever reaching the server.
-        navigateFallbackDenylist: [/^\/p\//, /^\/api\//],
+        // /health is a server liveness endpoint hit by orchestrators and by
+        // humans visiting the URL directly; the SW would otherwise serve the
+        // SPA shell and the JSON body never reaches the caller.
+        navigateFallbackDenylist: [/^\/p\//, /^\/api\//, /^\/health$/],
       },
       manifest: {
         name: "Spreadsheet",

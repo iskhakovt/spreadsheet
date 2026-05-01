@@ -1,52 +1,55 @@
 import { logger } from "./logger.js";
 
-const command = process.argv[2] ?? "serve";
+// One-shot commands only. `serve` is handled separately at the call site
+// because it keeps the event loop alive via the Hono server's listener
+// handle, and process.exit() would tear that down immediately.
+async function runOneShot(command: string): Promise<number> {
+  switch (command) {
+    case "migrate": {
+      const { createDatabase, runMigrations } = await import("./db/index.js");
+      const db = createDatabase(requireEnv("DATABASE_URL"));
+      await runMigrations(db);
+      logger.info("migrations applied");
+      return 0;
+    }
 
-switch (command) {
-  case "serve":
-    await import("./index.js");
-    break;
+    case "seed": {
+      const { createDatabase } = await import("./db/index.js");
+      const { QuestionStore } = await import("./store/questions.js");
+      const { seed } = await import("./db/seed.js");
+      const db = createDatabase(requireEnv("DATABASE_URL"));
+      await seed(new QuestionStore(db));
+      logger.info("seed complete");
+      return 0;
+    }
 
-  case "migrate": {
-    const { createDatabase, runMigrations } = await import("./db/index.js");
-    const db = createDatabase(requireEnv("DATABASE_URL"));
-    await runMigrations(db);
-    logger.info("migrations applied");
-    process.exit(0);
-    break;
+    case "setup": {
+      const { createDatabase, runMigrations } = await import("./db/index.js");
+      const { QuestionStore } = await import("./store/questions.js");
+      const { seed } = await import("./db/seed.js");
+      const db = createDatabase(requireEnv("DATABASE_URL"));
+      await runMigrations(db);
+      logger.info("migrations applied");
+      await seed(new QuestionStore(db));
+      logger.info("seed complete");
+      return 0;
+    }
+
+    default:
+      logger.fatal({ command }, "usage: main.ts [serve|migrate|seed|setup]");
+      return 1;
   }
-
-  case "seed": {
-    const { createDatabase } = await import("./db/index.js");
-    const { QuestionStore } = await import("./store/questions.js");
-    const { seed } = await import("./db/seed.js");
-    const db = createDatabase(requireEnv("DATABASE_URL"));
-    await seed(new QuestionStore(db));
-    logger.info("seed complete");
-    process.exit(0);
-    break;
-  }
-
-  case "setup": {
-    const { createDatabase, runMigrations } = await import("./db/index.js");
-    const { QuestionStore } = await import("./store/questions.js");
-    const { seed } = await import("./db/seed.js");
-    const db = createDatabase(requireEnv("DATABASE_URL"));
-    await runMigrations(db);
-    logger.info("migrations applied");
-    await seed(new QuestionStore(db));
-    logger.info("seed complete");
-    process.exit(0);
-    break;
-  }
-
-  default:
-    logger.fatal({ command }, "usage: main.ts [serve|migrate|seed|setup]");
-    process.exit(1);
 }
 
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} required`);
   return value;
+}
+
+const command = process.argv[2] ?? "serve";
+if (command === "serve") {
+  await import("./index.js");
+} else {
+  process.exit(await runOneShot(command));
 }

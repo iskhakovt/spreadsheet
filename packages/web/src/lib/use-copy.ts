@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useCopy(resetMs = 2000) {
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number>();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const copy = useCallback(
@@ -10,7 +10,7 @@ export function useCopy(resetMs = 2000) {
       setCopiedIndex(index);
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        setCopiedIndex(null);
+        setCopiedIndex(undefined);
         timerRef.current = null;
       }, resetMs);
     },

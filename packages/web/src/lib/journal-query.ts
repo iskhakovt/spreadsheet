@@ -92,7 +92,7 @@ export const JOURNAL_QUERY_KEY = ["sync", "journal", "derived"] as const;
  */
 export function makeJournalQueryFn(trpcClient: TrpcClient) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<CachedJournal> => {
-    const raw = await trpcClient.sync.journal.query({ sinceId: null }, { signal });
+    const raw = await trpcClient.sync.journal.query(undefined, { signal });
     const members = await replayMembers(raw.members, raw.entries);
     return { members, entries: raw.entries, cursor: raw.cursor };
   };

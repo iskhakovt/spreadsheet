@@ -14,7 +14,7 @@ export class SyncStore {
 
   async push(
     personId: string,
-    input: { stoken: string | null; operations: string[]; progress: string | null },
+    input: { stoken: string | null; operations: string[]; progress?: string },
     groupEncrypted: boolean,
   ): Promise<
     | { error: "encryption_mismatch" }
@@ -34,7 +34,7 @@ export class SyncStore {
     }
 
     return this.#tx(async (tx) => {
-      if (input.progress !== null) {
+      if (input.progress !== undefined) {
         await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
       }
 
