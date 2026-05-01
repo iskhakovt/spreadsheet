@@ -787,8 +787,11 @@ function HelpPopover({
   const items = mode === "rating" ? RATING_HELP : TIMING_HELP;
   const title = mode === "rating" ? "What each rating means" : "What each option means";
   // Three-column when the kbd column is rendered, two-column otherwise.
+  // The kbd column uses minmax so it stays tight for single-key rows (`1`)
+  // but grows for multi-glyph cells (`Ctrl+↵`) without overflowing into
+  // the label column.
   const rowCls = hasKeyboard
-    ? "grid grid-cols-[3.6rem_4.2rem_1fr] gap-3 items-center text-[13px] leading-snug"
+    ? "grid grid-cols-[minmax(3.6rem,max-content)_4.2rem_1fr] gap-3 items-center text-[13px] leading-snug"
     : "grid grid-cols-[4.2rem_1fr] gap-3 items-center text-[13px] leading-snug";
   return (
     <div
