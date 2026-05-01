@@ -11,7 +11,7 @@ let db: Database;
 beforeAll(async () => {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL not set");
-  db = createDatabase(url);
+  ({ db } = createDatabase(url));
   await seed(new QuestionStore(db));
 });
 
