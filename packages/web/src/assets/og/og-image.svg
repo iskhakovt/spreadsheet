@@ -1,6 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
-  <image href="./og-bg.svg" x="0" y="0" width="1200" height="630"/>
+  <rect width="1200" height="630" fill="#fdf9f5"/>
+  <rect x="65"   y="40" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="155"  y="40" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="245"  y="40" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="335"  y="40" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="425"  y="40" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="515"  y="40" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="605"  y="40" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="695"  y="40" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="785"  y="40" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="875"  y="40" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="965"  y="40" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="1055" y="40" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="65"   y="110" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="155"  y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="245"  y="110" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="335"  y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="425"  y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="515"  y="110" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="605"  y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="695"  y="110" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="785"  y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="875"  y="110" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="965"  y="110" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="1055" y="110" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="65"   y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="155"  y="460" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="245"  y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="335"  y="460" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="425"  y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="515"  y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="605"  y="460" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="695"  y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="785"  y="460" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="875"  y="460" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="965"  y="460" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="1055" y="460" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="65"   y="530" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="155"  y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="245"  y="530" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="335"  y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="425"  y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="515"  y="530" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="605"  y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="695"  y="530" width="80" height="60" rx="6" fill="#f0ebe4"/>
+  <rect x="785"  y="530" width="80" height="60" rx="6" fill="#d08058"/>
+  <rect x="875"  y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
+  <rect x="965"  y="530" width="80" height="60" rx="6" fill="#a8a098"/>
+  <rect x="1055" y="530" width="80" height="60" rx="6" fill="#7aab8e"/>
   <rect x="60" y="200" width="1080" height="230" rx="16" fill="#fdf9f5"/>
   <text x="600" y="320" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="104" fill="#3a3028">Spreadsheet</text>
   <text x="600" y="375" text-anchor="middle" font-family="Lexend" font-weight="400" font-size="28" fill="#7d6e5e">Find the overlap</text>

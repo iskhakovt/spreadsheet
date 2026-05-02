@@ -28,9 +28,6 @@ function rasterizeOG(): Plugin {
       for (const name of variants) {
         const template = await readFile(resolve(srcDir, `${name}.svg`), "utf8");
         const resvg = new Resvg(template, { font: { fontFiles: [fontFile] } });
-        for (const href of resvg.imagesToResolve()) {
-          resvg.resolveImage(href, await readFile(resolve(srcDir, href)));
-        }
         const png = resvg.render().asPng();
         await writeFile(resolve(outDir, `${name}.png`), png);
       }
