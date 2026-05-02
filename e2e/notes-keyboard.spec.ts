@@ -14,7 +14,7 @@ import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers
  */
 test.describe("free-text notes — keyboard flow", () => {
   test("pressing '1' on a Layout B question moves focus into the textarea", async ({ alice }) => {
-    await createGroupAndSetup(alice, { encrypted: false });
+    await createGroupAndSetup(alice, { encrypted: true });
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Foundations");
@@ -32,7 +32,7 @@ test.describe("free-text notes — keyboard flow", () => {
   });
 
   test("type in the textarea, then press '1' — advances immediately", async ({ alice }) => {
-    await createGroupAndSetup(alice, { encrypted: false });
+    await createGroupAndSetup(alice, { encrypted: true });
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Foundations");
@@ -54,7 +54,7 @@ test.describe("free-text notes — keyboard flow", () => {
   });
 
   test("Cmd+Enter pre-rating moves focus to the first rating button", async ({ alice }) => {
-    await createGroupAndSetup(alice, { encrypted: false });
+    await createGroupAndSetup(alice, { encrypted: true });
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Foundations");
@@ -72,7 +72,7 @@ test.describe("free-text notes — keyboard flow", () => {
   });
 
   test("Cmd+Enter post-rating advances", async ({ alice }) => {
-    await createGroupAndSetup(alice, { encrypted: false });
+    await createGroupAndSetup(alice, { encrypted: true });
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
     await narrowToCategory(alice, "Foundations");
