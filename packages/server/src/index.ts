@@ -28,7 +28,7 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-const db = createDatabase(databaseUrl);
+const { db, close: closeDb } = createDatabase(databaseUrl);
 const stores = {
   groups: new GroupStore(db),
   sync: new SyncStore(db),
@@ -225,7 +225,16 @@ process.on("SIGTERM", () => {
   wssHandler.broadcastReconnectNotification();
   wss.close();
   metricsServer.close();
-  server.close(() => {
+  // Close the DB pool *after* HTTP drains, so in-flight requests can finish
+  // their queries. Closing earlier would tear sockets out from under handlers
+  // that are still running.
+  server.close(async () => {
     logger.info("http server closed");
+    try {
+      await closeDb();
+      logger.info("db pool closed");
+    } catch (err) {
+      logger.error({ err }, "db pool close failed");
+    }
   });
 });

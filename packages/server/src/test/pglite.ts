@@ -2,27 +2,23 @@ import { PGlite } from "@electric-sql/pglite";
 import { pushSchema } from "drizzle-kit/api";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import type { Database } from "../db/index.js";
+import type { Database, DatabaseHandle } from "../db/index.js";
 import * as schema from "../db/schema.js";
 
 /**
  * Boot an in-memory PGlite instance with the full schema applied.
  * Returns the Drizzle db and a cleanup function.
  */
-export async function createTestDatabase(): Promise<{
-  db: Database;
-  close: () => Promise<void>;
-}> {
+export async function createTestDatabase(): Promise<DatabaseHandle> {
   const client = new PGlite();
 
-  const rawDb = drizzle({ client, schema });
+  const db: Database = drizzle({ client, schema });
 
-  // biome-ignore lint/suspicious/noExplicitAny: pushSchema expects PgDatabase<any>
-  const { apply } = await pushSchema(schema, rawDb as any);
+  // pushSchema's signature wants a schema-less PgDatabase (Record<string, never>),
+  // so we widen here. Runtime is fine — pushSchema only uses the connection.
+  // biome-ignore lint/suspicious/noExplicitAny: pushSchema typing is overly narrow
+  const { apply } = await pushSchema(schema, db as any);
   await apply();
-
-  // biome-ignore lint/suspicious/noExplicitAny: cast PGlite driver to driver-agnostic Database type
-  const db = rawDb as any as Database;
 
   return {
     db,
