@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
  * underlying handler accepts both metaKey and ctrlKey.
  *
  * Strategy: prefer User-Agent Client Hints (Chromium), fall back to the
- * deprecated-but-still-populated `navigator.platform`. iPadOS 13+ pretends
- * to be MacIntel; the maxTouchPoints check is Apple's documented tell.
+ * deprecated-but-still-populated `navigator.platform`. iPadOS 13+ reports
+ * `MacIntel` (and is keyboard-capable when paired) — the `^Mac` regex
+ * already covers both real Macs and iPad-as-Mac, which is fine here:
+ * both should show ⌘ either way.
  */
 export function isMac(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -16,8 +18,7 @@ export function isMac(): boolean {
   if (uaPlatform) return uaPlatform === "macOS";
   const p = navigator.platform || "";
   if (/^Mac/.test(p)) return true;
-  if (/iPhone|iPad|iPod/.test(p)) return true;
-  return p === "MacIntel" && navigator.maxTouchPoints > 1;
+  return /iPhone|iPad|iPod/.test(p);
 }
 
 /**
