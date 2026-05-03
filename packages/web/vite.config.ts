@@ -80,7 +80,13 @@ export default defineConfig({
         // /health is a server liveness endpoint hit by orchestrators and by
         // humans visiting the URL directly; the SW would otherwise serve the
         // SPA shell and the JSON body never reaches the caller.
-        navigateFallbackDenylist: [/^\/p\//, /^\/api\//, /^\/health$/],
+        // The file-extension regex is the canonical Workbox pattern for
+        // skipping any URL whose final path segment looks like name.ext —
+        // covers /og-image.png, /og-invite.png, /favicon.svg, /logo.svg,
+        // /icon-{192,512}.png, /apple-touch-icon.png, /robots.txt,
+        // /manifest.webmanifest, and /env-config.js. Safe because tokens are
+        // base64url (no dots) and no SPA route has a file extension.
+        navigateFallbackDenylist: [/^\/p\//, /^\/api\//, /^\/health$/, /\/[^/?]+\.[^/]+$/],
       },
       manifest: {
         name: "Spreadsheet",
