@@ -16,7 +16,13 @@ function rasterizeOG(): Plugin {
   const here = dirname(fileURLToPath(import.meta.url));
   const srcDir = resolve(here, "src/assets/og");
   const outDir = resolve(here, "public");
-  const fontFile = resolve(srcDir, "Lexend.ttf");
+  // resvg-js / usvg 0.34 ignores the wght axis on variable fonts — every
+  // weight renders at the file's default. Ship static instances at the
+  // weights the SVGs request (Regular 400, Medium 500, Bold 700) so resvg's
+  // weight matcher picks the right face. Generated from the upstream
+  // Lexend variable font via fontTools.varLib.instancer with
+  // updateFontNames=True; see Lexend.OFL.txt for the license.
+  const fontFiles = ["Lexend-Regular.ttf", "Lexend-Medium.ttf", "Lexend-Bold.ttf"].map((f) => resolve(srcDir, f));
   const variants = ["og-image", "og-invite"] as const;
 
   let done = false;
@@ -27,10 +33,7 @@ function rasterizeOG(): Plugin {
       const { Resvg } = await import("@resvg/resvg-js");
       for (const name of variants) {
         const template = await readFile(resolve(srcDir, `${name}.svg`), "utf8");
-        const resvg = new Resvg(template, { font: { fontFiles: [fontFile] } });
-        for (const href of resvg.imagesToResolve()) {
-          resvg.resolveImage(href, await readFile(resolve(srcDir, href)));
-        }
+        const resvg = new Resvg(template, { font: { fontFiles } });
         const png = resvg.render().asPng();
         await writeFile(resolve(outDir, `${name}.png`), png);
       }
