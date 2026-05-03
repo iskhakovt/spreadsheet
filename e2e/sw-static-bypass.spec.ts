@@ -20,7 +20,12 @@ import { expect, test } from "./fixtures.js";
  * so the SW is in the loop for the second navigation.
  */
 
-const STATIC_ASSETS: { url: string; contentType: RegExp }[] = [
+interface Asset {
+  readonly url: string;
+  readonly contentType: RegExp;
+}
+
+const STATIC_ASSETS: readonly Asset[] = [
   { url: "/og-image.png", contentType: /^image\/png\b/i },
   { url: "/og-invite.png", contentType: /^image\/png\b/i },
   { url: "/favicon.svg", contentType: /^image\/svg\+xml\b/i },
@@ -33,7 +38,12 @@ const STATIC_ASSETS: { url: string; contentType: RegExp }[] = [
   { url: "/env-config.js", contentType: /^application\/javascript\b/i },
 ];
 
-const SPA_ROUTES = ["/", "/questions", "/p/fake-token-just-for-meta", "/p/fake-token-just-for-meta/setup"];
+const SPA_ROUTES: readonly string[] = [
+  "/",
+  "/questions",
+  "/p/fake-token-just-for-meta",
+  "/p/fake-token-just-for-meta/setup",
+];
 
 test.describe("service worker / static-asset passthrough", () => {
   test("static assets bypass the SW shell once the SW is controlling", async ({ page }) => {
