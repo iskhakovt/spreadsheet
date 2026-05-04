@@ -324,7 +324,7 @@ export function QuestionCard({
               className="min-h-[1.4rem] pt-1.5 text-[11px] text-center text-text-muted/55 leading-none opacity-0 transition-opacity duration-150 group-focus-within:opacity-100"
               aria-hidden="true"
             >
-              <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-text">
+              <kbd className="inline-flex items-center justify-center font-mono text-[10px] leading-[9px] align-middle px-1.5 py-0.5 rounded bg-surface border border-border text-text">
                 {modKey()}+↵
               </kbd>{" "}
               {existingAnswer ? "save & next" : "jump to the rating"}
@@ -703,8 +703,9 @@ function HelpPopover({
 }
 
 function Kbd({ children }: Readonly<{ children: ReactNode }>) {
+  // line-height < font-size collapses descender slack so glyphs sit in optical center.
   return (
-    <kbd className="font-mono text-[11px] leading-none px-1.5 py-0.5 rounded bg-surface border border-border text-text">
+    <kbd className="inline-flex items-center justify-center font-mono text-[11px] leading-[10px] align-middle px-1.5 py-0.5 rounded bg-surface border border-border text-text">
       {children}
     </kbd>
   );
