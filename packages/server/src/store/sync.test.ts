@@ -48,7 +48,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -67,7 +67,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -77,7 +77,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
         progress: undefined,
       },
       encrypted,
@@ -95,7 +95,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -105,7 +105,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
         progress: undefined,
       },
       encrypted,
@@ -114,7 +114,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
+        operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe"}}'],
         progress: undefined,
       },
       encrypted,
@@ -132,7 +132,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: 'p:1:{"answered":1,"total":10}',
       },
       encrypted,
@@ -148,7 +148,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       true,
@@ -176,7 +176,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}', "e:1:encryptedpayload"],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}', "e:1:encryptedpayload"],
         progress: undefined,
       },
       false,
@@ -252,7 +252,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -261,7 +261,7 @@ describe("SyncStore.journalSince", () => {
       bob.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -286,7 +286,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -300,7 +300,7 @@ describe("SyncStore.journalSince", () => {
       bob.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe"}}'],
         progress: undefined,
       },
       false,
@@ -322,7 +322,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -411,8 +411,8 @@ describe("SyncStore.journalSinceForPerson", () => {
       {
         stoken: null,
         operations: [
-          'p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}',
-          'p:1:{"key":"b:mutual","data":{"rating":"maybe","timing":null}}',
+          'p:1:{"key":"a:give","data":{"rating":"yes"}}',
+          'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}',
         ],
         progress: undefined,
       },
@@ -430,7 +430,7 @@ describe("SyncStore.journalSinceForPerson", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -443,7 +443,7 @@ describe("SyncStore.journalSinceForPerson", () => {
       personId,
       {
         stoken: initial.stoken,
-        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
         progress: undefined,
       },
       encrypted,
@@ -461,7 +461,7 @@ describe("SyncStore.journalSinceForPerson", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -479,7 +479,7 @@ describe("SyncStore.journalSinceForPerson", () => {
       aliceId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -499,7 +499,7 @@ describe("SyncStore.journalSinceForPerson", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,

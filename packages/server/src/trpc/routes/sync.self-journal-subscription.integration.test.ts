@@ -96,8 +96,8 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe","timing":null}}',
+        'p:1:{"key":"oral:give","data":{"rating":"yes"}}',
+        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}',
       ],
       progress: undefined,
     });
@@ -117,7 +117,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // Bob writes, alice subscribes — alice must NOT see bob's entry.
     await bob.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:receive","data":{"rating":"no","timing":null}}'],
+      operations: ['p:1:{"key":"oral:receive","data":{"rating":"no"}}'],
       progress: undefined,
     });
 
@@ -138,7 +138,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // to the live append.
     const pushResult = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(pushResult.pushRejected).toBe(false);
@@ -160,7 +160,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     const sub = await openSubscription(selfSub(alice.ctx));
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
 
@@ -174,7 +174,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     const { alice } = await setupPair();
     const initialPush = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
 
@@ -188,7 +188,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // Alice pushes another entry while nobody's subscribed
     await alice.caller.sync.push({
       stoken: initialPush.stoken,
-      operations: ['p:1:{"key":"blindfold:mutual","data":{"rating":"no","timing":null}}'],
+      operations: ['p:1:{"key":"blindfold:mutual","data":{"rating":"no"}}'],
       progress: undefined,
     });
 
@@ -209,13 +209,13 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // larger window for a racing emit to slip through).
     const seedPush = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
 
     const sub = await openSubscription(selfSub(alice.ctx));
 
-    const racingOp = 'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe","timing":null}}';
+    const racingOp = 'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}';
     await alice.caller.sync.push({
       stoken: seedPush.stoken,
       operations: [racingOp],
@@ -254,7 +254,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // flush, so push one to flush the backfill yield.
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     await sub.next(1000);

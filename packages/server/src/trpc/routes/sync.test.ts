@@ -107,14 +107,14 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(push).toHaveBeenCalledWith(
       "p1",
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -135,7 +135,7 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     const result = await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
@@ -172,7 +172,7 @@ describe("sync.push journal bus emission", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(handler).toHaveBeenCalledTimes(1);
