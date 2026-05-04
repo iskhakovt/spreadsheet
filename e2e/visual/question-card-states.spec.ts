@@ -36,7 +36,6 @@ test.describe("question card — additional visual states", () => {
     }
     await expect(page.getByRole("textbox")).toBeVisible();
     await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await page.locator("body").click({ position: { x: 4, y: 4 } });
     await expect(page).toHaveScreenshot("layout-b-unified-nav.png");
   });
 });

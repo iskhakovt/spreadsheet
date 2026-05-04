@@ -10,6 +10,28 @@
   transition: none !important;
 }
 
+/* Suppress hover-state artifacts from cursor position. Playwright leaves
+   the mouse at the last click position when toHaveScreenshot fires; any
+   element with `hover:`/`group-hover:` styling at that position renders
+   in its hover state in the baseline (e.g. "End-to-end encryption" label
+   reading orange after the test checks the box). Disabling pointer-events
+   globally makes :hover stop matching for the duration of the capture —
+   no per-spec defocus dance required, and new specs are correct by default.
+
+   This also suppresses click hit-testing, which is fine: by the time the
+   screenshot fires, the test has already finished its interactions and
+   the page is in its terminal state. */
+*, *::before, *::after {
+  pointer-events: none !important;
+}
+
+/* Suppress focus rings — clicking a checkbox or button as part of test
+   setup often leaves the element focused; the resulting outline / ring
+   appears non-deterministically in screenshots. */
+*:focus, *:focus-visible {
+  outline: none !important;
+}
+
 /* Hide the feTurbulence grain overlay — SVG noise filters produce
    non-deterministic pixel values across captures, preventing Playwright
    from establishing a stable baseline. */
