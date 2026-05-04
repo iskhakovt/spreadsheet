@@ -71,6 +71,13 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
  *
  * Pure (apart from decrypt — async via `replayJournal`). Used both by the
  * initial query and by the WS subscription's `onData`.
+ *
+ * `prev` is what the caller believes is the current local state. In
+ * practice that's `getAnswers()` (localStorage write-through, includes
+ * the user's most recent optimistic edits via `setAnswer`) rather than
+ * the cache slot — the cache slot can lag behind by one render when an
+ * optimistic write happens between the slot's last update and the WS
+ * echo of the same write.
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
@@ -122,9 +129,11 @@ export function useSelfJournal(): SelfJournalCache {
           if (entries.length === 0) return;
           const mySeq = ++seqRef.current;
           try {
-            const current = queryClient.getQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY);
-            if (!current) return;
-            const merged = await applySelfJournalDelta(current.answers, entries);
+            // Use getAnswers() (localStorage), not the cache slot — the
+            // slot can lag behind a synchronous setAnswer that happened
+            // between the last slot write and this WS echo. localStorage
+            // is the up-to-date local truth.
+            const merged = await applySelfJournalDelta(getAnswers(), entries);
             if (mySeq !== seqRef.current) return;
             const newCursor = entries[entries.length - 1].id;
             queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {

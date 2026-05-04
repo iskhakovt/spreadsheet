@@ -89,6 +89,21 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 }
 
 // === answers ===
+//
+// The journal is the source of truth for answers; `useSelfJournal`
+// materialises it into a TanStack cache slot on every play-page mount.
+// The localStorage `answers` key is a write-through persister output, not
+// the model — it exists so first paint on subsequent reloads renders from
+// the persisted snapshot while the delta fetch resolves.
+//
+// `useAnswers` reads the persister output via useSyncExternalStore. The
+// cache hook keeps localStorage synchronised on:
+//   - Initial query: `applySelfJournalDelta` writes the merged map.
+//   - Live WS deltas: `onData` writes the merged map.
+//   - Optimistic local writes: `setAnswer` (below) writes the new value
+//     and the cache slot eventually catches up via the WS echo.
+// The merge function uses `getAnswers()` as the local-truth input on the
+// WS path so optimistic writes survive the echo of their own commits.
 
 /**
  * Validate persisted answers via `Answer.safeParse`. The schema itself
