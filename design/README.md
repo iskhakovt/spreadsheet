@@ -63,10 +63,13 @@ In encrypted mode, the group key lives in the URL fragment (`#key=...`) and is c
 
 ### Real-time delivery
 
-Two WebSocket subscriptions layered over two server-side event buses ([server.md](server.md#event-buses)):
+Three WebSocket subscriptions layered over three server-side event buses ([server.md](server.md#event-buses)):
 
 - **`groups.onStatus`** delivers full status snapshots. Snapshot-based, so reconnect just re-queries current state.
-- **`sync.onJournalChange`** delivers append-only journal entries using tRPC v11's `tracked()` primitive. `wsLink` stamps the latest `lastEventId` onto the pending subscription message and re-sends it on reconnect; the server's generator queries entries > cursor and replays them. Lossless by construction.
+- **`sync.onJournalChange`** delivers group-wide append-only journal entries using tRPC v11's `tracked()` primitive. Gated on the all-complete precondition. Drives the live updates on `/results`.
+- **`sync.onSelfJournalChange`** delivers the caller's own append-only journal entries with the same `tracked()` resume semantics. Ungated. Drives the always-live answers cache (`useSelfJournal`) and cross-device hydration: a write on one device propagates to another device opened with the same person token within the WS round-trip.
+
+For both `tracked()` subscriptions, `wsLink` stamps the latest `lastEventId` onto the pending subscription message and re-sends it on reconnect; the server's generator queries entries > cursor and replays them. Lossless by construction.
 
 No polling fallback. Recovery relies on `wsLink` auto-reconnect + `keepAlive` ping/pong (30s ping, 5s pong) + `tracked()` resume. If the WebSocket is persistently broken the app degrades to "reload to fix".
 
@@ -74,14 +77,17 @@ No polling fallback. Recovery relies on `wsLink` auto-reconnect + `keepAlive` pi
 
 All server state flows through TanStack Query via `@trpc/tanstack-react-query`. Reads use `useSuspenseQuery` with a top-level `<Suspense>` boundary. Writes use `useMutation` with `onSuccess: invalidateQueries` — mutations return the invalidation promise so they stay pending until the refetch completes. WS subscriptions use `useSubscription` with `onData` callbacks that `setQueryData` into the same cache entries the HTTP queries populate.
 
-### Client-authored state
+### Self-state and storage
 
-localStorage owns client-authored state (answers, pending ops, stoken, UI prefs), scoped by an FNV-1a hash of the person token (`s{hash}:key`) so multiple persons on the same device don't collide. The TanStack cache owns server state. Clean split, no cross-contamination.
+The per-person journal on the server is the source of truth for the answers map. The `useSelfJournal` hook materialises it into a TanStack cache slot via `sync.selfJournal` (delta fetch) plus `sync.onSelfJournalChange` (live deltas), and writes the result back to localStorage as a write-through for first-paint hydration on subsequent reloads.
+
+localStorage holds (a) the outbox of operations not yet pushed (`pendingOps`), (b) the push cursor (`stoken`), (c) UI prefs (`hasSeenIntro`, selected tier, selected categories), and (d) the write-through snapshots described above. Everything is scoped by an FNV-1a hash of the person token (`s{hash}:key`) so multiple persons on the same device don't collide. New device-local-only state is forbidden by convention — anything that needs cross-device persistence travels as a journal operation.
 
 ### Performance
 
 - Question bank cached with `staleTime: Infinity` — fetched once, reused across all screens.
-- Journal pre-warmed on the `allComplete` transition so `/results` renders without an HTTP round-trip on the critical path.
+- Group journal pre-warmed on the `allComplete` transition so `/results` renders without an HTTP round-trip on the critical path.
+- Self journal: first paint reads the localStorage write-through snapshot synchronously, then reconciles with the server's delta in the background. Cold-bootstrap (fresh device, no snapshot) decrypts and replays N entries asynchronously off the render path.
 - Single bundle, no route-level code splits. The app is small; bundle splitting adds a round-trip on the render-critical path under contention.
 - No SSR.
 

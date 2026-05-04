@@ -8,6 +8,8 @@ The server stores an append-only journal of operations per person. Each operatio
 
 Current answer state is derived by replaying journal entries: last operation for each key wins.
 
+The journal is the source of truth for answers. Clients hold a TanStack-Query-backed cache of the materialized answer map for the authed person, hydrated from the server on every play-page mount and kept live via WebSocket subscription. localStorage is a write-through persister for instant first paint on subsequent reloads, plus the outbox of operations that haven't reached the server yet. There is no "device-local answers" model — the journal is canonical and any device with the person's token + group key reaches the same state.
+
 ## Data Model
 
 ```
@@ -21,7 +23,7 @@ journal_entries
 The `id` is used by two distinct cursors with different threat models:
 
 - **Push cursor (`stoken`)** — used by `sync.push` for optimistic-concurrency-control. Must be tamper-proof because forging a stoken would let a client bypass the conflict-detection round-trip and insert out-of-sequence entries into someone's journal. Signed + opaque.
-- **Read cursor (raw `id`)** — used by `sync.journal` and the `sync.onJournalChange` subscription (`lastEventId`). No forgery risk: the read path is gated by `authedProcedure` + the group-completion precondition, so a client can only read their own group's journal, and the cursor is just "where did I last read to?". Raw numeric ids are fine here.
+- **Read cursor (raw `id`)** — used by every read path: `sync.journal` and `sync.onJournalChange` for the group-wide gated feed; `sync.selfJournal` and `sync.onSelfJournalChange` for the per-person ungated feed (`sinceId` on the query, `lastEventId` on the subscription). No forgery risk: every read path is gated by `authedProcedure`, scoping the cursor to entries the caller is already authorised to read. The cursor is just "where did I last read to?", and a numeric id is what tRPC v11's `tracked()` consumes natively, so no translation layer.
 
 ## Stoken Format
 
@@ -222,40 +224,44 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 
 The server is the **sequencer**. It assigns order. Clients never see or guess internal ids.
 
-## Reading the journal — `sync.journal` and `sync.onJournalChange`
+## Reading the journal
 
-The read side of the sync protocol has two parallel surfaces, both gated on the "all members complete" precondition:
+The read side has two parallel feeds: a **per-person** feed for the caller's own answers (ungated) and a **group-wide** feed for the comparison view (gated on all-complete). Each feed has an HTTP query and a WS subscription. All four surfaces share the subscribe-before-query / `tracked()`-resume pattern; they differ only in scope and gating.
 
-### HTTP query: `sync.journal({ sinceId })`
+### Per-person feed — `sync.selfJournal` and `sync.onSelfJournalChange`
 
-Cursor-based pull of journal entries. The input is a nullable `sinceId`:
-- `sinceId: null` → return all entries for the group
-- `sinceId: N` → return entries with `id > N`
+Used by `useSelfJournal` to materialise the caller's own answer map into the TanStack cache slot `["sync", "self-journal"]`. No precondition: a person can always read their own entries. Authed by person token; the resolver scopes both queries to `personId = ctx.person.id`.
 
-Response shape:
-```ts
-{
-  members: [{ id, name, anatomy }, ...],
-  entries: [{ id, personId, operation }, ...],
-  cursor: number | null  // highest id in the response, or the input sinceId if empty
-}
-```
+`sync.selfJournal({ sinceId })`:
+- `sinceId: null` → all of the caller's own entries
+- `sinceId: N` → entries with `id > N`
+- Response: `{ entries: [{ id, personId, operation }, ...], cursor, stoken }`. The `cursor` is the highest id (or echoes `sinceId` on empty delta). The `stoken` is the latest signed push cursor for the caller, returned as a courtesy so a follow-up `sync.push` doesn't need a separate handshake.
 
-Used by the client on initial `/results` mount. On an empty delta (nothing new since the cursor), `cursor` echoes the input rather than going to `null`, so repeated callers don't regress their cursor.
+`sync.onSelfJournalChange({ lastEventId })`:
+- tRPC v11 `tracked()` subscription. Same generator shape as `sync.onJournalChange` but consumes the per-person bus (`selfJournalEvents`) and skips the all-complete check.
+- Includes the caller's own pushes — same-device echo. The client merge step is keyed on entry `id`, so the echo is idempotent (the entry is already in the local raw-entry set after the optimistic write; the WS delivery sets the same id to the same value).
 
-### WS subscription: `sync.onJournalChange({ lastEventId })`
+Both surfaces back the same boot path. On every play-page mount the client reads `selfJournalCursor` from localStorage, calls `sync.selfJournal({ sinceId: cursor })`, decrypts via `replayJournal`, and merges with the local `pendingOps` outbox via `mergeAfterRejection` (pending ops win for keys with a local edit not yet pushed). The subscription stays open for the life of the layout component and feeds incremental `setQueryData` updates so the cache slot is always live.
 
-Real-time delivery of journal appends using tRPC v11's `tracked()` primitive. The resolver follows the canonical tRPC pattern:
+### Group-wide feed — `sync.journal` and `sync.onJournalChange`
 
-1. **Precondition check** — throw `PRECONDITION_FAILED` if not all members complete
-2. **Subscribe-before-query** — attach `on(journalEvents, ...)` BEFORE the backfill query so events emitted during the query window are buffered in the iterable
-3. **Backfill** — query entries > `lastEventId` (or all entries if `null`), yield as a single `tracked(lastId, { entries })` event
-4. **Live stream** — consume the iterable, dedup entries already in the backfill, yield each new batch as a `tracked(lastId, { entries })` event
+Used by `Comparison` on `/results` to compute pairwise matches. Gated on the "all members complete" precondition: throws `PRECONDITION_FAILED` until every member of the group has `is_completed = true`. The gate is a server-enforced privacy boundary — see [Blind matching](#blind-matching).
 
-Client-side (`wsLink` in tRPC v11):
-- Auto-stamps the latest `lastEventId` onto the pending subscription message after every yield
-- Auto-reconnects with exponential backoff on disconnect
-- Re-sends the stored subscription message on reconnect, so the server resumes from the cursor
+`sync.journal({ sinceId })`:
+- Same cursor semantics as the self feed, but returns entries for **all members** of the group (and an extra `members: [{ id, name, anatomy }, ...]` array so the comparison view can render names without a second round-trip).
+
+`sync.onJournalChange({ lastEventId })`:
+- Same `tracked()` resume semantics as the self subscription, against the per-group bus (`journalEvents`). Resolver runs the precondition check, attaches the listener, runs the backfill, then streams.
+
+### Subscribe-before-query
+
+In every subscription resolver, the listener attaches BEFORE the backfill query so events emitted during the round-trip are buffered in the iterable, not lost. This applies symmetrically to both `journalEvents` and `selfJournalEvents`. Covered by integration tests that race a `push` against a freshly-opened subscription.
+
+### `wsLink` reconnect
+
+- Auto-stamps the latest `lastEventId` onto the pending subscription message after every yield.
+- Auto-reconnects with exponential backoff on disconnect.
+- Re-sends the stored subscription message on reconnect, so the server resumes from the cursor.
 
 **Lossless reconnect recovery.** Events lost during a disconnect window are replayed by the server's backfill query on the next reconnect. No polling needed, no out-of-order delivery possible.
 
@@ -265,9 +271,10 @@ When a marked-complete user edits an answer (via "Edit my answers" on `/waiting`
 
 1. User navigates to `/questions` — NO mutation, no unmark. `/questions` is in the free-routes list so the guard permits the navigation.
 2. User changes an answer — `useSyncQueue` debounces for 3s, then `sync.push` commits
-3. Server emits on `journalEvents` (unconditional — if no subscriber is listening, emit is a no-op)
-4. Partners viewing `/results` have `sync.onJournalChange` active → receive a `tracked` append → `setQueryData` merges into the `sync.journal` cache → `Comparison` re-renders with updated pair matches
-5. **Everyone stays on `/results`** — `isCompleted` was never mutated, `allComplete` stays true, so the route guard has nothing to trigger on
+3. Server emits on **both** `journalEvents` (group bus) and `selfJournalEvents` (person bus) — emits are no-ops if nobody is listening
+4. Partners viewing `/results` have `sync.onJournalChange` active → receive a `tracked` append → `setQueryData` merges into the `["sync", "journal", "derived"]` cache → `Comparison` re-renders with updated pair matches
+5. The editor's own subscription `sync.onSelfJournalChange` also delivers the entry → `setQueryData` merges into `["sync", "self-journal"]` → if they have a second device open with the same token, that device's answer cache updates without a reload
+6. **Everyone stays on `/results`** — `isCompleted` was never mutated, `allComplete` stays true, so the route guard has nothing to trigger on
 
 Principle: propagate live, never mutate status implicitly. Navigation to edit is not a server-state change.
 
@@ -301,10 +308,11 @@ A service worker (generated by `vite-plugin-pwa`) caches the app shell on first 
 
 | Cached by service worker | Stored in localStorage |
 |-|-|
-| HTML, JS, CSS (app shell) | Questions + categories (fetched once) |
-| | Answers (current state) |
-| | Pending ops (unsynced) |
-| | Stoken (last sync cursor) |
+| HTML, JS, CSS (app shell) | Pending ops (unsynced — outbox) |
+| | Stoken (last push cursor) |
+| | Answers + cursor (write-through snapshot of the self-journal cache) |
+| | Questions + categories (fetched once) |
+| | UI prefs |
 
 ### What works offline
 
@@ -332,7 +340,7 @@ This means new code can load against old localStorage data at any time. All loca
 
 ## Conflict Resolution
 
-Conflicts happen when two sessions edit offline and sync at different times.
+Conflicts happen when two sessions write to the journal from different devices at different times. Because the journal is the source of truth and every device hydrates from it on mount, "two sessions" is the normal case for the same person across two devices, not an edge case — the merge rule below is also what runs on every fresh boot, not only on rejected pushes.
 
 ### Example
 
@@ -351,32 +359,43 @@ Laptop retries push with new stoken → server appends → new stoken
 
 ### Merge rule
 
-When the client receives entries from the server during a rejected push:
+The same merge runs in two places: when `sync.push` returns `pushRejected: true` (server has entries the client hadn't seen yet), and on every play-page mount when `useSelfJournal` reconciles the freshly-fetched server delta with whatever sat in the local outbox before the page loaded.
 
-- For each key in the server entries: if the client has a **pending local edit** for the same key, the local edit wins (user's most recent intention on this device).
-- For keys only in server entries: accept them.
-- For keys only in the pending queue: keep them, push on retry.
+For each key in the server entries:
+- If the client has a **pending local edit** (`pendingOps`) for the same key, the local edit wins — user's most recent intention on this device.
+- Otherwise, accept the server's value.
 
-This is deterministic, clock-independent, and requires no server-side knowledge of the payload.
+Keys only in the pending queue stay queued for the next push.
+
+This is deterministic, clock-independent, and requires no server-side knowledge of the payload. Implemented by `mergeAfterRejection` in `packages/web/src/lib/journal.ts`; same function services both call sites.
 
 ## Client Local Storage
 
-Client-authored state lives in localStorage (scoped by FNV-1a hash of person token). Server state lives in the TanStack Query cache (in-memory, per-tab).
+The journal is the source of truth for answers; localStorage holds (a) the outbox of operations not yet pushed and (b) write-through snapshots of server-derived state for instant first paint. State is scoped by FNV-1a hash of person token (`s{hash}:key`) so multiple persons on the same device coexist.
 
 ```
 localStorage (scoped per person):
-  answers      — current answer state (Record<string, { rating, note }>)
-  pendingOps   — operations not yet synced (opaque strings)
-  stoken       — last sync cursor (signed, from server)
-  UI prefs     — selected categories, etc.
+  pendingOps          — operations not yet synced (opaque strings, write-side authoritative)
+  stoken              — last push cursor (signed, from server)
+  UI prefs            — hasSeenIntro, selectedTier, selectedCategories, currentScreen
 
-TanStack Query cache (in-memory):
-  groups.status     — group membership, completion state, progress
-  questions.list    — question bank (staleTime: Infinity, fetched once)
-  sync.journal      — journal entries (fed by both HTTP query and WS subscription)
+  answers             — write-through snapshot of the self-journal cache slot,
+                        for instant first paint while the delta fetch runs
+  selfJournalCursor   — numeric id, the last self-journal entry the client has integrated.
+                        Absent → bootstrap path (full replay on next mount)
+
+TanStack Query cache (in-memory + persisted via the write-through above):
+  groups.status                — group membership, completion state, progress
+  questions.list               — question bank (staleTime: Infinity, fetched once)
+  ["sync", "self-journal"]     — { answers, rawEntries, cursor } — the caller's own answers,
+                                  fed by sync.selfJournal (HTTP) + sync.onSelfJournalChange (WS)
+  ["sync", "journal", "derived"] — group-wide journal for Comparison, fed by sync.journal +
+                                    sync.onJournalChange. Only populated post-allComplete.
 ```
 
 In encrypted mode, `pendingOps` contains encrypted strings. In plaintext mode, JSON strings. The client code that manages the queue doesn't care — it's all strings.
+
+The localStorage `answers` key is **derived** state. It's a TanStack persister output, not a source of truth. Direct callers of `getAnswers` / `setAnswers` outside the self-journal hook should not exist; the cache slot is the only legitimate writer.
 
 ## Snapshots
 
@@ -390,4 +409,4 @@ The tRPC `groups.onStatus` subscription yields full status snapshots whenever an
 
 Snapshot semantics mean no cursor is needed — on reconnect the generator runs fresh and yields current state. The `useSubscription(trpc.groups.onStatus)` hook feeds each snapshot into the TanStack Query cache via `setQueryData`, sharing the cache entry the initial HTTP fetch (`useSuspenseQuery(trpc.groups.status)`) populated. The same pattern applies to `sync.onJournalChange`.
 
-For the journal read path, see the "Reading the journal" section above.
+For the journal read paths (per-person and group-wide), see the "Reading the journal" section above.
