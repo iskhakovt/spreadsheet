@@ -56,9 +56,39 @@ function trackContextPageErrors(ctx: BrowserContext): string[] {
   return errors;
 }
 
+/**
+ * CSP regression tracking. Hooks the structured `securitypolicyviolation`
+ * DOM event (not console.error — see the noise discussion above) so any
+ * test exercising a real flow doubles as a CSP-violation guard. Caught
+ * `eval`/`Function` calls (e.g. Zod 4's JIT feature detection) still fire
+ * the event before the exception is thrown, so try/catch in app/library
+ * code doesn't hide the violation.
+ */
+async function trackContextCspViolations(ctx: BrowserContext): Promise<string[]> {
+  const violations: string[] = [];
+  await ctx.exposeFunction("__cspViolation", (msg: string) => {
+    violations.push(msg);
+  });
+  await ctx.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (e) => {
+      const w = window as unknown as { __cspViolation?: (msg: string) => void };
+      w.__cspViolation?.(
+        `${e.violatedDirective} blocked ${e.blockedURI || "inline"} ` + `(${e.sourceFile || "?"}:${e.lineNumber})`,
+      );
+    });
+  });
+  return violations;
+}
+
 function assertNoPageErrors(errors: string[], who: string) {
   if (errors.length > 0) {
     throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+  }
+}
+
+function assertNoCspViolations(violations: string[], who: string) {
+  if (violations.length > 0) {
+    throw new Error(`CSP violations detected for ${who}:\n${violations.map((v) => `  - ${v}`).join("\n")}`);
   }
 }
 
@@ -87,9 +117,11 @@ export const test = base.extend<{
   // derived from this `context`, so the tracking transparently applies.
   context: async ({ context }, use) => {
     const errors = trackContextPageErrors(context);
+    const cspViolations = await trackContextCspViolations(context);
     try {
       await use(context);
       assertNoPageErrors(errors, "context");
+      assertNoCspViolations(cspViolations, "context");
     } finally {
       // Built-in teardown closes the context.
     }
@@ -97,10 +129,12 @@ export const test = base.extend<{
   alice: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
       assertNoPageErrors(errors, "alice");
+      assertNoCspViolations(cspViolations, "alice");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -108,10 +142,12 @@ export const test = base.extend<{
   bob: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
       assertNoPageErrors(errors, "bob");
+      assertNoCspViolations(cspViolations, "bob");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -119,10 +155,12 @@ export const test = base.extend<{
   carol: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
       assertNoPageErrors(errors, "carol");
+      assertNoCspViolations(cspViolations, "carol");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -130,10 +168,12 @@ export const test = base.extend<{
   multiTab: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const admin = await ctx.newPage();
     try {
       await use({ ctx, admin });
       assertNoPageErrors(errors, "multiTab");
+      assertNoCspViolations(cspViolations, "multiTab");
     } finally {
       await ctx.close().catch(() => {});
     }
