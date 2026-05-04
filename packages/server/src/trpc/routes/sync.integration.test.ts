@@ -146,6 +146,43 @@ describe("full sync flow (real Postgres)", () => {
     expect(stale.entries.length).toBeGreaterThan(0);
   });
 
+  it("selfJournal returns only the caller's own entries, ungated", async () => {
+    const { alice, bob } = await createGroupWithMembers();
+
+    await alice.caller.sync.push({
+      stoken: null,
+      operations: [
+        'p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}',
+        'p:1:{"key":"b:mutual","data":{"rating":"maybe","timing":null}}',
+      ],
+      progress: undefined,
+    });
+    await bob.caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"no","timing":null}}'],
+      progress: undefined,
+    });
+    // Neither has marked complete — sync.journal would be gated, but selfJournal isn't.
+
+    const aliceView = await alice.caller.sync.selfJournal({ sinceId: undefined });
+    expect(aliceView.entries).toHaveLength(2);
+    expect(aliceView.cursor).toBe(aliceView.entries[1].id);
+    expect(aliceView.stoken).not.toBeNull();
+    for (const e of aliceView.entries) {
+      expect(e.personId).not.toBe(undefined);
+      expect(e.operation.startsWith("p:1:")).toBe(true);
+    }
+
+    const bobView = await bob.caller.sync.selfJournal({ sinceId: undefined });
+    expect(bobView.entries).toHaveLength(1);
+    expect(bobView.entries[0].operation).toBe('p:1:{"key":"a:receive","data":{"rating":"no","timing":null}}');
+
+    // Cursor-based delta
+    const delta = await alice.caller.sync.selfJournal({ sinceId: aliceView.cursor ?? undefined });
+    expect(delta.entries).toHaveLength(0);
+    expect(delta.cursor).toBe(aliceView.cursor);
+  });
+
   it("handles encrypted group with opaque data", async () => {
     const caller = createCaller(anonCtx(db));
 

@@ -46,3 +46,27 @@ export function emitJournalUpdate(groupId: string, entries: JournalEntryPayload[
   if (entries.length === 0) return;
   journalEvents.emit(journalEventName(groupId), entries);
 }
+
+/**
+ * Per-person journal bus — independent of the group-keyed `journalEvents`
+ * because the audience is different. The group bus is gated cross-member
+ * delivery (consumed by `Comparison` post-allComplete); this bus is the
+ * always-on per-person feed (consumed by `useSelfJournal` to keep the
+ * caller's own answers cache live across devices).
+ *
+ * `sync.push` emits here on the same successful commit that fans out to
+ * `journalEvents`. Subscribers are typically one or two — the editing tab
+ * itself plus any other device the same person has open. The same-device
+ * echo is harmless: the client merge step is idempotent on entry id.
+ */
+export const selfJournalEvents = new EventEmitter();
+selfJournalEvents.setMaxListeners(0);
+
+export function selfJournalEventName(personId: string): string {
+  return `self-journal:${personId}`;
+}
+
+export function emitSelfJournalUpdate(personId: string, entries: JournalEntryPayload[]): void {
+  if (entries.length === 0) return;
+  selfJournalEvents.emit(selfJournalEventName(personId), entries);
+}
