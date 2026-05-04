@@ -147,13 +147,11 @@ export class SyncStore {
   }> {
     return this.#tx(async (tx) => {
       const { entries, cursor } = await selectJournalForPerson(tx, personId, sinceId);
-      // Stoken on a read path is a courtesy: clients can't encode it
-      // themselves (HMAC secret is server-only), and a no-op `sync.push`
-      // round-trip just to seed the cursor would be worse. The coupling
-      // between this read API and the stoken format is the cost. If
-      // stoken's payload ever grows beyond "encode the head id," revisit
-      // by exposing only the cursor here and letting the next push augment
-      // server-side.
+      // Stoken is returned as a courtesy so clients can prime their push
+      // cursor without a no-op round-trip. Clients treat stoken as
+      // opaque, so the format isn't a client-server contract — only an
+      // internal contract between this call site and `sync.push`'s
+      // encode site, and they share `encodeStoken` so they can't drift.
       const stoken = cursor !== null && cursor > 0 ? encodeStoken(cursor) : null;
       return { entries, cursor, stoken };
     });
