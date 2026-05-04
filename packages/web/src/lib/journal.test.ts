@@ -95,6 +95,20 @@ describe("replayJournal", () => {
     const state = await replayJournal([{ operation: legacyPayload }], null);
     expect(state["kissing:mutual"]).toEqual({ rating: "yes", note: "before bed" });
   });
+
+  it("strips the legacy `timing` field from old encrypted envelopes", async () => {
+    // Encrypted variant of the legacy-strip test — most groups in production
+    // are encrypted, so the contract that old `{ rating, timing, note }`
+    // payloads round-trip cleanly through the cipher path is what users
+    // actually depend on.
+    const key = await generateGroupKey();
+    const encrypted = await encodeValue(
+      { key: "kissing:mutual", data: { rating: "yes", timing: "later", note: "weekend?" } },
+      key,
+    );
+    const state = await replayJournal([{ operation: encrypted }], key);
+    expect(state["kissing:mutual"]).toEqual({ rating: "yes", note: "weekend?" });
+  });
 });
 
 describe("mergeAfterRejection", () => {
