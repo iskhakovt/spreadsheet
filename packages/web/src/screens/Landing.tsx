@@ -1,7 +1,7 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -14,7 +14,8 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
-  const [showCreate, setShowCreate] = useState(false);
+  const navigate = useNavigate();
+  const showCreate = useRouterState({ select: (s) => s.location.state.create === true });
 
   if (showCreate) {
     return (
@@ -81,7 +82,7 @@ export function Landing() {
         </p>
 
         <div className="stagger space-y-7" style={{ "--stagger-index": 4 } as React.CSSProperties}>
-          <Button fullWidth onClick={() => setShowCreate(true)}>
+          <Button fullWidth onClick={() => navigate({ to: "/", state: (prev) => ({ ...prev, create: true }) })}>
             {UI.landing.getStarted}
           </Button>
 

@@ -8,6 +8,17 @@ test.describe("landing and group creation", () => {
     await expect(page.getByText("Get started")).toBeVisible();
   });
 
+  test("back button from create form returns to landing", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
+    await expect(page.getByText("Create your group")).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+
+    await page.goBack();
+    await expect(page.getByRole("button", { name: "Get started", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
   test("creates a group and sets up members", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Get started", exact: true }).click();
