@@ -21,6 +21,10 @@ export function Landing() {
     return (
       <CreateGroup
         onCreated={(token) => {
+          // Clear the create flag from the current "/" history entry before
+          // the hard nav. Otherwise, BACK from /p/:token restores this entry
+          // with create: true and re-renders the (stale) create form.
+          navigate({ to: "/", replace: true, state: (prev) => ({ ...prev, create: false }) });
           // Hard navigation: the server's /p/:token route sets the session
           // cookie on the response. A soft nav would skip the server entirely,
           // leaving the next authenticated request unauthorised. The brief

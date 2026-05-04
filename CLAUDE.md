@@ -97,6 +97,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
 - **Inject dependencies** — pass db/services as parameters, don't hard-import. Keeps tests clean.
 - **Conditional classNames** — always use the `cn()` helper (`lib/cn.ts`) for conditional classes: `cn("base", condition && "extra")`. Never use template literals or string concatenation for conditional className assembly.
 - **Icons** — use `lucide-react` for all icons. Never write inline `<svg>` icons by hand. Import the named icon component and set `size` and `strokeWidth` props: `<Pencil size={14} strokeWidth={1.5} />`. Browse available icons at https://lucide.dev/icons/.
+- **Prefer the library API over raw browser primitives** — when TanStack Router, TanStack Query, or another library in the stack offers an API for what you need, use it instead of touching `window.history`, `document.cookie`, `fetch`, etc. directly. Examples: `navigate({ replace: true, state })` over `window.history.replaceState`; `navigate({ to })` over `window.location.assign` (unless a hard reload is required, e.g. server-set cookies); `useTRPC()` query/mutation hooks over raw `fetch`. Reach for the primitive only when the library genuinely doesn't cover the case (e.g. PRG-style auth bootstrap that must hit the server). Going through the library keeps types, store updates, and dev-tools integrations in sync.
 
 ## Commits
 
