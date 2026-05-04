@@ -142,7 +142,7 @@ Stores return result objects with `{ error: "..." }` for expected failures. Rout
   - Never delete or rename a localStorage key without a migration path from the old key. Absent keys are fine — the self-journal cursor (`selfJournalCursor`) being absent on first new-code boot triggers a full replay, which is the bootstrap path by design.
   - Pending ops are opaque strings — never change how they're stored in the queue, only how they're produced and consumed.
   - Test migrations: unit tests should verify that old-format data is correctly read by new code.
-- **Self-state goes through the journal, not new localStorage keys** — any new client-authored field that needs cross-device persistence must travel as a journal operation. localStorage is for the outbox, the push cursor, and UI prefs only. Adding a new device-local-only field is a smell: it will diverge across devices the moment the user opens the link somewhere new.
+- **Self-state goes through the journal, not new localStorage keys** — any new client-authored field that needs cross-device persistence must travel as a journal operation. localStorage is reserved for: the outbox (`pendingOps`), the push cursor (`stoken`), UI prefs (`hasSeenIntro`, `selectedTier`, `selectedCategories`, `currentScreen`), and write-through snapshots of the self-journal cache (`answers`, `selfJournalCursor`) that exist purely for first-paint hydration on the next reload. Adding a new device-local-only field that doesn't fall in those categories is a smell: it will diverge across devices the moment the user opens the link somewhere new.
 
 ## Testing
 

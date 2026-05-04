@@ -54,6 +54,16 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
 
     const merged = await applySelfJournalDelta(getAnswers(), result.entries);
 
+    // Re-check abort BEFORE writing scoped storage. The user may have
+    // navigated to a different /p/$token in the meantime; useTokenSwitchCleanup
+    // calls resetQueries which aborts the in-flight signal. Without this
+    // guard the side effects below would write to the new session's scope
+    // (since getScope() resolves at call time) using stale data fetched
+    // under the old session.
+    if (signal?.aborted) {
+      throw new DOMException("aborted", "AbortError");
+    }
+
     if (result.stoken !== null && getStoken() === null) {
       // Prime the push cursor only on the FIRST hydration. After that the
       // outbound push flow (sync-flush.ts) owns stoken and may have a

@@ -55,6 +55,28 @@ export interface OperationPayload {
   data: Answer | null; // null = clear/unanswer
 }
 
+/**
+ * Wire shape returned by `sync.selfJournal` (and the backfill stage of
+ * `sync.onSelfJournalChange`). Per-person, ungated, used by `useSelfJournal`
+ * to hydrate the caller's own answers cache.
+ *
+ * Defined here in shared so the server route can `.output()` it for runtime
+ * validation at the RPC boundary, and so the client can rely on the shape
+ * without a `RouterOutputs` chain.
+ */
+export const SelfJournalResponse = z.object({
+  entries: z.array(
+    z.object({
+      id: z.number().int().nonnegative(),
+      personId: z.string(),
+      operation: z.string(),
+    }),
+  ),
+  cursor: z.number().int().nonnegative().nullable(),
+  stoken: z.string().nullable(),
+});
+export type SelfJournalResponse = z.infer<typeof SelfJournalResponse>;
+
 /** Question as returned by the questions.list query */
 export interface QuestionData {
   id: string;

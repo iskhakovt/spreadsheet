@@ -3,6 +3,11 @@ import type { Answer } from "@spreadsheet/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
+
+interface WrapperProps {
+  children: ReactNode;
+}
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeValue } from "./crypto.js";
 import { applySelfJournalDelta, makeSelfJournalQueryFn, SELF_JOURNAL_QUERY_KEY, useAnswers } from "./self-journal.js";
@@ -194,7 +199,7 @@ function renderUseAnswersWithMirror(initialAnswers: Record<string, Answer> = {})
   window.addEventListener("storage:answers", syncFromStorage);
   window.addEventListener("storage", onCrossTabStorage);
 
-  function wrapper({ children }: { children: ReactNode }) {
+  function wrapper({ children }: Readonly<WrapperProps>) {
     return createElement(QueryClientProvider, { client: queryClient }, children);
   }
   const result = renderHook(() => useAnswers(), { wrapper });
@@ -282,7 +287,7 @@ describe("useAnswers", () => {
     // No setQueryData seed — the slot is empty. useAnswers should fall back
     // to a stable empty object so consumers can render without crashing.
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    function wrapper({ children }: { children: ReactNode }) {
+    function wrapper({ children }: Readonly<WrapperProps>) {
       return createElement(QueryClientProvider, { client: queryClient }, children);
     }
     const { result } = renderHook(() => useAnswers(), { wrapper });
@@ -347,5 +352,43 @@ describe("makeSelfJournalQueryFn (token switch)", () => {
 
     // Cleanup the dangling resolver so the test process can exit cleanly.
     release();
+  });
+
+  it("post-await abort: skips side effects when the signal aborts after fetch resolves", async () => {
+    // The abort can land in the window between `await query` (which
+    // resolved cleanly) and the `setAnswers / setSelfJournalCursor` calls.
+    // The post-await guard must catch this and bail, otherwise the writes
+    // land under the new (post-switch) scope using stale data.
+    const tokenA = "token-A-" + Math.random().toString(36).slice(2);
+    adoptSession(tokenA);
+
+    const ac = new AbortController();
+    const fakeTrpc = {
+      sync: {
+        selfJournal: {
+          query: vi.fn(async () => {
+            // Abort *just before* returning so the await of `query` resolves
+            // successfully but `signal.aborted` is true on the next tick.
+            ac.abort();
+            return { entries: [], cursor: null, stoken: null };
+          }),
+        },
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
+    } as any;
+
+    const queryFn = makeSelfJournalQueryFn(fakeTrpc);
+    const promise = queryFn({ signal: ac.signal });
+
+    // Simulate the user navigating to a new token after the abort fires
+    // but before queryFn awakes from its await chain.
+    const tokenB = "token-B-" + Math.random().toString(36).slice(2);
+    adoptSession(tokenB);
+
+    await expect(promise).rejects.toThrow();
+
+    // Side effects must NOT have written to the new session's scope.
+    expect(localStorage.getItem(`${getScope()}answers`)).toBe(null);
+    expect(localStorage.getItem(`${getScope()}selfJournalCursor`)).toBe(null);
   });
 });

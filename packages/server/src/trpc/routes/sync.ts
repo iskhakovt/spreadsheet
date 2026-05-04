@@ -1,5 +1,5 @@
 import { on } from "node:events";
-import { decodeOpaque } from "@spreadsheet/shared";
+import { decodeOpaque, SelfJournalResponse } from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -112,6 +112,7 @@ export const syncRouter = router({
    */
   selfJournal: authedProcedure
     .input(z.object({ sinceId: z.number().int().nonnegative().optional() }).optional())
+    .output(SelfJournalResponse)
     .query(async ({ ctx, input }) => {
       return ctx.sync.journalSinceForPerson(ctx.person.id, input?.sinceId ?? null);
     }),
