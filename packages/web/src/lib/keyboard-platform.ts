@@ -23,11 +23,17 @@ export function isMac(): boolean {
 
 /**
  * Whether the user almost certainly has a physical keyboard, with progressive
- * confirmation. Initial state from `(any-pointer: fine)` — covers desktops,
- * laptops, and hybrids whose primary pointer is touch but who have a fine
- * pointer available (iPad + Magic Keyboard, Surface). If the initial guess
- * says no, listens for one trusted keydown and flips on — the user has just
- * proven a keyboard exists.
+ * confirmation. Initial state from `(pointer: fine)` — true when the *primary*
+ * pointer is fine (mouse/trackpad/stylus). On real mobile / emulated mobile
+ * (Playwright `isMobile: true`) the primary pointer is coarse, so hints are
+ * hidden by default. On a hybrid whose primary pointer is coarse but who has
+ * a paired keyboard (iPad + Magic Keyboard), the progressive `keydown`
+ * listener flips this on the first trusted keystroke.
+ *
+ * Why not `any-pointer: fine`? It returns true if *any* fine pointer exists —
+ * which mis-fires on emulated mobile in headless Chromium because the host
+ * still has a mouse. Primary-pointer is the more honest signal: "is this
+ * device principally driven by a fine pointing device?".
  *
  * The CSS Working Group has acknowledged there is no clean way to detect a
  * physical keyboard (csswg-drafts #3871); this is the best inference today.
@@ -35,7 +41,7 @@ export function isMac(): boolean {
 export function useHasKeyboard(): boolean {
   const [hasKeyboard, setHasKeyboard] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia("(any-pointer: fine)").matches;
+    return window.matchMedia("(pointer: fine)").matches;
   });
 
   useEffect(() => {

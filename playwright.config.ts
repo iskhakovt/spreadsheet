@@ -61,12 +61,17 @@ export default defineConfig({
         // Desktop Chrome with a mobile viewport — NOT iPhone/WebKit. We use
         // Chromium for both projects so the deterministic rendering args
         // (font-render-hinting, force-color-profile, etc.) apply uniformly.
-        // The mobile viewport is what matters for layout regression; the UA
-        // string is irrelevant (no server-side mobile detection).
+        // `hasTouch: true` emulates a coarse primary pointer via CDP, which
+        // flips `matchMedia('(pointer: fine)')` to false — the signal our
+        // useHasKeyboard heuristic relies on to hide keyboard hints on
+        // touch devices. Without it the project would screenshot the
+        // desktop-pointer experience at a mobile width, which has been
+        // misleading us into shipping kbd hints to phones.
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 664 },
         deviceScaleFactor: 2,
         isMobile: true,
+        hasTouch: true,
         colorScheme: "light",
         reducedMotion: "reduce",
         launchOptions: { args: visualArgs },
