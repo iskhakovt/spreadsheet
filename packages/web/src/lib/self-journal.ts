@@ -1,5 +1,5 @@
 import type { Answer } from "@spreadsheet/shared";
-import { type QueryClient, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useRef } from "react";
@@ -23,11 +23,11 @@ export interface SelfJournalCache {
 }
 
 /**
- * Stable cache key for the caller's own answers map. The play screens read
- * from this slot (via `useAnswers`) instead of going to localStorage, so the
- * journal-derived state is the single source of truth in-memory; the
- * localStorage write-through (in `applySelfJournalUpdate`) is just a
- * persister for first paint on the next mount.
+ * Stable cache key for the caller's own answers map. The cache slot is
+ * populated by `useSelfJournal` on every play-page mount and kept live by
+ * the `sync.onSelfJournalChange` subscription. localStorage is a
+ * write-through persister for first paint on the next mount; play screens
+ * read from there via `useAnswers`.
  */
 export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
 
@@ -154,23 +154,4 @@ export function useSelfJournal(): SelfJournalCache {
   );
 
   return data;
-}
-
-/**
- * Imperative cache write — for `setAnswer` (single-key optimistic update)
- * and the rejected-push merge path. Both already write to localStorage via
- * `setAnswers`; this also pokes the TanStack cache so any in-tree readers
- * pick up the update on next render.
- *
- * No-op if the cache slot hasn't been populated yet (e.g. during the layout
- * suspense window before `useSelfJournal` has resolved). Callers can rely
- * on localStorage as the persistent record either way.
- */
-export function patchSelfJournalCache(queryClient: QueryClient, answers: Record<string, Answer>): void {
-  const current = queryClient.getQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY);
-  if (!current) return;
-  queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {
-    ...current,
-    answers,
-  });
 }
