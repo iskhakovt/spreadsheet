@@ -6,7 +6,6 @@ import { buildGroupedMatches, buildPairMatches } from "./build-pair-matches.js";
 // --- Helpers ---
 
 const yes: Answer = { rating: "yes", note: null };
-const yesLater: Answer = { rating: "yes", note: null };
 const no: Answer = { rating: "no", note: null };
 const maybe: Answer = { rating: "maybe", note: null };
 const fantasy: Answer = { rating: "fantasy", note: null };
@@ -36,12 +35,6 @@ describe("buildPairMatches", () => {
       expect(result[0].questionId).toBe("kissing");
       expect(result[0].matchType).toBe("match");
       expect(result[0].displayText).toBe("Kissing");
-    });
-
-    it("both yes but different timing → match", () => {
-      const result = buildPairMatches({ "kissing:mutual": yes }, { "kissing:mutual": yesLater }, qMap);
-      expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("match");
     });
 
     it("both maybe → both-maybe", () => {

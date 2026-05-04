@@ -126,10 +126,10 @@ Gating is enforced client-side. The server stores the dependency graph and retur
 
 ## Rating Scale
 
-| Rating | Meaning | Timing shown? |
-|-|-|-|
-| Yes | I want this | Yes |
-| If partner wants | Neutral — I'd do it for them | Yes |
-| Maybe | Curious, need to discuss | No |
-| Fantasy only | Hot to think about, don't want to do | No |
-| No | Hard no | No |
+| Rating | Meaning |
+|-|-|
+| Yes | I want this |
+| If partner wants | Neutral — I'd do it for them |
+| Maybe | Curious, need to discuss |
+| Fantasy only | Hot to think about, don't want to do |
+| No | Hard no |

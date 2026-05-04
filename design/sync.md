@@ -337,12 +337,12 @@ Conflicts happen when two sessions edit offline and sync at different times.
 ### Example
 
 ```
-Phone (offline): set oral-give = "yes/now"
-Laptop (offline): set oral-give = "maybe", set blindfold = "yes/now"
+Phone (offline): set oral-give = "yes"
+Laptop (offline): set oral-give = "maybe", set blindfold = "yes"
 
 Phone syncs first → server appends → new stoken
 Laptop syncs → stoken is stale → push rejected
-Laptop pulls new entries (phone's oral-give = "yes/now")
+Laptop pulls new entries (phone's oral-give = "yes")
 Laptop merges:
   oral-give: laptop has pending local edit → keep laptop's "maybe"
   blindfold: only laptop has this → keep it

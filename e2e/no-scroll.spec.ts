@@ -51,8 +51,7 @@ const EXPECTED_TO_SCROLL: Partial<Record<ScreenName, ReadonlySet<ViewportName>>>
   // char descriptions wrapping to 3 lines) plus the 5-button rating stack
   // are one line short of fitting on iPhone SE (375×667). Closing the gap
   // would require capping description length or collapsing descriptions
-  // behind a tap — both are design calls. Timing mode on the same card
-  // fits everywhere because the 2-button row replaces the 5-button stack.
+  // behind a tap — both are design calls.
   "question-long-desc": new Set(["mobile-sm"]),
 };
 

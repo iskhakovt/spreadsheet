@@ -2,6 +2,20 @@ import { Answer, type OperationPayload } from "@spreadsheet/shared";
 import { decodeValue } from "./crypto.js";
 
 /**
+ * Validate that a decoded operation key matches the canonical
+ * `questionId:role` shape. Rejects malformed input AND prototype-pollution
+ * vectors (`__proto__`, `constructor`, `prototype`) by construction —
+ * those don't match the regex.
+ *
+ * The `state` accumulator below is also Object.create(null) for defense
+ * in depth, but the regex check is the load-bearing guard because callers
+ * (mergeAfterRejection) feed these keys back into regular {} objects.
+ */
+function isSafeOperationKey(key: unknown): key is string {
+  return typeof key === "string" && /^[a-z0-9][a-z0-9-]*:(give|receive|mutual)$/.test(key);
+}
+
+/**
  * Replay journal entries to build current answer state.
  * Last operation for each key wins. Null data = delete.
  *
@@ -16,10 +30,16 @@ export async function replayJournal(
   entries: { operation: string }[],
   groupKey?: string | null,
 ): Promise<Record<string, Answer>> {
-  const state: Record<string, Answer> = {};
+  // Null-prototype map — `state["__proto__"] = x` would set a normal
+  // property here instead of invoking the Object.prototype setter.
+  const state: Record<string, Answer> = Object.create(null);
   for (const entry of entries) {
     try {
       const payload = await decodeValue<OperationPayload>(entry.operation, groupKey);
+      if (!isSafeOperationKey(payload.key)) {
+        console.error("Skipping journal entry with unsafe key:", payload.key);
+        continue;
+      }
       if (payload.data === null) {
         delete state[payload.key];
       } else {
@@ -40,7 +60,7 @@ export async function replayJournal(
 async function extractKey(op: string, groupKey?: string | null): Promise<string | null> {
   try {
     const payload = await decodeValue<OperationPayload>(op, groupKey);
-    return payload.key;
+    return isSafeOperationKey(payload.key) ? payload.key : null;
   } catch {
     return null;
   }
