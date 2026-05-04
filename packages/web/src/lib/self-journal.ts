@@ -2,13 +2,15 @@ import type { Answer } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { mergeAfterRejection } from "./journal.js";
+import { getScope } from "./session.js";
 import {
   getAnswers,
   getPendingOps,
   getSelfJournalCursor,
+  getStoken,
   setAnswers,
   setSelfJournalCursor,
   setStoken,
@@ -52,9 +54,15 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
 
     const merged = await applySelfJournalDelta(getAnswers(), result.entries);
 
-    if (result.stoken !== null) {
-      // Prime the push cursor — saves a handshake when the user makes their
-      // first edit after a fresh boot.
+    if (result.stoken !== null && getStoken() === null) {
+      // Prime the push cursor only on the FIRST hydration. After that the
+      // outbound push flow (sync-flush.ts) owns stoken and may have a
+      // fresher value than this query's snapshot — a push that committed
+      // between our snapshot read and this write would set stoken to the
+      // post-commit head, and overwriting it here with our pre-commit
+      // snapshot's head would force the next push to get rejected. Skip
+      // when stoken is already present; either it matches ours (no-op) or
+      // it's strictly fresher (push-managed) and we mustn't clobber it.
       setStoken(result.stoken);
     }
     setAnswers(merged);
@@ -97,8 +105,8 @@ export async function applySelfJournalDelta(
  * `sync.onSelfJournalChange` so writes from any other device with the same
  * person token land in the cache without a reload.
  *
- * The hook returns the cache slot; play screens read from this via
- * `useAnswers` (which proxies to the slot).
+ * The hook returns the cache slot. Play screens read it via `useAnswers`
+ * (also exported from this file), which is a thin reader of the same slot.
  */
 export function useSelfJournal(): SelfJournalCache {
   // React Compiler can't prove `seqRef.current` is only touched in async
@@ -116,8 +124,15 @@ export function useSelfJournal(): SelfJournalCache {
 
   const initialLastEventId = data.cursor !== null ? String(data.cursor) : undefined;
 
-  // Drop out-of-order applications if multiple pushes interleave their
+  // Drop out-of-order applications if multiple WS pushes interleave their
   // async decrypts. Same pattern as `useLiveStatus` and `Comparison`.
+  //
+  // Bootstrap-vs-WS ordering is structural, not protected by this seqRef:
+  // `useSubscription` only opens after the suspense fetch resolves (the
+  // hook returns `data` first, then mounts the subscription). So the
+  // queryFn's localStorage writes always happen-before any onData
+  // callback. The seq guard only protects multiple onData callbacks
+  // interleaving with each other.
   const seqRef = useRef(0);
 
   useSubscription(
@@ -153,5 +168,72 @@ export function useSelfJournal(): SelfJournalCache {
     ),
   );
 
+  // Mirror localStorage `answers` writes into the cache slot so that
+  //   - optimistic single-key writes (`setAnswer` in Question.tsx) propagate
+  //     to all `useAnswers` readers without a round-trip;
+  //   - cross-tab writes from another tab of the same person (native
+  //     `storage` event) propagate to this tab's cache slot.
+  // The legacy `storage:answers` channel is dispatched by `notifyChanged`
+  // on every same-tab `setAnswers` call, which is what `setAnswer` uses
+  // for its localStorage write.
+  useEffect(() => {
+    const fullKey = `${getScope()}answers`;
+    function syncFromStorage() {
+      const fresh = getAnswers();
+      queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, (prev) =>
+        prev ? { ...prev, answers: fresh } : prev,
+      );
+    }
+    function onCrossTabStorage(e: StorageEvent) {
+      if (e.key === fullKey) syncFromStorage();
+    }
+    window.addEventListener("storage:answers", syncFromStorage);
+    window.addEventListener("storage", onCrossTabStorage);
+    return () => {
+      window.removeEventListener("storage:answers", syncFromStorage);
+      window.removeEventListener("storage", onCrossTabStorage);
+    };
+  }, [queryClient]);
+
   return data;
 }
+
+/**
+ * Read the caller's current answers map from the self-journal cache slot.
+ *
+ * The cache slot is the in-memory source of truth, populated by
+ * `useSelfJournal` on mount and kept live by:
+ *   - the `sync.onSelfJournalChange` subscription (cross-device deltas);
+ *   - the storage-event mirror in `useSelfJournal` (same-tab optimistic
+ *     writes from `setAnswer`, plus cross-tab writes via the native
+ *     `storage` event).
+ *
+ * Returns an empty map if the cache slot hasn't been populated yet
+ * (defensive — under the layout's structure the slot is always populated
+ * before children render, but the empty fallback keeps test rendering
+ * outside the layout safe).
+ *
+ * Identity stability: `useSyncExternalStore` returns the same reference
+ * across renders unless the snapshot it pulls from the cache changes.
+ * Since the cache slot's `answers` reference only changes when a new
+ * `setQueryData` call lands, identity is stable across no-op renders.
+ *
+ * Implementation note — uses `useSyncExternalStore` over the query cache
+ * subscription rather than `useQuery({ enabled: false })`. The latter
+ * does not re-render observers when `setQueryData` mutates the cache
+ * from outside React (the storage-event mirror is non-React), so the
+ * direct subscription is the reliable read path.
+ */
+export function useAnswers(): Record<string, Answer> {
+  const queryClient = useQueryClient();
+  const subscribe = (callback: () => void) =>
+    queryClient.getQueryCache().subscribe((event) => {
+      const k = event.query.queryKey;
+      if (Array.isArray(k) && k[0] === "sync" && k[1] === "self-journal") callback();
+    });
+  const getSnapshot = () =>
+    queryClient.getQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY)?.answers ?? EMPTY_ANSWERS;
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+const EMPTY_ANSWERS: Record<string, Answer> = Object.freeze({}) as Record<string, Answer>;

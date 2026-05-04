@@ -7,6 +7,7 @@ import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from ".
 import { encodeValue } from "../lib/crypto.js";
 import { usePersonApp } from "../lib/person-app-context.js";
 import { useScrollReset } from "../lib/route-reset.js";
+import { useAnswers } from "../lib/self-journal.js";
 import {
   addPendingOpForKey,
   getCurrentScreenKey,
@@ -16,7 +17,6 @@ import {
   setAnswer,
   setCurrentScreenKey,
   setSelectedCategories,
-  useAnswers,
   usePendingOps,
 } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";

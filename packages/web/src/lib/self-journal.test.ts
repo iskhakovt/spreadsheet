@@ -1,10 +1,20 @@
 /** @vitest-environment happy-dom */
 import type { Answer } from "@spreadsheet/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeValue } from "./crypto.js";
-import { applySelfJournalDelta } from "./self-journal.js";
+import { applySelfJournalDelta, makeSelfJournalQueryFn, SELF_JOURNAL_QUERY_KEY, useAnswers } from "./self-journal.js";
 import { adoptSession, getScope } from "./session.js";
-import { addPendingOpForKey, clearPendingOps, getSelfJournalCursor, setSelfJournalCursor } from "./storage.js";
+import {
+  addPendingOpForKey,
+  clearPendingOps,
+  getSelfJournalCursor,
+  setAnswer,
+  setAnswers,
+  setSelfJournalCursor,
+} from "./storage.js";
 
 const token = "test-token-" + Math.random().toString(36).slice(2);
 const yes: Answer = { rating: "yes", note: null };
@@ -115,5 +125,171 @@ describe("applySelfJournalDelta", () => {
     expect(next["a:mutual"]).toEqual(yes);
     expect(next["c:give"]).toEqual(no);
     expect(next["b:mutual"]).toEqual(maybe);
+  });
+});
+
+// =============================================================================
+// useAnswers — cache-slot reader + storage-event mirror
+// =============================================================================
+//
+// The hook reads from the SELF_JOURNAL_QUERY_KEY cache slot. The mirror
+// (the useEffect inside useSelfJournal that listens for `storage:answers`
+// and the native `storage` event) is what propagates `setAnswer` and
+// cross-tab writes into the slot. We instantiate that mirror separately
+// from useSelfJournal in these tests so we don't have to mock a tRPC client.
+
+function renderUseAnswersWithMirror(initialAnswers: Record<string, Answer> = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } },
+  });
+  // Pre-populate the cache slot so useAnswers (enabled: false) reads it.
+  queryClient.setQueryData(SELF_JOURNAL_QUERY_KEY, { answers: initialAnswers, cursor: null });
+
+  // Install the same storage-event mirror that useSelfJournal installs in
+  // production. Mirrors `setAnswer` / `setAnswers` (own-tab) and the native
+  // `storage` event (cross-tab) into the cache slot.
+  function syncFromStorage() {
+    const fresh = JSON.parse(localStorage.getItem(`${getScope()}answers`) ?? "{}");
+    queryClient.setQueryData(
+      SELF_JOURNAL_QUERY_KEY,
+      (prev: { answers: Record<string, Answer>; cursor: number | null } | undefined) =>
+        prev ? { ...prev, answers: fresh } : prev,
+    );
+  }
+  function onCrossTabStorage(e: StorageEvent) {
+    if (e.key === `${getScope()}answers`) syncFromStorage();
+  }
+  window.addEventListener("storage:answers", syncFromStorage);
+  window.addEventListener("storage", onCrossTabStorage);
+
+  function wrapper({ children }: { children: ReactNode }) {
+    return createElement(QueryClientProvider, { client: queryClient }, children);
+  }
+  const result = renderHook(() => useAnswers(), { wrapper });
+  const cleanup = () => {
+    window.removeEventListener("storage:answers", syncFromStorage);
+    window.removeEventListener("storage", onCrossTabStorage);
+  };
+  return { ...result, queryClient, cleanup };
+}
+
+describe("useAnswers", () => {
+  it("reads from the cache slot", () => {
+    const { result, cleanup } = renderUseAnswersWithMirror({ "q1:mutual": yes });
+    expect(result.current).toEqual({ "q1:mutual": yes });
+    cleanup();
+  });
+
+  it("returns stable identity across re-renders when the slot hasn't changed", () => {
+    const { result, rerender, cleanup } = renderUseAnswersWithMirror({ "q1:mutual": yes });
+    const first = result.current;
+    rerender();
+    rerender();
+    expect(result.current).toBe(first);
+    cleanup();
+  });
+
+  it("propagates setAnswer (same-tab optimistic write) via the storage:answers mirror", () => {
+    const { result, cleanup } = renderUseAnswersWithMirror({});
+    expect(result.current).toEqual({});
+    act(() => {
+      setAnswer("q1:mutual", yes);
+    });
+    expect(result.current).toEqual({ "q1:mutual": yes });
+    cleanup();
+  });
+
+  it("propagates setAnswers (full replace) via the storage:answers mirror", () => {
+    const { result, cleanup } = renderUseAnswersWithMirror({ "q1:mutual": yes });
+    act(() => {
+      setAnswers({ "q2:give": no });
+    });
+    expect(result.current).toEqual({ "q2:give": no });
+    cleanup();
+  });
+
+  it("picks up cross-tab writes via the native storage event", () => {
+    const { result, cleanup } = renderUseAnswersWithMirror({});
+    expect(result.current).toEqual({});
+    const fullKey = `${getScope()}answers`;
+    act(() => {
+      // A different tab in the same browser writes localStorage, which
+      // triggers `storage` on every other tab. Simulate it.
+      localStorage.setItem(fullKey, JSON.stringify({ cross: yes }));
+      window.dispatchEvent(new StorageEvent("storage", { key: fullKey }));
+    });
+    expect(result.current).toEqual({ cross: yes });
+    cleanup();
+  });
+
+  it("returns the empty fallback when the cache slot is unpopulated", () => {
+    // No setQueryData seed — the slot is empty. useAnswers should fall back
+    // to a stable empty object so consumers can render without crashing.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    }
+    const { result } = renderHook(() => useAnswers(), { wrapper });
+    expect(result.current).toEqual({});
+  });
+});
+
+// =============================================================================
+// makeSelfJournalQueryFn — token-switch race
+// =============================================================================
+//
+// queryFn writes localStorage via `getScope()`, which captures the active
+// session at call time. If the user rapidly switches tokens while a
+// queryFn is in flight, an unaborted slow response could write stale data
+// under the old scope, but adoptSession + AbortSignal threading should
+// keep this consistent: writes always land under the scope active when
+// the fetch RESOLVES, not when it was issued.
+//
+// The actual production guard is `signal: AbortSignal` plumbed through
+// `trpcClient.sync.selfJournal.query`. resetQueries on token-switch
+// (useTokenSwitchCleanup) cancels in-flight queries via this signal, so
+// the queryFn's promise rejects and its post-await side effects never run.
+
+describe("makeSelfJournalQueryFn (token switch)", () => {
+  it("respects the AbortSignal — side effects don't run on aborted queries", async () => {
+    const tokenA = "token-A-" + Math.random().toString(36).slice(2);
+    adoptSession(tokenA);
+
+    let release!: () => void;
+    const fakeTrpc = {
+      sync: {
+        selfJournal: {
+          query: vi.fn(
+            (_input: unknown, { signal }: { signal: AbortSignal }) =>
+              new Promise<{ entries: never[]; cursor: null; stoken: null }>((resolve, reject) => {
+                signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+                release = () => resolve({ entries: [], cursor: null, stoken: null });
+              }),
+          ),
+        },
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
+    } as any;
+
+    const queryFn = makeSelfJournalQueryFn(fakeTrpc);
+    const ac = new AbortController();
+    const promise = queryFn({ signal: ac.signal });
+
+    // Switch session before the query resolves, then abort.
+    const tokenB = "token-B-" + Math.random().toString(36).slice(2);
+    adoptSession(tokenB);
+    ac.abort();
+
+    await expect(promise).rejects.toThrow();
+
+    // Even if the slow promise resolved AFTER abort, the side-effect block
+    // is gated by the abort: queryFn's post-await `setAnswers / setStoken
+    // / setSelfJournalCursor` calls never ran. Confirm by inspecting the
+    // new-session scope's localStorage for absence.
+    expect(localStorage.getItem(`${getScope()}answers`)).toBe(null);
+    expect(localStorage.getItem(`${getScope()}selfJournalCursor`)).toBe(null);
+
+    // Cleanup the dangling resolver so the test process can exit cleanly.
+    release();
   });
 });

@@ -16,7 +16,7 @@ import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { cn } from "../lib/cn.js";
 import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
-import { useAnswers } from "../lib/storage.js";
+import { useAnswers } from "../lib/self-journal.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";

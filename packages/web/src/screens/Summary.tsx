@@ -4,13 +4,8 @@ import { Button } from "../components/Button.js";
 import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { cn } from "../lib/cn.js";
-import {
-  getSelectedCategories,
-  getSelectedTier,
-  setSelectedCategories,
-  setSelectedTier,
-  useAnswers,
-} from "../lib/storage.js";
+import { useAnswers } from "../lib/self-journal.js";
+import { getSelectedCategories, getSelectedTier, setSelectedCategories, setSelectedTier } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 import { type Side, visibleSides } from "../lib/visibility.js";
 

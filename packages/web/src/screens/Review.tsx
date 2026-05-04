@@ -5,7 +5,8 @@ import { BackLink } from "../components/back-link.js";
 import { Card } from "../components/Card.js";
 import { buildReviewGroups } from "../lib/build-screens.js";
 import { cn } from "../lib/cn.js";
-import { getSelectedCategories, useAnswers } from "../lib/storage.js";
+import { useAnswers } from "../lib/self-journal.js";
+import { getSelectedCategories } from "../lib/storage.js";
 import { UI } from "../lib/strings.js";
 
 interface ReviewProps {

@@ -91,19 +91,22 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 // === answers ===
 //
 // The journal is the source of truth for answers; `useSelfJournal`
-// materialises it into a TanStack cache slot on every play-page mount.
-// The localStorage `answers` key is a write-through persister output, not
-// the model — it exists so first paint on subsequent reloads renders from
-// the persisted snapshot while the delta fetch resolves.
+// (lib/self-journal.ts) materialises it into a TanStack cache slot on
+// every play-page mount. The cache slot is the in-memory source for
+// reads — components call `useAnswers` (exported from self-journal.ts)
+// which reads the slot directly.
 //
-// `useAnswers` reads the persister output via useSyncExternalStore. The
-// cache hook keeps localStorage synchronised on:
-//   - Initial query: `applySelfJournalDelta` writes the merged map.
-//   - Live WS deltas: `onData` writes the merged map.
-//   - Optimistic local writes: `setAnswer` (below) writes the new value
-//     and the cache slot eventually catches up via the WS echo.
-// The merge function uses `getAnswers()` as the local-truth input on the
-// WS path so optimistic writes survive the echo of their own commits.
+// localStorage is a write-through persister whose only job is first-paint
+// hydration on the next reload. The `setAnswers` / `setAnswer` writers
+// below update localStorage and dispatch a `storage:answers` event;
+// `useSelfJournal` listens for that event (and the native cross-tab
+// `storage` event) and mirrors the change into the cache slot. Same-tab
+// optimistic writes therefore propagate to all readers via this mirror,
+// and cross-tab writes propagate via the native event.
+//
+// `getAnswers()` is the canonical localStorage reader; `useSelfJournal`
+// uses it as the local-truth input to the merge so optimistic edits
+// survive the WS echo of their own commits.
 
 /**
  * Validate persisted answers via `Answer.safeParse`. The schema itself
@@ -120,11 +123,6 @@ function normalizeAnswers(raw: unknown): Record<string, Answer> {
   }
   return out;
 }
-
-export const useAnswers = makeLocalStorageHook(
-  "answers",
-  (raw): Record<string, Answer> => normalizeAnswers(raw ? JSON.parse(raw) : {}),
-);
 
 export function getAnswers(): Record<string, Answer> {
   return normalizeAnswers(getJson("answers", {}));
