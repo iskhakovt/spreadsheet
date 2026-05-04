@@ -76,6 +76,32 @@ test.describe("static assets + meta-tag variants", () => {
     expect(env).toHaveProperty("REQUIRE_ENCRYPTION");
   });
 
+  test("CSP allows data: URIs in img-src for inline SVG backgrounds", async ({ request, baseURL }) => {
+    // The body grain overlay in index.css uses an inline data:image/svg+xml
+    // fractalNoise SVG as background-image, which browsers gate under img-src.
+    // Tightening this back to `img-src 'self'` would silently break the texture
+    // (no JS error, just a missing overlay).
+    const res = await request.get(`${baseURL}/`);
+    const csp = res.headers()["content-security-policy"];
+    expect(csp).toBeDefined();
+    expect(csp).toMatch(/img-src[^;]*\bdata:/);
+  });
+
+  test("landing page loads with no CSP violations", async ({ page }) => {
+    // Catches any future CSP regression on the landing page — not just the
+    // grain overlay. Browsers report CSP violations as console errors with
+    // a recognizable prefix.
+    const violations: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error" && /Content Security Policy/i.test(msg.text())) {
+        violations.push(msg.text());
+      }
+    });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    expect(violations).toEqual([]);
+  });
+
   test("service worker precache manifest excludes /env-config.js", async ({ request, baseURL }) => {
     // If the SW ever precached env-config.js, flag flips would be
     // invisible to anyone whose SW already installed — they'd keep

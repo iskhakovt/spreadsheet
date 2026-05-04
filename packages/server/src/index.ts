@@ -53,7 +53,7 @@ app.use("*", async (c, next) => {
   await next();
   c.header(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
   );
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
