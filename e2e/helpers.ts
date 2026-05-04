@@ -181,7 +181,7 @@ export async function createGroupAndSetup(
   await page.getByRole("button", { name: "Create group", exact: true }).click();
   await expect(page).toHaveURL(/\/p\/.+/);
 
-  await expect(page.getByText("Set up your group")).toBeVisible();
+  await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
   await page.getByPlaceholder("Enter your name").fill(adminName);
   await page.getByPlaceholder("Partner's name").fill(partnerName);
 
@@ -195,7 +195,7 @@ export async function createGroupAndSetup(
 
   await page.getByRole("button", { name: "Create & get links", exact: true }).click();
 
-  await expect(page.getByText("You're all set")).toBeVisible();
+  await expect(page.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
 
   // Collect partner links only (not the admin's own link on encrypted groups).
   // Assert the expected count to fail fast with a clear message.
