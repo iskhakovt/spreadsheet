@@ -178,8 +178,8 @@ function renderUseAnswersWithMirror(initialAnswers: Record<string, Answer> = {})
   queryClient.setQueryData(SELF_JOURNAL_QUERY_KEY, { answers: initialAnswers, cursor: null });
 
   // Install the same storage-event mirror that useSelfJournal installs in
-  // production. Mirrors `setAnswer` / `setAnswers` (own-tab) and the native
-  // `storage` event (cross-tab) into the cache slot.
+  // production — both handlers resolve `getScope()` at event time so an
+  // in-tab token switch is handled correctly.
   function syncFromStorage() {
     const fresh = JSON.parse(localStorage.getItem(`${getScope()}answers`) ?? "{}");
     queryClient.setQueryData(
@@ -251,6 +251,30 @@ describe("useAnswers", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: fullKey }));
     });
     expect(result.current).toEqual({ cross: yes });
+    cleanup();
+  });
+
+  it("handles cross-tab writes after an in-tab session switch", () => {
+    // Regression for the closure-captured-scope bug: the listener used
+    // to bind `fullKey` once at effect-mount, so after `adoptSession` to
+    // a new person the cross-tab event for the new scope was dropped.
+    // Now the handler resolves scope per event and stays correct.
+    const { result, cleanup } = renderUseAnswersWithMirror({});
+
+    // In-tab session switch — same scenario as a user navigating between
+    // two `/p/$token` URLs in the same tab.
+    const newToken = "switched-token-" + Math.random().toString(36).slice(2);
+    adoptSession(newToken);
+
+    const newScopedKey = `${getScope()}answers`;
+    act(() => {
+      // Another tab (also operating on `newToken`) writes localStorage.
+      // This tab's mirror should pick it up, even though the listener
+      // was bound before the session switch.
+      localStorage.setItem(newScopedKey, JSON.stringify({ "post-switch": yes }));
+      window.dispatchEvent(new StorageEvent("storage", { key: newScopedKey }));
+    });
+    expect(result.current).toEqual({ "post-switch": yes });
     cleanup();
   });
 

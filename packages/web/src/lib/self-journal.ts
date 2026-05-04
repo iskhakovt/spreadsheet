@@ -176,8 +176,14 @@ export function useSelfJournal(): SelfJournalCache {
   // The legacy `storage:answers` channel is dispatched by `notifyChanged`
   // on every same-tab `setAnswers` call, which is what `setAnswer` uses
   // for its localStorage write.
+  //
+  // Both handlers resolve `getScope()` at event time, not at effect-mount
+  // time. After an in-tab token switch (`adoptSession`), the effect's
+  // deps don't change but the active scope does — capturing the scoped
+  // key once at mount would silently drop cross-tab writes for the new
+  // person. Reading scope per-event keeps the listener correct across
+  // session switches without needing to re-bind on every render.
   useEffect(() => {
-    const fullKey = `${getScope()}answers`;
     function syncFromStorage() {
       const fresh = getAnswers();
       queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, (prev) =>
@@ -185,7 +191,7 @@ export function useSelfJournal(): SelfJournalCache {
       );
     }
     function onCrossTabStorage(e: StorageEvent) {
-      if (e.key === fullKey) syncFromStorage();
+      if (e.key === `${getScope()}answers`) syncFromStorage();
     }
     window.addEventListener("storage:answers", syncFromStorage);
     window.addEventListener("storage", onCrossTabStorage);
