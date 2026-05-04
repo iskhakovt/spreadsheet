@@ -5,16 +5,21 @@ test.describe("results edge cases", () => {
   test("results with timing — green-light column visible", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
+    // Bondage has 0 notePrompt questions — needed for the all-green-light
+    // baseline. notePrompt questions short-circuit the now/later fan-out
+    // (note replaces timing as the secondary signal), so a category with
+    // notePrompt questions would produce a mix of green-light and plain
+    // match rows in the screenshot.
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
-    await narrowToCategory(alice, "Group & External");
+    await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes"); // answers yes + "Now" for timing
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
-    await narrowToCategory(bob, "Group & External");
+    await narrowToCategory(bob, "Bondage & Restraint");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 

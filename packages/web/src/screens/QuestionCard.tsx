@@ -119,7 +119,14 @@ export function QuestionCard({
     setPendingRating(undefined);
   }, [screen.key]);
 
-  const draftHasContent = trimNote(noteDraft) !== null;
+  const trimmedDraft = trimNote(noteDraft);
+  const draftHasContent = trimmedDraft !== null;
+  // True iff the typed draft differs from the saved note. Drives the
+  // "Save & next" vs "Next" label — without this, the label says "Save"
+  // any time the textarea has content, including the pre-fill of an
+  // unchanged saved note (the re-commit guard in handleNext skips the
+  // no-op write, but the label was lying about it).
+  const noteDirty = trimmedDraft !== (existingAnswer?.note ?? null);
   // Layout B (note section visible) when the question prompts for a note,
   // when there's already a note, or when the user opted in via the hairline
   // link. Pre-rating prompted questions also start in Layout B so the prompt
@@ -173,30 +180,37 @@ export function QuestionCard({
 
   // --- handlers wrapped in useCallback so child memos stay stable ---
 
+  // The question card is a two-phase form: pick a rating (1-5), then —
+  // optionally — pick a timing (now/later). Each phase has one "advance"
+  // action that decides the next state.
+  //
   // Await commit before advance — letting the storage event propagate and
   // useAnswers update before setIndex schedules the next render. Without
   // the await, gating-based visibility on the *next* question would
   // briefly read stale answers (the original saveAnswer had a microtask
   // yield via `await encodeValue(...)` between setAnswer and setIndex,
   // which we preserve here).
-  const handleRating = useCallback(
+  const advanceFromRating = useCallback(
     async (rating: Rating) => {
-      if (showTimingFlow && (rating === "yes" || rating === "if-partner-wants")) {
+      // Fan out to the timing sub-question only when the group has timing
+      // on AND the question doesn't capture a note. notePrompt questions
+      // short-circuit timing because the note is about the rating itself,
+      // and asking for it after the user has moved on to logistics breaks
+      // their train of thought.
+      if (showTimingFlow && notePrompt === null && (rating === "yes" || rating === "if-partner-wants")) {
         setPendingRating(rating);
         return;
       }
-      const answer: Answer = { rating, timing: null, note: trimNote(noteDraft) };
-      await onCommit(answer);
+      await onCommit({ rating, timing: null, note: trimNote(noteDraft) });
       if (!noteVisible) onAdvance();
     },
-    [showTimingFlow, noteDraft, noteVisible, onCommit, onAdvance],
+    [showTimingFlow, notePrompt, noteDraft, noteVisible, onCommit, onAdvance],
   );
 
-  const handleTiming = useCallback(
+  const advanceFromTiming = useCallback(
     async (timing: Timing) => {
       if (!pendingRating) return;
-      const answer: Answer = { rating: pendingRating, timing, note: trimNote(noteDraft) };
-      await onCommit(answer);
+      await onCommit({ rating: pendingRating, timing, note: trimNote(noteDraft) });
       setPendingRating(undefined);
       if (!noteVisible) onAdvance();
     },
@@ -300,9 +314,9 @@ export function QuestionCard({
           keyboard listeners locally (scoped by mount) and their commit
           animation state (local useState). */}
       {showTiming ? (
-        <TimingButtons onTiming={handleTiming} />
+        <TimingButtons onTiming={advanceFromTiming} />
       ) : (
-        <RatingGroup existingAnswer={existingAnswer} onRating={handleRating} />
+        <RatingGroup existingAnswer={existingAnswer} onRating={advanceFromRating} />
       )}
 
       {/* Note section — visible when notePrompt is set on this question, the
@@ -318,53 +332,29 @@ export function QuestionCard({
         />
       )}
 
-      {/* Action row — primary Next when the note section is visible (Layout B),
-          thin Back/Skip otherwise (Layout A). The Layout A row also carries
-          the inline "+ Add a note" affordance for ordinary questions, so we
-          don't add vertical chrome below the ratings. */}
-      {noteVisible ? (
-        <div className="mt-4 space-y-2">
-          <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next">
-            {existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}
-          </Button>
-          <div className="flex justify-between text-xs text-text-muted/65 px-1">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={index === 0}
-              aria-label="Previous question"
-              className="hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/65 transition-colors duration-200"
-            >
-              {UI.question.back}
-            </button>
-            {!draftHasContent && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                aria-label="Skip question"
-                className="hover:text-accent transition-colors duration-200"
-              >
-                {UI.question.skip}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between text-sm">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={index === 0}
-            aria-label="Previous question"
-            className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
-          >
-            <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
-            {UI.question.back}
-          </button>
-          {/* Inline "+ Add a note" — only for ordinary questions without a
-              saved note. Sits between Back and Skip so it adds zero vertical
-              chrome to the card; styled to match Back/Skip prominence so it
-              reads as a peer action, not a footnote. */}
+      {/* Primary Next — only when the note section is visible (Layout B).
+          Sits above the shared Back/Skip row so the same nav controls show
+          on every question regardless of layout. */}
+      {noteVisible && (
+        <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next" className="mt-4 mb-2">
+          {existingAnswer ? (noteDirty ? "Save & next" : "Next") : "Rate to continue"}
+        </Button>
+      )}
+      {/* Shared Back / [+Add a note] / Skip row. The middle "+ Add a note"
+          affordance only renders in Layout A (no note section yet) so it
+          adds zero vertical chrome to ordinary questions. */}
+      <div className="flex items-center justify-between text-sm">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={index === 0}
+          aria-label="Previous question"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
+        >
+          <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
+          {UI.question.back}
+        </button>
+        {!noteVisible && (
           <button
             type="button"
             onClick={handleAddNote}
@@ -374,6 +364,10 @@ export function QuestionCard({
             <Pencil size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
             <span>Add a note</span>
           </button>
+        )}
+        {/* Skip is hidden once the user has typed a note draft — Skip
+            doesn't commit, so it would silently throw the draft away. */}
+        {!draftHasContent && (
           <button
             type="button"
             onClick={handleSkip}
@@ -383,8 +377,8 @@ export function QuestionCard({
             {UI.question.skip}
             <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
           gives the track depth. */}
       <div

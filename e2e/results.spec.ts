@@ -13,10 +13,14 @@ test.describe("results display", () => {
   test("shows correct match labels for different answer combinations", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { showTiming: true });
 
-    // Alice: answer all questions as Yes + Now (showTiming enabled)
+    // Bondage has 0 notePrompt questions — required for the all-green-light
+    // assertion below. notePrompt questions short-circuit the now/later
+    // fan-out (the note replaces timing as the secondary signal), so any
+    // category with notePrompt questions would produce a mix of green-light
+    // and plain match rows, breaking the count==0 assertion on `match`.
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
-    await narrowToCategory(alice, "Group & External");
+    await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
@@ -24,7 +28,7 @@ test.describe("results display", () => {
     // Bob: answer all questions as Yes + Now too (should produce all "Go for it")
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
-    await narrowToCategory(bob, "Group & External");
+    await narrowToCategory(bob, "Bondage & Restraint");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
