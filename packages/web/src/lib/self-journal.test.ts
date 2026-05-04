@@ -104,18 +104,50 @@ describe("applySelfJournalDelta", () => {
     expect(next["a:mutual"]).toEqual(maybe);
   });
 
-  it("server-side null deletes do NOT propagate via the delta merge", async () => {
-    // Documenting a known limitation of mergeAfterRejection: it iterates
-    // server-state keys, so a "deleted" key (replayJournal removed it) is
-    // simply absent from the server-state map and the merge leaves prev
-    // alone. Acceptable today because the UI has no "unset" affordance —
-    // null operations only appear in legacy journals. The bootstrap path
-    // (prev empty) is unaffected.
+  it("server-side null delete propagates to merged via the delta path", async () => {
+    // Regression for the bootstrap-vs-delta divergence: previously the
+    // merge iterated server-state Object keys and a deleted key was
+    // simply absent, so the server's deletion didn't reach `merged`.
+    // Now the underlying replay yields a sentinel for deletes and the
+    // merge applies them, matching the bootstrap (full-replay) path.
     const prev = { "a:mutual": yes };
     clearPendingOps();
     const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", null) }];
     const next = await applySelfJournalDelta(prev, entries);
+    expect(next).not.toHaveProperty("a:mutual");
+  });
+
+  it("outbox wins over a server-side delete", async () => {
+    // If the user has a pending op for the same key that the server is
+    // deleting, the user's local intent must win (not yet pushed).
+    const prev = { "a:mutual": yes };
+    addPendingOpForKey(await plainOp("a:mutual", maybe), "a:mutual");
+    const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", null) }];
+    const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(yes);
+  });
+
+  it("set-then-delete in a single delta yields a deletion", async () => {
+    // The replay-with-sentinel must respect operation order — last op wins.
+    const prev = {};
+    clearPendingOps();
+    const entries = [
+      { id: 1, personId: "p", operation: await plainOp("a:mutual", yes) },
+      { id: 2, personId: "p", operation: await plainOp("a:mutual", null) },
+    ];
+    const next = await applySelfJournalDelta(prev, entries);
+    expect(next).not.toHaveProperty("a:mutual");
+  });
+
+  it("delete-then-set in a single delta yields the set value", async () => {
+    const prev = { "a:mutual": yes };
+    clearPendingOps();
+    const entries = [
+      { id: 1, personId: "p", operation: await plainOp("a:mutual", null) },
+      { id: 2, personId: "p", operation: await plainOp("a:mutual", maybe) },
+    ];
+    const next = await applySelfJournalDelta(prev, entries);
+    expect(next["a:mutual"]).toEqual(maybe);
   });
 
   it("preserves prev values for keys not touched by the delta", async () => {
