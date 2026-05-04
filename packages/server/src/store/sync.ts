@@ -127,6 +127,15 @@ export class SyncStore {
    * Returns the entry list, the new cursor (highest id, or echoed `sinceId`
    * on empty), and the latest stoken — passed through so `useSelfJournal`
    * can seed the push cursor without a separate round-trip.
+   *
+   * `stoken` is derived from `cursor`, NOT from a separate head query.
+   * Postgres' default READ COMMITTED isolation gives each statement its
+   * own snapshot, so a separate `SELECT max(id)` could return an id newer
+   * than what the entries query saw — a concurrent commit between the
+   * two SELECTs would yield a wire response where stoken describes a row
+   * the client never received. Since `cursor` is rows[rows.length-1].id
+   * from the same statement that produced `entries` (or the echoed
+   * `sinceId` on empty), it's atomically consistent with the entries.
    */
   async journalSinceForPerson(
     personId: string,
@@ -137,15 +146,8 @@ export class SyncStore {
     stoken: string | null;
   }> {
     return this.#tx(async (tx) => {
-      const [head] = await tx
-        .select({ id: journalEntries.id })
-        .from(journalEntries)
-        .where(eq(journalEntries.personId, personId))
-        .orderBy(desc(journalEntries.id))
-        .limit(1);
-
       const { entries, cursor } = await selectJournalForPerson(tx, personId, sinceId);
-      const stoken = head?.id ? encodeStoken(head.id) : null;
+      const stoken = cursor !== null && cursor > 0 ? encodeStoken(cursor) : null;
       return { entries, cursor, stoken };
     });
   }

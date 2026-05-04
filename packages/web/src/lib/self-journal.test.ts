@@ -3,7 +3,7 @@ import type { Answer } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeValue } from "./crypto.js";
 import { applySelfJournalDelta } from "./self-journal.js";
-import { adoptSession } from "./session.js";
+import { adoptSession, getScope } from "./session.js";
 import { addPendingOpForKey, clearPendingOps, getSelfJournalCursor, setSelfJournalCursor } from "./storage.js";
 
 const token = "test-token-" + Math.random().toString(36).slice(2);
@@ -41,7 +41,21 @@ describe("getSelfJournalCursor / setSelfJournalCursor", () => {
   });
 
   it("treats malformed cursor values as absent", () => {
-    localStorage.setItem(`s${"x".repeat(8)}:selfJournalCursor`, "not-a-number");
+    // Write under the SAME scoped key that getSelfJournalCursor reads
+    // from — getScope() resolves to `s${fnv1a(token)}:`, the correct
+    // length-variable hash. Faking the prefix inline (e.g. `sxxxxxxxx:`)
+    // would write to a key the production code never reads, and the
+    // assertion would pass vacuously without exercising parsing.
+    localStorage.setItem(`${getScope()}selfJournalCursor`, "not-a-number");
+    expect(getSelfJournalCursor()).toBe(null);
+  });
+
+  it("treats negative or zero cursor values as absent", () => {
+    // Defense for the `> 0` branch in getSelfJournalCursor — a 0 or
+    // negative id can't be a valid bigserial.
+    localStorage.setItem(`${getScope()}selfJournalCursor`, "0");
+    expect(getSelfJournalCursor()).toBe(null);
+    localStorage.setItem(`${getScope()}selfJournalCursor`, "-5");
     expect(getSelfJournalCursor()).toBe(null);
   });
 });

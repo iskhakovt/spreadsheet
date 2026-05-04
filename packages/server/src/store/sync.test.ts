@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
 import { groups, persons } from "../db/schema.js";
+import { decodeStoken } from "../stoken.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { SyncStore } from "./sync.js";
 
@@ -422,6 +423,36 @@ describe("SyncStore.journalSinceForPerson", () => {
     expect(result.entries).toHaveLength(2);
     expect(result.cursor).toBe(result.entries[1].id);
     expect(result.stoken).not.toBe(null);
+  });
+
+  it("stoken is always derivable from cursor — no snapshot skew", async () => {
+    // Regression: stoken used to come from a separate `SELECT max(id)`
+    // query, which under READ COMMITTED could see a row newer than
+    // what the entries query returned. Now stoken is derived from
+    // cursor in the same statement, so the two are always consistent.
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [
+          'p:1:{"key":"a:give","data":{"rating":"yes"}}',
+          'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}',
+        ],
+        progress: undefined,
+      },
+      encrypted,
+    );
+
+    const full = await store.journalSinceForPerson(personId, null);
+    // stoken decodes back to cursor — same id on both fields.
+    expect(decodeStoken(full.stoken!)).toBe(full.cursor);
+
+    // Empty-delta path: cursor echoes sinceId, stoken matches that echo.
+    const empty = await store.journalSinceForPerson(personId, full.cursor);
+    expect(empty.entries).toHaveLength(0);
+    expect(empty.cursor).toBe(full.cursor);
+    expect(decodeStoken(empty.stoken!)).toBe(full.cursor);
   });
 
   it("returns only entries with id > sinceId when set", async () => {
