@@ -163,6 +163,28 @@ describe("buildScreens", () => {
     expect(qScreens).toHaveLength(0);
   });
 
+  it("returns an empty array when there are no questions", () => {
+    const screens = buildScreens([], ["oral"], "amab", [], "all", categories, NO_ANSWERS);
+    expect(screens).toEqual([]);
+  });
+
+  it("single-question category: emits welcome + one question screen, count=1", () => {
+    const questions = [q({ id: "q1", categoryId: "oral" })];
+    const screens = buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS);
+    expect(screens).toHaveLength(2);
+    expect(screens[0]).toMatchObject({ type: "welcome", categoryId: "oral", questionCount: 1 });
+    expect(screens[1]).toMatchObject({ type: "question", key: "q1:mutual" });
+  });
+
+  it("question with neither give-text nor receive-text emits a single mutual screen", () => {
+    const questions = [q({ id: "kissing", categoryId: "oral", giveText: null, receiveText: null })];
+    const qScreens = filterQuestionScreens(
+      buildScreens(questions, ["oral"], "amab", [], "all", categories, NO_ANSWERS),
+    );
+    expect(qScreens).toHaveLength(1);
+    expect(qScreens[0]).toMatchObject({ key: "kissing:mutual", role: "mutual" });
+  });
+
   it("welcome screen includes correct question count", () => {
     const questions = [
       q({ id: "q1", categoryId: "oral" }),
