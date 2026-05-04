@@ -107,6 +107,21 @@ export async function scopedSet(page: Page, key: string, value: string): Promise
 }
 
 /**
+ * Blur the currently-focused element. Use before `toHaveScreenshot` on a
+ * spec that captures a screen where Tailwind's `focus:ring-*` (drawn via
+ * box-shadow) would leak into the baseline — the global screenshot.css
+ * outline-suppression rule can't safely strip these rings because they
+ * share their CSS property with the unconditional `ring-*` selected-state
+ * styling on RatingGroup buttons (no CSS-only way to distinguish).
+ *
+ * Industry-standard fix per Playwright issue #34272's `blurActiveElement`
+ * proposal — use this helper as the manual equivalent until that lands.
+ */
+export async function defocus(page: Page): Promise<void> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+}
+
+/**
  * Assert that no element matching `selector` has its content overflowing
  * its box (text clipped or hidden behind a sibling). Catches things like
  * "Adventurous" not fitting in a 4-up tier picker on a 375px viewport
