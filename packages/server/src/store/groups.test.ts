@@ -28,7 +28,6 @@ describe("GroupStore.create", () => {
     const result = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -42,7 +41,6 @@ describe("GroupStore.setupAdmin", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -72,7 +70,6 @@ describe("GroupStore.setupAdmin", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -85,7 +82,6 @@ describe("GroupStore.setupAdmin", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "filtered",
-      showTiming: true,
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
     });
@@ -104,7 +100,6 @@ describe("GroupStore.getStatus", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -118,7 +113,6 @@ describe("GroupStore.getStatus", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "filtered",
-      showTiming: true,
       anatomyLabels: "anatomical",
       anatomyPicker: "self",
     });
@@ -138,7 +132,6 @@ describe("GroupStore.removePerson", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -164,7 +157,6 @@ describe("GroupStore.removePerson", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -189,7 +181,6 @@ describe("GroupStore.removePerson", () => {
     const { adminToken } = await store.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });

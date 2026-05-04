@@ -25,7 +25,7 @@ describe("generateGroupKey", () => {
 
 describe("encodeValue / decodeValue", () => {
   it("round-trips in plaintext mode (null key)", async () => {
-    const original = { rating: "yes", timing: "now" };
+    const original = { rating: "yes" };
     const encoded = await encodeValue(original, null);
     const decoded = await decodeValue(encoded, null);
     expect(decoded).toEqual(original);
@@ -38,7 +38,7 @@ describe("encodeValue / decodeValue", () => {
 
   it("round-trips in encrypted mode", async () => {
     const key = await generateGroupKey();
-    const original = { key: "oral-give:give", data: { rating: "yes", timing: "now" } };
+    const original = { key: "oral-give:give", data: { rating: "yes" } };
     const encoded = await encodeValue(original, key);
     const decoded = await decodeValue(encoded, key);
     expect(decoded).toEqual(original);
@@ -75,7 +75,7 @@ describe("encodeValue / decodeValue", () => {
 
   it("handles complex objects", async () => {
     const key = await generateGroupKey();
-    const obj = { key: "cunnilingus:give", data: { rating: "if-partner-wants", timing: "later" } };
+    const obj = { key: "cunnilingus:give", data: { rating: "if-partner-wants" } };
     const encoded = await encodeValue(obj, key);
     const decoded = await decodeValue(encoded, key);
     expect(decoded).toEqual(obj);

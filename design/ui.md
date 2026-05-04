@@ -65,7 +65,6 @@ No token in URL. Explains what Spreadsheet is.
 
 - Question mode toggle: "Filter by body" / "All questions"
 - If filtered: label style picker + who picks anatomy (admin / each person)
-- Optional: "Ask now or later?" toggle (timing sub-question, default on)
 - Optional: end-to-end encryption toggle
 - Submit: creates group with `adminToken`, redirects to `/p/{adminToken}`
 
@@ -150,8 +149,6 @@ One question per screen. Centered card (max 480px).
 +------------------------------+
 ```
 
-After tapping Yes or If partner wants → timing sub-question (Now / Later) → auto-advances. Timing is optional — controlled by `showTiming` group setting. When off, yes/willing save immediately with null timing.
-
 "Progress" link → Summary screen. Sync indicator uses `visibility: hidden` to avoid layout shifts.
 
 **Dependency-gated questions** disappear when their parent gate is answered "no". For example, answering "no" to *Penetrative sex is welcome* hides every position, creampie, and toy that requires penetration. Per-side gating: a g/r child whose g/r parent has give-no but receive-yes still shows its receive-side. The gate question itself stays visible — gating only affects descendants.
@@ -191,8 +188,7 @@ Available once all members mark complete. Grouped by category, sorted by match q
 
 | Match type | Label | Meaning |
 |-|-|-|
-| Both yes + now | Go for it | Green light |
-| Both yes (any timing) | Match | Discuss timing |
+| Both yes/willing | Match | Both want it |
 | Both maybe | Worth discussing | Curious |
 | Mixed yes/maybe | Possible | Worth exploring |
 | Both fantasy | Shared fantasy | Both fantasize |

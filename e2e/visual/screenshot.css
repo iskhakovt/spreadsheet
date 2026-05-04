@@ -10,6 +10,46 @@
   transition: none !important;
 }
 
+/* Suppress hover-state artifacts from cursor position. Playwright leaves
+   the mouse at the last click position when toHaveScreenshot fires; any
+   element with `hover:`/`group-hover:` styling at that position renders
+   in its hover state in the baseline (e.g. "End-to-end encryption" label
+   reading orange after the test checks the box). Disabling pointer-events
+   globally makes :hover stop matching for the duration of the capture —
+   no per-spec defocus dance required, and new specs are correct by default.
+
+   This also suppresses click hit-testing, which is fine: by the time the
+   screenshot fires, the test has already finished its interactions and
+   the page is in its terminal state. */
+*, *::before, *::after {
+  pointer-events: none !important;
+}
+
+/* Suppress native focus outlines — clicking a checkbox or button as part
+   of test setup often leaves the element focused; the resulting outline
+   would appear non-deterministically in screenshots.
+
+   Limitation, not CSS-fixable: Tailwind's `focus:ring-*` utilities are
+   implemented with `box-shadow`, NOT outline. A global `:focus {
+   box-shadow: none }` rule would also strip the unconditional `ring-*`
+   styling that's used elsewhere (e.g. the selected-state ring on a
+   clicked RatingGroup button) because the two share the same property
+   — there's no CSS way to distinguish them. `:focus-visible` doesn't
+   help because Tailwind's `focus:` modifier compiles to `:focus`, not
+   `:focus-visible`, so after Playwright's `.click()` the rule wouldn't
+   match.
+
+   The industry-standard fix for `focus:ring-*` leakage is to blur the
+   active element before the screenshot, not CSS:
+     await defocus(page);                            // helper in helpers.ts
+     await expect(page).toHaveScreenshot(...);
+   No current baseline triggers this path; reach for `defocus()` if a
+   future spec captures a screen with focused `focus:ring-*` inputs
+   (e.g. the GroupSetup name fields). */
+*:focus, *:focus-visible {
+  outline: none !important;
+}
+
 /* Hide the feTurbulence grain overlay — SVG noise filters produce
    non-deterministic pixel values across captures, preventing Playwright
    from establishing a stable baseline. */

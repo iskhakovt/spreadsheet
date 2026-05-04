@@ -1,0 +1,1 @@
+ALTER TABLE "groups" ALTER COLUMN "showTiming" SET DEFAULT false;

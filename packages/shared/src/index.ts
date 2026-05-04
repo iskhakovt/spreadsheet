@@ -5,7 +5,7 @@ export {
   Anatomy,
   AnatomyLabels,
   AnatomyPicker,
-  type Answer,
+  Answer,
   type CategoryData,
   type Group,
   type GroupStatus,
@@ -23,5 +23,4 @@ export {
   Role,
   Target,
   type Tier,
-  Timing,
 } from "./types.js";

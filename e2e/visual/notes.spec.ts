@@ -69,9 +69,6 @@ test.describe("notes UI", () => {
     await page.getByRole("radio", { name: "Yes", exact: true }).click();
     const textarea = page.getByRole("textbox");
     await textarea.fill("happy to share what's been on my mind lately");
-
-    // Defocus so the screenshot doesn't depend on browser-specific caret styling.
-    await page.locator("body").click({ position: { x: 4, y: 4 } });
     await expect(page.getByTestId("note-next")).toBeEnabled();
     await expect(page).toHaveScreenshot("note-card-rated-typed.png");
   });

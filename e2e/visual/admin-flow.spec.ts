@@ -49,11 +49,11 @@ test.describe("admin 2-person flow", () => {
     await expect(alice.getByText("Your group")).toBeVisible();
     await expect(alice).toHaveScreenshot("group-members.png");
 
-    // --- Intro screen (without timing) ---
+    // --- Intro screen ---
     await alice.goto(base + "/intro");
     await expect(alice.getByText("Here's how it works")).toBeVisible();
     await assertNoOverflowingText(alice, TIER_PICKER_RADIOS, "intro tier picker");
-    await expect(alice).toHaveScreenshot("intro-no-timing.png");
+    await expect(alice).toHaveScreenshot("intro.png");
 
     await goThroughIntro(alice);
 
@@ -112,28 +112,9 @@ test.describe("admin 2-person flow", () => {
     await answerQuestionsCycling(bob, ["yes", "maybe", "yes", "fantasy", "yes"]);
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    // --- Results with match type variety (no timing → no green-light column) ---
+    // --- Results with match type variety ---
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice).toHaveScreenshot("results-2p.png");
-  });
-
-  test("intro with timing enabled", async ({ page }) => {
-    await createGroupAndSetup(page, { showTiming: true });
-    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
-    await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
-    await assertNoOverflowingText(page, TIER_PICKER_RADIOS, "intro tier picker (with timing)");
-    await expect(page).toHaveScreenshot("intro-with-timing.png");
-
-    // Question with timing sub-question
-    await goThroughIntro(page);
-    await narrowToCategory(page, "Group & External");
-    await page.getByRole("button", { name: "Start", exact: true }).click();
-    await expect(page.getByText("Yes", { exact: true })).toBeVisible();
-
-    // Answer yes → timing sub-question must appear
-    await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
-    await expect(page).toHaveScreenshot("question-timing.png");
   });
 
   test("question with description + help popover", async ({ page }) => {

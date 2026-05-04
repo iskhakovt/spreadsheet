@@ -17,7 +17,7 @@ import {
 } from "./storage.js";
 
 const token = "test-token-" + Math.random().toString(36).slice(2);
-const yes: Answer = { rating: "yes", timing: null, note: null };
+const yes: Answer = { rating: "yes", note: null };
 
 beforeEach(() => {
   // Each test gets a fresh session scope + clean localStorage for that scope.
@@ -120,7 +120,7 @@ describe("usePendingOps", () => {
 // shape produced by `encodeValue({ key, data: ... })` for plaintext
 // groups — a `p:1:` prefix followed by JSON containing `key`.
 function plain(key: string, note: string): string {
-  return `p:1:${JSON.stringify({ key, data: { rating: "yes", timing: null, note } })}`;
+  return `p:1:${JSON.stringify({ key, data: { rating: "yes", note } })}`;
 }
 function encrypted(label: string): string {
   // Stand-in for `e:1:` ciphertext. The label is opaque to the index —

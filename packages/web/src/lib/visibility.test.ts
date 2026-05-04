@@ -19,7 +19,7 @@ function q(overrides: Partial<QuestionData> & { id: string }): QuestionData {
   };
 }
 
-const ans = (rating: "yes" | "no" | "maybe"): Answer => ({ rating, timing: null, note: null });
+const ans = (rating: "yes" | "no" | "maybe"): Answer => ({ rating, note: null });
 
 describe("gatedSides", () => {
   it("returns empty when no parents", () => {

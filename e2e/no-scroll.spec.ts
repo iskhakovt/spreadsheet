@@ -33,7 +33,6 @@ type ScreenName =
   | "category-welcome"
   | "question-card"
   | "question-long-desc"
-  | "question-timing"
   | "all-done"
   | "waiting";
 
@@ -52,8 +51,7 @@ const EXPECTED_TO_SCROLL: Partial<Record<ScreenName, ReadonlySet<ViewportName>>>
   // char descriptions wrapping to 3 lines) plus the 5-button rating stack
   // are one line short of fitting on iPhone SE (375×667). Closing the gap
   // would require capping description length or collapsing descriptions
-  // behind a tap — both are design calls. Timing mode on the same card
-  // fits everywhere because the 2-button row replaces the 5-button stack.
+  // behind a tap — both are design calls.
   "question-long-desc": new Set(["mobile-sm"]),
 };
 
@@ -122,7 +120,7 @@ for (const vp of VIEWPORTS) {
       await assertNoScroll(page, "waiting", vp);
     });
 
-    test("question card shapes — long description + timing sub-question", async ({ page }) => {
+    test("question card shapes — long description", async ({ page }) => {
       // The primary onboarding test above happens to hit a short question
       // with no description. Tall shapes are a real risk: a multi-line
       // description or a multi-line heading can push the card past the
@@ -132,9 +130,8 @@ for (const vp of VIEWPORTS) {
       //
       // Target: Aftercare → reassurance-after (tier 1, position 6). Its
       // 103-char description wraps to 2-3 lines, exceeding the reserved
-      // min-h floor. showTiming: true lets the same run exercise the
-      // timing sub-question on the same long-desc question.
-      await createGroupAndSetup(page, { showTiming: true });
+      // min-h floor.
+      await createGroupAndSetup(page);
       await page.getByRole("button", { name: "Start filling out", exact: true }).click();
       await goThroughIntro(page);
       await narrowToCategory(page, "Aftercare");
@@ -152,15 +149,6 @@ for (const vp of VIEWPORTS) {
       await expect(target).toBeVisible();
       await expect(page.getByText(/you're amazing, I love you/)).toBeVisible();
       await assertNoScroll(page, "question-long-desc", vp);
-
-      // Answer Yes → timing sub-question mounts on the same long-desc card.
-      await page.getByRole("radio", { name: "Yes", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
-      // Description and heading stay visible underneath the timing buttons,
-      // so the card height is dominated by the same content plus two
-      // buttons in a row (shorter than the 5-option rating stack).
-      await expect(page.getByText("Verbal reassurance after intense play")).toBeVisible();
-      await assertNoScroll(page, "question-timing", vp);
     });
   });
 }

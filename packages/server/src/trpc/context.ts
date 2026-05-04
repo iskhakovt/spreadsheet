@@ -27,7 +27,6 @@ export interface TrpcContext {
     encrypted: boolean;
     isReady: boolean;
     questionMode: string;
-    showTiming: boolean;
     anatomyLabels: string | null;
     anatomyPicker: string | null;
   } | null;
