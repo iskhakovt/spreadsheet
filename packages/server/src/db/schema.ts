@@ -24,7 +24,10 @@ export const groups = pgTable("groups", {
   encrypted: boolean().notNull(),
   isReady: boolean().notNull(),
   questionMode: questionModeEnum().notNull(),
-  showTiming: boolean().notNull(),
+  // Legacy: the now/later timing flow was removed. Column kept with a
+  // default so new inserts work without specifying it; existing rows
+  // preserve their historical values for rollback safety.
+  showTiming: boolean().notNull().default(false),
   anatomyLabels: text(), // "amab" | "gendered" | "anatomical" | "short" — nullable, only used when filtered
   anatomyPicker: text(), // "self" | "admin" — nullable, only used when filtered
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

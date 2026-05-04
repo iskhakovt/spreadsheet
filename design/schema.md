@@ -13,7 +13,7 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 | encrypted | boolean | Whether answers are E2E encrypted. Set at creation, immutable. |
 | is_ready | boolean | Admin has finished setup (added members, marked ready). |
 | question_mode | enum ("all", "filtered") | Whether questions are filtered by anatomy. |
-| show_timing | boolean | Whether to ask "now or later?" after yes/willing answers. |
+| show_timing | boolean | Legacy. The now/later sub-question feature was removed; column kept (default `false`) so existing rows preserve their historical values for rollback safety. Never read. |
 | anatomy_labels | text | Nullable. Label preset: "anatomical", "gendered", "amab", "short". Only used when filtered. |
 | anatomy_picker | text | Nullable. Who picks anatomy: "admin" or "self". Only used when filtered. |
 | created_at | timestamptz | |
@@ -133,5 +133,3 @@ Gating is enforced client-side. The server stores the dependency graph and retur
 | Maybe | Curious, need to discuss | No |
 | Fantasy only | Hot to think about, don't want to do | No |
 | No | Hard no | No |
-
-Timing: `now` (ready to try) or `later` (interested but not yet). Controlled by `groups.show_timing` — when off, the timing sub-question is skipped and all answers have null timing. With null timing, both-yes answers classify as "Match" instead of "Go for it" (which requires both-now).

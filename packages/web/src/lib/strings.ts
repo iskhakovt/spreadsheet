@@ -33,11 +33,6 @@ export const UI = {
       no: ["No", "Not for me — won't appear in matches"],
     } as Record<string, [string, string]>,
     answersFootnote: "Any answer can carry an optional note — context only, not part of matching.",
-    timingTitle: "Timing",
-    timing: {
-      now: ["Now", "I'd like to try this soon"],
-      later: ["Later", "Interested, but not right now"],
-    } as Record<string, [string, string]>,
     tierTitle: "How many questions?",
     tiers: {
       1: { label: "Essentials", description: "The basics worth talking about" },
@@ -53,9 +48,6 @@ export const UI = {
     fantasy: "Fantasy only",
     no: "No",
     whatsThis: "What's this?",
-    when: "When?",
-    now: "Now",
-    later: "Later",
     back: "Back",
     skip: "Skip",
     sync: "Sync",

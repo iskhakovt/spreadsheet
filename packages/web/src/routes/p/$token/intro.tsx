@@ -7,13 +7,8 @@ export const Route = createFileRoute("/p/$token/intro")({
 });
 
 function IntroRoute() {
-  const { token, authedStatus } = usePersonApp();
+  const { token } = usePersonApp();
   const navigate = useNavigate();
 
-  return (
-    <Intro
-      showTiming={authedStatus.group.showTiming}
-      onDone={() => void navigate({ to: "/p/$token/questions", params: { token } })}
-    />
-  );
+  return <Intro onDone={() => void navigate({ to: "/p/$token/questions", params: { token } })} />;
 }

@@ -18,7 +18,6 @@ export const groupsRouter = router({
       z.object({
         encrypted: z.boolean(),
         questionMode: QuestionMode,
-        showTiming: z.boolean(),
         anatomyLabels: AnatomyLabels.nullable(),
         anatomyPicker: AnatomyPicker.nullable(),
       }),

@@ -22,7 +22,6 @@ export function ResultsRoute() {
   return (
     <Comparison
       viewerId={authedStatus.person.id}
-      showTiming={authedStatus.group.showTiming}
       encrypted={authedStatus.group.encrypted}
       token={token}
       onBack={() => void navigate({ to: "/p/$token/questions", params: { token } })}

@@ -9,7 +9,7 @@ import { UI } from "../lib/strings.js";
 const TIER_QUESTIONS: Record<number, string> = { 1: "~90", 2: "~250", 3: "~360", 4: "~400" };
 const TIERS: Tier[] = Array.from({ length: MAX_TIER }, (_, i) => (i + 1) as Tier);
 
-export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; onDone: () => void }>) {
+export function Intro({ onDone }: Readonly<{ onDone: () => void }>) {
   const [tier, setTier] = useState(getSelectedTier);
 
   return (
@@ -39,19 +39,6 @@ export function Intro({ showTiming, onDone }: Readonly<{ showTiming: boolean; on
             ))}
           </dl>
           <p className="text-xs italic text-text-muted/80 leading-[1.55]">{UI.intro.answersFootnote}</p>
-          {showTiming && (
-            <div className="pt-3 border-t border-border/40">
-              <p className="text-sm font-medium mb-1.5">{UI.intro.timingTitle}</p>
-              <dl className="space-y-1.5">
-                {Object.values(UI.intro.timing).map(([label, desc]) => (
-                  <div key={label} className="flex gap-2 text-sm">
-                    <dt className="font-medium w-32 flex-shrink-0">{label}</dt>
-                    <dd className="text-text-muted">{desc}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
         </div>
 
         {/* Tier picker */}

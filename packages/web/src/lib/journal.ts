@@ -1,13 +1,14 @@
-import type { Answer, OperationPayload } from "@spreadsheet/shared";
+import { Answer, type OperationPayload } from "@spreadsheet/shared";
 import { decodeValue } from "./crypto.js";
 
 /**
  * Replay journal entries to build current answer state.
  * Last operation for each key wins. Null data = delete.
  *
- * Backfills `note: null` on legacy entries that pre-date the field —
- * journal payloads from before PR #89 only carry `{ rating, timing }`,
- * and new code reads `Answer.note` as `string | null`, never undefined.
+ * Each non-null payload runs through `Answer.safeParse` — the schema
+ * defaults missing `note` to null (legacy pre-PR-89 entries) and strips
+ * the legacy `timing` key (pre-timing-removal entries). A malformed
+ * entry is skipped rather than tanking the whole replay.
  *
  * groupKey: omit to use session key, pass explicitly in tests.
  */
@@ -22,7 +23,12 @@ export async function replayJournal(
       if (payload.data === null) {
         delete state[payload.key];
       } else {
-        state[payload.key] = { ...payload.data, note: payload.data.note ?? null };
+        const parsed = Answer.safeParse(payload.data);
+        if (parsed.success) {
+          state[payload.key] = parsed.data;
+        } else {
+          console.error("Skipping malformed journal entry payload:", payload.key, parsed.error.issues);
+        }
       }
     } catch (err) {
       console.error("Skipping malformed journal entry:", entry.operation.slice(0, 50), err);

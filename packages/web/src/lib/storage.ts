@@ -1,4 +1,4 @@
-import { type Answer, MAX_TIER } from "@spreadsheet/shared";
+import { Answer, MAX_TIER } from "@spreadsheet/shared";
 import { useSyncExternalStore } from "react";
 import { getScope } from "./session.js";
 
@@ -91,19 +91,17 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 // === answers ===
 
 /**
- * Backfill `note: null` on legacy answer shapes. Pre-PR-89 data persisted
- * `{ rating, timing }` only; new code expects `{ rating, timing, note }`.
- * Reading old data through the new type would surface `note: undefined`,
- * which fails the schema contract and lets `!== null` truthy checks slip
- * through. Normalize on every load — write paths already produce the
- * canonical shape.
+ * Validate persisted answers via `Answer.safeParse`. The schema itself
+ * handles legacy shapes (missing `note` defaults to null, stray `timing`
+ * key stripped). A single corrupt entry is dropped silently rather than
+ * tanking the whole map.
  */
 function normalizeAnswers(raw: unknown): Record<string, Answer> {
   if (!raw || typeof raw !== "object") return {};
   const out: Record<string, Answer> = {};
-  for (const [key, value] of Object.entries(raw as Record<string, Partial<Answer>>)) {
-    if (!value || typeof value !== "object") continue;
-    out[key] = { ...value, note: value.note ?? null } as Answer;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const parsed = Answer.safeParse(value);
+    if (parsed.success) out[key] = parsed.data;
   }
   return out;
 }

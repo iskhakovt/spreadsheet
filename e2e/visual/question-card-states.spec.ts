@@ -3,29 +3,9 @@ import { createGroupAndSetup, dismissNotePromptIfPresent, goThroughIntro, narrow
 
 /**
  * Visual coverage for QuestionCard states the existing visual specs don't
- * reach: the now/later sub-question (TimingButtons) and the help popover
- * open in both rating and timing modes.
- *
- * NOTE: these baselines must be generated with `pnpm test:visual:docker:update`
- * before the suite passes — the spec is committed without baselines so the
- * first CI run fails loudly until the baselines are regenerated and committed
- * via Git LFS.
+ * reach: the help popover open and the unified Layout B with notePrompt.
  */
 test.describe("question card — additional visual states", () => {
-  test("timing sub-question (Now / Later) after a yes click", async ({ page }) => {
-    await createGroupAndSetup(page, { showTiming: true });
-    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
-    await goThroughIntro(page);
-    await narrowToCategory(page, "Aftercare");
-    await page.getByRole("button", { name: "Start", exact: true }).click();
-
-    await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
-    // Defocus to keep the screenshot deterministic across browsers.
-    await page.locator("body").click({ position: { x: 4, y: 4 } });
-    await expect(page).toHaveScreenshot("timing-buttons.png");
-  });
-
   test("help popover open — rating mode", async ({ page }) => {
     await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
@@ -36,19 +16,6 @@ test.describe("question card — additional visual states", () => {
     await page.getByRole("button", { name: /what do these ratings mean/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page).toHaveScreenshot("help-popover-rating.png");
-  });
-
-  test("help popover open — timing mode", async ({ page }) => {
-    await createGroupAndSetup(page, { showTiming: true });
-    await page.getByRole("button", { name: "Start filling out", exact: true }).click();
-    await goThroughIntro(page);
-    await narrowToCategory(page, "Aftercare");
-    await page.getByRole("button", { name: "Start", exact: true }).click();
-
-    await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await page.getByRole("button", { name: /what do these timings mean/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page).toHaveScreenshot("help-popover-timing.png");
   });
 
   test("Layout B with notePrompt — unified Back/Skip styling, primary Next on top", async ({ page }) => {

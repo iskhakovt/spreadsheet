@@ -269,7 +269,7 @@ describe("tier filtering", () => {
     // Verifies buildScreens applies the visibleSides helper end-to-end —
     // not just anatomy, but per-side dependency gating too. Parent answered
     // give:no should hide the child's give-side while keeping receive.
-    const ans: Answer = { rating: "no", timing: null, note: null };
+    const ans: Answer = { rating: "no", note: null };
     const questions = [
       q({
         id: "p",
@@ -378,7 +378,7 @@ describe("tier filtering", () => {
   it("skips welcome screen when dependency gating removes all questions in a category", () => {
     // Parent in another category answered "no" gates every child question
     // in this category — the welcome card should disappear.
-    const ans: Answer = { rating: "no", timing: null, note: null };
+    const ans: Answer = { rating: "no", note: null };
     const questions = [
       q({ id: "gate", categoryId: "touch" }),
       q({ id: "child1", categoryId: "oral", requires: ["gate"] }),
@@ -454,7 +454,7 @@ describe("buildCategoryAnswerStats", () => {
       categoryId,
     };
   }
-  const answer: Answer = { rating: "yes", timing: null, note: null };
+  const answer: Answer = { rating: "yes", note: null };
 
   it("returns an empty map when there are no question screens", () => {
     const stats = buildCategoryAnswerStats([], {});
@@ -529,7 +529,7 @@ describe("buildCategoryAnswerStats", () => {
 
 describe("buildReviewGroups", () => {
   const categoryMap = new Map<string, CategoryData>(Object.entries(categories));
-  const answer: Answer = { rating: "yes", timing: null, note: null };
+  const answer: Answer = { rating: "yes", note: null };
 
   it("returns an empty array when no selected categories", () => {
     const questions = [q({ id: "q1", categoryId: "oral" })];

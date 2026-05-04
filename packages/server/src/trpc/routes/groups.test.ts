@@ -53,7 +53,6 @@ const readyGroup = {
   encrypted: false,
   isReady: true,
   questionMode: "all",
-  showTiming: true,
   anatomyLabels: null,
   anatomyPicker: null,
 };
@@ -68,7 +67,6 @@ describe("groups.create", () => {
     const result = await caller.groups.create({
       encrypted: false,
       questionMode: "all",
-      showTiming: true,
       anatomyLabels: null,
       anatomyPicker: null,
     });
@@ -82,7 +80,6 @@ describe("groups.create", () => {
         encrypted: false,
         // biome-ignore lint/suspicious/noExplicitAny: testing invalid input rejection
         questionMode: "bogus" as any,
-        showTiming: true,
         anatomyLabels: null,
         anatomyPicker: null,
       }),
@@ -93,7 +90,7 @@ describe("groups.create", () => {
     vi.stubEnv("REQUIRE_ENCRYPTION", "true");
     const caller = createCaller(mockCtx({}));
     const err = await caller.groups
-      .create({ encrypted: false, questionMode: "all", showTiming: true, anatomyLabels: null, anatomyPicker: null })
+      .create({ encrypted: false, questionMode: "all", anatomyLabels: null, anatomyPicker: null })
       .catch((e) => e);
     expect(err.message).toBe("Encryption is required");
     expect(err.code).toBe("BAD_REQUEST");

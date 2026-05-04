@@ -145,21 +145,13 @@ export async function createGroupAndSetup(
   opts: {
     mode?: "all" | "filtered";
     encrypted?: boolean;
-    showTiming?: boolean;
     adminName?: string;
     partnerName?: string;
     /** Additional partner names beyond the first. Creates a 3+ person group. */
     extraPartners?: string[];
   } = {},
 ) {
-  const {
-    mode = "all",
-    encrypted = false,
-    showTiming = false,
-    adminName = "Alice",
-    partnerName = "Bob",
-    extraPartners = [],
-  } = opts;
+  const { mode = "all", encrypted = false, adminName = "Alice", partnerName = "Bob", extraPartners = [] } = opts;
 
   await page.goto("/");
   await page.getByRole("button", { name: "Get started", exact: true }).click();
@@ -169,9 +161,6 @@ export async function createGroupAndSetup(
   }
   if (encrypted) {
     await page.getByLabel("End-to-end encryption").check();
-  }
-  if (showTiming) {
-    await page.getByLabel('Ask "now or later?"').check();
   }
 
   await page.getByRole("button", { name: "Create group", exact: true }).click();
@@ -339,13 +328,6 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
       await page.getByRole("radio", { name: "No", exact: true }).click();
     }
 
-    // Dismiss timing if it appears (yes and if-partner-wants trigger it)
-    if (rating === "yes" || rating === "if-partner-wants") {
-      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
-      if (await nowBtn.isVisible().catch(() => false)) {
-        await nowBtn.click();
-      }
-    }
     await dismissNotePromptIfPresent(page);
   }
   await expect(doneLocator(page)).toBeVisible();
@@ -383,11 +365,6 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
 
     if (rating === "yes") {
       await page.getByRole("radio", { name: "Yes", exact: true }).click();
-      // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
-      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
-      if (await nowBtn.isVisible().catch(() => false)) {
-        await nowBtn.click();
-      }
     } else if (rating === "no") {
       await page.getByRole("radio", { name: "No", exact: true }).click();
     } else {

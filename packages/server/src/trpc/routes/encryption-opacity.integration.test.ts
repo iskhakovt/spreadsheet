@@ -57,7 +57,6 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
     const { adminToken } = await caller.groups.create({
       encrypted: true,
       questionMode: "filtered",
-      showTiming: true,
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
     });

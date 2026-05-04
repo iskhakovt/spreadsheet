@@ -2,20 +2,18 @@ import { expect, test } from "./fixtures.js";
 import { createGroupAndSetup, goThroughIntro, narrowToCategory } from "./helpers.js";
 
 test.describe("keyboard-only completion", () => {
-  test("answer an entire category with 1-5 keys + 1/2 for now/later — no mouse", async ({ page }) => {
+  test("answer an entire category with 1-5 keys + Enter — no mouse", async ({ page }) => {
     // Catches focus-trap regressions and verifies the window-scoped keyboard
-    // listeners on RatingGroup / TimingButtons stay alive across re-mounts.
-    // Setup goes through the UI mouse flow because that's not what we're
-    // testing; the question loop below is keyboard-only.
-    await createGroupAndSetup(page, { showTiming: true });
+    // listener on RatingGroup stays alive across re-mounts. Setup goes
+    // through the UI mouse flow because that's not what we're testing;
+    // the question loop below is keyboard-only.
+    await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(page);
     await narrowToCategory(page, "Aftercare");
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Cycle through ratings: 1=yes, 2=if-partner-wants, 3=maybe, 4=fantasy, 5=no.
-    // Yes/willing fan out to timing — press 1 to commit "now" then advance.
-    // 'n' / 'l' would also work; '1' / '2' chosen for symmetry with rating keys.
     const ratingCycle = ["1", "2", "3", "4", "5"];
     let i = 0;
     const done = page.getByText("All done!").or(page.getByText("That's the last one"));
@@ -40,12 +38,6 @@ test.describe("keyboard-only completion", () => {
       const ratingKey = ratingCycle[i % ratingCycle.length];
       i++;
       await page.keyboard.press(ratingKey);
-
-      // If timing fans out (yes / if-partner-wants), commit "now".
-      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
-      if (await nowBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-        await page.keyboard.press("1");
-      }
 
       // notePrompt question may leave us on Layout B. Focus the primary
       // Next button and press Enter — this exercises the keyboard

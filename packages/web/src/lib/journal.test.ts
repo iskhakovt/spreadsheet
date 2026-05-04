@@ -10,26 +10,26 @@ function plainOp(key: string, data: Answer | null): string {
 describe("replayJournal", () => {
   it("builds state from entries", async () => {
     const entries = [
-      { operation: plainOp("oral:give", { rating: "yes", timing: "now", note: null }) },
-      { operation: plainOp("blindfold:mutual", { rating: "maybe", timing: null, note: null }) },
+      { operation: plainOp("oral:give", { rating: "yes", note: null }) },
+      { operation: plainOp("blindfold:mutual", { rating: "maybe", note: null }) },
     ];
     const state = await replayJournal(entries, null);
-    expect(state["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
-    expect(state["blindfold:mutual"]).toEqual({ rating: "maybe", timing: null, note: null });
+    expect(state["oral:give"]).toEqual({ rating: "yes", note: null });
+    expect(state["blindfold:mutual"]).toEqual({ rating: "maybe", note: null });
   });
 
   it("last write wins", async () => {
     const entries = [
-      { operation: plainOp("oral:give", { rating: "yes", timing: "now", note: null }) },
-      { operation: plainOp("oral:give", { rating: "no", timing: null, note: null }) },
+      { operation: plainOp("oral:give", { rating: "yes", note: null }) },
+      { operation: plainOp("oral:give", { rating: "no", note: null }) },
     ];
     const state = await replayJournal(entries, null);
-    expect(state["oral:give"]).toEqual({ rating: "no", timing: null, note: null });
+    expect(state["oral:give"]).toEqual({ rating: "no", note: null });
   });
 
   it("handles null data (deletion)", async () => {
     const entries = [
-      { operation: plainOp("oral:give", { rating: "yes", timing: "now", note: null }) },
+      { operation: plainOp("oral:give", { rating: "yes", note: null }) },
       { operation: plainOp("oral:give", null) },
     ];
     const state = await replayJournal(entries, null);
@@ -38,10 +38,7 @@ describe("replayJournal", () => {
 
   it("skips malformed entries", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const entries = [
-      { operation: "garbage" },
-      { operation: plainOp("oral:give", { rating: "yes", timing: "now", note: null }) },
-    ];
+    const entries = [{ operation: "garbage" }, { operation: plainOp("oral:give", { rating: "yes", note: null }) }];
     const state = await replayJournal(entries, null);
     expect(Object.keys(state)).toHaveLength(1);
     expect(spy).toHaveBeenCalledOnce();
@@ -50,11 +47,11 @@ describe("replayJournal", () => {
 
   it("works with encrypted entries", async () => {
     const key = await generateGroupKey();
-    const payload = { key: "oral:give", data: { rating: "yes", timing: "now", note: null } };
+    const payload = { key: "oral:give", data: { rating: "yes", note: null } };
     const encrypted = await encodeValue(payload, key);
     const entries = [{ operation: encrypted }];
     const state = await replayJournal(entries, key);
-    expect(state["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
+    expect(state["oral:give"]).toEqual({ rating: "yes", note: null });
   });
 
   it("backfills note: null for legacy envelopes that predate the field", async () => {
@@ -63,10 +60,10 @@ describe("replayJournal", () => {
     // so replay must normalize undefined → null to keep the schema honest.
     const legacyPayload = `p:1:${JSON.stringify({
       key: "blindfold:mutual",
-      data: { rating: "yes", timing: null },
+      data: { rating: "yes" },
     })}`;
     const state = await replayJournal([{ operation: legacyPayload }], null);
-    expect(state["blindfold:mutual"]).toEqual({ rating: "yes", timing: null, note: null });
+    expect(state["blindfold:mutual"]).toEqual({ rating: "yes", note: null });
   });
 
   it("round-trips a note inside the encrypted answer payload", async () => {
@@ -74,7 +71,7 @@ describe("replayJournal", () => {
     const noteText = "Side-lying first, never on my back.";
     const payload = {
       key: "anal-play:give",
-      data: { rating: "if-partner-wants", timing: "later", note: noteText },
+      data: { rating: "if-partner-wants", note: noteText },
     };
     const encrypted = await encodeValue(payload, key);
     // The opaque op is a single envelope — note is encrypted alongside the
@@ -83,65 +80,76 @@ describe("replayJournal", () => {
     const state = await replayJournal([{ operation: encrypted }], key);
     expect(state["anal-play:give"]).toEqual({
       rating: "if-partner-wants",
-      timing: "later",
       note: noteText,
     });
+  });
+
+  it("strips the legacy `timing` field from old encoded envelopes", async () => {
+    // Pre-timing-removal entries carry `{ rating, timing, note }`. The
+    // shared Answer schema strips unknown keys on parse, so replay yields
+    // a clean { rating, note } record.
+    const legacyPayload = `p:1:${JSON.stringify({
+      key: "kissing:mutual",
+      data: { rating: "yes", timing: "now", note: "before bed" },
+    })}`;
+    const state = await replayJournal([{ operation: legacyPayload }], null);
+    expect(state["kissing:mutual"]).toEqual({ rating: "yes", note: "before bed" });
   });
 });
 
 describe("mergeAfterRejection", () => {
   it("keeps local edits for conflicting keys", async () => {
     const localAnswers: Record<string, Answer> = {
-      "oral:give": { rating: "maybe", timing: null, note: null },
+      "oral:give": { rating: "maybe", note: null },
     };
-    const pendingOps = [plainOp("oral:give", { rating: "maybe", timing: null, note: null })];
-    const serverEntries = [plainOp("oral:give", { rating: "yes", timing: "now", note: null })];
+    const pendingOps = [plainOp("oral:give", { rating: "maybe", note: null })];
+    const serverEntries = [plainOp("oral:give", { rating: "yes", note: null })];
 
     const merged = await mergeAfterRejection(localAnswers, pendingOps, serverEntries, null);
     // Local edit wins
-    expect(merged["oral:give"]).toEqual({ rating: "maybe", timing: null, note: null });
+    expect(merged["oral:give"]).toEqual({ rating: "maybe", note: null });
   });
 
   it("accepts server-only keys", async () => {
     const localAnswers: Record<string, Answer> = {
-      "oral:give": { rating: "yes", timing: "now", note: null },
+      "oral:give": { rating: "yes", note: null },
     };
-    const pendingOps = [plainOp("oral:give", { rating: "yes", timing: "now", note: null })];
+    const pendingOps = [plainOp("oral:give", { rating: "yes", note: null })];
     const serverEntries = [
-      plainOp("oral:give", { rating: "no", timing: null, note: null }),
-      plainOp("blindfold:mutual", { rating: "maybe", timing: null, note: null }),
+      plainOp("oral:give", { rating: "no", note: null }),
+      plainOp("blindfold:mutual", { rating: "maybe", note: null }),
     ];
 
     const merged = await mergeAfterRejection(localAnswers, pendingOps, serverEntries, null);
     // Local wins for oral:give
-    expect(merged["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
+    expect(merged["oral:give"]).toEqual({ rating: "yes", note: null });
     // Server's blindfold accepted
-    expect(merged["blindfold:mutual"]).toEqual({ rating: "maybe", timing: null, note: null });
+    expect(merged["blindfold:mutual"]).toEqual({ rating: "maybe", note: null });
   });
 
   it("preserves local-only answers", async () => {
     const localAnswers: Record<string, Answer> = {
-      "oral:give": { rating: "yes", timing: "now", note: null },
-      "spanking:give": { rating: "no", timing: null, note: null },
+      "oral:give": { rating: "yes", note: null },
+      "spanking:give": { rating: "no", note: null },
     };
-    const pendingOps = [plainOp("oral:give", { rating: "yes", timing: "now", note: null })];
+    const pendingOps = [plainOp("oral:give", { rating: "yes", note: null })];
     const serverEntries: string[] = [];
 
     const merged = await mergeAfterRejection(localAnswers, pendingOps, serverEntries, null);
-    expect(merged["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
-    expect(merged["spanking:give"]).toEqual({ rating: "no", timing: null, note: null });
+    expect(merged["oral:give"]).toEqual({ rating: "yes", note: null });
+    expect(merged["spanking:give"]).toEqual({ rating: "no", note: null });
   });
 
   it("handles empty pending ops", async () => {
     const localAnswers: Record<string, Answer> = {
-      "oral:give": { rating: "yes", timing: "now", note: null },
+      "oral:give": { rating: "yes", note: null },
     };
-    const serverEntries = [plainOp("blindfold:mutual", { rating: "fantasy", timing: null, note: null })];
+    const serverEntries = [plainOp("blindfold:mutual", { rating: "fantasy", note: null })];
 
     const merged = await mergeAfterRejection(localAnswers, [], serverEntries, null);
     // Server entry accepted (no pending conflict)
-    expect(merged["blindfold:mutual"]).toEqual({ rating: "fantasy", timing: null, note: null });
+    expect(merged["blindfold:mutual"]).toEqual({ rating: "fantasy", note: null });
     // Local preserved
-    expect(merged["oral:give"]).toEqual({ rating: "yes", timing: "now", note: null });
+    expect(merged["oral:give"]).toEqual({ rating: "yes", note: null });
   });
 });

@@ -118,7 +118,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
   const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
   const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
-  const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
   const [anatomyPicker, setAnatomyPicker] = useState<AnatomyPicker>("admin");
 
@@ -133,7 +132,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
     const result = await createMutation.mutateAsync({
       encrypted,
       questionMode,
-      showTiming,
       anatomyLabels: isFiltered ? anatomyLabels : null,
       anatomyPicker: isFiltered ? anatomyPicker : null,
     });
@@ -210,26 +208,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               </div>
             </div>
           )}
-
-          {/* Timing */}
-          <label htmlFor="show-timing" className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              id="show-timing"
-              checked={showTiming}
-              onChange={(e) => setShowTiming(e.target.checked)}
-              className="mt-0.5"
-            />
-            <div className="text-sm">
-              <span className="font-medium group-hover:text-accent transition-colors duration-200">
-                Ask "now or later?"
-              </span>
-              <br />
-              <span className="text-text-muted text-xs leading-relaxed">
-                After yes/willing answers, ask if you want it now or later.
-              </span>
-            </div>
-          </label>
 
           {/* Encryption */}
           <label
