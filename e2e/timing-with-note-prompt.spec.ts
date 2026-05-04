@@ -1,5 +1,11 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, dismissNotePromptIfPresent, goThroughIntro, narrowToCategory } from "./helpers.js";
+import {
+  createGroupAndSetup,
+  dismissNotePromptIfPresent,
+  goThroughIntro,
+  narrowToCategory,
+  scopedGet,
+} from "./helpers.js";
 
 test.describe("notePrompt + showTimingFlow", () => {
   test("notePrompt question does NOT fan out to now/later, even with timing on", async ({ page }) => {
@@ -8,6 +14,10 @@ test.describe("notePrompt + showTimingFlow", () => {
     // (Layout B suppresses advance), making the click feel like a no-op.
     // Fix: notePrompt short-circuits the timing fan-out — the note replaces
     // timing as the secondary signal.
+    //
+    // Plaintext run by design — this is a pure UI-behavior check (no Now/
+    // Later button visible after Yes); the encrypted round-trip is covered
+    // by the second test below.
 
     await createGroupAndSetup(page, { showTiming: true });
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
@@ -53,12 +63,17 @@ test.describe("notePrompt + showTimingFlow", () => {
     await page.getByRole("button", { name: "Start", exact: true }).click();
 
     // Walk to the first notePrompt card.
+    let foundNotePromptCard = false;
     for (let i = 0; i < 25; i++) {
       const textarea = page.getByRole("textbox");
-      if (await textarea.isVisible({ timeout: 200 }).catch(() => false)) break;
+      if (await textarea.isVisible({ timeout: 200 }).catch(() => false)) {
+        foundNotePromptCard = true;
+        break;
+      }
       await page.getByRole("radio", { name: "Yes", exact: true }).click();
       await page.getByRole("button", { name: "Now", exact: true }).click();
     }
+    expect(foundNotePromptCard).toBe(true);
 
     // Capture the question heading so we can assert we land back on it after reload.
     const heading = await page.locator("h2").first().textContent();
@@ -75,8 +90,12 @@ test.describe("notePrompt + showTimingFlow", () => {
     await expect(page.locator("h2").first()).toHaveText(heading ?? "");
     await expect(page.getByRole("textbox")).toHaveValue(NOTE_TEXT);
 
-    // Wait for sync (debounce 3s), then reload to verify persistence.
-    await page.waitForTimeout(3_500);
+    // Wait for auto-sync to drain — established pendingOps polling pattern
+    // (see sync-conflict.spec.ts), avoids a fixed 3s+ floor.
+    await expect(async () => {
+      const raw = await scopedGet(page, "pendingOps");
+      expect(JSON.parse(raw || "[]").length).toBe(0);
+    }).toPass({ timeout: 10_000 });
     await page.reload();
     await expect(page.locator("h2").first()).toHaveText(heading ?? "", { timeout: 5_000 });
     await expect(page.getByRole("textbox")).toHaveValue(NOTE_TEXT);
