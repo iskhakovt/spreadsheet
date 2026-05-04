@@ -56,10 +56,45 @@ function trackContextPageErrors(ctx: BrowserContext): string[] {
   return errors;
 }
 
-function assertNoPageErrors(errors: string[], who: string) {
+/**
+ * CSP regression tracking. Hooks the structured `securitypolicyviolation`
+ * DOM event (not console.error — see the noise discussion above) so any
+ * test exercising a real flow doubles as a CSP-violation guard. Caught
+ * `eval`/`Function` calls (e.g. Zod 4's JIT feature detection) still fire
+ * the event before the exception is thrown, so try/catch in app/library
+ * code doesn't hide the violation.
+ */
+async function trackContextCspViolations(ctx: BrowserContext): Promise<string[]> {
+  const violations: string[] = [];
+  await ctx.exposeFunction("__cspViolation", (msg: string) => {
+    violations.push(msg);
+  });
+  await ctx.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (e) => {
+      const w = window as unknown as { __cspViolation?: (msg: string) => void };
+      w.__cspViolation?.(
+        `${e.violatedDirective} blocked ${e.blockedURI || "inline"} ` + `(${e.sourceFile || "?"}:${e.lineNumber})`,
+      );
+    });
+  });
+  return violations;
+}
+
+/**
+ * Combined assertion — throws a single Error reporting both page errors and
+ * CSP violations when either list is non-empty. Sequential `assert…` calls
+ * would let the first throw swallow the second class of failures.
+ */
+function assertContextClean(errors: string[], violations: string[], who: string) {
+  if (errors.length === 0 && violations.length === 0) return;
+  const sections: string[] = [];
   if (errors.length > 0) {
-    throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+    sections.push(`Page errors:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
   }
+  if (violations.length > 0) {
+    sections.push(`CSP violations:\n${violations.map((v) => `  - ${v}`).join("\n")}`);
+  }
+  throw new Error(`Context not clean for ${who}:\n${sections.join("\n")}`);
 }
 
 export const test = base.extend<{
@@ -87,9 +122,10 @@ export const test = base.extend<{
   // derived from this `context`, so the tracking transparently applies.
   context: async ({ context }, use) => {
     const errors = trackContextPageErrors(context);
+    const cspViolations = await trackContextCspViolations(context);
     try {
       await use(context);
-      assertNoPageErrors(errors, "context");
+      assertContextClean(errors, cspViolations, "context");
     } finally {
       // Built-in teardown closes the context.
     }
@@ -97,10 +133,11 @@ export const test = base.extend<{
   alice: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "alice");
+      assertContextClean(errors, cspViolations, "alice");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -108,10 +145,11 @@ export const test = base.extend<{
   bob: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "bob");
+      assertContextClean(errors, cspViolations, "bob");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -119,10 +157,11 @@ export const test = base.extend<{
   carol: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "carol");
+      assertContextClean(errors, cspViolations, "carol");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -130,10 +169,11 @@ export const test = base.extend<{
   multiTab: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const errors = trackContextPageErrors(ctx);
+    const cspViolations = await trackContextCspViolations(ctx);
     const admin = await ctx.newPage();
     try {
       await use({ ctx, admin });
-      assertNoPageErrors(errors, "multiTab");
+      assertContextClean(errors, cspViolations, "multiTab");
     } finally {
       await ctx.close().catch(() => {});
     }
