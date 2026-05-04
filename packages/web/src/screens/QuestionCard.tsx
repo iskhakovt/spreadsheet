@@ -310,6 +310,8 @@ export function QuestionCard({
           post-rate. Slot height is reserved so showing/hiding the hint
           doesn't shift the layout. */}
       {noteVisible && (
+        // `group` exists solely to scope `group-focus-within` to the textarea below.
+        // Don't add other focusable children here — they'd unintentionally show the hint.
         <div className="group">
           <NoteSection
             key={`note-${screen.key}`}
