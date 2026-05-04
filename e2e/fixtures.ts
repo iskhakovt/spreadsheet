@@ -80,16 +80,21 @@ async function trackContextCspViolations(ctx: BrowserContext): Promise<string[]>
   return violations;
 }
 
-function assertNoPageErrors(errors: string[], who: string) {
+/**
+ * Combined assertion — throws a single Error reporting both page errors and
+ * CSP violations when either list is non-empty. Sequential `assert…` calls
+ * would let the first throw swallow the second class of failures.
+ */
+function assertContextClean(errors: string[], violations: string[], who: string) {
+  if (errors.length === 0 && violations.length === 0) return;
+  const sections: string[] = [];
   if (errors.length > 0) {
-    throw new Error(`Page errors detected for ${who}:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
+    sections.push(`Page errors:\n${errors.map((e) => `  - ${e}`).join("\n")}`);
   }
-}
-
-function assertNoCspViolations(violations: string[], who: string) {
   if (violations.length > 0) {
-    throw new Error(`CSP violations detected for ${who}:\n${violations.map((v) => `  - ${v}`).join("\n")}`);
+    sections.push(`CSP violations:\n${violations.map((v) => `  - ${v}`).join("\n")}`);
   }
+  throw new Error(`Context not clean for ${who}:\n${sections.join("\n")}`);
 }
 
 export const test = base.extend<{
@@ -120,8 +125,7 @@ export const test = base.extend<{
     const cspViolations = await trackContextCspViolations(context);
     try {
       await use(context);
-      assertNoPageErrors(errors, "context");
-      assertNoCspViolations(cspViolations, "context");
+      assertContextClean(errors, cspViolations, "context");
     } finally {
       // Built-in teardown closes the context.
     }
@@ -133,8 +137,7 @@ export const test = base.extend<{
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "alice");
-      assertNoCspViolations(cspViolations, "alice");
+      assertContextClean(errors, cspViolations, "alice");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -146,8 +149,7 @@ export const test = base.extend<{
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "bob");
-      assertNoCspViolations(cspViolations, "bob");
+      assertContextClean(errors, cspViolations, "bob");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -159,8 +161,7 @@ export const test = base.extend<{
     const page = await ctx.newPage();
     try {
       await use(page);
-      assertNoPageErrors(errors, "carol");
-      assertNoCspViolations(cspViolations, "carol");
+      assertContextClean(errors, cspViolations, "carol");
     } finally {
       await ctx.close().catch(() => {});
     }
@@ -172,8 +173,7 @@ export const test = base.extend<{
     const admin = await ctx.newPage();
     try {
       await use({ ctx, admin });
-      assertNoPageErrors(errors, "multiTab");
-      assertNoCspViolations(cspViolations, "multiTab");
+      assertContextClean(errors, cspViolations, "multiTab");
     } finally {
       await ctx.close().catch(() => {});
     }
