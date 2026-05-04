@@ -60,12 +60,20 @@ describe("useTokenSwitchCleanup", () => {
     expect(calls).toContainEqual({ queryKey: [["groups"]] });
     expect(calls).toContainEqual({ queryKey: [["sync"]] });
     expect(calls).toContainEqual({ queryKey: [["questions"]] });
+    // Hand-rolled flat keys for the derived self-journal + comparison
+    // slots — these don't match the nested-array `[["sync"]]` prefix
+    // above, so they need explicit resets.
+    expect(calls).toContainEqual({ queryKey: ["sync", "self-journal"] });
+    expect(calls).toContainEqual({ queryKey: ["sync", "journal", "derived"] });
   });
 
   it("removes the cached data immediately (no leak window)", () => {
     const qc = new QueryClient();
     qc.setQueryData([["groups", "status"]], { person: { name: "Alice" }, group: { id: "g1" } });
     qc.setQueryData([["sync", "journal"]], { entries: [{ key: "secret" }] });
+    // Flat-key slots for the hand-rolled derived caches.
+    qc.setQueryData(["sync", "self-journal"], { answers: { "q1:mutual": { rating: "yes" } }, cursor: 5 });
+    qc.setQueryData(["sync", "journal", "derived"], { entries: [{ id: 1 }] });
 
     const { rerender } = renderHook(({ t }) => useTokenSwitchCleanup(t), {
       wrapper: makeWrapper(qc),
@@ -77,5 +85,10 @@ describe("useTokenSwitchCleanup", () => {
     // a stale read pre-refetch returns undefined, not Alice's profile.
     expect(qc.getQueryData([["groups", "status"]])).toBeUndefined();
     expect(qc.getQueryData([["sync", "journal"]])).toBeUndefined();
+    // Flat-key slots are also cleared. Without explicit resets these
+    // would survive the [["sync"]] nested-array prefix above and leak
+    // person-A's answers / journal into person-B's first render.
+    expect(qc.getQueryData(["sync", "self-journal"])).toBeUndefined();
+    expect(qc.getQueryData(["sync", "journal", "derived"])).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@ import type { Answer } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { mergeAfterRejection } from "./journal.js";
 import { getScope } from "./session.js";
@@ -139,44 +139,59 @@ export function useSelfJournal(): SelfJournalCache {
     queryFn: makeSelfJournalQueryFn(trpcClient),
   });
 
-  const initialLastEventId = data.cursor !== null ? String(data.cursor) : undefined;
-
-  // Drop out-of-order applications if multiple WS pushes interleave their
-  // async decrypts. Same pattern as `useLiveStatus` and `Comparison`.
+  // Capture the initial lastEventId once on mount with `useState`'s lazy
+  // initializer. Recomputing it from `data.cursor` on every render would
+  // change the value on every WS delivery (because onData calls
+  // setQueryData which updates `data`), and useSubscription would tear
+  // down + reconnect the WS each time, causing a backfill round-trip
+  // for entries we just received. tRPC v11's `wsLink` already auto-stamps
+  // the latest tracked id onto the in-flight subscription message, so we
+  // only need to pass the cursor at mount.
   //
-  // Bootstrap-vs-WS ordering is structural, not protected by this seqRef:
-  // `useSubscription` only opens after the suspense fetch resolves (the
-  // hook returns `data` first, then mounts the subscription). So the
-  // queryFn's localStorage writes always happen-before any onData
-  // callback. The seq guard only protects multiple onData callbacks
-  // interleaving with each other.
-  const seqRef = useRef(0);
+  // Same pattern as Comparison.tsx: the tracked id seed for the WS resume
+  // protocol comes from the suspense backfill once, after which the
+  // wsLink owns it.
+  const [initialLastEventId] = useState<string | undefined>(() =>
+    data.cursor !== null ? String(data.cursor) : undefined,
+  );
+
+  // Serialize onData callbacks. Self-journal events are INCREMENTAL —
+  // each event carries entries that aren't in any other event. Dropping a
+  // callback (e.g. via a "latest wins" seqRef) would lose those entries
+  // permanently from the cache. Chain the applies through a single
+  // promise so each delta is applied on top of the previous one.
+  //
+  // Bootstrap-vs-WS ordering is structural: `useSubscription` only opens
+  // after the suspense fetch resolves, so the queryFn's localStorage
+  // writes always happen-before any onData callback. The chain below
+  // only orders multiple onData callbacks against each other.
+  const chainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   useSubscription(
     trpc.sync.onSelfJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
       {
-        onData: async (msg) => {
-          const entries = msg.data.entries;
-          if (entries.length === 0) return;
-          const mySeq = ++seqRef.current;
-          try {
-            // Use getAnswers() (localStorage), not the cache slot — the
-            // slot can lag behind a synchronous setAnswer that happened
-            // between the last slot write and this WS echo. localStorage
-            // is the up-to-date local truth.
-            const merged = await applySelfJournalDelta(getAnswers(), entries);
-            if (mySeq !== seqRef.current) return;
-            const newCursor = entries[entries.length - 1].id;
-            queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {
-              answers: merged,
-              cursor: newCursor,
+        onData: (msg) => {
+          chainRef.current = chainRef.current
+            .then(async () => {
+              const entries = msg.data.entries;
+              if (entries.length === 0) return;
+              // Use getAnswers() (localStorage), not the cache slot — the
+              // slot can lag behind a synchronous setAnswer that happened
+              // between the last slot write and this WS echo. localStorage
+              // is the up-to-date local truth.
+              const merged = await applySelfJournalDelta(getAnswers(), entries);
+              const newCursor = entries[entries.length - 1].id;
+              queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {
+                answers: merged,
+                cursor: newCursor,
+              });
+              setAnswers(merged);
+              setSelfJournalCursor(newCursor);
+            })
+            .catch((err) => {
+              console.error("Failed to apply self-journal update:", err);
             });
-            setAnswers(merged);
-            setSelfJournalCursor(newCursor);
-          } catch (err) {
-            console.error("Failed to apply self-journal update:", err);
-          }
         },
         onError: (err) => {
           console.error("Self-journal subscription error:", err);

@@ -163,6 +163,26 @@ describe("applySelfJournalDelta", () => {
     expect(next["c:give"]).toEqual(no);
     expect(next["b:mutual"]).toEqual(maybe);
   });
+
+  it("interleaved deltas: serialised application preserves all entries", async () => {
+    // Self-journal events are INCREMENTAL — each event carries entries
+    // that aren't in any other event. If the production hook dropped a
+    // callback (e.g. via a "latest wins" seq guard) the dropped entries
+    // would be lost from the cache. Simulate two interleaved deltas
+    // applying serially against shared local state, then assert all
+    // entries from both events are present in the final answers map.
+    clearPendingOps();
+    const op1 = { id: 1, personId: "p", operation: await plainOp("a:mutual", yes) };
+    const op2 = { id: 2, personId: "p", operation: await plainOp("b:mutual", maybe) };
+
+    // Apply serially: each delta runs against the merged result of the
+    // previous one. This is what the production chainRef-based onData
+    // guarantees — no concurrent applies, no lost entries.
+    const afterFirst = await applySelfJournalDelta({}, [op1]);
+    const afterSecond = await applySelfJournalDelta(afterFirst, [op2]);
+
+    expect(afterSecond).toEqual({ "a:mutual": yes, "b:mutual": maybe });
+  });
 });
 
 // =============================================================================
