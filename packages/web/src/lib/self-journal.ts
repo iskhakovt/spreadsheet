@@ -51,6 +51,13 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<SelfJournalCache> => {
     const cursor = getSelfJournalCursor();
     const result = await trpcClient.sync.selfJournal.query({ sinceId: cursor ?? undefined }, { signal });
+    // Short-circuit before the (potentially slow) decrypt/replay so we
+    // don't burn CPU on data we're about to discard. The post-decode
+    // guard below is the load-bearing one for correctness; this one is
+    // the perf optimisation.
+    if (signal?.aborted) {
+      throw new DOMException("aborted", "AbortError");
+    }
 
     const merged = await applySelfJournalDelta(getAnswers(), result.entries);
 
