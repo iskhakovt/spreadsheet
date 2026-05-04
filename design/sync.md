@@ -51,8 +51,10 @@ The read path is separately keyed by the raw numeric `id` as a cursor (`sinceId`
 Inside the `operation` field (after decryption in encrypted mode, or directly in plaintext mode):
 
 ```json
-{ "key": "cunnilingus:give", "data": { "rating": "yes", "timing": "now" } }
+{ "key": "cunnilingus:give", "data": { "rating": "yes", "note": null } }
 ```
+
+Legacy entries from before the now/later feature was removed may still carry a `timing` field; the `Answer` Zod schema strips unknown keys on read.
 
 To clear an answer (un-answer / skip), set `data` to `null`:
 
@@ -112,7 +114,7 @@ Every operation string is prefixed with a versioned mode tag:
 Examples:
 
 ```
-p:1:{"key":"oral-give:give","data":{"rating":"yes","timing":"now"}}
+p:1:{"key":"oral-give:give","data":{"rating":"yes","note":null}}
 e:1:dGhpcyBpcyBlbmNyeXB0ZWQ...
 ```
 
@@ -335,12 +337,12 @@ Conflicts happen when two sessions edit offline and sync at different times.
 ### Example
 
 ```
-Phone (offline): set oral-give = "yes/now"
-Laptop (offline): set oral-give = "maybe", set blindfold = "yes/now"
+Phone (offline): set oral-give = "yes"
+Laptop (offline): set oral-give = "maybe", set blindfold = "yes"
 
 Phone syncs first → server appends → new stoken
 Laptop syncs → stoken is stale → push rejected
-Laptop pulls new entries (phone's oral-give = "yes/now")
+Laptop pulls new entries (phone's oral-give = "yes")
 Laptop merges:
   oral-give: laptop has pending local edit → keep laptop's "maybe"
   blindfold: only laptop has this → keep it
@@ -363,7 +365,7 @@ Client-authored state lives in localStorage (scoped by FNV-1a hash of person tok
 
 ```
 localStorage (scoped per person):
-  answers      — current answer state (Record<string, { rating, timing }>)
+  answers      — current answer state (Record<string, { rating, note }>)
   pendingOps   — operations not yet synced (opaque strings)
   stoken       — last sync cursor (signed, from server)
   UI prefs     — selected categories, etc.

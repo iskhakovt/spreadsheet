@@ -19,7 +19,7 @@ function q(overrides: Partial<QuestionData> & { id: string }): QuestionData {
   };
 }
 
-const ans = (rating: "yes" | "no" | "maybe"): Answer => ({ rating, timing: null, note: null });
+const ans = (rating: "yes" | "no" | "maybe"): Answer => ({ rating, note: null });
 
 describe("gatedSides", () => {
   it("returns empty when no parents", () => {
@@ -250,6 +250,24 @@ describe("gatedSides + anatomy interaction", () => {
       [child.id, child],
     ]);
     expect(gatedSides("c", { "p:mutual": ans("no") }, map)).toEqual(new Set(["mutual"]));
+  });
+
+  it("dependency reordering: re-answering a 'no' parent to 'yes' un-gates the child", () => {
+    // Drives the Back-and-forward integrity invariant at the visibility
+    // layer: gatedSides is a pure function of `answers`, so swapping an
+    // answer from "no" to "yes" must produce a clean (un-gated) result.
+    // This is the property the live UI relies on when the user goes Back,
+    // changes a parent rating, and the child becomes visible again.
+    const parent = q({ id: "p" });
+    const child = q({ id: "c", requires: ["p"] });
+    const map = new Map([
+      [parent.id, parent],
+      [child.id, child],
+    ]);
+    expect(gatedSides("c", { "p:mutual": ans("no") }, map)).toEqual(new Set(["mutual"]));
+    expect(gatedSides("c", { "p:mutual": ans("yes") }, map)).toEqual(new Set());
+    // Removing the answer entirely (the user erased it) un-gates too.
+    expect(gatedSides("c", {}, map)).toEqual(new Set());
   });
 
   it("does not gate a child when the parent's anatomy-hidden side is unanswered", () => {

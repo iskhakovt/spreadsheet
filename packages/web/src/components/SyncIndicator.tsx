@@ -11,7 +11,7 @@ export function SyncIndicator({
   pendingCount: number;
   onSync: () => void;
 }>) {
-  const visible = syncing || (show && pendingCount > 0);
+  const visible = show && (syncing || pendingCount > 0);
   return (
     <span role="status" aria-live="polite">
       <button

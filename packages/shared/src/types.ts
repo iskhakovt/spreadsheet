@@ -8,9 +8,6 @@ export type Tier = 1 | 2 | 3 | 4;
 export const Rating = z.enum(["yes", "if-partner-wants", "maybe", "fantasy", "no"]);
 export type Rating = z.infer<typeof Rating>;
 
-export const Timing = z.enum(["now", "later"]);
-export type Timing = z.infer<typeof Timing>;
-
 export const Anatomy = z.enum(["amab", "afab", "both", "none"]);
 export type Anatomy = z.infer<typeof Anatomy>;
 
@@ -37,11 +34,21 @@ export const ANATOMY_LABEL_PRESETS: Record<AnatomyLabels, Record<Anatomy, string
   short: { amab: "M", afab: "F", both: "Both", none: "—" },
 };
 
-export interface Answer {
-  rating: Rating;
-  timing: Timing | null;
-  note: string | null;
-}
+/**
+ * Answer payload schema. Used both for serialization (canonical write
+ * shape) and deserialization (lenient read of legacy data).
+ *
+ *  - `note` defaults to `null` when missing, so pre-PR-89 entries that
+ *    only carried `{ rating, timing }` parse cleanly.
+ *  - The legacy `timing: "now" | "later" | null` field gets stripped on
+ *    read via Zod's default object-strip behavior; write paths use
+ *    `Answer.parse()` to guarantee no stray keys ever ship.
+ */
+export const Answer = z.object({
+  rating: Rating,
+  note: z.string().nullable().default(null),
+});
+export type Answer = z.infer<typeof Answer>;
 
 export interface OperationPayload {
   key: string; // "questionId:role"
@@ -114,7 +121,6 @@ export const groupSchema = z.object({
   isReady: z.boolean(),
   isAdminReady: z.boolean(),
   questionMode: QuestionMode,
-  showTiming: z.boolean(),
   anatomyLabels: AnatomyLabels.nullable(),
   anatomyPicker: AnatomyPicker.nullable(),
 });

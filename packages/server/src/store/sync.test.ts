@@ -26,10 +26,7 @@ beforeEach(async () => {
 });
 
 async function createTestPerson(encrypted = false) {
-  const [group] = await db
-    .insert(groups)
-    .values({ encrypted, isReady: true, questionMode: "all", showTiming: true })
-    .returning();
+  const [group] = await db.insert(groups).values({ encrypted, isReady: true, questionMode: "all" }).returning();
   const [person] = await db
     .insert(persons)
     .values({
@@ -222,7 +219,7 @@ describe("SyncStore.journalSince", () => {
   async function setupCompleteGroup() {
     const [group] = await db
       .insert(groups)
-      .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
+      .values({ encrypted: false, isReady: true, questionMode: "all" })
       .returning();
     const [alice] = await db
       .insert(persons)
@@ -357,7 +354,7 @@ describe("SyncStore.journalSince", () => {
   it("returns error when not all members are complete", async () => {
     const [group] = await db
       .insert(groups)
-      .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
+      .values({ encrypted: false, isReady: true, questionMode: "all" })
       .returning();
     await db.insert(persons).values({
       groupId: group.id,
@@ -383,7 +380,7 @@ describe("SyncStore.journalSince", () => {
   it("returns error when not all complete, even with sinceId set", async () => {
     const [group] = await db
       .insert(groups)
-      .values({ encrypted: false, isReady: true, questionMode: "all", showTiming: true })
+      .values({ encrypted: false, isReady: true, questionMode: "all" })
       .returning();
     await db.insert(persons).values({
       groupId: group.id,

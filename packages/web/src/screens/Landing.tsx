@@ -1,7 +1,7 @@
 import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
 import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
@@ -14,12 +14,17 @@ import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
 
 export function Landing() {
-  const [showCreate, setShowCreate] = useState(false);
+  const navigate = useNavigate();
+  const showCreate = useRouterState({ select: (s) => s.location.state.create === true });
 
   if (showCreate) {
     return (
       <CreateGroup
         onCreated={(token) => {
+          // Clear the create flag from the current "/" history entry before
+          // the hard nav. Otherwise, BACK from /p/:token restores this entry
+          // with create: true and re-renders the (stale) create form.
+          navigate({ to: "/", replace: true, state: (prev) => ({ ...prev, create: false }) });
           // Hard navigation: the server's /p/:token route sets the session
           // cookie on the response. A soft nav would skip the server entirely,
           // leaving the next authenticated request unauthorised. The brief
@@ -81,7 +86,7 @@ export function Landing() {
         </p>
 
         <div className="stagger space-y-7" style={{ "--stagger-index": 4 } as React.CSSProperties}>
-          <Button fullWidth onClick={() => setShowCreate(true)}>
+          <Button fullWidth onClick={() => navigate({ to: "/", state: (prev) => ({ ...prev, create: true }) })}>
             {UI.landing.getStarted}
           </Button>
 
@@ -118,7 +123,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
   const requireEncryption = window.__ENV?.REQUIRE_ENCRYPTION ?? true;
   const [encrypted, setEncrypted] = useState(requireEncryption);
   const [questionMode, setQuestionMode] = useState<QuestionMode>("filtered");
-  const [showTiming, setShowTiming] = useState(false);
   const [anatomyLabels, setAnatomyLabels] = useState<AnatomyLabels>("anatomical");
   const [anatomyPicker, setAnatomyPicker] = useState<AnatomyPicker>("admin");
 
@@ -133,7 +137,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
     const result = await createMutation.mutateAsync({
       encrypted,
       questionMode,
-      showTiming,
       anatomyLabels: isFiltered ? anatomyLabels : null,
       anatomyPicker: isFiltered ? anatomyPicker : null,
     });
@@ -210,26 +213,6 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
               </div>
             </div>
           )}
-
-          {/* Timing */}
-          <label htmlFor="show-timing" className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              id="show-timing"
-              checked={showTiming}
-              onChange={(e) => setShowTiming(e.target.checked)}
-              className="mt-0.5"
-            />
-            <div className="text-sm">
-              <span className="font-medium group-hover:text-accent transition-colors duration-200">
-                Ask "now or later?"
-              </span>
-              <br />
-              <span className="text-text-muted text-xs leading-relaxed">
-                After yes/willing answers, ask if you want it now or later.
-              </span>
-            </div>
-          </label>
 
           {/* Encryption */}
           <label

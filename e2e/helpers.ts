@@ -107,6 +107,21 @@ export async function scopedSet(page: Page, key: string, value: string): Promise
 }
 
 /**
+ * Blur the currently-focused element. Use before `toHaveScreenshot` on a
+ * spec that captures a screen where Tailwind's `focus:ring-*` (drawn via
+ * box-shadow) would leak into the baseline — the global screenshot.css
+ * outline-suppression rule can't safely strip these rings because they
+ * share their CSS property with the unconditional `ring-*` selected-state
+ * styling on RatingGroup buttons (no CSS-only way to distinguish).
+ *
+ * Industry-standard fix per Playwright issue #34272's `blurActiveElement`
+ * proposal — use this helper as the manual equivalent until that lands.
+ */
+export async function defocus(page: Page): Promise<void> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+}
+
+/**
  * Assert that no element matching `selector` has its content overflowing
  * its box (text clipped or hidden behind a sibling). Catches things like
  * "Adventurous" not fitting in a 4-up tier picker on a 375px viewport
@@ -145,21 +160,13 @@ export async function createGroupAndSetup(
   opts: {
     mode?: "all" | "filtered";
     encrypted?: boolean;
-    showTiming?: boolean;
     adminName?: string;
     partnerName?: string;
     /** Additional partner names beyond the first. Creates a 3+ person group. */
     extraPartners?: string[];
   } = {},
 ) {
-  const {
-    mode = "all",
-    encrypted = false,
-    showTiming = false,
-    adminName = "Alice",
-    partnerName = "Bob",
-    extraPartners = [],
-  } = opts;
+  const { mode = "all", encrypted = false, adminName = "Alice", partnerName = "Bob", extraPartners = [] } = opts;
 
   await page.goto("/");
   await page.getByRole("button", { name: "Get started", exact: true }).click();
@@ -169,9 +176,6 @@ export async function createGroupAndSetup(
   }
   if (encrypted) {
     await page.getByLabel("End-to-end encryption").check();
-  }
-  if (showTiming) {
-    await page.getByLabel('Ask "now or later?"').check();
   }
 
   await page.getByRole("button", { name: "Create group", exact: true }).click();
@@ -339,13 +343,6 @@ export async function answerQuestionsCycling(page: Page, ratings: readonly Ratin
       await page.getByRole("radio", { name: "No", exact: true }).click();
     }
 
-    // Dismiss timing if it appears (yes and if-partner-wants trigger it)
-    if (rating === "yes" || rating === "if-partner-wants") {
-      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
-      if (await nowBtn.isVisible().catch(() => false)) {
-        await nowBtn.click();
-      }
-    }
     await dismissNotePromptIfPresent(page);
   }
   await expect(doneLocator(page)).toBeVisible();
@@ -383,11 +380,6 @@ export async function answerAllQuestions(page: Page, rating: "yes" | "no" | "may
 
     if (rating === "yes") {
       await page.getByRole("radio", { name: "Yes", exact: true }).click();
-      // Click "Now" if timing is enabled (showTiming), otherwise auto-advances
-      const nowBtn = page.getByRole("button", { name: "Now", exact: true });
-      if (await nowBtn.isVisible().catch(() => false)) {
-        await nowBtn.click();
-      }
     } else if (rating === "no") {
       await page.getByRole("radio", { name: "No", exact: true }).click();
     } else {

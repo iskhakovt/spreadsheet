@@ -92,7 +92,6 @@ export function Review({
                     {item.answer ? (
                       <span className={cn("text-sm shrink-0", ratingStyle(item.answer.rating))}>
                         {RATING_LABELS[item.answer.rating]}
-                        {item.answer.timing ? ` (${item.answer.timing})` : ""}
                       </span>
                     ) : (
                       <span className="text-sm text-text-muted/40 shrink-0">&mdash;</span>

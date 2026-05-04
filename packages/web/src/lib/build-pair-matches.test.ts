@@ -5,12 +5,11 @@ import { buildGroupedMatches, buildPairMatches } from "./build-pair-matches.js";
 
 // --- Helpers ---
 
-const yes: Answer = { rating: "yes", timing: "now", note: null };
-const yesLater: Answer = { rating: "yes", timing: "later", note: null };
-const no: Answer = { rating: "no", timing: null, note: null };
-const maybe: Answer = { rating: "maybe", timing: null, note: null };
-const fantasy: Answer = { rating: "fantasy", timing: null, note: null };
-const ifPartner: Answer = { rating: "if-partner-wants", timing: "now", note: null };
+const yes: Answer = { rating: "yes", note: null };
+const no: Answer = { rating: "no", note: null };
+const maybe: Answer = { rating: "maybe", note: null };
+const fantasy: Answer = { rating: "fantasy", note: null };
+const ifPartner: Answer = { rating: "if-partner-wants", note: null };
 
 const mutualQ: QuestionInfo = { text: "Kissing", categoryId: "basics", giveText: null, receiveText: null };
 const giveReceiveQ: QuestionInfo = {
@@ -34,14 +33,8 @@ describe("buildPairMatches", () => {
       const result = buildPairMatches({ "kissing:mutual": yes }, { "kissing:mutual": yes }, qMap);
       expect(result).toHaveLength(1);
       expect(result[0].questionId).toBe("kissing");
-      expect(result[0].matchType).toBe("green-light");
-      expect(result[0].displayText).toBe("Kissing");
-    });
-
-    it("both yes but different timing → match (not green-light)", () => {
-      const result = buildPairMatches({ "kissing:mutual": yes }, { "kissing:mutual": yesLater }, qMap);
-      expect(result).toHaveLength(1);
       expect(result[0].matchType).toBe("match");
+      expect(result[0].displayText).toBe("Kissing");
     });
 
     it("both maybe → both-maybe", () => {
@@ -56,10 +49,10 @@ describe("buildPairMatches", () => {
       expect(result[0].matchType).toBe("fantasy");
     });
 
-    it("yes + if-partner-wants → green-light", () => {
+    it("yes + if-partner-wants → match", () => {
       const result = buildPairMatches({ "kissing:mutual": yes }, { "kissing:mutual": ifPartner }, qMap);
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("yes + maybe → possible", () => {
@@ -96,13 +89,13 @@ describe("buildPairMatches", () => {
       const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap);
       expect(result).toHaveLength(1);
       expect(result[0].questionId).toBe("oral");
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("A:receive + B:give both yes → match", () => {
       const result = buildPairMatches({ "oral:receive": yes }, { "oral:give": yes }, qMap);
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("A:give + B:receive — A yes, B no → hidden", () => {
@@ -147,21 +140,21 @@ describe("buildPairMatches", () => {
       const aAnswers = { "oral:give": yes, "oral:receive": no };
       const bAnswers = { "oral:give": yes, "oral:receive": yes };
       const result = buildPairMatches(aAnswers, bAnswers, qMap);
-      // A:give ↔ B:receive = yes vs yes = green-light
+      // A:give ↔ B:receive = yes vs yes = match
       // A:receive ↔ B:give = no vs yes = hidden
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("no duplicates: each direction appears exactly once", () => {
       const aAnswers = { "oral:give": yes, "oral:receive": maybe };
       const bAnswers = { "oral:give": maybe, "oral:receive": yes };
       const result = buildPairMatches(aAnswers, bAnswers, qMap);
-      // A:give ↔ B:receive = yes vs yes = green-light
+      // A:give ↔ B:receive = yes vs yes = match
       // A:receive ↔ B:give = maybe vs maybe = both-maybe
       expect(result).toHaveLength(2);
       const types = result.map((r) => r.matchType).sort();
-      expect(types).toEqual(["both-maybe", "green-light"]);
+      expect(types).toEqual(["both-maybe", "match"]);
     });
   });
 
@@ -171,13 +164,13 @@ describe("buildPairMatches", () => {
     it("A only has receive, B only has give → cross-match works", () => {
       const result = buildPairMatches({ "oral:receive": yes }, { "oral:give": yes }, qMap);
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("A only has give, B only has receive → cross-match works", () => {
       const result = buildPairMatches({ "oral:give": yes }, { "oral:receive": yes }, qMap);
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
 
     it("same anatomy — both only have give → no match", () => {
@@ -193,11 +186,11 @@ describe("buildPairMatches", () => {
     it("A has give+receive, B only has receive → one match", () => {
       const aAnswers = { "oral:give": yes, "oral:receive": yes };
       const bAnswers = { "oral:receive": yes };
-      // A:give ↔ B:receive = green-light
+      // A:give ↔ B:receive = match
       // A:receive has no B:give → skipped
       const result = buildPairMatches(aAnswers, bAnswers, qMap);
       expect(result).toHaveLength(1);
-      expect(result[0].matchType).toBe("green-light");
+      expect(result[0].matchType).toBe("match");
     });
   });
 
@@ -285,7 +278,7 @@ describe("buildPairMatches", () => {
       const ac = buildPairMatches(alice, carol, qMap);
       const bc = buildPairMatches(bob, carol, qMap);
 
-      // Alice-Bob: kissing green-light + oral green-light
+      // Alice-Bob: kissing match + oral match
       expect(ab).toHaveLength(2);
 
       // Alice-Carol: kissing possible (yes+maybe), oral give↔give = no match
@@ -293,7 +286,7 @@ describe("buildPairMatches", () => {
       expect(ac[0].questionId).toBe("kissing");
       expect(ac[0].matchType).toBe("possible");
 
-      // Bob-Carol: kissing possible (yes+maybe), oral receive↔give = green-light
+      // Bob-Carol: kissing possible (yes+maybe), oral receive↔give = match
       expect(bc).toHaveLength(2);
     });
   });

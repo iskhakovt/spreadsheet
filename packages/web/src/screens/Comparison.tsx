@@ -34,7 +34,6 @@ interface MatchStyle {
 
 interface ComparisonProps {
   viewerId: string;
-  showTiming: boolean;
   encrypted: boolean;
   token: string;
   onBack?: () => void;
@@ -47,7 +46,6 @@ interface PairComparisonProps {
   bDisplayName: string;
   aIsViewer: boolean;
   bIsViewer: boolean;
-  showTiming: boolean;
   questions: Record<string, QuestionInfo>;
   categories: Record<string, string>;
   categoryOrder: string[];
@@ -62,8 +60,6 @@ interface PairComparisonProps {
  */
 function noteDividerClass(type: MatchType): string {
   switch (type) {
-    case "green-light":
-      return "border-accent/20";
     case "match":
       return "border-accent/15";
     case "fantasy":
@@ -92,21 +88,15 @@ function NoteLine({ who, isViewer, text }: Readonly<{ who: string; isViewer: boo
 }
 
 const MATCH_STYLES: Record<MatchType, MatchStyle> = {
-  "green-light": {
+  match: {
     container: [
       "bg-gradient-to-br from-accent/15 via-accent-light/10 to-accent/[0.06]",
       "border border-accent/20",
       "shadow-accent-glow",
     ].join(" "),
     badge: "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md",
-    label: "Go for it",
-    labelStyle: "font-semibold",
-  },
-  match: {
-    container: "bg-accent-light/15 border border-accent-light/25",
-    badge: "bg-gradient-to-b from-accent-light to-accent-light-dark text-accent-fg shadow-accent-light-sm",
     label: "Match",
-    labelStyle: "font-medium",
+    labelStyle: "font-semibold",
   },
   "both-maybe": {
     container: "bg-surface/70 border border-border/40",
@@ -150,7 +140,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * server's generator replays entries > lastEventId. See Step 4's
  * sync.journal-subscription.integration.test.ts for the full contract.
  */
-export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<ComparisonProps>) {
   // React Compiler reports a false-positive "Cannot access refs during render"
   // — `seqRef.current` is only touched inside the async `onData` callback. The
   // compiler can't prove the callback isn't synchronous, so it falls back to
@@ -349,7 +339,6 @@ export function Comparison({ viewerId, showTiming, encrypted, token, onBack }: R
                   bDisplayName={displayName(visiblePair.b)}
                   aIsViewer={visiblePair.a.id === viewerId}
                   bIsViewer={visiblePair.b.id === viewerId}
-                  showTiming={showTiming}
                   questions={questions}
                   categories={categories}
                   categoryOrder={categoryOrder}
@@ -402,7 +391,6 @@ function PairComparison({
   bDisplayName,
   aIsViewer,
   bIsViewer,
-  showTiming,
   questions,
   categories,
   categoryOrder,
@@ -416,7 +404,6 @@ function PairComparison({
 
   const groups = buildGroupedMatches(pairMatches, questions, categories, categoryOrder, questionOrder);
 
-  const greenLightCount = pairMatches.filter((m) => m.matchType === "green-light").length;
   const totalMatches = pairMatches.length;
 
   return (
@@ -440,17 +427,6 @@ function PairComparison({
             className="flex items-baseline justify-center gap-6 py-5 px-6 bg-surface/40 rounded-[var(--radius-lg)] border border-border/30 shadow-warm-sm"
             data-testid="match-summary"
           >
-            {showTiming && (
-              <>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-accent tabular-nums" data-testid="green-light-count">
-                    {greenLightCount}
-                  </div>
-                  <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted/70 mt-0.5">Go for it</div>
-                </div>
-                <div className="w-px h-10 bg-border/40" />
-              </>
-            )}
             <div className="text-center">
               <div className="text-2xl font-bold tabular-nums" data-testid="total-matches-count">
                 {totalMatches}

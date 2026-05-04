@@ -7,7 +7,6 @@ test.describe("questionnaire flow", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Get started", exact: true }).click();
     await page.getByRole("radio", { name: "All questions", exact: true }).click();
-    await page.getByLabel('Ask "now or later?"').check();
     await page.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(page).toHaveURL(/\/p\/.+/);
 
@@ -38,12 +37,8 @@ test.describe("questionnaire flow", () => {
     await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
     await expect(page.getByRole("radio", { name: "No", exact: true })).toBeVisible();
 
-    // Answer with "Yes" → should show timing
+    // Answer with "Yes" → commits and auto-advances to the next question.
     await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await expect(page.getByText("When?")).toBeVisible();
-    await page.getByRole("button", { name: "Now", exact: true }).click();
-
-    // Should advance to next question
     await expect(page.getByRole("button", { name: "Skip question", exact: true })).toBeVisible();
 
     // Finish any remaining questions with No
@@ -84,8 +79,8 @@ test.describe("questionnaire flow", () => {
     await expect(page.getByText(/Looking at each other while we're being intimate/)).toBeVisible();
   });
 
-  test("help popover shows rating glossary; switches to timing on the sub-question", async ({ page }) => {
-    await createGroupAndSetup(page, { showTiming: true });
+  test("help popover shows rating glossary", async ({ page }) => {
+    await createGroupAndSetup(page);
     await page.getByRole("button", { name: "Start filling out", exact: true }).click();
     await page.getByRole("button", { name: "Let's go", exact: true }).click();
     await narrowToCategory(page, "Group & External");
@@ -98,19 +93,9 @@ test.describe("questionnaire flow", () => {
     await expect(ratingDialog.getByText("Fantasy only")).toBeVisible();
     await expect(ratingDialog.getByText(/Fun to think about/)).toBeVisible();
 
-    // Close via the popover's close button (heading is below the popover so
-    // a "click outside" via heading would just hit the dialog's overlay).
+    // Close via the popover's close button.
     await ratingDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(ratingDialog).not.toBeVisible();
-    await page.getByRole("radio", { name: "Yes", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Now", exact: true })).toBeVisible();
-
-    // Help should now show the timing glossary, not ratings.
-    await page.getByRole("button", { name: /What do these timings mean/ }).click();
-    const timingDialog = page.getByRole("dialog", { name: "Timing glossary", exact: true });
-    await expect(timingDialog).toBeVisible();
-    await expect(timingDialog.getByText("Now", { exact: true })).toBeVisible();
-    await expect(timingDialog.getByText(/I'd like to try this soon/)).toBeVisible();
   });
 
   test("help popover dismisses when the user commits or navigates", async ({ page }) => {

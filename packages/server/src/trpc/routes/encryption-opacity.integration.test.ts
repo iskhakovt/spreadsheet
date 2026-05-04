@@ -11,7 +11,7 @@ let db: Database;
 beforeAll(async () => {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL not set");
-  db = createDatabase(url);
+  ({ db } = createDatabase(url));
   await seed(new QuestionStore(db));
 });
 
@@ -57,7 +57,6 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
     const { adminToken } = await caller.groups.create({
       encrypted: true,
       questionMode: "filtered",
-      showTiming: true,
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
     });

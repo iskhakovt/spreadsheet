@@ -138,6 +138,32 @@ describe("useSyncQueue — scheduling", () => {
     expect(pushFn).not.toHaveBeenCalled();
   });
 
+  it("manual handleSync during a pending debounce flushes immediately and consumes the timer", async () => {
+    // The "Sync now" indicator path: while a scheduled push is debouncing,
+    // tapping the manual flush should push exactly once — not push manually
+    // AND then push again when the debounce timer fires.
+    setPendingOps(["op1"]);
+    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+
+    act(() => {
+      result.current.scheduleSync(1);
+    });
+    // Halfway through the debounce window — manual flush.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    await act(async () => {
+      await result.current.handleSync();
+    });
+    expect(pushFn).toHaveBeenCalledTimes(1);
+
+    // Past the original debounce deadline — no second push.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(pushFn).toHaveBeenCalledTimes(1);
+  });
+
   it("clears pending timers on unmount", async () => {
     setPendingOps(["op1"]);
     const { result, unmount } = renderHook(() => useSyncQueue(10), { wrapper });

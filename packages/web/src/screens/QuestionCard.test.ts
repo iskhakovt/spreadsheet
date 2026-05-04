@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QuestionScreen } from "../lib/build-screens.js";
-import { QuestionCard, RatingGroup, TimingButtons } from "./QuestionCard.js";
+import { QuestionCard, RatingGroup } from "./QuestionCard.js";
 
 // Must stay in sync with the COMMIT_ANIMATION_NAME constant in QuestionCard.tsx.
 // If that name ever changes, these tests break loudly (good).
@@ -219,7 +219,7 @@ describe("RatingGroup — existing answer highlights the checked radio", () => {
   it("sets aria-checked on the matching button", () => {
     render(
       createElement(RatingGroup, {
-        existingAnswer: { rating: "maybe", timing: null, note: null },
+        existingAnswer: { rating: "maybe", note: null },
         onRating: vi.fn(),
       }),
     );
@@ -228,60 +228,6 @@ describe("RatingGroup — existing answer highlights the checked radio", () => {
 
     const yesBtn = queryButton(/yes/i);
     expect(yesBtn.getAttribute("aria-checked")).toBe("false");
-  });
-});
-
-describe("TimingButtons", () => {
-  it("'1' and 'n' both commit 'now'", async () => {
-    for (const key of ["1", "n"]) {
-      const onTiming = vi.fn();
-      const { unmount } = render(createElement(TimingButtons, { onTiming }));
-
-      act(() => {
-        fireEvent.keyDown(window, { key });
-      });
-      const nowBtn = document.querySelector(`.${COMMIT_ANIMATION_NAME}`);
-      expect(nowBtn).not.toBeNull();
-      act(() => {
-        if (nowBtn) fireEvent.animationEnd(nowBtn, { animationName: COMMIT_ANIMATION_NAME });
-      });
-      expect(onTiming).toHaveBeenCalledExactlyOnceWith("now", "keyboard");
-      unmount();
-    }
-  });
-
-  it("'2' and 'l' both commit 'later'", async () => {
-    for (const key of ["2", "l"]) {
-      const onTiming = vi.fn();
-      const { unmount } = render(createElement(TimingButtons, { onTiming }));
-
-      act(() => {
-        fireEvent.keyDown(window, { key });
-      });
-      const btn = document.querySelector(`.${COMMIT_ANIMATION_NAME}`);
-      expect(btn).not.toBeNull();
-      act(() => {
-        if (btn) fireEvent.animationEnd(btn, { animationName: COMMIT_ANIMATION_NAME });
-      });
-      expect(onTiming).toHaveBeenCalledExactlyOnceWith("later", "keyboard");
-      unmount();
-    }
-  });
-
-  it("ignores further keypresses while committing", async () => {
-    const onTiming = vi.fn();
-    render(createElement(TimingButtons, { onTiming }));
-
-    act(() => {
-      fireEvent.keyDown(window, { key: "1" });
-    });
-    act(() => {
-      fireEvent.keyDown(window, { key: "2" });
-    });
-
-    // Only one button should carry commit-alpha.
-    const committing = document.querySelectorAll(`.${COMMIT_ANIMATION_NAME}`);
-    expect(committing).toHaveLength(1);
   });
 });
 
@@ -328,9 +274,12 @@ function makeScreen(question: QuestionData): QuestionScreen {
 interface CardOpts {
   question?: QuestionData;
   existingAnswer?: Answer;
-  showTimingFlow?: boolean;
   onCommit?: (a: Answer) => void;
   onAdvance?: () => void;
+  onBack?: () => void;
+  index?: number;
+  totalAnswered?: number;
+  totalQuestions?: number;
 }
 
 function renderCard(opts: CardOpts = {}) {
@@ -338,26 +287,26 @@ function renderCard(opts: CardOpts = {}) {
   const screenObj = makeScreen(question);
   const onCommit = opts.onCommit ?? vi.fn();
   const onAdvance = opts.onAdvance ?? vi.fn();
+  const onBack = opts.onBack ?? vi.fn();
   const result = render(
     createElement(QuestionCard, {
       screen: screenObj,
       categoryMap: { [CATEGORY.id]: CATEGORY },
       allQuestionScreens: [screenObj],
       existingAnswer: opts.existingAnswer,
-      index: 0,
-      totalAnswered: 0,
-      totalQuestions: 1,
-      showTimingFlow: opts.showTimingFlow ?? false,
+      index: opts.index ?? 0,
+      totalAnswered: opts.totalAnswered ?? 0,
+      totalQuestions: opts.totalQuestions ?? 1,
       syncing: false,
       showSyncIndicator: false,
       pendingCount: 0,
       onCommit,
       onAdvance,
-      onBack: vi.fn(),
+      onBack,
       onSync: vi.fn(),
     }),
   );
-  return { ...result, onCommit, onAdvance };
+  return { ...result, onCommit, onAdvance, onBack };
 }
 
 describe("QuestionCard — note section visibility", () => {
@@ -378,7 +327,7 @@ describe("QuestionCard — note section visibility", () => {
 
   it("returning to a question with an existing note pre-fills the textarea", () => {
     renderCard({
-      existingAnswer: { rating: "yes", timing: null, note: "low light, sandalwood" },
+      existingAnswer: { rating: "yes", note: "low light, sandalwood" },
     });
     const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(textarea.value).toBe("low light, sandalwood");
@@ -404,7 +353,7 @@ describe("QuestionCard — auto-advance vs Layout B", () => {
     // handleRating awaits onCommit before calling onAdvance; both land
     // after the click handler's microtask resolves.
     await waitFor(() => expect(onAdvance).toHaveBeenCalledTimes(1));
-    expect(onCommit).toHaveBeenCalledWith({ rating: "yes", timing: null, note: null });
+    expect(onCommit).toHaveBeenCalledWith({ rating: "yes", note: null });
   });
 
   it("notePrompt question + rating click commits without advancing", async () => {
@@ -415,7 +364,7 @@ describe("QuestionCard — auto-advance vs Layout B", () => {
     act(() => {
       fireEvent.click(yesBtn, { detail: 1 });
     });
-    await waitFor(() => expect(onCommit).toHaveBeenCalledWith({ rating: "yes", timing: null, note: null }));
+    await waitFor(() => expect(onCommit).toHaveBeenCalledWith({ rating: "yes", note: null }));
     expect(onAdvance).not.toHaveBeenCalled();
   });
 
@@ -427,16 +376,18 @@ describe("QuestionCard — auto-advance vs Layout B", () => {
 
   it("Layout B 'Next' fires onAdvance after rating + note", () => {
     const { onCommit, onAdvance } = renderCard({
-      existingAnswer: { rating: "yes", timing: null, note: "draft note" },
+      existingAnswer: { rating: "yes", note: "draft note" },
       question: makeQuestion({ notePrompt: "what works" }),
     });
     const next = screen.getByTestId("note-next") as HTMLButtonElement;
     expect(next.disabled).toBe(false);
+    // Draft equals saved note → label reads "Next" and clicking is a no-op
+    // commit (only an advance).
+    expect(next.textContent).toBe("Next");
     act(() => {
       fireEvent.click(next);
     });
     expect(onAdvance).toHaveBeenCalledTimes(1);
-    // No re-commit because the draft equals the existing note.
     expect(onCommit).not.toHaveBeenCalled();
   });
 });
@@ -446,7 +397,7 @@ describe("QuestionCard — note commit", () => {
     vi.useFakeTimers();
     try {
       const { onCommit } = renderCard({
-        existingAnswer: { rating: "yes", timing: null, note: null },
+        existingAnswer: { rating: "yes", note: null },
         question: makeQuestion({ notePrompt: "what works" }),
       });
       const textarea = screen.getByRole("textbox");
@@ -460,7 +411,6 @@ describe("QuestionCard — note commit", () => {
       });
       expect(onCommit).toHaveBeenCalledExactlyOnceWith({
         rating: "yes",
-        timing: null,
         note: "a quick note",
       });
     } finally {
@@ -472,7 +422,7 @@ describe("QuestionCard — note commit", () => {
     vi.useFakeTimers();
     try {
       const { onCommit } = renderCard({
-        existingAnswer: { rating: "yes", timing: null, note: "kept" },
+        existingAnswer: { rating: "yes", note: "kept" },
         question: makeQuestion({ notePrompt: "what works" }),
       });
       const textarea = screen.getByRole("textbox");
@@ -484,7 +434,6 @@ describe("QuestionCard — note commit", () => {
       });
       expect(onCommit).toHaveBeenCalledExactlyOnceWith({
         rating: "yes",
-        timing: null,
         note: null,
       });
     } finally {
@@ -507,7 +456,6 @@ describe("QuestionCard — note commit", () => {
     await waitFor(() => expect(onCommit).toHaveBeenCalled());
     expect(onCommit).toHaveBeenCalledWith({
       rating: "yes",
-      timing: null,
       note: "before rating",
     });
   });
@@ -517,7 +465,7 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
   it("typing '1' inside the textarea does NOT hijack-commit a rating", () => {
     const onCommit = vi.fn();
     renderCard({
-      existingAnswer: { rating: "maybe", timing: null, note: null },
+      existingAnswer: { rating: "maybe", note: null },
       question: makeQuestion({ notePrompt: "what works" }),
       onCommit,
     });
@@ -537,7 +485,7 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
 
   it("Cmd+Enter inside the textarea triggers Save & next when rated", async () => {
     const { onAdvance } = renderCard({
-      existingAnswer: { rating: "yes", timing: null, note: "i wrote a thing" },
+      existingAnswer: { rating: "yes", note: "i wrote a thing" },
       question: makeQuestion({ notePrompt: "what works" }),
     });
     const textarea = screen.getByRole("textbox");
@@ -549,7 +497,7 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
 
   it("Ctrl+Enter inside the textarea also triggers Save & next", async () => {
     const { onAdvance } = renderCard({
-      existingAnswer: { rating: "yes", timing: null, note: "another thing" },
+      existingAnswer: { rating: "yes", note: "another thing" },
       question: makeQuestion({ notePrompt: "what works" }),
     });
     const textarea = screen.getByRole("textbox");
@@ -575,7 +523,7 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
 
   it("plain Enter inside the textarea does not advance — it's reserved for newlines", () => {
     const { onAdvance } = renderCard({
-      existingAnswer: { rating: "yes", timing: null, note: "draft" },
+      existingAnswer: { rating: "yes", note: "draft" },
       question: makeQuestion({ notePrompt: "what works" }),
     });
     const textarea = screen.getByRole("textbox");
@@ -585,6 +533,346 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
     expect(onAdvance).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase / state-machine: rating ↔ timing transitions, mid-flow nav, idempotency.
+// These guard the "two-phase form" invariants in advanceFromRating /
+// advanceFromTiming. Each one targets a regression that is easy to introduce
+// when refactoring the handlers.
+// ---------------------------------------------------------------------------
+
+describe("QuestionCard — phase transitions and resets", () => {
+  it("re-mounting on a new screen.key resets draft and pillExpanded together", async () => {
+    // The useEffect on screen.key reseeds local state. Drive a draft
+    // change, then re-render with a new screen and verify reset.
+    const onCommit = vi.fn();
+    const onAdvance = vi.fn();
+    const onBack = vi.fn();
+    const q1 = makeQuestion({ id: "q1" });
+    const q2 = makeQuestion({ id: "q2" });
+    const screen1 = makeScreen(q1);
+    const screen2 = makeScreen(q2);
+    const { rerender } = render(
+      createElement(QuestionCard, {
+        screen: screen1,
+        categoryMap: { [CATEGORY.id]: CATEGORY },
+        allQuestionScreens: [screen1, screen2],
+        existingAnswer: undefined,
+        index: 0,
+        totalAnswered: 0,
+        totalQuestions: 2,
+        syncing: false,
+        showSyncIndicator: false,
+        pendingCount: 0,
+        onCommit,
+        onAdvance,
+        onBack,
+        onSync: vi.fn(),
+      }),
+    );
+    // Open Layout B via "+ Add a note".
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /add a note/i }));
+    });
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    // Re-render on a new screen — local state should reset.
+    rerender(
+      createElement(QuestionCard, {
+        screen: screen2,
+        categoryMap: { [CATEGORY.id]: CATEGORY },
+        allQuestionScreens: [screen1, screen2],
+        existingAnswer: undefined,
+        index: 1,
+        totalAnswered: 0,
+        totalQuestions: 2,
+        syncing: false,
+        showSyncIndicator: false,
+        pendingCount: 0,
+        onCommit,
+        onAdvance,
+        onBack,
+        onSync: vi.fn(),
+      }),
+    );
+    // No textarea (pillExpanded reset). Inline "+ Add a note" link is back.
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("button", { name: /add a note/i })).toBeTruthy();
+  });
+
+  it("returning to an answered notePrompt question shows the rating ring + filled note + 'Next' label", () => {
+    renderCard({
+      existingAnswer: { rating: "if-partner-wants", note: "saved earlier" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const willingBtn = screen.getByRole("radio", { name: /if partner wants/i });
+    expect(willingBtn.getAttribute("aria-checked")).toBe("true");
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("saved earlier");
+    // Draft equals saved note → "Next", not "Save & next".
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.disabled).toBe(false);
+    expect(next.textContent).toBe("Next");
+  });
+
+  it("primary Next label transitions: 'Rate to continue' → 'Next' → 'Save & next'", () => {
+    // No rating yet — disabled, "Rate to continue".
+    const { rerender } = render(
+      createElement(QuestionCard, {
+        screen: makeScreen(makeQuestion({ notePrompt: "what works" })),
+        categoryMap: { [CATEGORY.id]: CATEGORY },
+        allQuestionScreens: [makeScreen(makeQuestion({ notePrompt: "what works" }))],
+        existingAnswer: undefined,
+        index: 0,
+        totalAnswered: 0,
+        totalQuestions: 1,
+        syncing: false,
+        showSyncIndicator: false,
+        pendingCount: 0,
+        onCommit: vi.fn(),
+        onAdvance: vi.fn(),
+        onBack: vi.fn(),
+        onSync: vi.fn(),
+      }),
+    );
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.textContent).toMatch(/Rate to continue/);
+    expect(next.disabled).toBe(true);
+
+    // Rated, no draft typed, no saved note → "Next".
+    rerender(
+      createElement(QuestionCard, {
+        screen: makeScreen(makeQuestion({ notePrompt: "what works" })),
+        categoryMap: { [CATEGORY.id]: CATEGORY },
+        allQuestionScreens: [makeScreen(makeQuestion({ notePrompt: "what works" }))],
+        existingAnswer: { rating: "yes", note: null },
+        index: 0,
+        totalAnswered: 0,
+        totalQuestions: 1,
+        syncing: false,
+        showSyncIndicator: false,
+        pendingCount: 0,
+        onCommit: vi.fn(),
+        onAdvance: vi.fn(),
+        onBack: vi.fn(),
+        onSync: vi.fn(),
+      }),
+    );
+    expect(next.textContent).toMatch(/^Next$/);
+
+    // Type into the textarea so draft diverges from saved (null) → "Save & next".
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "fresh draft" } });
+    });
+    expect(next.textContent).toMatch(/Save & next/);
+
+    // Erase the draft back to the saved value (null) → "Next" again.
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "" } });
+    });
+    expect(next.textContent).toMatch(/^Next$/);
+  });
+
+  it("editing a saved note then reverting to the original value flips the label back to 'Next'", () => {
+    renderCard({
+      existingAnswer: { rating: "yes", note: "original text" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.textContent).toBe("Next");
+
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "original text edited" } });
+    });
+    expect(next.textContent).toMatch(/Save & next/);
+
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "original text" } });
+    });
+    expect(next.textContent).toBe("Next");
+  });
+
+  it("typing whitespace-only into a textarea with a null saved note keeps the label at 'Next'", () => {
+    // trimNote("") and trimNote("   ") both return null. existingAnswer.note
+    // is null. null === null → noteDirty is false → "Next".
+    renderCard({
+      existingAnswer: { rating: "yes", note: null },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const next = screen.getByTestId("note-next") as HTMLButtonElement;
+    expect(next.textContent).toBe("Next");
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "   " } });
+    });
+    expect(next.textContent).toBe("Next");
+  });
+
+  it("re-rating after typing a note carries the typed draft into the new commit", async () => {
+    // Pre-rating draft typing must travel with whatever rating the user
+    // commits. Covers both the first-rating and the change-rating paths.
+    const onCommit = vi.fn();
+    renderCard({
+      onCommit,
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "i'm into it" } });
+    });
+    act(() => {
+      fireEvent.click(screen.getByRole("radio", { name: /yes/i }), { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledWith({ rating: "yes", note: "i'm into it" }));
+
+    // Rerate: change to maybe — draft should still be attached.
+    act(() => {
+      fireEvent.click(screen.getByRole("radio", { name: /maybe/i }), { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(2));
+    expect(onCommit.mock.calls[1]?.[0]).toEqual({ rating: "maybe", note: "i'm into it" });
+  });
+
+  it("Skip is hidden once the user types a draft and reappears when the draft is erased", () => {
+    renderCard({
+      existingAnswer: { rating: "yes", note: null },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    // Initially no draft (note is null) → Skip visible.
+    expect(screen.getByRole("button", { name: /skip question/i })).toBeTruthy();
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "draft" } });
+    });
+    expect(screen.queryByRole("button", { name: /skip question/i })).toBeNull();
+    // Erase the draft → Skip reappears.
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "" } });
+    });
+    expect(screen.getByRole("button", { name: /skip question/i })).toBeTruthy();
+  });
+
+  it("'+ Add a note' opens the textarea and it stays open after typing then erasing", () => {
+    renderCard();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /add a note/i }));
+    });
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toBeTruthy();
+    // pillExpanded is sticky — typing then erasing doesn't collapse.
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "tap" } });
+    });
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "" } });
+    });
+    expect(screen.getByRole("textbox")).toBeTruthy();
+  });
+
+  it("pre-rating typing in the textarea does NOT fire onCommit (no answer to attach)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { onCommit } = renderCard({ question: makeQuestion({ notePrompt: "what works" }) });
+      const textarea = screen.getByRole("textbox");
+      act(() => {
+        fireEvent.change(textarea, { target: { value: "thinking out loud" } });
+      });
+      // Past the debounce window — still no commit (existingAnswer is undefined).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onCommit).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layout regressions: shared Back / Add-a-note / Skip row, Back disabled at
+// index 0, Add-a-note absent in Layout B.
+// ---------------------------------------------------------------------------
+
+describe("QuestionCard — Layout A vs Layout B regressions", () => {
+  it("Back is disabled at index 0 in Layout A", () => {
+    renderCard({ index: 0 });
+    const back = screen.getByRole("button", { name: /previous question/i }) as HTMLButtonElement;
+    expect(back.disabled).toBe(true);
+  });
+
+  it("Back is disabled at index 0 in Layout B", () => {
+    renderCard({ index: 0, question: makeQuestion({ notePrompt: "what works" }) });
+    const back = screen.getByRole("button", { name: /previous question/i }) as HTMLButtonElement;
+    expect(back.disabled).toBe(true);
+  });
+
+  it("Back is enabled when index > 0", () => {
+    renderCard({ index: 3 });
+    const back = screen.getByRole("button", { name: /previous question/i }) as HTMLButtonElement;
+    expect(back.disabled).toBe(false);
+  });
+
+  it("'+ Add a note' is rendered in Layout A but NOT in Layout B", () => {
+    renderCard();
+    expect(screen.getByRole("button", { name: /add a note/i })).toBeTruthy();
+    cleanup();
+    renderCard({ question: makeQuestion({ notePrompt: "what works" }) });
+    expect(screen.queryByRole("button", { name: /add a note/i })).toBeNull();
+  });
+
+  it("Back/Skip in Layout B share the same icon-styled treatment as Layout A", () => {
+    // Regression for the unified styling: both layouts must produce
+    // `text-sm` Back/Skip buttons with chevron icons. Catches a drift back
+    // to the old `text-xs` text-only treatment.
+    renderCard({ question: makeQuestion({ notePrompt: "what works" }) });
+    const back = screen.getByRole("button", { name: /previous question/i });
+    const skip = screen.getByRole("button", { name: /skip question/i });
+    expect(back.className).toMatch(/text-sm|gap-1/);
+    expect(skip.className).toMatch(/text-sm|gap-1/);
+    // Each icon-styled button contains an SVG chevron child.
+    expect(back.querySelector("svg")).not.toBeNull();
+    expect(skip.querySelector("svg")).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Help popover behavior — open/close, mode swap, focus management.
+// ---------------------------------------------------------------------------
+
+describe("QuestionCard — help popover", () => {
+  it("opens on trigger click, closes on Escape", () => {
+    renderCard();
+    const helpBtn = screen.getByRole("button", { name: /what do these ratings mean/i });
+    act(() => {
+      fireEvent.click(helpBtn);
+    });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes when a pointerdown lands outside the popover", () => {
+    renderCard();
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: /what do these ratings mean/i }));
+    });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    act(() => {
+      window.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keyboard discoverability — auto-focus textarea on keyboard rating commit,
+// type-first → rate → advance, etc. The advance rule lives in
+// advanceFromRating; the source flag is plumbed through RatingGroup.
+// ---------------------------------------------------------------------------
 
 describe("QuestionCard — keyboard rating commit auto-focuses the textarea", () => {
   it("keyboard-source rating commit on a notePrompt question moves focus to the textarea", async () => {
@@ -637,7 +925,7 @@ describe("QuestionCard — type-first → rate → advance", () => {
 
   it("rehydrated note (no fresh typing) + rating change still suppresses advance", async () => {
     const { onCommit, onAdvance } = renderCard({
-      existingAnswer: { rating: "maybe", timing: null, note: "saved earlier" },
+      existingAnswer: { rating: "maybe", note: "saved earlier" },
       question: makeQuestion({ notePrompt: "what works" }),
     });
     const yesBtn = screen.getByRole("radio", { name: /yes/i });

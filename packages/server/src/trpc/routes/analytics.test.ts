@@ -39,7 +39,6 @@ const group = {
   encrypted: false,
   isReady: true,
   questionMode: "all",
-  showTiming: true,
   anatomyLabels: null,
   anatomyPicker: null,
 };

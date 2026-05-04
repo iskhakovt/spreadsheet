@@ -1,4 +1,4 @@
-import type { Answer, CategoryData, Rating, Timing } from "@spreadsheet/shared";
+import type { Answer, CategoryData, Rating } from "@spreadsheet/shared";
 import { ChevronLeft, ChevronRight, HelpCircle, Pencil } from "lucide-react";
 import { type ReactNode, type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
@@ -39,8 +39,6 @@ interface QuestionCardProps {
   index: number;
   totalAnswered: number;
   totalQuestions: number;
-  /** group.showTiming — whether yes/willing fans out to a now/later sub-question. */
-  showTimingFlow: boolean;
   syncing: boolean;
   showSyncIndicator: boolean;
   pendingCount: number;
@@ -78,7 +76,6 @@ export function QuestionCard({
   index,
   totalAnswered,
   totalQuestions,
-  showTimingFlow,
   syncing,
   showSyncIndicator,
   pendingCount,
@@ -112,10 +109,6 @@ export function QuestionCard({
   const notePrompt = screen.question.notePrompt;
   const [noteDraft, setNoteDraft] = useState<string>(existingAnswer?.note ?? "");
   const [pillExpanded, setPillExpanded] = useState(false);
-  // Pending timing flow — yes/willing on showTimingFlow groups fans out to
-  // the now/later sub-question. The TimingButtons component owns the keys.
-  const [pendingRating, setPendingRating] = useState<Rating>();
-  const showTiming = pendingRating !== undefined;
   // Reseed local UI state on navigation only (screen.key change). Including
   // existingAnswer in the dep array would re-clobber the live noteDraft on
   // every commit (the parent re-passes a new existingAnswer right after each
@@ -123,10 +116,16 @@ export function QuestionCard({
   useEffect(() => {
     setNoteDraft(existingAnswer?.note ?? "");
     setPillExpanded(false);
-    setPendingRating(undefined);
   }, [screen.key]);
 
-  const draftHasContent = trimNote(noteDraft) !== null;
+  const trimmedDraft = trimNote(noteDraft);
+  const draftHasContent = trimmedDraft !== null;
+  // True iff the typed draft differs from the saved note. Drives the
+  // "Save & next" vs "Next" label — without this, the label says "Save"
+  // any time the textarea has content, including the pre-fill of an
+  // unchanged saved note (the re-commit guard in handleNext skips the
+  // no-op write, but the label was lying about it).
+  const noteDirty = trimmedDraft !== (existingAnswer?.note ?? null);
   // Layout B (note section visible) when the question prompts for a note,
   // when there's already a note, or when the user opted in via the hairline
   // link. Pre-rating prompted questions also start in Layout B so the prompt
@@ -159,10 +158,10 @@ export function QuestionCard({
     if (helpOpen) helpCloseRef.current?.focus();
   }, [helpOpen]);
 
-  // Dismiss help on mode flip / commit / category jump.
+  // Dismiss help on category jump.
   useEffect(() => {
     setHelpOpen(false);
-  }, [showTiming, screen.key]);
+  }, [screen.key]);
 
   // Debounced note commit — only persists when there's a rating to attach
   // the note to. Pre-rating typing stays in local draft state until the user
@@ -186,46 +185,20 @@ export function QuestionCard({
   // briefly read stale answers (the original saveAnswer had a microtask
   // yield via `await encodeValue(...)` between setAnswer and setIndex,
   // which we preserve here).
-  // Has the user typed into the note this session, vs. just inheriting an
-  // existing one on navigation? Used by handleRating below to advance after
-  // a "type → rate" sequence — the user's already done, no reason to make
-  // them Cmd+Enter or click Save & next.
-  const draftModified = noteDraft !== (existingAnswer?.note ?? "");
-
-  const handleRating = useCallback(
+  // Advance when there's no note section, or when the user typed before
+  // rating (their workflow is done — `noteDirty` is computed above).
+  // Otherwise stay so they can type; for keyboard commits, move focus into
+  // the textarea so they don't have to Tab to find it.
+  const advanceFromRating = useCallback(
     async (rating: Rating, source: "keyboard" | "mouse") => {
-      if (showTimingFlow && (rating === "yes" || rating === "if-partner-wants")) {
-        setPendingRating(rating);
-        return;
-      }
-      const answer: Answer = { rating, timing: null, note: trimNote(noteDraft) };
-      await onCommit(answer);
-      // Advance when there's no note section, or when the user typed before
-      // rating (their workflow is done). Otherwise stay so they can type;
-      // for keyboard commits, move focus into the textarea so they don't
-      // have to Tab to find it.
-      if (!noteVisible || draftModified) {
+      await onCommit({ rating, note: trimNote(noteDraft) });
+      if (!noteVisible || noteDirty) {
         onAdvance();
       } else if (source === "keyboard") {
         textareaRef.current?.focus();
       }
     },
-    [showTimingFlow, noteDraft, noteVisible, draftModified, onCommit, onAdvance],
-  );
-
-  const handleTiming = useCallback(
-    async (timing: Timing, source: "keyboard" | "mouse") => {
-      if (!pendingRating) return;
-      const answer: Answer = { rating: pendingRating, timing, note: trimNote(noteDraft) };
-      await onCommit(answer);
-      setPendingRating(undefined);
-      if (!noteVisible || draftModified) {
-        onAdvance();
-      } else if (source === "keyboard") {
-        textareaRef.current?.focus();
-      }
-    },
-    [pendingRating, noteDraft, noteVisible, draftModified, onCommit, onAdvance],
+    [noteDraft, noteVisible, noteDirty, onCommit, onAdvance],
   );
 
   const handleNext = useCallback(async () => {
@@ -251,7 +224,6 @@ export function QuestionCard({
   }, [existingAnswer, handleNext]);
 
   const handleSkip = useCallback(() => {
-    setPendingRating(undefined);
     onAdvance();
   }, [onAdvance]);
 
@@ -283,7 +255,7 @@ export function QuestionCard({
             onClick={() => setHelpOpen((v) => !v)}
             aria-haspopup="dialog"
             aria-expanded={helpOpen}
-            aria-label={showTiming ? "What do these timings mean?" : "What do these ratings mean?"}
+            aria-label="What do these ratings mean?"
             className="inline-flex items-center justify-center w-6 h-6 rounded-full text-text-muted/75 bg-surface/50 border border-border/70 hover:text-accent hover:border-accent/35 hover:bg-white transition-all duration-200"
           >
             <HelpCircle size={13} strokeWidth={2} />
@@ -298,14 +270,7 @@ export function QuestionCard({
             </button>
           )}
         </div>
-        {helpOpen && (
-          <HelpPopover
-            ref={helpPopoverRef}
-            closeRef={helpCloseRef}
-            mode={showTiming ? "timing" : "rating"}
-            onClose={() => setHelpOpen(false)}
-          />
-        )}
+        {helpOpen && <HelpPopover ref={helpPopoverRef} closeRef={helpCloseRef} onClose={() => setHelpOpen(false)} />}
       </div>
       {/* Screen reader announcement */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -332,14 +297,9 @@ export function QuestionCard({
           )}
         </div>
       </div>
-      {/* Answer controls — RatingGroup and TimingButtons both own their
-          keyboard listeners locally (scoped by mount) and their commit
-          animation state (local useState). */}
-      {showTiming ? (
-        <TimingButtons onTiming={handleTiming} />
-      ) : (
-        <RatingGroup existingAnswer={existingAnswer} onRating={handleRating} firstButtonRef={firstRatingRef} />
-      )}
+      {/* Answer controls — RatingGroup owns its keyboard listener locally
+          (scoped by mount) and its commit animation state (local useState). */}
+      <RatingGroup existingAnswer={existingAnswer} onRating={advanceFromRating} firstButtonRef={firstRatingRef} />
 
       {/* Note section — visible when notePrompt is set on this question, the
           user already has a note, or they tapped "+ Add a note". Stays open
@@ -373,53 +333,29 @@ export function QuestionCard({
         </div>
       )}
 
-      {/* Action row — primary Next when the note section is visible (Layout B),
-          thin Back/Skip otherwise (Layout A). The Layout A row also carries
-          the inline "+ Add a note" affordance for ordinary questions, so we
-          don't add vertical chrome below the ratings. */}
-      {noteVisible ? (
-        <div className="mt-4 space-y-2">
-          <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next">
-            {existingAnswer ? (draftHasContent ? "Save & next" : "Next") : "Rate to continue"}
-          </Button>
-          <div className="flex justify-between text-xs text-text-muted/65 px-1">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={index === 0}
-              aria-label="Previous question"
-              className="hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/65 transition-colors duration-200"
-            >
-              {UI.question.back}
-            </button>
-            {!draftHasContent && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                aria-label="Skip question"
-                className="hover:text-accent transition-colors duration-200"
-              >
-                {UI.question.skip}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between text-sm">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={index === 0}
-            aria-label="Previous question"
-            className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
-          >
-            <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
-            {UI.question.back}
-          </button>
-          {/* Inline "+ Add a note" — only for ordinary questions without a
-              saved note. Sits between Back and Skip so it adds zero vertical
-              chrome to the card; styled to match Back/Skip prominence so it
-              reads as a peer action, not a footnote. */}
+      {/* Primary Next — only when the note section is visible (Layout B).
+          Sits above the shared Back/Skip row so the same nav controls show
+          on every question regardless of layout. */}
+      {noteVisible && (
+        <Button fullWidth onClick={handleNext} disabled={!existingAnswer} data-testid="note-next" className="mt-4 mb-2">
+          {existingAnswer ? (noteDirty ? "Save & next" : "Next") : "Rate to continue"}
+        </Button>
+      )}
+      {/* Shared Back / [+Add a note] / Skip row. The middle "+ Add a note"
+          affordance only renders in Layout A (no note section yet) so it
+          adds zero vertical chrome to ordinary questions. */}
+      <div className="flex items-center justify-between text-sm">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={index === 0}
+          aria-label="Previous question"
+          className="flex items-center gap-1 text-text-muted/70 hover:text-accent disabled:opacity-40 disabled:hover:text-text-muted/70 transition-colors duration-200"
+        >
+          <ChevronLeft size={16} strokeWidth={1.5} className="shrink-0" />
+          {UI.question.back}
+        </button>
+        {!noteVisible && (
           <button
             type="button"
             onClick={handleAddNote}
@@ -429,6 +365,10 @@ export function QuestionCard({
             <Pencil size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
             <span>Add a note</span>
           </button>
+        )}
+        {/* Skip is hidden once the user has typed a note draft — Skip
+            doesn't commit, so it would silently throw the draft away. */}
+        {!draftHasContent && (
           <button
             type="button"
             onClick={handleSkip}
@@ -438,8 +378,8 @@ export function QuestionCard({
             {UI.question.skip}
             <ChevronRight size={16} strokeWidth={1.5} className="shrink-0" />
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Progress bar — gradient fill warms as it grows, subtle inset shadow
           gives the track depth. */}
       <div
@@ -513,8 +453,7 @@ function NoteSection({
 
 /**
  * Roving-tabindex radio group — button[role="radio"] pattern (Radix/React Aria
- * style). Owns its own number-key listener (1-5) so the shortcut scopes to
- * exactly when the group is mounted (showTiming=false). Keyboard commits run
+ * style). Owns its own number-key listener (1-5). Keyboard commits run
  * through the α animation path; mouse clicks commit instantly.
  */
 export function RatingGroup({
@@ -632,81 +571,10 @@ export function RatingGroup({
 }
 
 /**
- * Timing sub-question (Now / Later) — mirrors RatingGroup's commit pattern
- * with its own keyboard listener (1/n, 2/l). Only mounts when `showTiming`
- * is true; listener lifetime is scoped to the mount.
- */
-export function TimingButtons({ onTiming }: Readonly<{ onTiming: (t: Timing, source: "keyboard" | "mouse") => void }>) {
-  const [committing, setCommitting] = useState<Timing>();
-
-  useEffect(() => {
-    if (committing) return;
-    function onKey(e: KeyboardEvent) {
-      if (isEditableTarget(e.target)) return;
-      if (e.key === "1" || e.key === "n") {
-        e.preventDefault();
-        setCommitting("now");
-      } else if (e.key === "2" || e.key === "l") {
-        e.preventDefault();
-        setCommitting("later");
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [committing]);
-
-  function handleClick(timing: Timing, e: React.MouseEvent<HTMLButtonElement>) {
-    if (committing) return;
-    // Same keyboard-vs-mouse detection as RatingGroup — see the detailed
-    // note there, including the programmatic .click() caveat.
-    if (e.detail === 0) {
-      setCommitting(timing);
-    } else {
-      onTiming(timing, "mouse");
-    }
-  }
-
-  function handleAnimationEnd(timing: Timing, e: React.AnimationEvent<HTMLButtonElement>) {
-    if (e.animationName !== COMMIT_ANIMATION_NAME) return;
-    if (committing !== timing) return;
-    setCommitting(undefined);
-    onTiming(timing, "keyboard");
-  }
-
-  return (
-    <div className="space-y-3 mb-6">
-      <p className="text-sm text-text-muted">{UI.question.when}</p>
-      <div className="flex gap-3">
-        <Button
-          variant="accent"
-          fullWidth
-          onClick={(e) => handleClick("now", e)}
-          onAnimationEnd={(e) => handleAnimationEnd("now", e)}
-          className={cn(committing === "now" && "commit-alpha")}
-        >
-          {UI.question.now}
-        </Button>
-        <Button
-          variant="neutral"
-          fullWidth
-          onClick={(e) => handleClick("later", e)}
-          onAnimationEnd={(e) => handleAnimationEnd("later", e)}
-          className={cn(committing === "later" && "commit-alpha")}
-        >
-          {UI.question.later}
-        </Button>
-      </div>
-      <p className="text-xs text-text-muted/60 text-center mt-2 hidden sm:block">Press 1 or 2</p>
-    </div>
-  );
-}
-
-/**
  * In-context glossary popover. Anchors below the help icon in the card
- * header and lists either the rating options (default) or the timing
- * options (when the user is on the Now/Later sub-question). Strings come
- * from `UI.intro.answers` / `UI.intro.timing` so the language matches the
- * intro screen verbatim — recall, not re-explanation.
+ * header and lists the rating options. Strings come from
+ * `UI.intro.answers` so the language matches the intro screen verbatim —
+ * recall, not re-explanation.
  */
 interface HelpItem {
   key: string;
@@ -755,37 +623,16 @@ const RATING_HELP: HelpItem[] = [
   },
 ];
 
-const TIMING_HELP: HelpItem[] = [
-  {
-    key: "now",
-    label: UI.intro.timing.now[0],
-    desc: UI.intro.timing.now[1],
-    labelClass: "text-accent",
-    shortcuts: ["1", "N"],
-  },
-  {
-    key: "later",
-    label: UI.intro.timing.later[0],
-    desc: UI.intro.timing.later[1],
-    labelClass: "text-text",
-    shortcuts: ["2", "L"],
-  },
-];
-
 function HelpPopover({
   ref,
   closeRef,
-  mode,
   onClose,
 }: Readonly<{
   ref?: RefObject<HTMLDivElement | null>;
   closeRef?: RefObject<HTMLButtonElement | null>;
-  mode: "rating" | "timing";
   onClose: () => void;
 }>) {
   const hasKeyboard = useHasKeyboard();
-  const items = mode === "rating" ? RATING_HELP : TIMING_HELP;
-  const title = mode === "rating" ? "What each rating means" : "What each option means";
   // Three-column when the kbd column is rendered, two-column otherwise.
   // The kbd column uses minmax so it stays tight for single-key rows (`1`)
   // but grows for multi-glyph cells (`Ctrl+↵`) without overflowing into
@@ -797,13 +644,15 @@ function HelpPopover({
     <div
       ref={ref}
       role="dialog"
-      aria-label={mode === "rating" ? "Rating glossary" : "Timing glossary"}
+      aria-label="Rating glossary"
       // max-w caps the popover at the viewport's inner width minus a margin,
       // safety net if the card padding ever tightens on the smallest devices.
       className="absolute top-9 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
     >
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">{title}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">
+          What each rating means
+        </p>
         <button
           ref={closeRef}
           type="button"
@@ -815,7 +664,7 @@ function HelpPopover({
         </button>
       </div>
       <ul className="space-y-2">
-        {items.map((item) => (
+        {RATING_HELP.map((item) => (
           <li key={item.key} className={rowCls}>
             {hasKeyboard && (
               <span className="flex items-center gap-0.5">

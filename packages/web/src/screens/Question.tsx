@@ -1,4 +1,4 @@
-import type { Answer, CategoryData, OperationPayload, QuestionData } from "@spreadsheet/shared";
+import { Answer, type CategoryData, type OperationPayload, type QuestionData } from "@spreadsheet/shared";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
@@ -29,7 +29,7 @@ import { isEditableTarget, QuestionCard } from "./QuestionCard.js";
 
 interface QuestionProps {
   person: { id: string; anatomy: string | null };
-  group: { questionMode: string; showTiming: boolean };
+  group: { questionMode: string };
   members: { id: string; anatomy: string | null }[];
   onDone: () => void | Promise<void>;
   onSummary?: () => void;
@@ -180,8 +180,8 @@ export function Question({
   }, [index]);
 
   // Page-level keyboard navigation — Arrow left/right only. Rating number
-  // keys (1-5) and timing keys (1/n, 2/l) are owned by the RatingGroup and
-  // TimingButtons components in QuestionCard, scoped to their mount.
+  // keys (1-5) are owned by the RatingGroup component in QuestionCard,
+  // scoped to its mount.
   //
   // `e.defaultPrevented` check lets child handlers claim the event first:
   // RatingGroup's roving-tabindex onKeyDown calls `preventDefault()` on
@@ -278,8 +278,12 @@ export function Question({
   async function commitAnswer(answer: Answer) {
     const current = screens[Math.min(index, screens.length - 1)];
     if (current.type !== "question") return;
-    setAnswer(current.key, answer);
-    const op = await encodeValue({ key: current.key, data: answer } satisfies OperationPayload);
+    // Run the answer through `Answer.parse` on the way out so the
+    // serialized op is always canonical — strips any stray keys, fails
+    // loudly on malformed shapes instead of silently persisting them.
+    const canonical = Answer.parse(answer);
+    setAnswer(current.key, canonical);
+    const op = await encodeValue({ key: current.key, data: canonical } satisfies OperationPayload);
     addPendingOpForKey(op, current.key);
   }
 
@@ -317,9 +321,9 @@ export function Question({
   return (
     <QuestionCard
       // Force remount per screen so per-question component state (note draft,
-      // pill expansion, pending timing) starts fresh — sidesteps the brief
-      // post-advance render where a useEffect-based reset would still see
-      // the previous screen's draft.
+      // pill expansion) starts fresh — sidesteps the brief post-advance render
+      // where a useEffect-based reset would still see the previous screen's
+      // draft.
       key={current.key}
       screen={current}
       categoryMap={categoryMap}
@@ -328,7 +332,6 @@ export function Question({
       index={index}
       totalAnswered={Object.keys(answers).length}
       totalQuestions={qScreens.length}
-      showTimingFlow={group.showTiming}
       syncing={syncing}
       showSyncIndicator={showSyncIndicator}
       pendingCount={pendingOps.length}

@@ -19,7 +19,6 @@ export class GroupStore {
   async create(input: {
     encrypted: boolean;
     questionMode: "all" | "filtered";
-    showTiming: boolean;
     anatomyLabels: string | null;
     anatomyPicker: string | null;
   }) {
@@ -32,7 +31,6 @@ export class GroupStore {
           encrypted: input.encrypted,
           isReady: false,
           questionMode: input.questionMode,
-          showTiming: input.showTiming,
           anatomyLabels: input.anatomyLabels,
           anatomyPicker: input.anatomyPicker,
         })
@@ -200,7 +198,6 @@ export class GroupStore {
             isReady: false,
             isAdminReady: false,
             questionMode: group.questionMode,
-            showTiming: group.showTiming,
             // Drizzle stores these as raw `text` columns so their row type
             // is `string | null`, but a DB-level check + seed keeps values
             // constrained to the enum set. Narrow at the boundary; the
@@ -251,7 +248,6 @@ export class GroupStore {
           isReady: groupReady,
           isAdminReady: group.isReady,
           questionMode: group.questionMode,
-          showTiming: group.showTiming,
           anatomyLabels: group.anatomyLabels as AnatomyLabels | null,
           anatomyPicker: group.anatomyPicker as AnatomyPicker | null,
         },

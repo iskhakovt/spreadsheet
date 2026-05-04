@@ -16,7 +16,7 @@ vi.mock("../../../lib/person-app-context.js", () => ({
     token: "test-token",
     authedStatus: {
       person: { id: "p1" },
-      group: { showTiming: true, encrypted: false },
+      group: { encrypted: false },
     },
   }),
 }));

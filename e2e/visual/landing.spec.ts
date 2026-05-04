@@ -16,9 +16,8 @@ test.describe("landing & create-group form", () => {
     await page.getByRole("radio", { name: "All questions", exact: true }).click();
     await expect(page).toHaveScreenshot("create-group-all.png");
 
-    // Switch back to filtered, check both checkboxes
+    // Switch back to filtered, enable encryption.
     await page.getByRole("radio", { name: "Filter by body", exact: true }).click();
-    await page.getByLabel('Ask "now or later?"').check();
     await page.getByLabel("End-to-end encryption").check();
     await expect(page).toHaveScreenshot("create-group-all-options.png");
   });

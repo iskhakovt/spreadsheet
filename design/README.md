@@ -38,7 +38,6 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | **Tier** | Question depth: 1 (essentials) → 4 (edge / risk). Picked once on Intro, revisable from Summary. Hides questions above the picked level. |
 | **Gate** | A question whose answer hides dependent children. A "no" to a gate skips the entire subtree (transitively, per-side for give/receive). Gateway questions like `oral-generally` and `penetration-generally` let users opt out of whole domains in one tap. |
 | **Rating** | A person's answer to a question: yes, if-partner-wants, maybe, fantasy, no. |
-| **Timing** | When you want something: now or later. Only applies to "yes" and "if-partner-wants" ratings. Configurable per group (`showTiming` toggle). When off, all answers have null timing. |
 | **Comparison** | The result view — shows overlaps between group members. Only available when all members mark complete. |
 | **Admin** | A person who can manage the group: add/remove members, generate invite links. The group creator is always admin. |
 | **Token** | A URL-safe random string that identifies a person. The URL `/p/{token}` is the person's entry point — no login needed. |
