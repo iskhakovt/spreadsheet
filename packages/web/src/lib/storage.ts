@@ -277,6 +277,28 @@ export function setStoken(stoken: string | null): void {
   }
 }
 
+// === self-journal cursor ===
+//
+// The numeric id of the latest journal entry the client has integrated for
+// the authed person. Drives the delta-fetch / `lastEventId` resume on every
+// play-page mount via `useSelfJournal`. Absent → bootstrap path (full replay
+// on next mount), which is also the first-boot state for any new device.
+
+export function getSelfJournalCursor(): number | null {
+  const raw = getRaw("selfJournalCursor");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export function setSelfJournalCursor(cursor: number | null): void {
+  if (cursor === null) {
+    removeRaw("selfJournalCursor");
+  } else {
+    setRaw("selfJournalCursor", String(cursor));
+  }
+}
+
 // === selectedCategories / selectedTier ===
 // Wrapped in component-level useState, so no useSyncExternalStore hook.
 
