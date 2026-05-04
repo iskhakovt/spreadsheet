@@ -394,3 +394,117 @@ describe("SyncStore.journalSince", () => {
     expect(result).toEqual({ error: "not_all_complete" });
   });
 });
+
+describe("SyncStore.journalSinceForPerson", () => {
+  it("returns the caller's entries with cursor=null when none exist", async () => {
+    const { personId } = await createTestPerson();
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(0);
+    expect(result.cursor).toBe(null);
+    expect(result.stoken).toBe(null);
+  });
+
+  it("returns all entries when sinceId is null", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [
+          'p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}',
+          'p:1:{"key":"b:mutual","data":{"rating":"maybe","timing":null}}',
+        ],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(2);
+    expect(result.cursor).toBe(result.entries[1].id);
+    expect(result.stoken).not.toBe(null);
+  });
+
+  it("returns only entries with id > sinceId when set", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const initial = await store.journalSinceForPerson(personId, null);
+    const cursor = initial.cursor;
+    if (cursor === null) throw new Error("expected cursor");
+
+    await store.push(
+      personId,
+      {
+        stoken: initial.stoken,
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+
+    const delta = await store.journalSinceForPerson(personId, cursor);
+    expect(delta.entries).toHaveLength(1);
+    expect(delta.cursor).toBeGreaterThan(cursor);
+    expect(delta.stoken).not.toBe(null);
+  });
+
+  it("echoes sinceId as cursor on empty delta", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const initial = await store.journalSinceForPerson(personId, null);
+    const repeat = await store.journalSinceForPerson(personId, initial.cursor);
+    expect(repeat.entries).toHaveLength(0);
+    expect(repeat.cursor).toBe(initial.cursor);
+  });
+
+  it("does not return another person's entries", async () => {
+    const { personId: aliceId, encrypted } = await createTestPerson();
+    const { personId: bobId } = await createTestPerson();
+    await store.push(
+      aliceId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const bobView = await store.journalSinceForPerson(bobId, null);
+    expect(bobView.entries).toHaveLength(0);
+    const aliceView = await store.journalSinceForPerson(aliceId, null);
+    expect(aliceView.entries).toHaveLength(1);
+    expect(aliceView.entries[0].personId).toBe(aliceId);
+  });
+
+  it("ignores group completion state — works regardless of isCompleted", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    // Person is not complete; the precondition gate on `journalSince` would
+    // throw, but `journalSinceForPerson` does not gate.
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(1);
+  });
+});
