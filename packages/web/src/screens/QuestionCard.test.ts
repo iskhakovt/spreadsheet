@@ -40,7 +40,7 @@ describe("RatingGroup — keyboard → commit-animation → onRating", () => {
     act(() => {
       fireEvent.animationEnd(yesBtn, { animationName: COMMIT_ANIMATION_NAME });
     });
-    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes", "keyboard");
   });
 
   it.each([
@@ -61,7 +61,7 @@ describe("RatingGroup — keyboard → commit-animation → onRating", () => {
     act(() => {
       if (committingBtn) fireEvent.animationEnd(committingBtn, { animationName: COMMIT_ANIMATION_NAME });
     });
-    expect(onRating).toHaveBeenCalledExactlyOnceWith(rating);
+    expect(onRating).toHaveBeenCalledExactlyOnceWith(rating, "keyboard");
   });
 
   it("ignores animationend events with a non-matching animationName", async () => {
@@ -85,7 +85,7 @@ describe("RatingGroup — keyboard → commit-animation → onRating", () => {
     act(() => {
       fireEvent.animationEnd(yesBtn, { animationName: COMMIT_ANIMATION_NAME });
     });
-    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes", "keyboard");
   });
 
   it("ignores further keypresses while committing is already set", async () => {
@@ -109,7 +109,7 @@ describe("RatingGroup — keyboard → commit-animation → onRating", () => {
     act(() => {
       fireEvent.animationEnd(yesBtn, { animationName: COMMIT_ANIMATION_NAME });
     });
-    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes", "keyboard");
   });
 });
 
@@ -123,7 +123,7 @@ describe("RatingGroup — mouse click vs keyboard activation", () => {
       fireEvent.click(yesBtn, { detail: 1 });
     });
 
-    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes", "mouse");
     expect(yesBtn.className).not.toContain(COMMIT_ANIMATION_NAME);
   });
 
@@ -144,7 +144,7 @@ describe("RatingGroup — mouse click vs keyboard activation", () => {
     act(() => {
       fireEvent.animationEnd(yesBtn, { animationName: COMMIT_ANIMATION_NAME });
     });
-    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(onRating).toHaveBeenCalledExactlyOnceWith("yes", "keyboard");
   });
 
   it("while committing, a second click is ignored", async () => {
@@ -507,16 +507,18 @@ describe("QuestionCard — keyboard interaction with the note textarea", () => {
     await waitFor(() => expect(onAdvance).toHaveBeenCalledTimes(1));
   });
 
-  it("Cmd+Enter is inert before a rating is committed", () => {
+  it("Cmd+Enter pre-rating focuses the first rating button instead of being silent", () => {
     const { onAdvance } = renderCard({
       question: makeQuestion({ notePrompt: "what works" }),
-      // no existingAnswer — primary Next is disabled, no submit handler attached.
+      // no existingAnswer — primary Next is disabled, no commit yet.
     });
     const textarea = screen.getByRole("textbox");
     act(() => {
       fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
     });
     expect(onAdvance).not.toHaveBeenCalled();
+    // Focus moved to the yes button so the user has a clear next step.
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: /yes/i }));
   });
 
   it("plain Enter inside the textarea does not advance — it's reserved for newlines", () => {
@@ -863,5 +865,75 @@ describe("QuestionCard — help popover", () => {
       window.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keyboard discoverability — auto-focus textarea on keyboard rating commit,
+// type-first → rate → advance, etc. The advance rule lives in
+// advanceFromRating; the source flag is plumbed through RatingGroup.
+// ---------------------------------------------------------------------------
+
+describe("QuestionCard — keyboard rating commit auto-focuses the textarea", () => {
+  it("keyboard-source rating commit on a notePrompt question moves focus to the textarea", async () => {
+    const { onCommit } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    // Keyboard activation path: click with detail === 0 → animation → commit.
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 0 });
+    });
+    act(() => {
+      fireEvent.animationEnd(yesBtn, { animationName: COMMIT_ANIMATION_NAME });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    expect(document.activeElement).toBe(screen.getByRole("textbox"));
+  });
+
+  it("mouse-source rating commit does NOT yank focus to the textarea", async () => {
+    const { onCommit } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    // Touch / mouse users get the keyboard pop-up dodge — focus stays put.
+    expect(document.activeElement).not.toBe(screen.getByRole("textbox"));
+  });
+});
+
+describe("QuestionCard — type-first → rate → advance", () => {
+  it("typing in the textarea then pressing a rating advances immediately (no manual Save & next)", async () => {
+    const { onCommit, onAdvance } = renderCard({
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const textarea = screen.getByRole("textbox");
+    act(() => {
+      fireEvent.change(textarea, { target: { value: "before rating" } });
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    // The user typed first — they're done. Advance.
+    expect(onAdvance).toHaveBeenCalledTimes(1);
+  });
+
+  it("rehydrated note (no fresh typing) + rating change still suppresses advance", async () => {
+    const { onCommit, onAdvance } = renderCard({
+      existingAnswer: { rating: "maybe", note: "saved earlier" },
+      question: makeQuestion({ notePrompt: "what works" }),
+    });
+    const yesBtn = screen.getByRole("radio", { name: /yes/i });
+    act(() => {
+      fireEvent.click(yesBtn, { detail: 1 });
+    });
+    await waitFor(() => expect(onCommit).toHaveBeenCalled());
+    // Draft equals existing note — no fresh typing — give the user space to edit.
+    expect(onAdvance).not.toHaveBeenCalled();
   });
 });

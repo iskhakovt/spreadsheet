@@ -1,11 +1,12 @@
 import type { Answer, CategoryData, Rating } from "@spreadsheet/shared";
 import { ChevronLeft, ChevronRight, HelpCircle, Pencil } from "lucide-react";
-import { type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { SyncIndicator } from "../components/SyncIndicator.js";
 import type { QuestionScreen } from "../lib/build-screens.js";
 import { cn } from "../lib/cn.js";
+import { modKey, useHasKeyboard } from "../lib/keyboard-platform.js";
 import { UI } from "../lib/strings.js";
 import { type Variant, variantStyles } from "../lib/variant-styles.js";
 
@@ -85,6 +86,7 @@ export function QuestionCard({
   onSync,
   onSummary,
 }: Readonly<QuestionCardProps>) {
+  const hasKeyboard = useHasKeyboard();
   const category = categoryMap[screen.categoryId];
   const catQuestionScreens = allQuestionScreens.filter((s) => s.categoryId === screen.categoryId);
   const posInCategory = catQuestionScreens.indexOf(screen) + 1;
@@ -95,6 +97,11 @@ export function QuestionCard({
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const helpPopoverRef = useRef<HTMLDivElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
+
+  // Refs threaded through children for keyboard-flow focus moves:
+  // rating commit → focus textarea, Cmd+Enter pre-rating → focus first rating.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const firstRatingRef = useRef<HTMLButtonElement>(null);
 
   // Note state — local while editing, debounced into onCommit. The textarea
   // is reseeded from existingAnswer when the user navigates between questions
@@ -178,12 +185,20 @@ export function QuestionCard({
   // briefly read stale answers (the original saveAnswer had a microtask
   // yield via `await encodeValue(...)` between setAnswer and setIndex,
   // which we preserve here).
+  // Advance when there's no note section, or when the user typed before
+  // rating (their workflow is done — `noteDirty` is computed above).
+  // Otherwise stay so they can type; for keyboard commits, move focus into
+  // the textarea so they don't have to Tab to find it.
   const advanceFromRating = useCallback(
-    async (rating: Rating) => {
+    async (rating: Rating, source: "keyboard" | "mouse") => {
       await onCommit({ rating, note: trimNote(noteDraft) });
-      if (!noteVisible) onAdvance();
+      if (!noteVisible || noteDirty) {
+        onAdvance();
+      } else if (source === "keyboard") {
+        textareaRef.current?.focus();
+      }
     },
-    [noteDraft, noteVisible, onCommit, onAdvance],
+    [noteDraft, noteVisible, noteDirty, onCommit, onAdvance],
   );
 
   const handleNext = useCallback(async () => {
@@ -196,6 +211,17 @@ export function QuestionCard({
     }
     onAdvance();
   }, [existingAnswer, noteDraft, onCommit, onAdvance]);
+
+  // Cmd/Ctrl+Enter from the textarea. With a rating already in place, behaves
+  // like Save & next. Without a rating, focuses the first rating button so
+  // the user has a clear next step instead of a silent no-op.
+  const handleCmdEnter = useCallback(() => {
+    if (existingAnswer) {
+      void handleNext();
+    } else {
+      firstRatingRef.current?.focus();
+    }
+  }, [existingAnswer, handleNext]);
 
   const handleSkip = useCallback(() => {
     onAdvance();
@@ -273,19 +299,40 @@ export function QuestionCard({
       </div>
       {/* Answer controls — RatingGroup owns its keyboard listener locally
           (scoped by mount) and its commit animation state (local useState). */}
-      <RatingGroup existingAnswer={existingAnswer} onRating={advanceFromRating} />
+      <RatingGroup existingAnswer={existingAnswer} onRating={advanceFromRating} firstButtonRef={firstRatingRef} />
 
       {/* Note section — visible when notePrompt is set on this question, the
           user already has a note, or they tapped "+ Add a note". Stays open
-          across rating commits in Layout B (auto-advance suppressed). */}
+          across rating commits in Layout B (auto-advance suppressed).
+
+          The keyboard hint below it (focus-within only) advertises the
+          ⌘+Enter shortcut: jumps to the rating buttons pre-rate, advances
+          post-rate. Slot height is reserved so showing/hiding the hint
+          doesn't shift the layout. */}
       {noteVisible && (
-        <NoteSection
-          key={`note-${screen.key}`}
-          notePrompt={notePrompt}
-          value={noteDraft}
-          onChange={setNoteDraft}
-          onSubmit={existingAnswer ? handleNext : undefined}
-        />
+        // `group` exists solely to scope `group-focus-within` to the textarea below.
+        // Don't add other focusable children here — they'd unintentionally show the hint.
+        <div className="group">
+          <NoteSection
+            key={`note-${screen.key}`}
+            textareaRef={textareaRef}
+            notePrompt={notePrompt}
+            value={noteDraft}
+            onChange={setNoteDraft}
+            onCmdEnter={handleCmdEnter}
+          />
+          {hasKeyboard && (
+            <div
+              className="min-h-[1.4rem] pt-1.5 text-[11px] text-center text-text-muted/55 leading-none opacity-0 transition-opacity duration-150 group-focus-within:opacity-100"
+              aria-hidden="true"
+            >
+              <kbd className="inline-flex items-center justify-center font-mono text-[10px] leading-[8px] align-middle min-w-[16px] h-[16px] p-1 rounded bg-surface border border-border text-text">
+                {modKey()}+↵
+              </kbd>{" "}
+              {existingAnswer ? "save & next" : "jump to the rating"}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Primary Next — only when the note section is visible (Layout B).
@@ -361,16 +408,18 @@ export function QuestionCard({
 
 /** Inline note input — pencil icon left, textarea right, dashed peach hairline above. */
 function NoteSection({
+  textareaRef,
   notePrompt,
   value,
   onChange,
-  onSubmit,
+  onCmdEnter,
 }: Readonly<{
+  textareaRef?: RefObject<HTMLTextAreaElement | null>;
   notePrompt: string | null;
   value: string;
   onChange: (next: string) => void;
-  /** Cmd/Ctrl+Enter from the textarea. Undefined when no rating yet (no answer to commit). */
-  onSubmit?: () => void;
+  /** Cmd/Ctrl+Enter from the textarea. Always defined — handler decides what to do based on whether a rating exists. */
+  onCmdEnter: () => void;
 }>) {
   const id = useId();
   const placeholder = notePrompt ?? "A line or two, only if it helps.";
@@ -382,17 +431,17 @@ function NoteSection({
       <div className="flex items-start gap-2.5">
         <Pencil size={14} strokeWidth={1.5} className="shrink-0 mt-1 text-accent/60" aria-hidden="true" />
         <textarea
+          ref={textareaRef}
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            // Cmd/Ctrl+Enter inside the textarea → save & next. Plain Enter
-            // adds a newline (default). The submit handler is undefined when
-            // there's no rating to commit, so the shortcut is inert until
-            // the user has answered.
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+            // Cmd/Ctrl+Enter — Save & next when rated, otherwise hop focus
+            // to the rating buttons so the user has a visible next step.
+            // Plain Enter falls through to the browser default (newline).
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              onSubmit();
+              onCmdEnter();
             }
           }}
           placeholder={placeholder}
@@ -412,9 +461,12 @@ function NoteSection({
 export function RatingGroup({
   existingAnswer,
   onRating,
+  firstButtonRef,
 }: Readonly<{
   existingAnswer: Answer | undefined;
-  onRating: (r: Rating) => void;
+  onRating: (r: Rating, source: "keyboard" | "mouse") => void;
+  /** Exposed so the parent can focus the first rating from a Cmd+Enter pre-rating. */
+  firstButtonRef?: RefObject<HTMLButtonElement | null>;
 }>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
   const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
@@ -466,7 +518,7 @@ export function RatingGroup({
     if (e.detail === 0) {
       setCommitting(rating);
     } else {
-      onRating(rating);
+      onRating(rating, "mouse");
     }
   }
 
@@ -476,7 +528,7 @@ export function RatingGroup({
     if (e.animationName !== COMMIT_ANIMATION_NAME) return;
     if (committing !== rating) return;
     setCommitting(undefined);
-    onRating(rating);
+    onRating(rating, "keyboard");
   }
 
   return (
@@ -492,6 +544,7 @@ export function RatingGroup({
           key={opt.rating}
           ref={(el) => {
             refs.current[i] = el;
+            if (i === 0 && firstButtonRef) firstButtonRef.current = el;
           }}
           type="button"
           role="radio"
@@ -525,22 +578,51 @@ export function RatingGroup({
  * `UI.intro.answers` so the language matches the intro screen verbatim —
  * recall, not re-explanation.
  */
-const RATING_HELP: { key: string; label: string; desc: string; labelClass: string }[] = [
-  { key: "yes", label: UI.intro.answers.yes[0], desc: UI.intro.answers.yes[1], labelClass: "text-accent" },
+interface HelpItem {
+  key: string;
+  label: string;
+  desc: string;
+  labelClass: string;
+  /** Keyboard shortcut(s) that commit this option, surfaced in the popover's Keyboard section. */
+  shortcuts: string[];
+}
+
+const RATING_HELP: HelpItem[] = [
+  {
+    key: "yes",
+    label: UI.intro.answers.yes[0],
+    desc: UI.intro.answers.yes[1],
+    labelClass: "text-accent",
+    shortcuts: ["1"],
+  },
   {
     key: "willing",
     label: UI.intro.answers.willing[0],
     desc: UI.intro.answers.willing[1],
     labelClass: "text-accent-light-dark",
+    shortcuts: ["2"],
   },
-  { key: "maybe", label: UI.intro.answers.maybe[0], desc: UI.intro.answers.maybe[1], labelClass: "text-text" },
+  {
+    key: "maybe",
+    label: UI.intro.answers.maybe[0],
+    desc: UI.intro.answers.maybe[1],
+    labelClass: "text-text",
+    shortcuts: ["3"],
+  },
   {
     key: "fantasy",
     label: UI.intro.answers.fantasy[0],
     desc: UI.intro.answers.fantasy[1],
     labelClass: "text-text italic",
+    shortcuts: ["4"],
   },
-  { key: "no", label: UI.intro.answers.no[0], desc: UI.intro.answers.no[1], labelClass: "text-text-muted" },
+  {
+    key: "no",
+    label: UI.intro.answers.no[0],
+    desc: UI.intro.answers.no[1],
+    labelClass: "text-text-muted",
+    shortcuts: ["5"],
+  },
 ];
 
 function HelpPopover({
@@ -552,6 +634,14 @@ function HelpPopover({
   closeRef?: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }>) {
+  const hasKeyboard = useHasKeyboard();
+  // Three-column when the kbd column is rendered, two-column otherwise.
+  // The kbd column uses minmax so it stays tight for single-key rows (`1`)
+  // but grows for multi-glyph cells (`Ctrl+↵`) without overflowing into
+  // the label column.
+  const rowCls = hasKeyboard
+    ? "grid grid-cols-[minmax(3.6rem,max-content)_4.2rem_1fr] gap-3 items-center text-[13px] leading-snug"
+    : "grid grid-cols-[4.2rem_1fr] gap-3 items-center text-[13px] leading-snug";
   return (
     <div
       ref={ref}
@@ -559,7 +649,7 @@ function HelpPopover({
       aria-label="Rating glossary"
       // max-w caps the popover at the viewport's inner width minus a margin,
       // safety net if the card padding ever tightens on the smallest devices.
-      className="absolute top-9 right-0 w-72 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
+      className="absolute top-9 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white border border-border/70 rounded-[var(--radius-md)] shadow-warm-lg p-4 z-10 animate-in"
     >
       <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85">
@@ -575,14 +665,50 @@ function HelpPopover({
           ×
         </button>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2">
         {RATING_HELP.map((item) => (
-          <li key={item.key} className="grid grid-cols-[88px_1fr] gap-3 text-[13px] leading-snug">
-            <span className={cn("font-semibold", item.labelClass)}>{item.label}</span>
+          <li key={item.key} className={rowCls}>
+            {hasKeyboard && (
+              <span className="flex items-center gap-0.5">
+                {item.shortcuts.map((s, i) => (
+                  <span key={s} className="contents">
+                    {i > 0 && <span className="text-text-muted/60 text-[0.72rem] mx-0.5">/</span>}
+                    <Kbd>{s}</Kbd>
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className={cn("font-medium", item.labelClass)}>{item.label}</span>
             <span className="text-text-muted">{item.desc}</span>
           </li>
         ))}
       </ul>
+
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted/85 mt-5 mb-2.5">Notes</p>
+      <p className="text-[13px] text-text-muted leading-relaxed mb-3">
+        Optional. Some questions show a prompt and reveal the field — for the rest,{" "}
+        <em className="not-italic text-text">+ Add a note</em> opens it. Only your group sees them
+      </p>
+      {hasKeyboard && (
+        <div className={rowCls}>
+          <span className="flex items-center">
+            <Kbd>{modKey()}</Kbd>
+            <span className="text-text-muted/60 text-[0.72rem] mx-1">+</span>
+            <Kbd>↵</Kbd>
+          </span>
+          <span className="font-medium">Save &amp; next</span>
+          <span className="text-text-muted">From inside the note</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Kbd({ children }: Readonly<{ children: ReactNode }>) {
+  // line-height < font-size collapses descender slack; fixed h + min-w gives square caps.
+  return (
+    <kbd className="inline-flex items-center justify-center font-mono text-[11px] leading-[9px] align-middle min-w-[18px] h-[18px] p-1 rounded bg-surface border border-border text-text">
+      {children}
+    </kbd>
   );
 }
