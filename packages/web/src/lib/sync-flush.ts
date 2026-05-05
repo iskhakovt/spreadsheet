@@ -58,7 +58,7 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
   // tells the server "I've seen your latest state, apply these."
   //
   // `mergeAfterRejection` is the same merge that runs on the bootstrap
-  // path (`useSelfJournal`) and the WS echo path (`onSelfJournalChange`).
+  // path (`useSelfJournal`) and the SSE echo path (`onSelfJournalChange`).
   // Three call sites, one rule: server values win for keys without a
   // pending edit; outbox wins for keys with one. The cache slot picks
   // up this localStorage write via its own subscription's onData when

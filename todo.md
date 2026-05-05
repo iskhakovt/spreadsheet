@@ -2,7 +2,6 @@
 
 ## Next
 
-- [ ] `p2` Migrate dev to `@hono/vite-dev-server` so `/p/:token` runs the real Hono handler and sets the session cookie. Currently dev's two-process split (Vite + `tsx watch`) leaves `/p/:token` unproxied, so create-group lands on "Link not found".
 - [ ] `p2` Enable HTTPS+HTTP/2 in dev via `@vitejs/plugin-basic-ssl` so browser↔Vite multiplexes streams locally, mirroring prod. Without this, three concurrent SSE streams + HTTP traffic can hit the 6-per-origin HTTP/1.1 cap if a developer opens 3+ same-origin tabs (rare in dev but worth covering). The deploy.md "Real-time subscriptions (SSE)" section already documents the HTTP/2-at-the-edge prod requirement.
 - [ ] `p3` E2E for the SIGTERM → reconnect path: kill the server mid-stream, restart, assert the next `tracked()` cursor is honored and the client receives the catch-up backfill. Currently asserted only by reasoning.
 - [ ] `p2` Investigate local `pnpm test:e2e` flakiness — different runs produce different sets of failures (3, 10, 12 across runs on the same code), with characteristic "Target page, context or browser has been closed" timeouts. Affects both `main` and feature branches; CI Docker image runs are clean. Likely resource contention on the local Chromium pool or fixture lifecycle. Fix so local pre-push e2e is a usable signal.

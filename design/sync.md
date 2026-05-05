@@ -388,7 +388,7 @@ TanStack Query cache (in-memory + persisted via the write-through above):
   groups.status                — group membership, completion state, progress
   questions.list               — question bank (staleTime: Infinity, fetched once)
   ["sync", "self-journal"]     — { answers, cursor } — the caller's own answers,
-                                  fed by sync.selfJournal (HTTP) + sync.onSelfJournalChange (WS)
+                                  fed by sync.selfJournal (HTTP) + sync.onSelfJournalChange (SSE)
   ["sync", "journal", "derived"] — group-wide journal for Comparison, fed by sync.journal +
                                     sync.onJournalChange. Only populated post-allComplete.
 ```

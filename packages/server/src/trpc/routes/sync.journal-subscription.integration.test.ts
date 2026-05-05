@@ -115,7 +115,7 @@ function journalSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | nu
 /**
  * tRPC's `tracked(id, data)` returns a branded tuple `[id, data, symbol]`.
  * When yielded from an async generator and iterated by `createCaller`, the
- * consumer sees this tuple directly — it's the HTTP/WS adapter that unwraps
+ * consumer sees this tuple directly — it's the SSE adapter that unwraps
  * to `{ id, data }` for the wire format. These helpers destructure the tuple
  * back into a usable shape for the integration tests.
  */

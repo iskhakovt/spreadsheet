@@ -1,5 +1,9 @@
 /**
- * Dev infrastructure script — starts Postgres, runs migrations + seed, starts server + Vite.
+ * Dev infrastructure script — starts Postgres, runs migrations + seed, starts
+ * Vite. Vite hosts the Hono server in-process via the spreadsheetDev plugin
+ * + @hono/vite-dev-server (see packages/web/vite.config.ts), so /p/:token
+ * runs the real bootstrap handler — no proxy, no second tsx-watch process.
+ *
  * Run via: pnpm dev
  */
 
@@ -9,6 +13,7 @@ import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const SERVER_DIR = resolve(ROOT, "packages/server");
+const WEB_DIR = resolve(ROOT, "packages/web");
 
 async function main() {
   console.log("Starting Postgres...");
@@ -20,35 +25,28 @@ async function main() {
   const url = container.getConnectionUri();
   console.log(`Postgres ready: ${url}`);
 
-  const serverEnv = {
+  const env = {
     ...process.env,
     DATABASE_URL: url,
     STOKEN_SECRET: "dev-secret",
-    STATIC_ROOT: resolve(ROOT, "packages/web/dist"),
   };
 
-  // Migrate + seed (once, before starting server)
+  // Migrate + seed (once, before Vite picks up the DB pool)
   console.log("Running setup...");
-  execSync("pnpm exec tsx src/main.ts setup", { cwd: SERVER_DIR, env: serverEnv, stdio: "inherit" });
+  execSync("pnpm exec tsx src/main.ts setup", { cwd: SERVER_DIR, env, stdio: "inherit" });
 
-  // Start server
-  console.log("Starting server...");
-  const server = spawn("pnpm", ["exec", "tsx", "watch", "src/index.ts"], {
-    cwd: SERVER_DIR,
-    env: serverEnv,
+  // Vite owns everything from here: serves the SPA, hosts Hono in-process
+  // (every transport — queries, mutations, SSE subscriptions — rides through
+  // the same /api/trpc/* fetch handler). No second process.
+  console.log("Starting Vite (with in-process Hono)...");
+  const vite = spawn("pnpm", ["exec", "vite"], {
+    cwd: WEB_DIR,
+    env,
     stdio: "inherit",
   });
 
-  // Start web dev server (proxy returns 503 while backend is starting)
-  const web = spawn("pnpm", ["exec", "vite"], {
-    cwd: resolve(ROOT, "packages/web"),
-    stdio: "inherit",
-  });
-
-  // Handle shutdown
   function cleanup() {
-    server.kill();
-    web.kill();
+    vite.kill();
     // Container stays running (withReuse) — fast restart next time
     process.exit(0);
   }
@@ -56,9 +54,9 @@ async function main() {
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 
-  server.on("exit", (code) => {
+  vite.on("exit", (code) => {
     if (code !== null && code !== 0) {
-      console.error(`Server exited with code ${code}`);
+      console.error(`Vite exited with code ${code}`);
       cleanup();
     }
   });

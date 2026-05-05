@@ -107,7 +107,7 @@ async function extractKey(op: string, groupKey?: string | null): Promise<string 
  *     the client hadn't seen.
  *   - Bootstrap on every play-page mount (`useSelfJournal` queryFn):
  *     hydrate from the per-person journal delta.
- *   - WS echo (`onSelfJournalChange.onData`): keep the cache live.
+ *   - SSE echo (`onSelfJournalChange.onData`): keep the cache live.
  *
  * Rules:
  * - For keys in server entries AND in pending ops: keep local answer
