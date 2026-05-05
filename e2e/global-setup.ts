@@ -41,7 +41,10 @@ async function setupDocker(imageName: string) {
   // Shared network so the app container can reach Postgres by alias
   network = await new Network().start();
 
-  container = await new PostgreSqlContainer("postgres:17").withNetwork(network).withNetworkAliases("pg").start();
+  container = await new PostgreSqlContainer("public.ecr.aws/docker/library/postgres:18")
+    .withNetwork(network)
+    .withNetworkAliases("pg")
+    .start();
 
   // Use URL constructor to properly encode username/password
   const dbUrl = new URL("", "postgresql://");
@@ -131,7 +134,7 @@ async function setupLocal() {
     console.log(`[global-setup] build done in ${Date.now() - buildStart}ms`);
   }
 
-  container = await new PostgreSqlContainer("postgres:17").start();
+  container = await new PostgreSqlContainer("public.ecr.aws/docker/library/postgres:18").start();
   const url = container.getConnectionUri();
 
   const serverDir = resolve(import.meta.dirname, "../packages/server");

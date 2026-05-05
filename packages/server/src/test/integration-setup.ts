@@ -5,7 +5,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 let container: StartedPostgreSqlContainer;
 
 export async function setup() {
-  container = await new PostgreSqlContainer("postgres:17").start();
+  container = await new PostgreSqlContainer("public.ecr.aws/docker/library/postgres:18").start();
   const url = container.getConnectionUri();
   process.env.DATABASE_URL = url;
   process.env.STOKEN_SECRET = "integration-test-secret";
