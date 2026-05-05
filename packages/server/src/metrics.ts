@@ -1,8 +1,15 @@
-import { Counter, collectDefaultMetrics, Histogram, Registry } from "prom-client";
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from "prom-client";
 
 export const registry = new Registry();
 
 collectDefaultMetrics({ register: registry });
+
+export const sseConnectionsGauge = new Gauge({
+  name: "sse_connections_active",
+  help: "Active SSE subscription streams, labeled by tRPC procedure path",
+  labelNames: ["procedure"],
+  registers: [registry],
+});
 
 export const httpRequestDuration = new Histogram({
   name: "http_request_duration_seconds",
