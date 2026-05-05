@@ -5,8 +5,6 @@
 # warning into a CI error.
 set -euo pipefail
 
-# `if` exempts the pipe from set -e, and pipefail makes the test true only when
-# both greps succeed (= at least one offending export survived the filter).
 if offenders=$(grep -rnE '^export ' packages/web/src/routes --include='*.ts' --include='*.tsx' \
     | grep -vE ':[0-9]+:export (const Route |type |interface )'); then
   echo "Route files may only export 'Route' (or types). Move components/utilities elsewhere:" >&2
