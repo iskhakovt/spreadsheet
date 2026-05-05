@@ -43,7 +43,7 @@ const loggingMiddleware = t.middleware(async ({ ctx, path, type, next }) => {
  * Bumps `sse_connections_active{procedure}` for every open subscription stream.
  *
  * Two decrement paths so the gauge always returns to zero:
- *   • `signal.addEventListener("abort", …)` — fires the moment the request's
+ *   • `signal.addEventListener("abort", ...)` — fires the moment the request's
  *     AbortSignal trips (client disconnect, page close, server shutdown). This
  *     does NOT depend on the caller draining the iterator, so the gauge
  *     decrements even if the consumer simply abandons the stream.
