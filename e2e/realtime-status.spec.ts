@@ -7,8 +7,8 @@ import {
   WS_PERF_TIMEOUT,
 } from "./helpers.js";
 
-test.describe("realtime status (WebSocket)", () => {
-  test("Alice's waiting screen updates instantly when Bob completes (WS path)", async ({ alice, bob }) => {
+test.describe("realtime status", () => {
+  test("Alice's waiting screen updates instantly when Bob completes", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     // Alice answers and marks done

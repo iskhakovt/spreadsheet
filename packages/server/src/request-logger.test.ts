@@ -37,7 +37,7 @@ describe("sanitizePath", () => {
   it("does not touch the API path (auth travels via X-Session-Key + cookie, not in the URL)", () => {
     expect(sanitizePath("/api/trpc/groups.create")).toBe("/api/trpc/groups.create");
     expect(sanitizePath("/api/trpc/sync.push")).toBe("/api/trpc/sync.push");
-    expect(sanitizePath("/api/trpc-ws")).toBe("/api/trpc-ws");
+    expect(sanitizePath("/api/trpc/groups.onStatus")).toBe("/api/trpc/groups.onStatus");
   });
 
   it("does not touch the health endpoint", () => {

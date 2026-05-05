@@ -8,7 +8,7 @@ The server stores an append-only journal of operations per person. Each operatio
 
 Current answer state is derived by replaying journal entries: last operation for each key wins.
 
-The journal is the source of truth for answers. Clients hold a TanStack-Query-backed cache of the materialized answer map for the authed person, hydrated from the server on every play-page mount and kept live via WebSocket subscription. localStorage is a write-through persister for instant first paint on subsequent reloads, plus the outbox of operations that haven't reached the server yet. There is no "device-local answers" model — the journal is canonical and any device with the person's token + group key reaches the same state.
+The journal is the source of truth for answers. Clients hold a TanStack-Query-backed cache of the materialized answer map for the authed person, hydrated from the server on every play-page mount and kept live via SSE subscription (`httpSubscriptionLink`). localStorage is a write-through persister for instant first paint on subsequent reloads, plus the outbox of operations that haven't reached the server yet. There is no "device-local answers" model — the journal is canonical and any device with the person's token + group key reaches the same state.
 
 ## Data Model
 
@@ -257,11 +257,11 @@ Used by `Comparison` on `/results` to compute pairwise matches. Gated on the "al
 
 In every subscription resolver, the listener attaches BEFORE the backfill query so events emitted during the round-trip are buffered in the iterable, not lost. This applies symmetrically to both `journalEvents` and `selfJournalEvents`. Covered by integration tests that race a `push` against a freshly-opened subscription.
 
-### `wsLink` reconnect
+### `httpSubscriptionLink` reconnect
 
-- Auto-stamps the latest `lastEventId` onto the pending subscription message after every yield.
-- Auto-reconnects with exponential backoff on disconnect.
-- Re-sends the stored subscription message on reconnect, so the server resumes from the cursor.
+- Each `tracked(id, data)` yield becomes the SSE event id on the wire.
+- The browser's EventSource auto-reconnects with exponential backoff and sends the most recent id back as the `Last-Event-ID` header on the new request.
+- tRPC surfaces it as `input.lastEventId`, so the server's generator resumes from the cursor and replays entries > id via the backfill query.
 
 **Lossless reconnect recovery.** Events lost during a disconnect window are replayed by the server's backfill query on the next reconnect. No polling needed, no out-of-order delivery possible.
 

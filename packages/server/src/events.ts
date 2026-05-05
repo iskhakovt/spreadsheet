@@ -5,7 +5,7 @@ import { EventEmitter } from "node:events";
  *
  * Mutating tRPC procedures emit on this bus via {@link emitGroupUpdate}, and
  * the `groups.onStatus` subscription listens for events keyed by group id and
- * yields fresh per-subscriber status to connected WebSocket clients.
+ * yields fresh per-subscriber status to connected SSE clients.
  */
 export const groupEvents = new EventEmitter();
 groupEvents.setMaxListeners(0);

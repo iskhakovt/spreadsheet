@@ -1,14 +1,8 @@
-import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from "prom-client";
+import { Counter, collectDefaultMetrics, Histogram, Registry } from "prom-client";
 
 export const registry = new Registry();
 
 collectDefaultMetrics({ register: registry });
-
-export const wsConnectionsGauge = new Gauge({
-  name: "ws_connections_active",
-  help: "Active WebSocket connections",
-  registers: [registry],
-});
 
 export const httpRequestDuration = new Histogram({
   name: "http_request_duration_seconds",

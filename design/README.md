@@ -11,7 +11,7 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 | Language | TypeScript (full stack) |
 | Runtime | Node.js (container) |
 | Web framework | Hono |
-| API | tRPC v11 (HTTP + WebSocket, end-to-end type safety) |
+| API | tRPC v11 (HTTP, queries/mutations + Server-Sent Events for subscriptions, end-to-end type safety) |
 | ORM | Drizzle |
 | Validation | Zod |
 | Database | Postgres (prod + dev), PGlite (unit tests) |
@@ -63,19 +63,21 @@ In encrypted mode, the group key lives in the URL fragment (`#key=...`) and is c
 
 ### Real-time delivery
 
-Three WebSocket subscriptions layered over three server-side event buses ([server.md](server.md#event-buses)):
+Three Server-Sent Events subscriptions over `httpSubscriptionLink`, layered on three server-side event buses ([server.md](server.md#event-buses)). Subscriptions ride on the same `/api/trpc` endpoint as queries/mutations — there is no separate WebSocket server.
 
 - **`groups.onStatus`** delivers full status snapshots. Snapshot-based, so reconnect just re-queries current state.
 - **`sync.onJournalChange`** delivers group-wide append-only journal entries using tRPC v11's `tracked()` primitive. Gated on the all-complete precondition. Drives the live updates on `/results`.
-- **`sync.onSelfJournalChange`** delivers the caller's own append-only journal entries with the same `tracked()` resume semantics. Ungated. Drives the always-live answers cache (`useSelfJournal`) and cross-device hydration: a write on one device propagates to another device opened with the same person token within the WS round-trip.
+- **`sync.onSelfJournalChange`** delivers the caller's own append-only journal entries with the same `tracked()` resume semantics. Ungated. Drives the always-live answers cache (`useSelfJournal`) and cross-device hydration: a write on one device propagates to another device opened with the same person token within the SSE round-trip.
 
-For both `tracked()` subscriptions, `wsLink` stamps the latest `lastEventId` onto the pending subscription message and re-sends it on reconnect; the server's generator queries entries > cursor and replays them. Lossless by construction.
+For both `tracked()` subscriptions, the bigserial entry id flows through the SSE event id. The browser's EventSource sends the most recent id back as `Last-Event-ID` on reconnect; tRPC surfaces it as `input.lastEventId`, and the server's generator queries entries > cursor and replays them. Lossless by construction.
 
-No polling fallback. Recovery relies on `wsLink` auto-reconnect + `keepAlive` ping/pong (30s ping, 5s pong) + `tracked()` resume. If the WebSocket is persistently broken the app degrades to "reload to fix".
+No polling fallback. Recovery relies on `httpSubscriptionLink` auto-reconnect + `tracked()` resume + server-side SSE pings (`sse.ping.intervalMs: 30_000`, client `reconnectAfterInactivityMs: 35_000`). If the stream is persistently broken the app degrades to "reload to fix".
+
+Auth on subscriptions: EventSource cannot set custom headers, so the `sessionKey` (fnv1a hash of the token, non-secret) travels via tRPC `connectionParams` (URL query string) instead of the `X-Session-Key` header used by queries/mutations. The token itself stays in the httpOnly cookie, which EventSource sends automatically on same-origin requests. `createContext` reads either source.
 
 ### Client data
 
-All server state flows through TanStack Query via `@trpc/tanstack-react-query`. Reads use `useSuspenseQuery` with a top-level `<Suspense>` boundary. Writes use `useMutation` with `onSuccess: invalidateQueries` — mutations return the invalidation promise so they stay pending until the refetch completes. WS subscriptions use `useSubscription` with `onData` callbacks that `setQueryData` into the same cache entries the HTTP queries populate.
+All server state flows through TanStack Query via `@trpc/tanstack-react-query`. Reads use `useSuspenseQuery` with a top-level `<Suspense>` boundary. Writes use `useMutation` with `onSuccess: invalidateQueries` — mutations return the invalidation promise so they stay pending until the refetch completes. SSE subscriptions use `useSubscription` with `onData` callbacks that `setQueryData` into the same cache entries the HTTP queries populate.
 
 ### Self-state and storage
 

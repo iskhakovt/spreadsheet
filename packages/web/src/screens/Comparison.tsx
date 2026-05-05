@@ -135,10 +135,11 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * 4. A `useEffect` keyed on `journal.entries` runs async decryption and
  *    replay per member, producing `memberAnswers` which drives the UI.
  *
- * Reconnect is lossless by construction: wsLink auto-reconnects and
- * re-sends the subscription message with the latest tracked id, so the
- * server's generator replays entries > lastEventId. See Step 4's
- * sync.journal-subscription.integration.test.ts for the full contract.
+ * Reconnect is lossless by construction: `httpSubscriptionLink` reopens the
+ * EventSource with `Last-Event-ID` set to the latest tracked id, which the
+ * server reads as `input.lastEventId` and uses to replay entries > that id.
+ * See Step 4's sync.journal-subscription.integration.test.ts for the full
+ * contract.
  */
 export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<ComparisonProps>) {
   // React Compiler reports a false-positive "Cannot access refs during render"

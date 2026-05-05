@@ -95,14 +95,14 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
  * outbox so unsent edits aren't clobbered.
  *
  * Pure (apart from decrypt — async via `replayJournal`). Used both by the
- * initial query and by the WS subscription's `onData`.
+ * initial query and by the SSE subscription's `onData`.
  *
  * `prev` is what the caller believes is the current local state. In
  * practice that's `getAnswers()` (localStorage write-through, includes
  * the user's most recent optimistic edits via `setAnswer`) rather than
  * the cache slot — the cache slot can lag behind by one render when an
- * optimistic write happens between the slot's last update and the WS
- * echo of the same write.
+ * optimistic write happens between the slot's last update and the
+ * subscription echo of the same write.
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
@@ -141,16 +141,17 @@ export function useSelfJournal(): SelfJournalCache {
 
   // Capture the initial lastEventId once on mount with `useState`'s lazy
   // initializer. Recomputing it from `data.cursor` on every render would
-  // change the value on every WS delivery (because onData calls
-  // setQueryData which updates `data`), and useSubscription would tear
-  // down + reconnect the WS each time, causing a backfill round-trip
-  // for entries we just received. tRPC v11's `wsLink` already auto-stamps
-  // the latest tracked id onto the in-flight subscription message, so we
+  // change the value on every delivery (because onData calls setQueryData
+  // which updates `data`), and useSubscription would tear down + reconnect
+  // the EventSource each time, causing a backfill round-trip for entries
+  // we just received. tRPC v11's `httpSubscriptionLink` already auto-stamps
+  // the latest tracked id onto the EventSource (it surfaces as the SSE event
+  // id, which the browser sends back as `Last-Event-ID` on reconnect), so we
   // only need to pass the cursor at mount.
   //
-  // Same pattern as Comparison.tsx: the tracked id seed for the WS resume
+  // Same pattern as Comparison.tsx: the tracked id seed for the SSE resume
   // protocol comes from the suspense backfill once, after which the
-  // wsLink owns it.
+  // EventSource owns it.
   const [initialLastEventId] = useState<string | undefined>(() =>
     data.cursor !== null ? String(data.cursor) : undefined,
   );
@@ -161,7 +162,7 @@ export function useSelfJournal(): SelfJournalCache {
   // permanently from the cache. Chain the applies through a single
   // promise so each delta is applied on top of the previous one.
   //
-  // Bootstrap-vs-WS ordering is structural: `useSubscription` only opens
+  // Bootstrap-vs-stream ordering is structural: `useSubscription` only opens
   // after the suspense fetch resolves, so the queryFn's localStorage
   // writes always happen-before any onData callback. The chain below
   // only orders multiple onData callbacks against each other.

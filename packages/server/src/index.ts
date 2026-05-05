@@ -3,21 +3,19 @@ import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
-import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
-import { WebSocketServer } from "ws";
 import { createDatabase } from "./db/index.js";
 import { renderIndex } from "./index-html.js";
 import { type HonoLoggerEnv, logger } from "./logger.js";
-import { registry, wsConnectionsGauge } from "./metrics.js";
+import { registry } from "./metrics.js";
 import { outboundHandler } from "./outbound.js";
 import { requestLogger } from "./request-logger.js";
 import { makeSpaRoutes } from "./spa-routes.js";
 import { GroupStore } from "./store/groups.js";
 import { QuestionStore } from "./store/questions.js";
 import { SyncStore } from "./store/sync.js";
-import { createContext, createWSContext } from "./trpc/context.js";
+import { createContext } from "./trpc/context.js";
 import { appRouter } from "./trpc/router.js";
 
 logger.info("server starting");
@@ -76,7 +74,7 @@ app.use(
   trpcServer({
     endpoint: "/api/trpc",
     router: appRouter,
-    createContext: (_opts, c) => createContext(stores, c),
+    createContext: (opts, c) => createContext(stores, opts, c),
   }),
 );
 
@@ -185,49 +183,20 @@ metricsServer.on("error", (err) => {
   logger.error(err, "metrics server error");
 });
 
-// WebSocket: tRPC subscriptions over /api/trpc-ws on the same HTTP server.
-// `noServer: true` lets us pick which upgrade requests to handle so the rest
-// (e.g. Vite HMR in dev) fall through.
-const wss = new WebSocketServer({ noServer: true });
-
-const wssHandler = applyWSSHandler({
-  wss,
-  router: appRouter,
-  createContext: (opts) => createWSContext(stores, opts),
-  keepAlive: {
-    enabled: true,
-    pingMs: 30_000,
-    pongWaitMs: 5_000,
-  },
-});
-
-wss.on("connection", (ws) => {
-  wsConnectionsGauge.inc();
-  logger.debug("ws connection opened");
-  ws.on("close", () => {
-    wsConnectionsGauge.dec();
-    logger.debug("ws connection closed");
-  });
-});
-
-server.on("upgrade", (req, socket, head) => {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  if (url.pathname === "/api/trpc-ws") {
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit("connection", ws, req);
-    });
-  }
-  // Other upgrade paths are left untouched.
-});
+// Subscriptions ride on the same `/api/trpc/*` endpoint as queries/mutations
+// via tRPC v11's SSE transport (`httpSubscriptionLink` on the client). No
+// dedicated WebSocket server, no upgrade handling — the tRPC fetch adapter
+// returns a streaming `text/event-stream` response and Hono's compress
+// middleware skips that content type automatically.
 
 process.on("SIGTERM", () => {
   logger.info("SIGTERM received — shutting down");
-  wssHandler.broadcastReconnectNotification();
-  wss.close();
   metricsServer.close();
   // Close the DB pool *after* HTTP drains, so in-flight requests can finish
   // their queries. Closing earlier would tear sockets out from under handlers
-  // that are still running.
+  // that are still running. Open SSE streams close naturally when the server
+  // socket closes; clients reconnect to the new instance with their last
+  // `tracked()` cursor and replay anything they missed.
   server.close(async () => {
     logger.info("http server closed");
     try {

@@ -124,4 +124,4 @@ This keeps the built static bundle free of environment-specific values and lets 
 
 ## Graceful shutdown
 
-On `SIGTERM`, the server broadcasts a `reconnectNotification` over the WebSocket (tRPC `wsLink` handles this by reconnecting after a short delay to a replacement instance), closes the WS server, and then closes the HTTP server. Containers rolling during a deploy therefore don't drop live subscriptions.
+On `SIGTERM`, the server closes the metrics server and then the main HTTP server. Open SSE streams close naturally as the server socket drains; clients reconnect to the new instance with their last `tracked()` cursor in `Last-Event-ID`, and the procedure's backfill replays anything they missed during the changeover. Container roll = transient interruption, no data loss.

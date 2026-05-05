@@ -123,10 +123,11 @@ export const syncRouter = router({
    * Canonical pattern from the tRPC docs:
    * 1. Attach the event listener BEFORE the backfill query — anything emitted
    *    during the query is buffered in the iterable, not lost.
-   * 2. Backfill using the `lastEventId` cursor (the browser re-sends this
-   *    automatically on WS reconnect via wsLink).
-   * 3. Yield backfill entries as `tracked(id, data)` so the client's wsLink
-   *    advances its `lastEventId` cursor.
+   * 2. Backfill using the `lastEventId` cursor (the browser's EventSource
+   *    re-sends this automatically as the `Last-Event-ID` header on
+   *    SSE reconnect; tRPC surfaces it on the procedure input).
+   * 3. Yield backfill entries as `tracked(id, data)` so the SSE event id
+   *    advances and the next `Last-Event-ID` header carries the new cursor.
    * 4. Stream live emissions with the same `tracked()` envelope, deduping
    *    any overlap between the backfill query and the in-memory buffer.
    *

@@ -104,12 +104,10 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      // tRPC subscriptions over WebSocket — must come before /api so the more
-      // specific path matches first.
-      "/api/trpc-ws": {
-        target: "ws://localhost:8080",
-        ws: true,
-      },
+      // Single HTTP proxy covers everything: queries/mutations and SSE
+      // subscriptions (text/event-stream) all hit `/api/trpc/*`. node-http-proxy
+      // streams response bodies through unmodified, so SSE chunks flush as the
+      // server emits them.
       "/api": {
         target: "http://localhost:8080",
         configure: (proxy) => {

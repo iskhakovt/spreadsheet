@@ -97,7 +97,7 @@ Waiting room for non-admin users. Two states:
 - **"The group is being set up"** — admin hasn't marked ready yet. Shows member names.
 - **"Waiting for everyone to finish setting up"** — admin marked ready, but some members haven't picked anatomy. Shows per-member status (Ready / Setting up...).
 
-Auto-advances via universal guard when `group.isReady` becomes true. Updates arrive via the `groups.onStatus` WebSocket subscription — no polling.
+Auto-advances via universal guard when `group.isReady` becomes true. Updates arrive via the `groups.onStatus` SSE subscription — no polling.
 
 ### 7. Intro
 
@@ -178,7 +178,7 @@ Shows all answered questions grouped by category. Tap any answer to jump back an
 ### 12. Waiting
 
 After marking done. Shows member status list (Done / In progress).
-- Updates live via tRPC WebSocket subscription (`groups.onStatus`)
+- Updates live via tRPC SSE subscription (`groups.onStatus`)
 - Auto-redirects to Results when all complete (declarative route guard)
 - **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see the subsequent edits live via `sync.onJournalChange`; the editor's other devices (if any) see them via `sync.onSelfJournalChange`. Routes don't change because `isCompleted` is unchanged.
 
@@ -194,7 +194,7 @@ Available once all members mark complete. Grouped by category, sorted by match q
 | Both fantasy | Shared fantasy | Both fantasize |
 | Either said no | *Hidden* | Not shown |
 
-**Live updates**: if any group member edits an answer after marking complete, their changes propagate to everyone viewing `/results` via the `sync.onJournalChange` WebSocket subscription (using tRPC v11's `tracked()` for reconnect-safe delivery). The comparison updates in place without a page reload.
+**Live updates**: if any group member edits an answer after marking complete, their changes propagate to everyone viewing `/results` via the `sync.onJournalChange` SSE subscription (using tRPC v11's `tracked()` for reconnect-safe delivery). The comparison updates in place without a page reload.
 
 **"Change my answers" button**: navigates to `/questions` without calling `unmarkComplete`. Same semantics as the `/waiting` "Edit my answers" button — `isCompleted` stays true for everyone, so route guards don't redirect.
 
