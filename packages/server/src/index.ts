@@ -183,12 +183,6 @@ metricsServer.on("error", (err) => {
   logger.error(err, "metrics server error");
 });
 
-// Subscriptions ride on the same `/api/trpc/*` endpoint as queries/mutations
-// via tRPC v11's SSE transport (`httpSubscriptionLink` on the client). No
-// dedicated WebSocket server, no upgrade handling — the tRPC fetch adapter
-// returns a streaming `text/event-stream` response and Hono's compress
-// middleware skips that content type automatically.
-
 process.on("SIGTERM", () => {
   logger.info("SIGTERM received — shutting down");
   metricsServer.close();

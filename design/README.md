@@ -63,7 +63,7 @@ In encrypted mode, the group key lives in the URL fragment (`#key=...`) and is c
 
 ### Real-time delivery
 
-Three Server-Sent Events subscriptions over `httpSubscriptionLink`, layered on three server-side event buses ([server.md](server.md#event-buses)). Subscriptions ride on the same `/api/trpc` endpoint as queries/mutations — there is no separate WebSocket server.
+Three Server-Sent Events subscriptions over `httpSubscriptionLink`, layered on three server-side event buses ([server.md](server.md#event-buses)). Subscriptions ride on the same `/api/trpc` endpoint as queries/mutations.
 
 - **`groups.onStatus`** delivers full status snapshots. Snapshot-based, so reconnect just re-queries current state.
 - **`sync.onJournalChange`** delivers group-wide append-only journal entries using tRPC v11's `tracked()` primitive. Gated on the all-complete precondition. Drives the live updates on `/results`.
