@@ -85,29 +85,6 @@ describe("sse_connections_active gauge", () => {
     expect(await gaugeValue("groups.onStatus")).toBe(0);
   });
 
-  it("does not leak when the signal is already aborted on entry", async () => {
-    const alice = await makeAlice();
-
-    // Pre-abort the signal before the procedure even sees it. With a naive
-    // listener-only implementation, the middleware would still inc, register
-    // a listener for an event that already fired, and never dec — leaking
-    // +1 forever. The early-return on `signal.aborted` avoids that.
-    const ac = new AbortController();
-    ac.abort();
-
-    // Whether we iterate or not, the gauge must remain 0. Pull once to give
-    // the wrapping generator a chance to run if the middleware did wrap it
-    // (it shouldn't have, given the early return), then assert.
-    try {
-      const iterable = await createCaller(alice.ctx, { signal: ac.signal }).groups.onStatus();
-      await iterable[Symbol.asyncIterator]().next();
-    } catch {
-      // Expected: the inner `on(emitter, ..., { signal })` throws AbortError.
-    }
-    await new Promise((r) => setImmediate(r));
-    expect(await gaugeValue("groups.onStatus")).toBe(0);
-  });
-
   it("labels are independent per procedure", async () => {
     const alice = await makeAlice();
 

@@ -1,6 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { emitGroupUpdate } from "../events.js";
-import { sseConnectionsGauge } from "../metrics.js";
 import type { TrpcContext } from "./context.js";
 
 const t = initTRPC.context<TrpcContext>().create({
@@ -39,55 +38,7 @@ const loggingMiddleware = t.middleware(async ({ ctx, path, type, next }) => {
   return result;
 });
 
-/**
- * Bumps `sse_connections_active{procedure}` for every open subscription stream.
- *
- * Two decrement paths so the gauge always returns to zero:
- *   • `signal.addEventListener("abort", ...)` — fires the moment the request's
- *     AbortSignal trips (client disconnect, page close, server shutdown). This
- *     does NOT depend on the caller draining the iterator, so the gauge
- *     decrements even if the consumer simply abandons the stream.
- *   • `try/finally` around `yield* original` — covers natural completion,
- *     i.e. the inner generator returning on its own (e.g. `maxDurationMs`
- *     elapsed or the resolver explicitly returns).
- *
- * Both paths route through the same `dec()` closure with an idempotency guard
- * so we never double-decrement. Queries and mutations fall through unchanged.
- *
- * Already-aborted-on-entry: if the request was cancelled during the resolver's
- * setup work, the signal is already `aborted` by the time we get here. We skip
- * instrumenting in that case — the outer transport may short-circuit without
- * ever iterating our wrapped iterable, which would leave both the listener
- * (registered for a FUTURE event that already fired) and `try/finally` (never
- * entered) silent and the gauge leaked. Pass through the unwrapped iterable.
- */
-const sseTrackingMiddleware = t.middleware(async ({ type, path, signal, next }) => {
-  if (type !== "subscription") return next();
-  const result = await next();
-  if (!result.ok) return result;
-  if (signal?.aborted) return result;
-
-  sseConnectionsGauge.inc({ procedure: path });
-  let decremented = false;
-  const dec = () => {
-    if (decremented) return;
-    decremented = true;
-    sseConnectionsGauge.dec({ procedure: path });
-  };
-  signal?.addEventListener("abort", dec, { once: true });
-
-  const original = result.data as AsyncIterable<unknown>;
-  async function* tracked() {
-    try {
-      yield* original;
-    } finally {
-      dec();
-    }
-  }
-  return { ...result, data: tracked() };
-});
-
-export const publicProcedure = t.procedure.use(loggingMiddleware).use(sseTrackingMiddleware);
+export const publicProcedure = t.procedure.use(loggingMiddleware);
 
 export const authedProcedure = publicProcedure.use(({ ctx, next }) => {
   if (!ctx.person || !ctx.group || !ctx.personToken) {

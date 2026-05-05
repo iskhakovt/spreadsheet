@@ -10,7 +10,7 @@ import {
   selfJournalEventName,
   selfJournalEvents,
 } from "../../events.js";
-import { markCompleteCounter, syncPushCounter } from "../../metrics.js";
+import { markCompleteCounter, syncPushCounter, trackSseConnection } from "../../metrics.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -147,6 +147,7 @@ export const syncRouter = router({
         .optional(),
     )
     .subscription(async function* ({ ctx, input, signal }) {
+      trackSseConnection("sync.onJournalChange", signal);
       // Ordering of startup steps matters. The "listener-before-query"
       // invariant is load-bearing for the backfill/live-stream handoff, but
       // there's a preliminary precondition check that must run before either:
@@ -232,6 +233,7 @@ export const syncRouter = router({
         .optional(),
     )
     .subscription(async function* ({ ctx, input, signal }) {
+      trackSseConnection("sync.onSelfJournalChange", signal);
       // CRITICAL: listener BEFORE backfill query. Same invariant as
       // onJournalChange — events emitted during the backfill round-trip
       // are buffered in the iterable, not lost.
