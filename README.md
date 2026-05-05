@@ -7,7 +7,7 @@ A yes/no/maybe list for couples and groups to discover shared sexual interests. 
 
 ## Stack
 
-TypeScript full stack — Hono, tRPC v11 (HTTP + WebSocket), Drizzle, React 19, Vite 8, Tailwind, shadcn/ui, TanStack Query v5 (server state + real-time subscriptions). Optional E2E encryption (AES-256-GCM). Postgres. Distroless Docker image.
+TypeScript full stack — Hono, tRPC v11 (HTTP, queries/mutations + Server-Sent Events for subscriptions), Drizzle, React 19, Vite 8, Tailwind, shadcn/ui, TanStack Query v5 (server state + real-time subscriptions). Optional E2E encryption (AES-256-GCM). Postgres. Distroless Docker image.
 
 ## Quick Start
 
