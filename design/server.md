@@ -124,4 +124,4 @@ This keeps the built static bundle free of environment-specific values and lets 
 
 ## Graceful shutdown
 
-On `SIGTERM`, the server closes the metrics server and then the main HTTP server. Open SSE streams close naturally as the server socket drains; clients reconnect to the new instance with their last `tracked()` cursor in `Last-Event-ID`, and the procedure's backfill replays anything they missed during the changeover. Container roll = transient interruption, no data loss.
+On `SIGTERM`, the server fires `close()` on both the metrics listener and the main HTTP listener (no awaited ordering — they drain in parallel) and then closes the DB pool once the main HTTP `close` callback fires. Open SSE streams close naturally as the server socket drains; clients reconnect to the new instance with their last `tracked()` cursor in `Last-Event-ID`, and the procedure's backfill replays anything they missed during the changeover. Container roll = transient interruption, no data loss.

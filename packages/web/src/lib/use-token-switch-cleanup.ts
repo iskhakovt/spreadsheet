@@ -10,10 +10,13 @@ import { SELF_JOURNAL_QUERY_KEY } from "./self-journal.js";
  * HTTP query caches are reset by key prefix: `groups`, `sync`, and `questions`
  * all use shared keys (no token in their input shape), so navigating between
  * two `/p/$token` URLs in the same tab would otherwise hand back the previous
- * person's data. SSE subscriptions don't need a manual close — each one owns
- * its own EventSource and re-evaluates `connectionParams` on its next
- * (re)connect, so the resets below tear down the active subscriptions and
- * any new ones will pick up the fresh session-key automatically.
+ * person's data.
+ *
+ * Active SSE subscriptions are torn down by the `key={token}` remount on the
+ * authed subtree in `routes/p/$token/route.tsx`, NOT by this hook —
+ * `resetQueries` does not unmount components or cancel `useSubscription`s,
+ * so without that key prop the previous EventSource would keep streaming
+ * under the old session-key.
  *
  * Two key shapes coexist in the cache:
  *   1. tRPC-proxy keys, nested-array form: `[["sync", "selfJournal"], …]`.

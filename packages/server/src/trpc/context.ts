@@ -76,8 +76,8 @@ export async function createContext(
   // Cookies travel automatically on both transports (same-origin EventSource
   // sends them like any fetch), so the token-resolution step is identical.
   const cp = opts.info?.connectionParams as Record<string, unknown> | undefined;
-  const sessionKey =
-    (typeof cp?.sessionKey === "string" ? cp.sessionKey : null) ?? c.req.header("x-session-key") ?? null;
+  const cpSessionKey = typeof cp?.sessionKey === "string" ? cp.sessionKey : null;
+  const sessionKey = cpSessionKey ?? c.req.header("x-session-key") ?? null;
   const token = sessionKey ? (getCookie(c, `s_${sessionKey}`) ?? null) : null;
   return buildContext(stores, token, c.var.logger);
 }
