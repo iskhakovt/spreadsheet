@@ -53,11 +53,19 @@ const loggingMiddleware = t.middleware(async ({ ctx, path, type, next }) => {
  *
  * Both paths route through the same `dec()` closure with an idempotency guard
  * so we never double-decrement. Queries and mutations fall through unchanged.
+ *
+ * Already-aborted-on-entry: if the request was cancelled during the resolver's
+ * setup work, the signal is already `aborted` by the time we get here. We skip
+ * instrumenting in that case — the outer transport may short-circuit without
+ * ever iterating our wrapped iterable, which would leave both the listener
+ * (registered for a FUTURE event that already fired) and `try/finally` (never
+ * entered) silent and the gauge leaked. Pass through the unwrapped iterable.
  */
 const sseTrackingMiddleware = t.middleware(async ({ type, path, signal, next }) => {
   if (type !== "subscription") return next();
   const result = await next();
   if (!result.ok) return result;
+  if (signal?.aborted) return result;
 
   sseConnectionsGauge.inc({ procedure: path });
   let decremented = false;
