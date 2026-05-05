@@ -32,33 +32,36 @@ const stores = {
 //   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
 // Messenger crawlers (Facebook, iMessage, WhatsApp) fetch og:image from the
 // HTML at the invite URL, so per-token links unfurl with invite-framed copy.
-const staticRoot = process.env.STATIC_ROOT ?? "../web/dist";
-let cachedDefault: string | null = null;
-let cachedInvite: string | null = null;
-try {
-  const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8");
-  cachedDefault = renderIndex(raw, {
-    ogImage: "/og-image.png",
-    ogTitle: "Spreadsheet",
-    ogImageAlt: "Spreadsheet — find the overlap",
-  });
-  cachedInvite = renderIndex(raw, {
-    ogImage: "/og-invite.png",
-    ogTitle: "You’ve been invited · Spreadsheet",
-    ogImageAlt: "Spreadsheet — your turn",
-  });
-} catch (err) {
-  if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
-    logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
-  } else {
+function loadShells(staticRoot: string): { default: string | null; invite: string | null } {
+  try {
+    const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8");
+    return {
+      default: renderIndex(raw, {
+        ogImage: "/og-image.png",
+        ogTitle: "Spreadsheet",
+        ogImageAlt: "Spreadsheet — find the overlap",
+      }),
+      invite: renderIndex(raw, {
+        ogImage: "/og-invite.png",
+        ogTitle: "You’ve been invited · Spreadsheet",
+        ogImageAlt: "Spreadsheet — your turn",
+      }),
+    };
+  } catch (err) {
+    if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
+      return { default: null, invite: null };
+    }
     logger.fatal({ err, staticRoot }, "failed to pre-render SPA fallback");
     throw err;
   }
 }
 
+const staticRoot = process.env.STATIC_ROOT ?? "../web/dist";
+const cached = loadShells(staticRoot);
 const shell: ShellRenderer = {
-  default: async () => cachedDefault,
-  invite: async () => cachedInvite,
+  default: async () => cached.default,
+  invite: async () => cached.invite,
 };
 
 const app = createApp({

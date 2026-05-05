@@ -163,7 +163,7 @@ importers:
         version: 5.0.12(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
     devDependencies:
       '@hono/vite-dev-server':
-        specifier: ^0.25.3
+        specifier: ~0.25.3
         version: 0.25.3(hono@4.12.16)
       '@resvg/resvg-js':
         specifier: ^2.6.2

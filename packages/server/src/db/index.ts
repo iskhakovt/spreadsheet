@@ -43,7 +43,7 @@ export function createDatabase(url: string): DatabaseHandle {
     onnotice: (notice) => {
       const fields = { code: notice.code, severity: notice.severity };
       const log = CHATTY_SEVERITIES.has(notice.severity ?? "") ? logger.trace : logger.warn;
-      log.call(logger, fields, notice.message ?? "postgres notice");
+      log.call(logger, fields, notice.message ?? `postgres notice (no message; code=${notice.code ?? "?"})`);
     },
   });
   return {

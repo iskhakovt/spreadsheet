@@ -64,6 +64,15 @@ function spreadsheetDev(): Plugin {
   return {
     name: "spreadsheet-dev",
     apply: "serve",
+    // `'pre'` orders this plugin before unenforced user plugins per Vite's
+    // documented resolution order (Vite docs: "User plugins with enforce:
+    // 'pre' → … → User plugins without enforce value"). @hono/vite-dev-server
+    // is unenforced, so it runs after this. In practice we'd survive without
+    // it — @hono/vite-dev-server lazy-loads the dev entry on first request,
+    // which is well after every plugin's configureServer has run — but the
+    // `enforce: 'pre'` declares the dependency rather than relying on the
+    // lifecycle accident.
+    enforce: "pre",
     async configureServer(server) {
       const databaseUrl = process.env.DATABASE_URL;
       if (!databaseUrl) {
@@ -79,8 +88,8 @@ function spreadsheetDev(): Plugin {
       // Publish before any request arrives. @hono/vite-dev-server is
       // registered after this plugin, so its first ssrLoadModule(entry) call
       // (lazy-on-first-request) sees the populated globals.
-      (globalThis as unknown as Record<string, unknown>).__spreadsheetDevState = state;
-      (globalThis as unknown as Record<string, unknown>).__spreadsheetDevShell = shell;
+      globalThis.__spreadsheetDevState = state;
+      globalThis.__spreadsheetDevShell = shell;
 
       cleanup = async () => {
         await state.close();

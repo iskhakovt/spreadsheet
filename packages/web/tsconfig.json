@@ -26,5 +26,5 @@
     "noEmit": true,
     "lib": ["ES2025", "DOM", "DOM.Iterable"]
   },
-  "include": ["src", "../server/src/trpc/router.ts"]
+  "include": ["src", "../server/src/trpc/router.ts", "../server/src/dev/globals.d.ts"]
 }

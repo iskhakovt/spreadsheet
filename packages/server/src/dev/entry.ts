@@ -1,6 +1,4 @@
 import { createApp } from "../app.js";
-import type { ShellRenderer } from "../spa-routes.js";
-import type { DevState } from "./state.js";
 
 /**
  * Entry point for @hono/vite-dev-server. Returns the Hono app whose `.fetch`
@@ -13,13 +11,6 @@ import type { DevState } from "./state.js";
  * up — keeping it free of init lets the entry re-evaluate cheaply on edits
  * without leaking DB connections.
  */
-declare global {
-  // eslint-disable-next-line no-var
-  var __spreadsheetDevState: DevState | undefined;
-  // eslint-disable-next-line no-var
-  var __spreadsheetDevShell: ShellRenderer | undefined;
-}
-
 const state = globalThis.__spreadsheetDevState;
 const shell = globalThis.__spreadsheetDevShell;
 
