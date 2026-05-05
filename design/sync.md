@@ -260,7 +260,7 @@ In every subscription resolver, the listener attaches BEFORE the backfill query 
 ### `httpSubscriptionLink` reconnect
 
 - Each `tracked(id, data)` yield becomes the SSE event id on the wire.
-- The browser's EventSource auto-reconnects with exponential backoff and sends the most recent id back as the `Last-Event-ID` header on the new request.
+- The browser's EventSource auto-reconnects after a fixed delay (default ~3 s, configurable per-message via the SSE `retry:` field if the server chooses) and sends the most recent id back as the `Last-Event-ID` header on the new request.
 - tRPC surfaces it as `input.lastEventId`, so the server's generator resumes from the cursor and replays entries > id via the backfill query.
 
 **Lossless reconnect recovery.** Events lost during a disconnect window are replayed by the server's backfill query on the next reconnect. No polling needed, no out-of-order delivery possible.

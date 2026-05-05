@@ -126,9 +126,9 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * 1. `useSuspenseQuery(trpc.sync.journal)` fetches the initial backfill
  *    via HTTP and suspends until it lands.
  * 2. `useSubscription(trpc.sync.onJournalChange, { lastEventId })` opens
- *    a tRPC v11 tracked subscription over WS. The initial `lastEventId`
- *    is seeded from the HTTP query's cursor so the subscription starts
- *    streaming only new entries.
+ *    a tRPC v11 tracked subscription over SSE (`httpSubscriptionLink`).
+ *    The initial `lastEventId` is seeded from the HTTP query's cursor so
+ *    the subscription starts streaming only new entries.
  * 3. Each subscription push's `onData` merges the new entries into the
  *    same TanStack cache entry via `setQueryData` — the query and the
  *    subscription share one source of truth.

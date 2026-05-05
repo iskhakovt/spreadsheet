@@ -27,7 +27,7 @@ test.describe("edit after completion", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    // Both reach /results. Alice's view should update via WS.
+    // Both reach /results. Alice's view should update via the live status push.
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 

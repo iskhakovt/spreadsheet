@@ -99,12 +99,13 @@ test.describe("tracked() reconnect resume", () => {
     // - His cached /results view still shows matchesBefore matches
 
     // --- BOB'S NETWORK COMES BACK ---
-    // Restore connectivity. `httpSubscriptionLink`'s exponential-backoff
-    // reconnect will succeed on the next attempt; the browser sends the
-    // last received SSE id as `Last-Event-ID`, the server reads it as
-    // `input.lastEventId`, and the generator replays entries > that id.
-    // The `onData` reflex merges into the cache, Comparison re-renders
-    // with the updated match count.
+    // Restore connectivity. The browser's EventSource auto-reconnects
+    // after its fixed retry delay (~3 s default per spec, server-tunable
+    // via the SSE `retry:` field) and sends the last received SSE id as
+    // `Last-Event-ID`. tRPC surfaces it as `input.lastEventId`, the
+    // generator replays entries > that id, and the `onData` reflex
+    // merges into the cache so Comparison re-renders with the updated
+    // match count.
     await bobCdp.send("Network.emulateNetworkConditions", {
       offline: false,
       downloadThroughput: -1,
@@ -113,8 +114,8 @@ test.describe("tracked() reconnect resume", () => {
     });
 
     // Poll until Bob's match count drops. Generous timeout to cover the
-    // link's reconnect backoff (first retry is sub-second, subsequent
-    // retries grow; worst case we wait a few seconds).
+    // EventSource fixed-delay reconnect (~3 s default) plus the round-trip
+    // to backfill and re-render.
     await expect(async () => {
       const matchesAfter = await bobMatchRows.count();
       expect(matchesAfter).toBeLessThan(matchesBefore);
