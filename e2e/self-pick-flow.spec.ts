@@ -47,7 +47,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     // Bob should advance past pending (Alice already picked) → intro
     await expect(bob.getByText("Here's how it works")).toBeVisible();
 
-    // WS push delivers the group-ready broadcast → guard redirects to /intro
+    // SSE push delivers the group-ready broadcast → guard redirects to /intro
     await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: WS_TIMEOUT });
 
     // Both go through intro → narrow via Summary UI → answer → complete

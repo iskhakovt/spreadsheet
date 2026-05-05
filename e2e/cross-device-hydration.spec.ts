@@ -108,7 +108,7 @@ test.describe("cross-device hydration from server journal", () => {
       await expect.poll(() => scopedGet(page, "pendingOps"), { timeout: 10_000 }).toBe("[]");
 
       // The self-journal subscription's onData advances the cursor as soon as
-      // the WS delivers the entry — wait for it before reloading.
+      // SSE delivers the entry — wait for it before reloading.
       await expect.poll(() => scopedGet(page, "selfJournalCursor"), { timeout: 5_000 }).not.toBeNull();
       const cursorAfterFirst = await scopedGet(page, "selfJournalCursor");
       expect(Number(cursorAfterFirst)).toBeGreaterThan(0);

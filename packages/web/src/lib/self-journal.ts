@@ -179,8 +179,8 @@ export function useSelfJournal(): SelfJournalCache {
               if (entries.length === 0) return;
               // Use getAnswers() (localStorage), not the cache slot — the
               // slot can lag behind a synchronous setAnswer that happened
-              // between the last slot write and this WS echo. localStorage
-              // is the up-to-date local truth.
+              // between the last slot write and this SSE update.
+              // localStorage is the up-to-date local truth.
               const merged = await applySelfJournalDelta(getAnswers(), entries);
               const newCursor = entries[entries.length - 1].id;
               queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {

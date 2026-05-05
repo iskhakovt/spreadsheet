@@ -93,7 +93,7 @@ function PersonAppLayout() {
   const routeSuffix = location.pathname.replace(`/p/${token}`, "") || "/";
   const shouldRedirect = !!defaultRoute && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
 
-  // Real-time guard via useLayoutEffect so a WS-triggered status change
+  // Real-time guard via useLayoutEffect so an SSE-triggered status change
   // (e.g. everyone completes → /results) redirects before paint.
   useLayoutEffect(() => {
     if (!shouldRedirect || !defaultRoute) return;

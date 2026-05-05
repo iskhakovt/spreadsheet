@@ -116,11 +116,11 @@ Verified by every modern edge — Cloudflare, Caddy, Vercel, Fly, Render, Railwa
 Smoke check after deploy:
 
 ```bash
-curl --http2 -I https://your-host/api/trpc/groups.onStatus
-# Expect: HTTP/2 200
+curl --http2 -sI https://your-host/health
+# Expect the first response line to be: HTTP/2 200
 ```
 
-If the response is `HTTP/1.1`, the fronting layer is downgrading and needs reconfiguration before this app can run reliably.
+The point is to verify HTTP/2 negotiation, not the status code. `/health` is the right target because it returns a deterministic 200 and is unauthenticated. (Hitting `/api/trpc/groups.onStatus` directly with `HEAD` returns a 4xx — the protocol still negotiates correctly, but the status looks alarming.) If the first response line is `HTTP/1.1`, the fronting layer is downgrading and needs reconfiguration before this app can run reliably.
 
 ### SSE-friendly proxy config
 
@@ -130,6 +130,7 @@ Anything between the app and the browser that buffers responses will silently br
 - **Cloudflare**: ensure `Cache-Control: no-cache, no-transform` on subscription responses (set by tRPC).
 - **AWS ALB / GCP HTTP(S) LB**: idle-timeout > 30s. Default is usually 60s — fine. The server pings every 30s to keep the connection warm; client gives up and reconnects after 35s of inactivity.
 - **Heroku-style 30s exact idle timeouts**: edge-case — clients may see a brief disconnect/reconnect every 30s. Not data-loss-causing (`tracked()` resume backfills) but noisy in logs. Deploy somewhere with longer idle limits if possible.
+- **Tuning the ping/reconnect margin**: the defaults (30s server ping, 35s client `reconnectAfterInactivityMs` — set in `packages/server/src/trpc/init.ts`) leave a 5s tolerance window. Real-world network jitter under load can cross 5s, causing spurious reconnect/backfill churn. For production, consider widening client tolerance to 45–60s (or aligning the server ping interval with the load-balancer idle-timeout), trading a slightly slower detection of genuinely-dead connections for fewer false-positive reconnects.
 
 ### Graceful shutdown semantics
 

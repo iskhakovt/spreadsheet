@@ -34,7 +34,7 @@ test.describe("realtime status", () => {
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_PERF_TIMEOUT });
     const elapsed = Date.now() - start;
 
-    // Hard check: WS push must arrive on the first delivery attempt.
+    // Hard check: SSE push must arrive on the first delivery attempt.
     // A reconnect cycle adds ~1–3 s; > 2000 ms means we hit the retry path.
     expect(elapsed).toBeLessThan(2000);
   });

@@ -226,7 +226,7 @@ The server is the **sequencer**. It assigns order. Clients never see or guess in
 
 ## Reading the journal
 
-The read side has two parallel feeds: a **per-person** feed for the caller's own answers (ungated) and a **group-wide** feed for the comparison view (gated on all-complete). Each feed has an HTTP query and a WS subscription. All four surfaces share the subscribe-before-query / `tracked()`-resume pattern; they differ only in scope and gating.
+The read side has two parallel feeds: a **per-person** feed for the caller's own answers (ungated) and a **group-wide** feed for the comparison view (gated on all-complete). Each feed has an HTTP query and an SSE subscription. All four surfaces share the subscribe-before-query / `tracked()`-resume pattern; they differ only in scope and gating.
 
 ### Per-person feed — `sync.selfJournal` and `sync.onSelfJournalChange`
 
@@ -239,7 +239,7 @@ Used by `useSelfJournal` to materialise the caller's own answer map into the Tan
 
 `sync.onSelfJournalChange({ lastEventId })`:
 - tRPC v11 `tracked()` subscription. Same generator shape as `sync.onJournalChange` but consumes the per-person bus (`selfJournalEvents`) and skips the all-complete check.
-- Includes the caller's own pushes — same-device echo. The client merge step is keyed on entry `id`, so the echo is idempotent (the entry is already in the local raw-entry set after the optimistic write; the WS delivery sets the same id to the same value).
+- Includes the caller's own pushes — same-device echo. The client merge step is keyed on entry `id`, so the echo is idempotent (the entry is already in the local raw-entry set after the optimistic write; the SSE delivery sets the same id to the same value).
 
 Both surfaces back the same boot path. On every play-page mount the client reads `selfJournalCursor` from localStorage, calls `sync.selfJournal({ sinceId: cursor })`, decrypts via `replayJournal`, and merges with the local `pendingOps` outbox via `mergeAfterRejection` (pending ops win for keys with a local edit not yet pushed). The subscription stays open for the life of the layout component and feeds incremental `setQueryData` updates so the cache slot is always live.
 
