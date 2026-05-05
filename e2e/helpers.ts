@@ -4,14 +4,14 @@ import { fnv1a } from "../packages/shared/src/hash.js";
 /** Timeout for assertions that follow a server mutation or client-side route change. */
 export const NAV_TIMEOUT = 5_000;
 
-/** Timeout for assertions that wait for a WebSocket broadcast (e.g. both-complete → results). */
+/** Timeout for assertions that wait for a real-time broadcast (e.g. both-complete → results). */
 export const WS_TIMEOUT = 10_000;
 
 /**
  * Tighter timeout for the realtime-status perf test. 5 s is enough for a
- * single first-delivery attempt; if WS had to reconnect and retry, the elapsed
- * time would be >5 s and the assertion would fail, catching the regression.
- * Use WS_TIMEOUT everywhere else.
+ * single first-delivery attempt; if the SSE stream had to reconnect and retry,
+ * the elapsed time would be >5 s and the assertion would fail, catching the
+ * regression. Use WS_TIMEOUT everywhere else.
  */
 export const WS_PERF_TIMEOUT = 5_000;
 

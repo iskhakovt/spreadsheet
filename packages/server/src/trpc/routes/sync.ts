@@ -10,7 +10,7 @@ import {
   selfJournalEventName,
   selfJournalEvents,
 } from "../../events.js";
-import { markCompleteCounter, syncPushCounter } from "../../metrics.js";
+import { markCompleteCounter, syncPushCounter, trackSseConnection } from "../../metrics.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -123,10 +123,11 @@ export const syncRouter = router({
    * Canonical pattern from the tRPC docs:
    * 1. Attach the event listener BEFORE the backfill query — anything emitted
    *    during the query is buffered in the iterable, not lost.
-   * 2. Backfill using the `lastEventId` cursor (the browser re-sends this
-   *    automatically on WS reconnect via wsLink).
-   * 3. Yield backfill entries as `tracked(id, data)` so the client's wsLink
-   *    advances its `lastEventId` cursor.
+   * 2. Backfill using the `lastEventId` cursor (the browser's EventSource
+   *    re-sends this automatically as the `Last-Event-ID` header on
+   *    SSE reconnect; tRPC surfaces it on the procedure input).
+   * 3. Yield backfill entries as `tracked(id, data)` so the SSE event id
+   *    advances and the next `Last-Event-ID` header carries the new cursor.
    * 4. Stream live emissions with the same `tracked()` envelope, deduping
    *    any overlap between the backfill query and the in-memory buffer.
    *
@@ -151,11 +152,14 @@ export const syncRouter = router({
       // there's a preliminary precondition check that must run before either:
       //
       //   1. Precondition gate (getStatus + allComplete check) — throws if
-      //      the group isn't ready. Events emitted between this check and
-      //      the listener attach are NOT delivered as live events, but they
-      //      WILL be picked up by the backfill query below because that query
-      //      reads entries > lastEventId (or all entries on a fresh connect).
-      //      So this window is structurally safe.
+      //      the group isn't ready. We run this BEFORE `trackSseConnection`
+      //      so a failing precondition doesn't briefly inflate the gauge
+      //      for a request that's already on its way to a TRPCError.
+      //      Events emitted between this check and the listener attach are
+      //      NOT delivered as live events, but they WILL be picked up by
+      //      the backfill query below because that query reads entries >
+      //      lastEventId (or all entries on a fresh connect). So this
+      //      window is structurally safe.
       //
       //   2. Listener attach — MUST be before the backfill query, because
       //      events emitted during the backfill query's round-trip would
@@ -173,6 +177,8 @@ export const syncRouter = router({
           message: "All group members must mark complete before viewing journal",
         });
       }
+
+      trackSseConnection("sync.onJournalChange", signal);
 
       // CRITICAL: listener BEFORE backfill query. Any emission in the
       // backfill window is buffered in the iterable and delivered after
@@ -231,6 +237,7 @@ export const syncRouter = router({
         .optional(),
     )
     .subscription(async function* ({ ctx, input, signal }) {
+      trackSseConnection("sync.onSelfJournalChange", signal);
       // CRITICAL: listener BEFORE backfill query. Same invariant as
       // onJournalChange — events emitted during the backfill round-trip
       // are buffered in the iterable, not lost.

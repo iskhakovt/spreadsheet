@@ -5,7 +5,7 @@
  * already exists in `prev` overwrite the old one), sorted by id ascending.
  *
  * Used by Comparison to combine the initial HTTP backfill with incremental
- * WS push updates from `sync.onJournalChange`, so the cache always reflects
+ * SSE push updates from `sync.onJournalChange`, so the cache always reflects
  * the monotonically-growing journal.
  */
 

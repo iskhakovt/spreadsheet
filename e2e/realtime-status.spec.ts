@@ -7,8 +7,8 @@ import {
   WS_PERF_TIMEOUT,
 } from "./helpers.js";
 
-test.describe("realtime status (WebSocket)", () => {
-  test("Alice's waiting screen updates instantly when Bob completes (WS path)", async ({ alice, bob }) => {
+test.describe("realtime status", () => {
+  test("Alice's waiting screen updates instantly when Bob completes", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     // Alice answers and marks done
@@ -34,7 +34,7 @@ test.describe("realtime status (WebSocket)", () => {
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_PERF_TIMEOUT });
     const elapsed = Date.now() - start;
 
-    // Hard check: WS push must arrive on the first delivery attempt.
+    // Hard check: SSE push must arrive on the first delivery attempt.
     // A reconnect cycle adds ~1–3 s; > 2000 ms means we hit the retry path.
     expect(elapsed).toBeLessThan(2000);
   });

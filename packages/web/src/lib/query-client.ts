@@ -5,8 +5,10 @@ import { NonRetriableError } from "./errors.js";
  * Factory for the app-wide QueryClient.
  *
  * Defaults reflect the real-time architecture:
- * - Live updates arrive via WS subscriptions (groups.onStatus, sync.onJournalChange).
- * - There is no polling fallback — we rely on wsLink auto-reconnect + tracked() resume + keepAlive.
+ * - Live updates arrive via SSE subscriptions (groups.onStatus, sync.onJournalChange,
+ *   sync.onSelfJournalChange) over `httpSubscriptionLink`.
+ * - There is no polling fallback — we rely on EventSource auto-reconnect + tracked()
+ *   resume via `Last-Event-ID` + server-side SSE pings to keep streams warm.
  * - Background refetch triggers (mount/focus/reconnect) are disabled because the subscription
  *   is the update channel; refetching duplicates work the subscription already did.
  * - staleTime is Infinity so cached data is reused across mount/unmount within gcTime.

@@ -2,17 +2,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { JOURNAL_QUERY_KEY } from "./journal-query.js";
 import { SELF_JOURNAL_QUERY_KEY } from "./self-journal.js";
-import { wsClient } from "./trpc.js";
 
 /**
  * Drops cache state scoped to the previous person when the URL token changes
  * within the same tab.
  *
- * The WS is closed so the next subscription reauthenticates with the new
- * session's `connectionParams`. HTTP query caches are reset by key prefix:
- * `groups`, `sync`, and `questions` all use shared keys (no token in their
- * input shape), so navigating between two `/p/$token` URLs in the same tab
- * would otherwise hand back the previous person's data.
+ * HTTP query caches are reset by key prefix: `groups`, `sync`, and `questions`
+ * all use shared keys (no token in their input shape), so navigating between
+ * two `/p/$token` URLs in the same tab would otherwise hand back the previous
+ * person's data.
+ *
+ * Active SSE subscriptions are torn down by the `key={token}` remount on the
+ * authed subtree in `routes/p/$token/route.tsx`, NOT by this hook —
+ * `resetQueries` does not unmount components or cancel `useSubscription`s,
+ * so without that key prop the previous EventSource would keep streaming
+ * under the old session-key.
  *
  * Two key shapes coexist in the cache:
  *   1. tRPC-proxy keys, nested-array form: `[["sync", "selfJournal"], …]`.
@@ -36,7 +40,6 @@ export function useTokenSwitchCleanup(token: string) {
   const prevTokenRef = useRef(token);
   useEffect(() => {
     if (prevTokenRef.current === token) return;
-    wsClient.close();
     queryClient.resetQueries({ queryKey: [["groups"]] });
     queryClient.resetQueries({ queryKey: [["sync"]] });
     queryClient.resetQueries({ queryKey: [["questions"]] });

@@ -9,27 +9,27 @@ import {
 } from "./helpers.js";
 
 /**
- * Verifies the tRPC `tracked()` resume protocol end-to-end: if Bob's WS drops,
- * Alice's journal writes continue, and when Bob's WS reconnects the server's
- * subscription generator replays entries since his last tracked id.
+ * Verifies the tRPC `tracked()` resume protocol end-to-end: if Bob's SSE
+ * stream drops, Alice's journal writes continue, and when Bob reconnects
+ * the server's subscription generator replays entries since his last
+ * tracked id.
  *
  * This is the critical correctness test for the "lost event = stale results
  * forever" failure mode — without `tracked()`, a disconnected subscriber
  * would permanently miss edits that happened during the disconnect window.
  *
- * Implementation note: dropping Bob's WS requires more than
- * `page.route("**\/api/trpc-ws**", abort)`. Playwright's route handler only
- * sees the initial HTTP upgrade handshake, not the frames on an established
- * WebSocket — so `abort` on the route after the upgrade is a no-op, and the
- * existing WS would continue delivering Alice's edit via the normal live-
- * stream path (not via tracked resume). We use CDP's
- * `Network.emulateNetworkConditions { offline: true }` to sever Bob's entire
- * network, which actually kills the existing WS connection. The subsequent
- * `offline: false` restores connectivity, and `wsLink`'s auto-reconnect
- * re-sends the subscription message with the latest tracked id.
+ * Implementation note: severing the in-flight SSE response requires real
+ * network teardown. `page.route` only sees the initial request, not chunks
+ * streamed back on the open response, so `abort` on the route after the
+ * stream opens is a no-op. We use CDP's
+ * `Network.emulateNetworkConditions { offline: true }` to drop Bob's entire
+ * network, which kills the open EventSource. `offline: false` restores
+ * connectivity, and `httpSubscriptionLink` reopens the EventSource with the
+ * browser's automatic `Last-Event-ID` header set to the latest tracked id —
+ * which the server reads as `input.lastEventId` for backfill.
  */
 test.describe("tracked() reconnect resume", () => {
-  test("Bob's WS drops during Alice's edit, catches up on reconnect", async ({ alice, bob }) => {
+  test("Bob's stream drops during Alice's edit, catches up on reconnect", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
@@ -39,14 +39,14 @@ test.describe("tracked() reconnect resume", () => {
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
-    // Bob joins — start with WS allowed so he gets the initial subscription
+    // Bob joins — start online so he gets the initial subscription
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
     await narrowToCategory(bob, "Group & External");
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    // Both reach /results via the WS push
+    // Both reach /results via the live status push
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
 
@@ -57,14 +57,13 @@ test.describe("tracked() reconnect resume", () => {
     const matchesBefore = await bobMatchRows.count();
     expect(matchesBefore).toBeGreaterThan(0);
 
-    // --- BOB'S NETWORK GOES DOWN (including his existing WS) ---
+    // --- BOB'S NETWORK GOES DOWN (including his open EventSource) ---
     //
-    // Use CDP to flip Bob's page offline. Unlike page.route (which only
-    // intercepts HTTP-level traffic including the WS upgrade but NOT frames
-    // on an established WS), offline-mode actually severs the TCP connection,
-    // which the tRPC wsLink observes as a close event and queues for
-    // auto-reconnect. This is the only reliable way from Playwright to force
-    // the reconnect path.
+    // Use CDP to flip Bob's page offline. Unlike page.route (which only sees
+    // the initial request, not chunks streamed back on the open response),
+    // offline-mode actually severs the TCP connection. The browser's
+    // EventSource observes a close, and `httpSubscriptionLink` queues a
+    // reconnect that fires once connectivity returns.
     const bobCdp = await bob.context().newCDPSession(bob);
     await bobCdp.send("Network.enable");
     await bobCdp.send("Network.emulateNetworkConditions", {
@@ -74,7 +73,7 @@ test.describe("tracked() reconnect resume", () => {
       latency: 0,
     });
 
-    // Give wsLink a moment to observe the close + transition to the
+    // Give the link a moment to observe the close + transition to the
     // connecting/retry state. Its auto-reconnect will keep failing while
     // offline, but we're about to come back online so that's fine.
     await bob.waitForTimeout(500);
@@ -96,15 +95,17 @@ test.describe("tracked() reconnect resume", () => {
     // At this point:
     // - The server's journal has Alice's new entry committed
     // - journalEvents has emitted the append
-    // - Bob's WS is severed — the emission goes into the void for him
+    // - Bob's EventSource is severed — the emission goes into the void for him
     // - His cached /results view still shows matchesBefore matches
 
     // --- BOB'S NETWORK COMES BACK ---
-    // Restore connectivity. wsLink's exponential-backoff reconnect will
-    // succeed on the next attempt, re-send the subscription message with
-    // Bob's last tracked id, and the server's generator will replay entries
-    // > that id. The `onData` reflex merges into the cache, Comparison
-    // re-renders with the updated match count.
+    // Restore connectivity. The browser's EventSource auto-reconnects
+    // after its fixed retry delay (~3 s default per spec, server-tunable
+    // via the SSE `retry:` field) and sends the last received SSE id as
+    // `Last-Event-ID`. tRPC surfaces it as `input.lastEventId`, the
+    // generator replays entries > that id, and the `onData` reflex
+    // merges into the cache so Comparison re-renders with the updated
+    // match count.
     await bobCdp.send("Network.emulateNetworkConditions", {
       offline: false,
       downloadThroughput: -1,
@@ -113,8 +114,8 @@ test.describe("tracked() reconnect resume", () => {
     });
 
     // Poll until Bob's match count drops. Generous timeout to cover the
-    // wsLink reconnect backoff (first retry is sub-second, subsequent
-    // retries grow; worst case we wait a few seconds).
+    // EventSource fixed-delay reconnect (~3 s default) plus the round-trip
+    // to backfill and re-render.
     await expect(async () => {
       const matchesAfter = await bobMatchRows.count();
       expect(matchesAfter).toBeLessThan(matchesBefore);

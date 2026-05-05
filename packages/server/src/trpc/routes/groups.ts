@@ -3,7 +3,7 @@ import { AnatomyLabels, AnatomyPicker, groupStatusSchema, QuestionMode } from "@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
-import { groupsCreatedCounter, groupsSetupCompletedCounter } from "../../metrics.js";
+import { groupsCreatedCounter, groupsSetupCompletedCounter, trackSseConnection } from "../../metrics.js";
 import {
   authedProcedure,
   broadcastingAdminProcedure,
@@ -148,6 +148,7 @@ export const groupsRouter = router({
    * queued and delivered (not lost). Cleanup is automatic via `signal`.
    */
   onStatus: authedProcedure.subscription(async function* ({ ctx, signal }) {
+    trackSseConnection("groups.onStatus", signal);
     // Register the listener first so any broadcasts fired while we fetch the
     // initial state are queued internally (not lost).
     const eventIterator = on(groupEvents, groupEventName(ctx.group.id), { signal });

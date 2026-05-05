@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto";
-import type { CreateWSSContextFnOptions } from "@trpc/server/adapters/ws";
-import { parse as parseCookies } from "cookie-es";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import type { Context as HonoContext } from "hono";
 import { getCookie } from "hono/cookie";
 import type { Logger } from "pino";
-import { type HonoLoggerEnv, logger as rootLogger } from "../logger.js";
+import type { HonoLoggerEnv } from "../logger.js";
 import type { GroupStore } from "../store/groups.js";
 import type { QuestionStore } from "../store/questions.js";
 import type { SyncStore } from "../store/sync.js";
@@ -60,23 +58,26 @@ async function buildContext(stores: Stores, token: string | null, log: Logger): 
   };
 }
 
-export async function createContext(stores: Stores, c: HonoContext<HonoLoggerEnv>): Promise<TrpcContext> {
-  // Auth: client sends `X-Session-Key: $hash`; server reads cookie `s_$hash`.
-  // The hash is non-secret (it's fnv1a(token)), used only to disambiguate which
-  // cookie to look up — multiple persons on the same device coexist via
-  // separately-named `s_*` cookies.
-  const sessionKey = c.req.header("x-session-key");
+export async function createContext(
+  stores: Stores,
+  opts: FetchCreateContextFnOptions,
+  c: HonoContext<HonoLoggerEnv>,
+): Promise<TrpcContext> {
+  // Auth: client sends the fnv1a(token) hash, server reads cookie `s_$hash`
+  // to recover the actual token. The hash is non-secret — it's only used to
+  // disambiguate which cookie to read so multi-person devices can coexist
+  // (each person has their own `s_*` cookie).
+  //
+  // Two transport-shaped paths reach this function:
+  //   • Queries/mutations send the hash via the `X-Session-Key` HTTP header.
+  //   • Subscriptions (SSE via `httpSubscriptionLink`) send it via tRPC
+  //     `connectionParams`, which arrive on `opts.info.connectionParams`.
+  //
+  // Cookies travel automatically on both transports (same-origin EventSource
+  // sends them like any fetch), so the token-resolution step is identical.
+  const cp = opts.info?.connectionParams as Record<string, unknown> | undefined;
+  const cpSessionKey = typeof cp?.sessionKey === "string" ? cp.sessionKey : null;
+  const sessionKey = cpSessionKey ?? c.req.header("x-session-key") ?? null;
   const token = sessionKey ? (getCookie(c, `s_${sessionKey}`) ?? null) : null;
   return buildContext(stores, token, c.var.logger);
-}
-
-export async function createWSContext(stores: Stores, opts: CreateWSSContextFnOptions): Promise<TrpcContext> {
-  const raw = opts.info.connectionParams as Record<string, unknown> | undefined;
-  const sessionKey = typeof raw?.sessionKey === "string" ? raw.sessionKey : null;
-  // `connId` is per-WS-connection (analogous to `reqId` for HTTP) — without it,
-  // log lines from concurrent WS subscriptions can't be correlated.
-  const connLogger = rootLogger.child({ transport: "ws", connId: randomUUID() });
-  const cookies = parseCookies(opts.req.headers.cookie ?? "");
-  const token = sessionKey ? (cookies[`s_${sessionKey}`] ?? null) : null;
-  return buildContext(stores, token, connLogger);
 }

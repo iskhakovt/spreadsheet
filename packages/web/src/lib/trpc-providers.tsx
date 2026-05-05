@@ -16,8 +16,8 @@ const ReactQueryDevtools = import.meta.env.DEV
  *
  * `queryClient` is passed in from the router context (created once in
  * main.tsx). `trpcClient` is created inside `useState(() => ...)` for
- * referential stability — a new instance on every render would reset the
- * WebSocket connection.
+ * referential stability — a new instance on every render would tear down
+ * and reopen every active SSE subscription.
  */
 export function AppProviders({ children, queryClient }: Readonly<{ children: ReactNode; queryClient: QueryClient }>) {
   const [trpcClient] = useState(() => makeTrpcClient());

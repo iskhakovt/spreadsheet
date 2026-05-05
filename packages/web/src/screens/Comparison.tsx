@@ -126,19 +126,20 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * 1. `useSuspenseQuery(trpc.sync.journal)` fetches the initial backfill
  *    via HTTP and suspends until it lands.
  * 2. `useSubscription(trpc.sync.onJournalChange, { lastEventId })` opens
- *    a tRPC v11 tracked subscription over WS. The initial `lastEventId`
- *    is seeded from the HTTP query's cursor so the subscription starts
- *    streaming only new entries.
+ *    a tRPC v11 tracked subscription over SSE (`httpSubscriptionLink`).
+ *    The initial `lastEventId` is seeded from the HTTP query's cursor so
+ *    the subscription starts streaming only new entries.
  * 3. Each subscription push's `onData` merges the new entries into the
  *    same TanStack cache entry via `setQueryData` — the query and the
  *    subscription share one source of truth.
  * 4. A `useEffect` keyed on `journal.entries` runs async decryption and
  *    replay per member, producing `memberAnswers` which drives the UI.
  *
- * Reconnect is lossless by construction: wsLink auto-reconnects and
- * re-sends the subscription message with the latest tracked id, so the
- * server's generator replays entries > lastEventId. See Step 4's
- * sync.journal-subscription.integration.test.ts for the full contract.
+ * Reconnect is lossless by construction: `httpSubscriptionLink` reopens the
+ * EventSource with `Last-Event-ID` set to the latest tracked id, which the
+ * server reads as `input.lastEventId` and uses to replay entries > that id.
+ * See Step 4's sync.journal-subscription.integration.test.ts for the full
+ * contract.
  */
 export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<ComparisonProps>) {
   // React Compiler reports a false-positive "Cannot access refs during render"

@@ -70,7 +70,7 @@ export function getAuthHeaders(): Record<string, string> {
   return hash ? { "x-session-key": hash } : {};
 }
 
-/** Auth params for the WebSocket connectionParams. */
+/** Auth params for tRPC subscription `connectionParams` (SSE — sent as URL query string). */
 export function getAuthParams(): Record<string, string> {
   const { hash } = sessionStore.getState();
   return hash ? { sessionKey: hash } : {};

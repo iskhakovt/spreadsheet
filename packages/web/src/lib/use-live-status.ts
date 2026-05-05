@@ -6,21 +6,23 @@ import { decryptStatus } from "./decrypt-status.js";
 import { useTRPC } from "./trpc.js";
 
 /**
- * Live-updating group status with TanStack Query + tRPC WS subscription.
+ * Live-updating group status with TanStack Query + tRPC SSE subscription.
  *
  * Architecture:
  * - `useSuspenseQuery` fetches initial status via HTTP with a wrapped queryFn
  *   that awaits `decryptStatus` before returning, so the cache stores
  *   already-decrypted data. This eliminates the extra render cycle that
  *   async-decrypting-in-a-useEffect would introduce.
- * - `useSubscription` opens a tRPC v11 WS subscription to `groups.onStatus`.
- *   `onData` async-decrypts the pushed payload and writes the result into
- *   the same TanStack cache entry via `setQueryData`. A per-mount sequence
- *   counter guards against out-of-order application if two pushes are in
- *   flight with their decryptions interleaved (latest wins).
+ * - `useSubscription` opens a tRPC v11 SSE subscription (via
+ *   `httpSubscriptionLink`) to `groups.onStatus`. `onData` async-decrypts
+ *   the pushed payload and writes the result into the same TanStack cache
+ *   entry via `setQueryData`. A per-mount sequence counter guards against
+ *   out-of-order application if two pushes are in flight with their
+ *   decryptions interleaved (latest wins).
  * - The subscription is gated on `personId` — during the brief `/setup`
  *   phase (admin token before `setupAdmin` has created the person row),
- *   the auth'd procedure has nothing to stream, so we leave the WS closed.
+ *   the auth'd procedure would reject anyway, so we leave the EventSource
+ *   un-opened.
  *
  * Error handling: decryption failures throw out of the queryFn, which
  * Suspense-query surfaces to the nearest ErrorBoundary. No separate
@@ -49,14 +51,14 @@ export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Pr
     },
   });
 
-  // Open the WS subscription once we have a person. During /setup, personId
-  // is null and we don't open the subscription — the server's authed
-  // procedure would reject anyway, and there's nothing to stream at that
-  // point (admin is alone, filling out a form).
+  // Open the subscription once we have a person. During /setup, personId
+  // is null and we don't open it — the server's authed procedure would
+  // reject anyway, and there's nothing to stream at that point (admin is
+  // alone, filling out a form).
   const personId = status?.person?.id ?? null;
 
   // Monotonic sequence counter to drop out-of-order decryption results.
-  // If two WS pushes arrive in quick succession and their decryptions
+  // If two pushes arrive in quick succession and their decryptions
   // interleave, we always want the latest to win.
   const seqRef = useRef(0);
 
@@ -72,11 +74,11 @@ export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Pr
           if (mySeq !== seqRef.current) return;
           queryClient.setQueryData(baseOptions.queryKey, decrypted);
         } catch (err) {
-          console.error("Failed to decrypt WS status update:", err);
+          console.error("Failed to decrypt status update:", err);
         }
       },
       onError: (err) => {
-        console.error("WS subscription error:", err);
+        console.error("Status subscription error:", err);
       },
     }),
   );

@@ -102,7 +102,7 @@ export function makeJournalQueryFn(trpcClient: TrpcClient) {
  * Pre-fetch the journal + run decryption/replay so the cache is warm by
  * the time `Comparison` mounts. Called from `useLiveStatus` when the
  * `allComplete` transition fires — Alice sees Bob's markComplete via the
- * WS push, and we start the fetch *during* the guard redirect instead of
+ * SSE push, and we start the fetch *during* the guard redirect instead of
  * *after* `Comparison` mounts. Shaves the HTTP round-trip off the
  * critical render path for the receiving side.
  */

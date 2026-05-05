@@ -35,7 +35,7 @@ test.describe("two-player completion flow", () => {
     // the "Your matches" header and "Total matches" summary strip label.
     await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]').first()).toBeVisible();
 
-    // WS push delivers Bob's completion to Alice → guard redirects to /results
+    // SSE push delivers Bob's completion to Alice → guard redirects to /results
     await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
     await expect(alice.getByText("You & Bob")).toBeVisible({ timeout: WS_TIMEOUT });
   });

@@ -49,7 +49,7 @@ Stores return result objects with `{ error: "..." }` for expected failures (stal
 
 Why three buses rather than one: status broadcasts, group-wide journal appends, and per-person journal appends happen at very different rates and have very different audiences. Status is low-volume coarse events; group journal is high-volume append stream gated on completion; self journal is a near-private firehose for the writing person's own devices. A single bus would force every subscriber to filter out events that aren't theirs.
 
-Event names are scoped per emitter (`group:{groupId}`, `journal:{groupId}`, `self-journal:{personId}`) so an emit wakes only the relevant subscribers. `setMaxListeners(0)` on all emitters avoids Node's 10-listener warning in sessions with many concurrent WS clients.
+Event names are scoped per emitter (`group:{groupId}`, `journal:{groupId}`, `self-journal:{personId}`) so an emit wakes only the relevant subscribers. `setMaxListeners(0)` on all emitters avoids Node's 10-listener warning in sessions with many concurrent SSE clients.
 
 Mutating procedures emit via the `broadcastingProcedure` / `broadcastingAdminProcedure` middleware (`packages/server/src/trpc/init.ts`) so every route that changes group state fans out consistently.
 
@@ -98,7 +98,7 @@ Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md)
 
 `collectDefaultMetrics()` provides event loop lag, memory, CPU, and GC stats out of the box.
 
-- **`ws_connections_active`** (gauge) — incremented on WS `connection`, decremented on `close`
+- **`sse_connections_active{procedure}`** (gauge) — active SSE subscription streams, labeled by tRPC procedure path. Incremented when each subscription resolver runs; decremented when the request's `AbortSignal` fires (client disconnect, page close, server shutdown). Driven by the `trackSseConnection` helper in `metrics.ts`, called once per resolver.
 - **`http_request_duration_seconds`** (histogram) — recorded by `request-logger.ts` for every request except `/health` and `/metrics`; path label uses `sanitizePath` to normalise `/p/:token/*` → `/p/[REDACTED]/*`
 
 ### Product funnel counters
@@ -124,4 +124,4 @@ This keeps the built static bundle free of environment-specific values and lets 
 
 ## Graceful shutdown
 
-On `SIGTERM`, the server broadcasts a `reconnectNotification` over the WebSocket (tRPC `wsLink` handles this by reconnecting after a short delay to a replacement instance), closes the WS server, and then closes the HTTP server. Containers rolling during a deploy therefore don't drop live subscriptions.
+On `SIGTERM`, the server fires `close()` on both the metrics listener and the main HTTP listener (no awaited ordering — they drain in parallel) and then closes the DB pool once the main HTTP `close` callback fires. Open SSE streams close naturally as the server socket drains; clients reconnect to the new instance with their last `tracked()` cursor in `Last-Event-ID`, and the procedure's backfill replays anything they missed during the changeover. Container roll = transient interruption, no data loss.

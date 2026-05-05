@@ -4,11 +4,28 @@ export const registry = new Registry();
 
 collectDefaultMetrics({ register: registry });
 
-export const wsConnectionsGauge = new Gauge({
-  name: "ws_connections_active",
-  help: "Active WebSocket connections",
+export const sseConnectionsGauge = new Gauge({
+  name: "sse_connections_active",
+  help: "Active SSE subscription streams, labeled by tRPC procedure path",
+  labelNames: ["procedure"],
   registers: [registry],
 });
+
+/**
+ * Increments {@link sseConnectionsGauge} for the given procedure and registers
+ * a one-shot listener on the request's AbortSignal that decrements when the
+ * stream ends (client disconnect, page close, server shutdown).
+ *
+ * Call once at the top of every SSE subscription resolver. The early-return
+ * on `signal.aborted` covers the rare case where the request is cancelled
+ * before the resolver runs — registering a listener for an event that
+ * already fired would leak +1 forever.
+ */
+export function trackSseConnection(procedure: string, signal: AbortSignal | undefined): void {
+  if (!signal || signal.aborted) return;
+  sseConnectionsGauge.inc({ procedure });
+  signal.addEventListener("abort", () => sseConnectionsGauge.dec({ procedure }), { once: true });
+}
 
 export const httpRequestDuration = new Histogram({
   name: "http_request_duration_seconds",

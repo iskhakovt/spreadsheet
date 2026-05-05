@@ -2,7 +2,17 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { emitGroupUpdate } from "../events.js";
 import type { TrpcContext } from "./context.js";
 
-const t = initTRPC.context<TrpcContext>().create();
+const t = initTRPC.context<TrpcContext>().create({
+  sse: {
+    // Server pings every 30s to keep proxies/load-balancers from idle-timing
+    // out the response stream. Mirrors the previous WS keepAlive cadence.
+    ping: { enabled: true, intervalMs: 30_000 },
+    // Client gives up and reconnects if no message (including ping) arrives
+    // within this window. Set just above intervalMs so a single missed ping
+    // triggers reconnect rather than tolerating a long silent stream.
+    client: { reconnectAfterInactivityMs: 35_000 },
+  },
+});
 
 export const router = t.router;
 export const createCallerFactory = t.createCallerFactory;

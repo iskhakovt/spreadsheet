@@ -51,9 +51,8 @@ function PersonAppLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // adoptSession again in the component for the token-change case (useEffect
-  // below closes the WS; adoptSession re-establishes the auth scope for the
-  // new token so tRPC hooks pick up the right credentials on next render).
+  // adoptSession again in the component for the token-change case so the
+  // session hash is current before any tRPC hook fires on this render.
   adoptSession(token);
 
   useTokenSwitchCleanup(token);
@@ -94,7 +93,7 @@ function PersonAppLayout() {
   const routeSuffix = location.pathname.replace(`/p/${token}`, "") || "/";
   const shouldRedirect = !!defaultRoute && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
 
-  // Real-time guard via useLayoutEffect so a WS-triggered status change
+  // Real-time guard via useLayoutEffect so an SSE-triggered status change
   // (e.g. everyone completes → /results) redirects before paint.
   useLayoutEffect(() => {
     if (!shouldRedirect || !defaultRoute) return;
@@ -140,6 +139,15 @@ function PersonAppLayout() {
     setStartKey,
   };
 
+  // `key={token}` on the inner subtree forces React to unmount and remount
+  // the entire authed app when the URL token changes within the same tab.
+  // This is the only reliable way to tear down active SSE subscriptions
+  // — `useSubscription` only opens/closes its EventSource on mount/unmount
+  // and on input changes, neither of which fire on a same-tab token switch.
+  // Without this key, an open EventSource keeps streaming under the
+  // previous session-key's `connectionParams` until the connection
+  // naturally drops, and its `onData` would write the previous person's
+  // data back into the freshly-reset cache.
   return (
     <PersonAppContext.Provider value={ctx}>
       <ErrorBoundary FallbackComponent={ScreenErrorFallback} onError={handleError} resetKeys={[location.pathname]}>
@@ -149,7 +157,7 @@ function PersonAppLayout() {
         >
           Skip to content
         </a>
-        <main id="main-content">
+        <main id="main-content" key={token}>
           <AuthedShell>
             <Outlet />
           </AuthedShell>
