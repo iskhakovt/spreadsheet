@@ -97,7 +97,9 @@ process.on("SIGTERM", () => {
   metricsServer.close();
   // Close the DB pool *after* HTTP drains, so in-flight requests can finish
   // their queries. Closing earlier would tear sockets out from under handlers
-  // that are still running.
+  // that are still running. Open SSE streams close naturally when the server
+  // socket closes; clients reconnect to the new instance with their last
+  // `tracked()` cursor and replay anything they missed.
   server.close(async () => {
     logger.info("http server closed");
     try {
