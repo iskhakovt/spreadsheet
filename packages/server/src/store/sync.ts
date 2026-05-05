@@ -4,6 +4,41 @@ import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
 import { decodeStoken, encodeStoken } from "../stoken.js";
 
+/**
+ * Read entries for a single person, optionally filtered by `sinceId`. Used
+ * by `push` (to return the rejection delta) and by the `selfJournal` route
+ * (to hydrate the caller's own answer cache on mount).
+ *
+ * Returns an empty `entries` array when there's nothing past the cursor;
+ * `cursor` echoes the input on empty deltas so callers don't regress.
+ */
+async function selectJournalForPerson(
+  tx: Transaction,
+  personId: string,
+  sinceId: number | null,
+): Promise<{
+  entries: { id: number; personId: string; operation: string }[];
+  cursor: number | null;
+}> {
+  const whereClause =
+    sinceId !== null
+      ? and(eq(journalEntries.personId, personId), gt(journalEntries.id, sinceId))
+      : eq(journalEntries.personId, personId);
+
+  const rows = await tx
+    .select({
+      id: journalEntries.id,
+      personId: journalEntries.personId,
+      operation: journalEntries.operation,
+    })
+    .from(journalEntries)
+    .where(whereClause)
+    .orderBy(journalEntries.id);
+
+  const cursor = rows.length > 0 ? rows[rows.length - 1].id : sinceId;
+  return { entries: rows, cursor };
+}
+
 export class SyncStore {
   #tx: <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;
 
@@ -49,11 +84,7 @@ export class SyncStore {
       const clientHead = input.stoken ? decodeStoken(input.stoken) : 0;
 
       if (clientHead !== currentHead) {
-        const entries = await tx
-          .select({ operation: journalEntries.operation })
-          .from(journalEntries)
-          .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)))
-          .orderBy(journalEntries.id);
+        const { entries } = await selectJournalForPerson(tx, personId, clientHead);
 
         return {
           stoken: currentHead > 0 ? encodeStoken(currentHead) : null,
@@ -76,11 +107,7 @@ export class SyncStore {
         lastId = inserted[inserted.length - 1].id;
       }
 
-      const entries = await tx
-        .select({ operation: journalEntries.operation })
-        .from(journalEntries)
-        .where(and(eq(journalEntries.personId, personId), gt(journalEntries.id, clientHead)))
-        .orderBy(journalEntries.id);
+      const { entries } = await selectJournalForPerson(tx, personId, clientHead);
 
       return {
         stoken: lastId > 0 ? encodeStoken(lastId) : null,
@@ -88,6 +115,45 @@ export class SyncStore {
         committedEntries,
         pushRejected: false as const,
       };
+    });
+  }
+
+  /**
+   * Read the caller's own journal entries with cursor semantics. Backs the
+   * `sync.selfJournal` query and the backfill stage of
+   * `sync.onSelfJournalChange`. No precondition: a person can always read
+   * their own entries.
+   *
+   * Returns the entry list, the new cursor (highest id, or echoed `sinceId`
+   * on empty), and the latest stoken — passed through so `useSelfJournal`
+   * can seed the push cursor without a separate round-trip.
+   *
+   * `stoken` is derived from `cursor`, NOT from a separate head query.
+   * Postgres' default READ COMMITTED isolation gives each statement its
+   * own snapshot, so a separate `SELECT max(id)` could return an id newer
+   * than what the entries query saw — a concurrent commit between the
+   * two SELECTs would yield a wire response where stoken describes a row
+   * the client never received. Since `cursor` is rows[rows.length-1].id
+   * from the same statement that produced `entries` (or the echoed
+   * `sinceId` on empty), it's atomically consistent with the entries.
+   */
+  async journalSinceForPerson(
+    personId: string,
+    sinceId: number | null,
+  ): Promise<{
+    entries: { id: number; personId: string; operation: string }[];
+    cursor: number | null;
+    stoken: string | null;
+  }> {
+    return this.#tx(async (tx) => {
+      const { entries, cursor } = await selectJournalForPerson(tx, personId, sinceId);
+      // Stoken is returned as a courtesy so clients can prime their push
+      // cursor without a no-op round-trip. Clients treat stoken as
+      // opaque, so the format isn't a client-server contract — only an
+      // internal contract between this call site and `sync.push`'s
+      // encode site, and they share `encodeStoken` so they can't drift.
+      const stoken = cursor !== null && cursor > 0 ? encodeStoken(cursor) : null;
+      return { entries, cursor, stoken };
     });
   }
 

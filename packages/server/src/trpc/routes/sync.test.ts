@@ -40,6 +40,7 @@ function mockCtx(
       markComplete: vi.fn(),
       unmarkComplete: vi.fn(),
       journalSince: vi.fn(),
+      journalSinceForPerson: vi.fn(),
       ...overrides.sync,
     },
     questions: { list: vi.fn(), seed: vi.fn(), ...overrides.questions },
@@ -106,14 +107,14 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(push).toHaveBeenCalledWith(
       "p1",
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -134,7 +135,7 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     const result = await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
@@ -171,7 +172,7 @@ describe("sync.push journal bus emission", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     expect(handler).toHaveBeenCalledTimes(1);
@@ -321,5 +322,41 @@ describe("sync.journal", () => {
     const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
     await expect(caller.sync.journal({ sinceId: undefined })).rejects.toThrow("All group members must mark complete");
+  });
+});
+
+describe("sync.selfJournal", () => {
+  it("returns the caller's entries via journalSinceForPerson", async () => {
+    const data = { entries: [{ id: 1, personId: "p1", operation: "p:1:..." }], cursor: 1, stoken: "s1" };
+    const journalSinceForPerson = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSinceForPerson } });
+    const caller = createCaller(ctx);
+    const result = await caller.sync.selfJournal({ sinceId: undefined });
+    expect(result).toEqual(data);
+    expect(journalSinceForPerson).toHaveBeenCalledWith("p1", null);
+  });
+
+  it("scopes to the caller's person id, not group id", async () => {
+    const journalSinceForPerson = vi.fn().mockResolvedValue({ entries: [], cursor: null, stoken: null });
+    const ctx = mockCtx({ person, group, sync: { journalSinceForPerson } });
+    const caller = createCaller(ctx);
+    await caller.sync.selfJournal({ sinceId: 42 });
+    expect(journalSinceForPerson).toHaveBeenCalledWith("p1", 42);
+    // never the group id
+    expect(journalSinceForPerson).not.toHaveBeenCalledWith("g1", expect.anything());
+  });
+
+  it("requires authentication", async () => {
+    const caller = createCaller(mockCtx({}));
+    await expect(caller.sync.selfJournal({ sinceId: undefined })).rejects.toThrow("Invalid or missing person token");
+  });
+
+  it("does not gate on all-complete", async () => {
+    // Even if the group isn't all-complete, selfJournal succeeds — it's
+    // the caller's own entries, no privacy boundary to gate on.
+    const journalSinceForPerson = vi.fn().mockResolvedValue({ entries: [], cursor: null, stoken: null });
+    const ctx = mockCtx({ person, group, sync: { journalSinceForPerson } });
+    const caller = createCaller(ctx);
+    await expect(caller.sync.selfJournal({ sinceId: undefined })).resolves.toBeDefined();
   });
 });

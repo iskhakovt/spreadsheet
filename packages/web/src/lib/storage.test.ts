@@ -2,17 +2,17 @@
 import type { Answer } from "@spreadsheet/shared";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { adoptSession, getScope } from "./session.js";
+import { adoptSession } from "./session.js";
 import {
   addPendingOp,
   addPendingOpForKey,
   clearPendingOps,
   drainPendingOps,
+  getAnswers,
   getPendingOps,
   setAnswer,
   setAnswers,
   setPendingOps,
-  useAnswers,
   usePendingOps,
 } from "./storage.js";
 
@@ -29,55 +29,27 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("useAnswers", () => {
-  it("returns stable reference across re-renders when the store hasn't changed", () => {
-    const { result, rerender } = renderHook(() => useAnswers());
-    const first = result.current;
-    rerender();
-    rerender();
-    // Identity invariant — the whole point of the useSyncExternalStore
-    // refactor. Without stable identity, downstream useMemo deps invalidate
-    // each render.
-    expect(result.current).toBe(first);
+// Note: `useAnswers` lives in lib/self-journal.ts now (it reads from the
+// TanStack cache slot, not localStorage). Read-side tests for it are in
+// lib/self-journal.test.ts. The localStorage-write side (`setAnswer` /
+// `setAnswers` / `getAnswers`) is exercised by the cross-tab + optimistic
+// integration tests there and the e2e cross-device-hydration spec.
+describe("setAnswer / setAnswers (localStorage write)", () => {
+  it("setAnswer adds a key", () => {
+    setAnswer("q1:mutual", yes);
+    expect(getAnswers()).toEqual({ "q1:mutual": yes });
   });
 
-  it("returns a new reference after setAnswer invalidates the cache", () => {
-    const { result } = renderHook(() => useAnswers());
-    const before = result.current;
-    expect(before).toEqual({});
-
-    act(() => {
-      setAnswer("q1:mutual", yes);
-    });
-
-    expect(result.current).not.toBe(before);
-    expect(result.current).toEqual({ "q1:mutual": yes });
+  it("setAnswer with null deletes a key", () => {
+    setAnswer("q1:mutual", yes);
+    setAnswer("q1:mutual", null);
+    expect(getAnswers()).toEqual({});
   });
 
-  it("propagates setAnswers writes to subscribed components", () => {
-    const { result } = renderHook(() => useAnswers());
-    expect(result.current).toEqual({});
-
-    act(() => {
-      setAnswers({ "q1:give": yes, "q1:receive": yes });
-    });
-
-    expect(result.current).toEqual({ "q1:give": yes, "q1:receive": yes });
-  });
-
-  it("picks up cross-tab changes via the native storage event", () => {
-    const { result } = renderHook(() => useAnswers());
-    expect(result.current).toEqual({});
-
-    // Simulate a write from another tab — same origin, different tab writes
-    // localStorage then the browser fires `storage` on every other tab.
-    const fullKey = getScope() + "answers";
-    act(() => {
-      localStorage.setItem(fullKey, JSON.stringify({ cross: yes }));
-      window.dispatchEvent(new StorageEvent("storage", { key: fullKey }));
-    });
-
-    expect(result.current).toEqual({ cross: yes });
+  it("setAnswers replaces the whole map", () => {
+    setAnswer("q1:mutual", yes);
+    setAnswers({ "q2:give": yes });
+    expect(getAnswers()).toEqual({ "q2:give": yes });
   });
 });
 

@@ -21,6 +21,7 @@ export {
   QuestionMode,
   Rating,
   Role,
+  SelfJournalResponse,
   Target,
   type Tier,
 } from "./types.js";

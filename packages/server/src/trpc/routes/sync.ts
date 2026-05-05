@@ -1,8 +1,15 @@
 import { on } from "node:events";
-import { decodeOpaque } from "@spreadsheet/shared";
+import { decodeOpaque, SelfJournalResponse } from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
-import { emitJournalUpdate, journalEventName, journalEvents } from "../../events.js";
+import {
+  emitJournalUpdate,
+  emitSelfJournalUpdate,
+  journalEventName,
+  journalEvents,
+  selfJournalEventName,
+  selfJournalEvents,
+} from "../../events.js";
 import { markCompleteCounter, syncPushCounter } from "../../metrics.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
@@ -49,12 +56,16 @@ export const syncRouter = router({
       // pushes changed nothing server-side, so there's nothing to propagate;
       // the client will merge and retry, and the retry's success will emit.
       //
-      // Unconditional emit (no isCompleted check) — if nobody is subscribed to
-      // sync.onJournalChange for this group (the common case during normal
-      // answering), EventEmitter.emit is a no-op. Subscriber gating happens
-      // client-side via Comparison mount on /results.
+      // Two buses, two audiences:
+      //   - journalEvents (group-keyed) — gated cross-member feed for
+      //     Comparison on /results. Emit unconditionally; if nobody's
+      //     subscribed for this group, EventEmitter.emit is a no-op.
+      //   - selfJournalEvents (person-keyed) — per-person feed for the
+      //     caller's own useSelfJournal cache, plus any other devices the
+      //     same person has open. Same idempotency story.
       if (!result.pushRejected && result.committedEntries.length > 0) {
         emitJournalUpdate(ctx.group.id, result.committedEntries);
+        emitSelfJournalUpdate(ctx.person.id, result.committedEntries);
       }
 
       syncPushCounter.inc({ result: result.pushRejected ? "conflict" : "clean" });
@@ -85,6 +96,25 @@ export const syncRouter = router({
         });
       }
       return result;
+    }),
+
+  /**
+   * Per-person journal read for the caller's own answer hydration.
+   *
+   * No precondition — a person can always read their own entries.
+   * Backs `useSelfJournal` on the client: on every play-page mount the
+   * client calls this with the persisted cursor, replays the delta, and
+   * merges with its local outbox. Cross-device hydration without a
+   * dedicated boot endpoint.
+   *
+   * Returns the entries plus the latest stoken so the client can prime
+   * its push cursor without a separate handshake.
+   */
+  selfJournal: authedProcedure
+    .input(z.object({ sinceId: z.number().int().nonnegative().optional() }).optional())
+    .output(SelfJournalResponse)
+    .query(async ({ ctx, input }) => {
+      return ctx.sync.journalSinceForPerson(ctx.person.id, input?.sinceId ?? null);
     }),
 
   /**
@@ -170,6 +200,52 @@ export const syncRouter = router({
       // Live stream from the buffered iterable. Dedup entries that overlap
       // with the backfill — the iterable may have been filling up while the
       // query ran, producing rows the backfill already returned.
+      for await (const [payload] of iterable) {
+        const entries = payload as typeof backfill.entries;
+        const fresh = entries.filter((e) => cursor === null || e.id > cursor);
+        if (fresh.length === 0) continue;
+        const latestId = fresh[fresh.length - 1].id;
+        yield tracked(String(latestId), { entries: fresh } satisfies JournalChangeMessage);
+        cursor = latestId;
+      }
+    }),
+
+  /**
+   * Per-person tracked subscription for the caller's own journal entries.
+   *
+   * Same generator shape as `onJournalChange` (subscribe-before-query,
+   * dedup, `tracked()` resume) but consumes the per-person bus and skips
+   * the all-complete precondition. Used by `useSelfJournal` to keep the
+   * caller's answers cache live across devices.
+   *
+   * Same-device echo is intentional: when the writer pushes, they also
+   * receive the entry on this subscription. The client merge step is
+   * idempotent on entry id, so the echo is a no-op visually.
+   */
+  onSelfJournalChange: authedProcedure
+    .input(
+      z
+        .object({
+          lastEventId: z.string().regex(/^\d+$/, "lastEventId must be a numeric string").nullish(),
+        })
+        .optional(),
+    )
+    .subscription(async function* ({ ctx, input, signal }) {
+      // CRITICAL: listener BEFORE backfill query. Same invariant as
+      // onJournalChange — events emitted during the backfill round-trip
+      // are buffered in the iterable, not lost.
+      const iterable = on(selfJournalEvents, selfJournalEventName(ctx.person.id), { signal });
+
+      const sinceId = input?.lastEventId ? Number(input.lastEventId) : null;
+      const backfill = await ctx.sync.journalSinceForPerson(ctx.person.id, sinceId);
+
+      let cursor = sinceId;
+      if (backfill.entries.length > 0) {
+        const latestId = backfill.entries[backfill.entries.length - 1].id;
+        yield tracked(String(latestId), { entries: backfill.entries } satisfies JournalChangeMessage);
+        cursor = latestId;
+      }
+
       for await (const [payload] of iterable) {
         const entries = payload as typeof backfill.entries;
         const fresh = entries.filter((e) => cursor === null || e.id > cursor);

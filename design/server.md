@@ -4,7 +4,7 @@
 packages/server/src/
   main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Docker entrypoint.
   index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
-  events.ts   ← Two EventEmitter instances: groupEvents, journalEvents
+  events.ts   ← Three EventEmitter instances: groupEvents, journalEvents, selfJournalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
   request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
   metrics.ts  ← prom-client registry, counters, gauges, histogram exports
@@ -39,14 +39,17 @@ Stores return result objects with `{ error: "..." }` for expected failures (stal
 
 ## Event buses
 
-`packages/server/src/events.ts` exports two `EventEmitter` instances, keyed by group id:
+`packages/server/src/events.ts` exports three `EventEmitter` instances, each keyed by a different identifier and consumed by a different subscription:
 
-- **`groupEvents`** — emitted by broadcasting mutations (`markComplete`, `unmarkComplete`, `setProfile`, `markReady`, `addPerson`, `removePerson`, `setupAdmin`). Consumed by the `groups.onStatus` subscription, which re-reads `getStatus(token)` on each event and yields the fresh snapshot to each subscriber.
-- **`journalEvents`** — emitted by `sync.push` after a successful non-rejected commit, carrying the newly-inserted entries. Consumed by `sync.onJournalChange`, which yields them as `tracked(lastId, { entries })` for resume-safe delivery.
+- **`groupEvents`** (key: group id, name `group:{id}`) — emitted by broadcasting mutations (`markComplete`, `unmarkComplete`, `setProfile`, `markReady`, `addPerson`, `removePerson`, `setupAdmin`). Consumed by `groups.onStatus`, which re-reads `getStatus(token)` on each event and yields the fresh snapshot to each subscriber.
+- **`journalEvents`** (key: group id, name `journal:{id}`) — emitted by `sync.push` after a successful non-rejected commit, carrying the newly-inserted entries. Consumed by `sync.onJournalChange` for the gated group-wide feed driving `Comparison`.
+- **`selfJournalEvents`** (key: person id, name `self-journal:{id}`) — emitted by `sync.push` on the same successful commit, carrying the same entries. Consumed by `sync.onSelfJournalChange` for the ungated per-person feed driving `useSelfJournal`. Person-keyed so a write fans out only to the writer's own subscribers (typically one or two — the editing tab plus any other device the same person has open).
 
-Why two buses rather than one: status broadcasts and journal appends happen at very different rates (low-volume coarse events vs. high-volume append stream) and are consumed by different subscriptions. A single bus would force every subscriber to filter out roughly half the events it receives.
+`sync.push` emits to **both** journal buses on a successful commit. The two consumers are independent: a `Comparison` viewer in the same group hears about the entry via `journalEvents`; the editor's own answers cache hears about it via `selfJournalEvents`; they don't share state.
 
-Event names are scoped per group (`group:{id}`, `journal:{id}`) so broadcasting one group's change wakes only that group's subscribers. `setMaxListeners(0)` on both emitters avoids Node's 10-listener warning in sessions with many concurrent WS clients.
+Why three buses rather than one: status broadcasts, group-wide journal appends, and per-person journal appends happen at very different rates and have very different audiences. Status is low-volume coarse events; group journal is high-volume append stream gated on completion; self journal is a near-private firehose for the writing person's own devices. A single bus would force every subscriber to filter out events that aren't theirs.
+
+Event names are scoped per emitter (`group:{groupId}`, `journal:{groupId}`, `self-journal:{personId}`) so an emit wakes only the relevant subscribers. `setMaxListeners(0)` on all emitters avoids Node's 10-listener warning in sessions with many concurrent WS clients.
 
 Mutating procedures emit via the `broadcastingProcedure` / `broadcastingAdminProcedure` middleware (`packages/server/src/trpc/init.ts`) so every route that changes group state fans out consistently.
 

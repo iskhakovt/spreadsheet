@@ -89,6 +89,24 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 }
 
 // === answers ===
+//
+// The journal is the source of truth for answers; `useSelfJournal`
+// (lib/self-journal.ts) materialises it into a TanStack cache slot on
+// every play-page mount. The cache slot is the in-memory source for
+// reads — components call `useAnswers` (exported from self-journal.ts)
+// which reads the slot directly.
+//
+// localStorage is a write-through persister whose only job is first-paint
+// hydration on the next reload. The `setAnswers` / `setAnswer` writers
+// below update localStorage and dispatch a `storage:answers` event;
+// `useSelfJournal` listens for that event (and the native cross-tab
+// `storage` event) and mirrors the change into the cache slot. Same-tab
+// optimistic writes therefore propagate to all readers via this mirror,
+// and cross-tab writes propagate via the native event.
+//
+// `getAnswers()` is the canonical localStorage reader; `useSelfJournal`
+// uses it as the local-truth input to the merge so optimistic edits
+// survive the WS echo of their own commits.
 
 /**
  * Validate persisted answers via `Answer.safeParse`. The schema itself
@@ -105,11 +123,6 @@ function normalizeAnswers(raw: unknown): Record<string, Answer> {
   }
   return out;
 }
-
-export const useAnswers = makeLocalStorageHook(
-  "answers",
-  (raw): Record<string, Answer> => normalizeAnswers(raw ? JSON.parse(raw) : {}),
-);
 
 export function getAnswers(): Record<string, Answer> {
   return normalizeAnswers(getJson("answers", {}));
@@ -274,6 +287,28 @@ export function setStoken(stoken: string | null): void {
     setRaw("stoken", stoken);
   } else {
     removeRaw("stoken");
+  }
+}
+
+// === self-journal cursor ===
+//
+// The numeric id of the latest journal entry the client has integrated for
+// the authed person. Drives the delta-fetch / `lastEventId` resume on every
+// play-page mount via `useSelfJournal`. Absent → bootstrap path (full replay
+// on next mount), which is also the first-boot state for any new device.
+
+export function getSelfJournalCursor(): number | null {
+  const raw = getRaw("selfJournalCursor");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export function setSelfJournalCursor(cursor: number | null): void {
+  if (cursor === null) {
+    removeRaw("selfJournalCursor");
+  } else {
+    setRaw("selfJournalCursor", String(cursor));
   }
 }
 

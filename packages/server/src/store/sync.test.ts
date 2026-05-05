@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
 import { groups, persons } from "../db/schema.js";
+import { decodeStoken } from "../stoken.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { SyncStore } from "./sync.js";
 
@@ -48,7 +49,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -67,7 +68,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -77,7 +78,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
         progress: undefined,
       },
       encrypted,
@@ -95,7 +96,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       encrypted,
@@ -105,7 +106,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
         progress: undefined,
       },
       encrypted,
@@ -114,7 +115,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: first.stoken,
-        operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
+        operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe"}}'],
         progress: undefined,
       },
       encrypted,
@@ -132,7 +133,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: 'p:1:{"answered":1,"total":10}',
       },
       encrypted,
@@ -148,7 +149,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       true,
@@ -176,7 +177,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}', "e:1:encryptedpayload"],
+        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}', "e:1:encryptedpayload"],
         progress: undefined,
       },
       false,
@@ -252,7 +253,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -261,7 +262,7 @@ describe("SyncStore.journalSince", () => {
       bob.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -286,7 +287,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -300,7 +301,7 @@ describe("SyncStore.journalSince", () => {
       bob.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe","timing":null}}'],
+        operations: ['p:1:{"key":"a:receive","data":{"rating":"maybe"}}'],
         progress: undefined,
       },
       false,
@@ -322,7 +323,7 @@ describe("SyncStore.journalSince", () => {
       alice.id,
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
         progress: undefined,
       },
       false,
@@ -392,5 +393,149 @@ describe("SyncStore.journalSince", () => {
     });
     const result = await store.journalSince(group.id, 42);
     expect(result).toEqual({ error: "not_all_complete" });
+  });
+});
+
+describe("SyncStore.journalSinceForPerson", () => {
+  it("returns the caller's entries with cursor=null when none exist", async () => {
+    const { personId } = await createTestPerson();
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(0);
+    expect(result.cursor).toBe(null);
+    expect(result.stoken).toBe(null);
+  });
+
+  it("returns all entries when sinceId is null", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [
+          'p:1:{"key":"a:give","data":{"rating":"yes"}}',
+          'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}',
+        ],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(2);
+    expect(result.cursor).toBe(result.entries[1].id);
+    expect(result.stoken).not.toBe(null);
+  });
+
+  it("stoken is always derivable from cursor — no snapshot skew", async () => {
+    // Regression: stoken used to come from a separate `SELECT max(id)`
+    // query, which under READ COMMITTED could see a row newer than
+    // what the entries query returned. Now stoken is derived from
+    // cursor in the same statement, so the two are always consistent.
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [
+          'p:1:{"key":"a:give","data":{"rating":"yes"}}',
+          'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}',
+        ],
+        progress: undefined,
+      },
+      encrypted,
+    );
+
+    const full = await store.journalSinceForPerson(personId, null);
+    // stoken decodes back to cursor — same id on both fields.
+    expect(decodeStoken(full.stoken!)).toBe(full.cursor);
+
+    // Empty-delta path: cursor echoes sinceId, stoken matches that echo.
+    const empty = await store.journalSinceForPerson(personId, full.cursor);
+    expect(empty.entries).toHaveLength(0);
+    expect(empty.cursor).toBe(full.cursor);
+    expect(decodeStoken(empty.stoken!)).toBe(full.cursor);
+  });
+
+  it("returns only entries with id > sinceId when set", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const initial = await store.journalSinceForPerson(personId, null);
+    const cursor = initial.cursor;
+    if (cursor === null) throw new Error("expected cursor");
+
+    await store.push(
+      personId,
+      {
+        stoken: initial.stoken,
+        operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+
+    const delta = await store.journalSinceForPerson(personId, cursor);
+    expect(delta.entries).toHaveLength(1);
+    expect(delta.cursor).toBeGreaterThan(cursor);
+    expect(delta.stoken).not.toBe(null);
+  });
+
+  it("echoes sinceId as cursor on empty delta", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const initial = await store.journalSinceForPerson(personId, null);
+    const repeat = await store.journalSinceForPerson(personId, initial.cursor);
+    expect(repeat.entries).toHaveLength(0);
+    expect(repeat.cursor).toBe(initial.cursor);
+  });
+
+  it("does not return another person's entries", async () => {
+    const { personId: aliceId, encrypted } = await createTestPerson();
+    const { personId: bobId } = await createTestPerson();
+    await store.push(
+      aliceId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const bobView = await store.journalSinceForPerson(bobId, null);
+    expect(bobView.entries).toHaveLength(0);
+    const aliceView = await store.journalSinceForPerson(aliceId, null);
+    expect(aliceView.entries).toHaveLength(1);
+    expect(aliceView.entries[0].personId).toBe(aliceId);
+  });
+
+  it("ignores group completion state — works regardless of isCompleted", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    // Person is not complete; the precondition gate on `journalSince` would
+    // throw, but `journalSinceForPerson` does not gate.
+    await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    const result = await store.journalSinceForPerson(personId, null);
+    expect(result.entries).toHaveLength(1);
   });
 });

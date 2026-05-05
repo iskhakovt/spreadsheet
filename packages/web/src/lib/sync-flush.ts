@@ -56,6 +56,14 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
   // because ops are append-only journal entries — they don't change
   // after a merge, only the local answers map does. The fresh stoken
   // tells the server "I've seen your latest state, apply these."
+  //
+  // `mergeAfterRejection` is the same merge that runs on the bootstrap
+  // path (`useSelfJournal`) and the WS echo path (`onSelfJournalChange`).
+  // Three call sites, one rule: server values win for keys without a
+  // pending edit; outbox wins for keys with one. The cache slot picks
+  // up this localStorage write via its own subscription's onData when
+  // the retry's commit echoes back, so the slot eventually catches up
+  // without us poking it directly here.
   const merged = await mergeAfterRejection(getAnswers(), ops, result.entries);
   setAnswers(merged);
   const retryProgress = await getProgress();

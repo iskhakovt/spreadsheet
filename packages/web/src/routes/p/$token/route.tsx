@@ -13,6 +13,7 @@ import {
   PersonAppContext,
   type PersonAppContextValue,
 } from "../../../lib/person-app-context.js";
+import { useSelfJournal } from "../../../lib/self-journal.js";
 import { adoptSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
@@ -149,9 +150,28 @@ function PersonAppLayout() {
           Skip to content
         </a>
         <main id="main-content">
-          <Outlet />
+          <AuthedShell>
+            <Outlet />
+          </AuthedShell>
         </main>
       </ErrorBoundary>
     </PersonAppContext.Provider>
   );
+}
+
+/**
+ * Inner shell rendered only after the auth + encryption gates have passed.
+ * Owns the per-mount self-journal hydration: `useSelfJournal` suspense-
+ * fetches the per-person journal delta, replays + decrypts, and merges
+ * with the local outbox. Subsequent reads of `useAnswers` in the play
+ * screens see the journal-derived state.
+ *
+ * Splitting this from `PersonAppLayout` keeps the suspense scope tight:
+ * the hook can't fire during `/setup` (no person yet) or when the
+ * encrypted-group fragment key is missing (handled by the early returns
+ * in the parent).
+ */
+function AuthedShell({ children }: Readonly<{ children: React.ReactNode }>) {
+  useSelfJournal();
+  return <>{children}</>;
 }

@@ -1,9 +1,17 @@
 /** @vitest-environment happy-dom */
 import type { CategoryData, QuestionData } from "@spreadsheet/shared";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
-import { createElement } from "react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Summary } from "./Summary.js";
+
+function withQueryClient(ui: ReactElement): ReactElement {
+  // Summary calls useAnswers, which subscribes to a TanStack query cache
+  // slot via useQueryClient. Wrap in a Provider so the hook resolves.
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return createElement(QueryClientProvider, { client: qc }, ui);
+}
 
 afterEach(() => {
   cleanup();
@@ -50,17 +58,19 @@ describe("Summary picker — empty-category hiding", () => {
     ];
 
     render(
-      createElement(Summary, {
-        questions,
-        categories,
-        isAdmin: false,
-        anatomy: "amab",
-        otherAnatomies: ["amab"],
-        questionMode: "filtered",
-        onNavigateToCategory: noop,
-        onBack: noop,
-        onReview: noop,
-      }),
+      withQueryClient(
+        createElement(Summary, {
+          questions,
+          categories,
+          isAdmin: false,
+          anatomy: "amab",
+          otherAnatomies: ["amab"],
+          questionMode: "filtered",
+          onNavigateToCategory: noop,
+          onBack: noop,
+          onReview: noop,
+        }),
+      ),
     );
 
     expect(screen.queryByLabelText("Include Touch")).not.toBeNull();
@@ -83,17 +93,19 @@ describe("Summary picker — empty-category hiding", () => {
     ];
 
     render(
-      createElement(Summary, {
-        questions,
-        categories,
-        isAdmin: false,
-        anatomy: "amab",
-        otherAnatomies: ["afab"],
-        questionMode: "filtered",
-        onNavigateToCategory: noop,
-        onBack: noop,
-        onReview: noop,
-      }),
+      withQueryClient(
+        createElement(Summary, {
+          questions,
+          categories,
+          isAdmin: false,
+          anatomy: "amab",
+          otherAnatomies: ["afab"],
+          questionMode: "filtered",
+          onNavigateToCategory: noop,
+          onBack: noop,
+          onReview: noop,
+        }),
+      ),
     );
 
     expect(screen.queryByLabelText("Include Touch")).not.toBeNull();

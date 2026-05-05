@@ -49,8 +49,8 @@ describe("full sync flow (real Postgres)", () => {
     const aliceResult = await alice.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:give","data":{"rating":"yes","timing":"now"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe","timing":null}}',
+        'p:1:{"key":"oral:give","data":{"rating":"yes"}}',
+        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}',
       ],
       progress: 'p:1:{"answered":2,"total":10}',
     });
@@ -60,8 +60,8 @@ describe("full sync flow (real Postgres)", () => {
     const bobResult = await bob.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:receive","data":{"rating":"yes","timing":"now"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"yes","timing":"later"}}',
+        'p:1:{"key":"oral:receive","data":{"rating":"yes"}}',
+        'p:1:{"key":"blindfold:mutual","data":{"rating":"yes"}}',
       ],
       progress: 'p:1:{"answered":2,"total":10}',
     });
@@ -82,12 +82,12 @@ describe("full sync flow (real Postgres)", () => {
 
     const alicePushA = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     await bob.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes"}}'],
       progress: undefined,
     });
     await alice.caller.sync.markComplete();
@@ -101,7 +101,7 @@ describe("full sync flow (real Postgres)", () => {
     // must be her own head (from alicePushA) to avoid a stoken conflict.
     await alice.caller.sync.push({
       stoken: alicePushA.stoken,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"no","timing":null}}'],
+      operations: ['p:1:{"key":"a:give","data":{"rating":"no"}}'],
       progress: undefined,
     });
 
@@ -126,24 +126,58 @@ describe("full sync flow (real Postgres)", () => {
 
     const first = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: undefined,
     });
 
     await alice.caller.sync.push({
       stoken: first.stoken,
-      operations: ['p:1:{"key":"b:mutual","data":{"rating":"no","timing":null}}'],
+      operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
       progress: undefined,
     });
 
     const stale = await alice.caller.sync.push({
       stoken: first.stoken,
-      operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe","timing":null}}'],
+      operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe"}}'],
       progress: undefined,
     });
 
     expect(stale.pushRejected).toBe(true);
     expect(stale.entries.length).toBeGreaterThan(0);
+  });
+
+  it("selfJournal returns only the caller's own entries, ungated", async () => {
+    const { alice, bob } = await createGroupWithMembers();
+
+    await alice.caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}', 'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}'],
+      progress: undefined,
+    });
+    await bob.caller.sync.push({
+      stoken: null,
+      operations: ['p:1:{"key":"a:receive","data":{"rating":"no"}}'],
+      progress: undefined,
+    });
+    // Neither has marked complete — sync.journal would be gated, but selfJournal isn't.
+
+    const aliceView = await alice.caller.sync.selfJournal({ sinceId: undefined });
+    expect(aliceView.entries).toHaveLength(2);
+    expect(aliceView.cursor).toBe(aliceView.entries[1].id);
+    expect(aliceView.stoken).not.toBeNull();
+    for (const e of aliceView.entries) {
+      expect(e.personId).not.toBe(undefined);
+      expect(e.operation.startsWith("p:1:")).toBe(true);
+    }
+
+    const bobView = await bob.caller.sync.selfJournal({ sinceId: undefined });
+    expect(bobView.entries).toHaveLength(1);
+    expect(bobView.entries[0].operation).toBe('p:1:{"key":"a:receive","data":{"rating":"no"}}');
+
+    // Cursor-based delta
+    const delta = await alice.caller.sync.selfJournal({ sinceId: aliceView.cursor ?? undefined });
+    expect(delta.entries).toHaveLength(0);
+    expect(delta.cursor).toBe(aliceView.cursor);
   });
 
   it("handles encrypted group with opaque data", async () => {

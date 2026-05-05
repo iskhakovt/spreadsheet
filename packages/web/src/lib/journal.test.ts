@@ -166,4 +166,29 @@ describe("mergeAfterRejection", () => {
     // Local preserved
     expect(merged["oral:give"]).toEqual({ rating: "yes", note: null });
   });
+
+  it("server-side delete (null op) removes the key from merged when no pending op", async () => {
+    const localAnswers: Record<string, Answer> = {
+      "oral:give": { rating: "yes", note: null },
+      "blindfold:mutual": { rating: "maybe", note: null },
+    };
+    const serverEntries = [plainOp("oral:give", null)];
+
+    const merged = await mergeAfterRejection(localAnswers, [], serverEntries, null);
+    expect(merged).not.toHaveProperty("oral:give");
+    expect(merged["blindfold:mutual"]).toEqual({ rating: "maybe", note: null });
+  });
+
+  it("pending op wins over a server-side delete", async () => {
+    const localAnswers: Record<string, Answer> = {
+      "oral:give": { rating: "yes", note: null },
+    };
+    const pendingOps = [plainOp("oral:give", { rating: "maybe", note: null })];
+    const serverEntries = [plainOp("oral:give", null)];
+
+    const merged = await mergeAfterRejection(localAnswers, pendingOps, serverEntries, null);
+    // User's pending edit wins; the server's delete is ignored for keys
+    // with an in-flight local op.
+    expect(merged["oral:give"]).toEqual({ rating: "yes", note: null });
+  });
 });

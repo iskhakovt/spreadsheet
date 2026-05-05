@@ -175,7 +175,7 @@ describe("groups.onStatus subscription (real Postgres)", () => {
 
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes","timing":"now"}}'],
+      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
       progress: 'p:1:{"answered":1,"total":10}',
     });
 

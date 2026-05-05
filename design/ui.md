@@ -180,7 +180,7 @@ Shows all answered questions grouped by category. Tap any answer to jump back an
 After marking done. Shows member status list (Done / In progress).
 - Updates live via tRPC WebSocket subscription (`groups.onStatus`)
 - Auto-redirects to Results when all complete (declarative route guard)
-- **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see the subsequent edits live via the journal subscription; their route doesn't change because `isCompleted` is unchanged.
+- **"Edit my answers" button** — navigates back to `/questions` without touching completion state. Partners viewing `/results` see the subsequent edits live via `sync.onJournalChange`; the editor's other devices (if any) see them via `sync.onSelfJournalChange`. Routes don't change because `isCompleted` is unchanged.
 
 ### 13. Comparison
 
@@ -229,12 +229,16 @@ URL-based routing via wouter (nested under `/p/:token`):
 
 ## Auto-sync
 
-- Owned by the `useSyncQueue(totalQuestions)` hook in `lib/use-sync-queue.ts`
-- Answers are synced to the server 3 seconds after the last answer (debounced)
-- Sync indicator hidden for the first 5 seconds — auto-sync handles it silently
-- If auto-sync fails, "N unsynced" appears below the progress bar (click to retry)
-- Uses `visibility: hidden` (not conditional rendering) to prevent layout shifts
-- Conflict retry: on `pushRejected`, merges the server's returned entries with local pending ops and retries once. Double-rejection leaves ops in the queue for the next manual sync.
+- **Outbound** owned by `useSyncQueue(totalQuestions)` (`lib/use-sync-queue.ts`):
+  - Answers are pushed to the server 3 seconds after the last answer (debounced)
+  - Sync indicator hidden for the first 5 seconds — auto-sync handles it silently
+  - If auto-sync fails, "N unsynced" appears below the progress bar (click to retry)
+  - Uses `visibility: hidden` (not conditional rendering) to prevent layout shifts
+  - Conflict retry: on `pushRejected`, merges the server's returned entries with local pending ops and retries once. Double-rejection leaves ops in the queue for the next manual sync.
+- **Inbound** owned by `useSelfJournal` (`lib/self-journal.ts`):
+  - Layout suspense-fetches `sync.selfJournal({ sinceId: cursor })` on every mount, replays + decrypts, merges with `pendingOps` so unsent local edits survive the merge.
+  - Subscribes to `sync.onSelfJournalChange` for the lifetime of the layout. Writes from any other device with the same token land in the answers cache without a reload.
+  - Cold-bootstrap (fresh device, no persisted snapshot) replays the full per-person journal once. Subsequent reloads fetch only the delta since the cursor.
 
 ## Encryption Key Lifecycle
 
