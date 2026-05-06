@@ -1,3 +1,4 @@
+import { plainOp, plainProgress } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -175,8 +176,8 @@ describe("groups.onStatus subscription (real Postgres)", () => {
 
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
-      progress: 'p:1:{"answered":1,"total":10}',
+      operations: [plainOp("a:mutual", { rating: "yes", note: null })],
+      progress: plainProgress({ answered: 1, total: 10 }),
     });
 
     // Should NOT yield within 500ms

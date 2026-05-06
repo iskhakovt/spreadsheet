@@ -1,11 +1,7 @@
-import type { Answer } from "@spreadsheet/shared";
+import { type Answer, plainOp } from "@spreadsheet/shared";
 import { describe, expect, it, vi } from "vitest";
 import { encodeValue, generateGroupKey } from "./crypto.js";
 import { mergeAfterRejection, replayJournal } from "./journal.js";
-
-function plainOp(key: string, data: Answer | null): string {
-  return `p:1:${JSON.stringify({ key, data })}`;
-}
 
 describe("replayJournal", () => {
   it("builds state from entries", async () => {

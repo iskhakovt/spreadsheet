@@ -1,3 +1,4 @@
+import { plainOp, plainProgress } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -49,10 +50,10 @@ describe("full sync flow (real Postgres)", () => {
     const aliceResult = await alice.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:give","data":{"rating":"yes"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}',
+        plainOp("oral:give", { rating: "yes", note: null }),
+        plainOp("blindfold:mutual", { rating: "maybe", note: null }),
       ],
-      progress: 'p:1:{"answered":2,"total":10}',
+      progress: plainProgress({ answered: 2, total: 10 }),
     });
     expect(aliceResult.pushRejected).toBe(false);
     expect(aliceResult.entries).toHaveLength(2);
@@ -60,10 +61,10 @@ describe("full sync flow (real Postgres)", () => {
     const bobResult = await bob.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:receive","data":{"rating":"yes"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"yes"}}',
+        plainOp("oral:receive", { rating: "yes", note: null }),
+        plainOp("blindfold:mutual", { rating: "yes", note: null }),
       ],
-      progress: 'p:1:{"answered":2,"total":10}',
+      progress: plainProgress({ answered: 2, total: 10 }),
     });
     expect(bobResult.pushRejected).toBe(false);
 
@@ -82,12 +83,12 @@ describe("full sync flow (real Postgres)", () => {
 
     const alicePushA = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:give", { rating: "yes", note: null })],
       progress: undefined,
     });
     await bob.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:receive","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:receive", { rating: "yes", note: null })],
       progress: undefined,
     });
     await alice.caller.sync.markComplete();
@@ -101,7 +102,7 @@ describe("full sync flow (real Postgres)", () => {
     // must be her own head (from alicePushA) to avoid a stoken conflict.
     await alice.caller.sync.push({
       stoken: alicePushA.stoken,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"no"}}'],
+      operations: [plainOp("a:give", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -126,19 +127,19 @@ describe("full sync flow (real Postgres)", () => {
 
     const first = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:mutual", { rating: "yes", note: null })],
       progress: undefined,
     });
 
     await alice.caller.sync.push({
       stoken: first.stoken,
-      operations: ['p:1:{"key":"b:mutual","data":{"rating":"no"}}'],
+      operations: [plainOp("b:mutual", { rating: "no", note: null })],
       progress: undefined,
     });
 
     const stale = await alice.caller.sync.push({
       stoken: first.stoken,
-      operations: ['p:1:{"key":"c:mutual","data":{"rating":"maybe"}}'],
+      operations: [plainOp("c:mutual", { rating: "maybe", note: null })],
       progress: undefined,
     });
 
@@ -151,12 +152,15 @@ describe("full sync flow (real Postgres)", () => {
 
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:give","data":{"rating":"yes"}}', 'p:1:{"key":"b:mutual","data":{"rating":"maybe"}}'],
+      operations: [
+        plainOp("a:give", { rating: "yes", note: null }),
+        plainOp("b:mutual", { rating: "maybe", note: null }),
+      ],
       progress: undefined,
     });
     await bob.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:receive","data":{"rating":"no"}}'],
+      operations: [plainOp("a:receive", { rating: "no", note: null })],
       progress: undefined,
     });
     // Neither has marked complete — sync.journal would be gated, but selfJournal isn't.
@@ -172,12 +176,26 @@ describe("full sync flow (real Postgres)", () => {
 
     const bobView = await bob.caller.sync.selfJournal({ sinceId: undefined });
     expect(bobView.entries).toHaveLength(1);
-    expect(bobView.entries[0].operation).toBe('p:1:{"key":"a:receive","data":{"rating":"no"}}');
+    expect(bobView.entries[0].operation).toBe(plainOp("a:receive", { rating: "no", note: null }));
 
     // Cursor-based delta
     const delta = await alice.caller.sync.selfJournal({ sinceId: aliceView.cursor ?? undefined });
     expect(delta.entries).toHaveLength(0);
     expect(delta.cursor).toBe(aliceView.cursor);
+  });
+
+  it("preserves a non-null note byte-for-byte through push and selfJournal read", async () => {
+    // The rest of the suite uses note: null because raw fixtures pre-date
+    // the note field. Confirm a real note string survives the wire/store
+    // path — selfJournal is the live read path that materializes the
+    // answers cache in production.
+    const { alice } = await createGroupWithMembers();
+    const noteOp = plainOp("oral:give", { rating: "yes", note: "side-lying first" });
+    await alice.caller.sync.push({ stoken: null, operations: [noteOp], progress: undefined });
+
+    const view = await alice.caller.sync.selfJournal({ sinceId: undefined });
+    expect(view.entries).toHaveLength(1);
+    expect(view.entries[0].operation).toBe(noteOp);
   });
 
   it("handles encrypted group with opaque data", async () => {
