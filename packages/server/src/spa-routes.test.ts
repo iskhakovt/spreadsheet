@@ -1,16 +1,17 @@
 import { fnv1a } from "@spreadsheet/shared";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { makeSpaRoutes, SESSION_COOKIE_MAX_AGE_SECONDS } from "./spa-routes.js";
+import { makeSpaRoutes, SESSION_COOKIE_MAX_AGE_SECONDS, type ShellRenderer } from "./spa-routes.js";
 
 const HTML_INVITE = '<html data-variant="invite"></html>';
 const HTML_DEFAULT = '<html data-variant="default"></html>';
 
 function makeApp(opts: { invite?: string | null; def?: string | null } = {}) {
-  const { serveBootstrap, serveDefault } = makeSpaRoutes(
-    opts.invite === undefined ? HTML_INVITE : opts.invite,
-    opts.def === undefined ? HTML_DEFAULT : opts.def,
-  );
+  const shell: ShellRenderer = {
+    invite: async () => (opts.invite === undefined ? HTML_INVITE : opts.invite),
+    default: async () => (opts.def === undefined ? HTML_DEFAULT : opts.def),
+  };
+  const { serveBootstrap, serveDefault } = makeSpaRoutes(shell);
   const app = new Hono();
   app.get("/p/:token", serveBootstrap);
   app.get("/p/:token/*", serveBootstrap);

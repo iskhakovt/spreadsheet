@@ -64,7 +64,9 @@ Root `package.json` holds shared devDependencies (biome, vitest) and workspace s
 ```
 packages/server/src/
   main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Built as the Docker entrypoint.
-  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
+  index.ts    ← Prod serve entry: opens DB, builds stores + cached SPA shell, calls createApp + serve.
+  app.ts      ← createApp({ stores, shell, dev, envConfig, staticRoot }) — Hono app factory shared by prod and dev.
+  dev/        ← Dev-only: state.ts (DB/stores factory), shell.ts (Vite-aware shell), entry.ts (@hono/vite-dev-server entry), globals.d.ts.
   db/         ← schema, migrations, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
@@ -173,7 +175,7 @@ Commands: `pnpm test` (unit + integration), `pnpm test:e2e` (local: builds web +
 - `packages/server/src/test/factories.ts` — `anonCtx`, `authedCtx`, `createAndSetup`, `createGroupDirect`, `createCaller`
 - `packages/server/src/test/pglite.ts` — `createTestDatabase()`, `truncateAll()`
 - Route tests define `mockCtx()` locally with `vi.fn()` stubs for all stores
-- **Subscription integration tests** use `createCaller(ctx, { signal })` with a real `AbortController`, and an `openSubscription(factory)` helper (see `e2e/groups.subscription.integration.test.ts` and `sync.journal-subscription.integration.test.ts`) that wraps the async iterable with timeout + cancel. For `tracked()` subscriptions the caller receives the raw tuple `[id, data, symbol]` — destructure via `unwrap()` helpers; the HTTP/WS adapter unwraps to `{id, data}` on the wire but `createCaller` passes the tuple through.
+- **Subscription integration tests** use `createCaller(ctx, { signal })` with a real `AbortController`, and an `openSubscription(factory)` helper (see `e2e/groups.subscription.integration.test.ts` and `sync.journal-subscription.integration.test.ts`) that wraps the async iterable with timeout + cancel. For `tracked()` subscriptions the caller receives the raw tuple `[id, data, symbol]` — destructure via `unwrap()` helpers; the SSE adapter unwraps to `{id, data}` on the wire but `createCaller` passes the tuple through.
 - Integration tests have `fileParallelism: false` in `vitest.config.ts` because they share a single Postgres container — running multiple `.integration.test.ts` files in parallel deadlocks on TRUNCATE.
 - `e2e/fixtures.ts` — custom Playwright fixture with dynamic `baseURL` (random port via `.e2e-port` file)
 - `e2e/helpers.ts` — `createGroupAndSetup`, `answerAllQuestions`, `answerQuestionsCycling`, `personBase`, `scopedGet`, `scopedSet`

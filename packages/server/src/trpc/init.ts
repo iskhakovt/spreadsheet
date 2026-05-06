@@ -5,7 +5,7 @@ import type { TrpcContext } from "./context.js";
 const t = initTRPC.context<TrpcContext>().create({
   sse: {
     // Server pings every 30s to keep proxies/load-balancers from idle-timing
-    // out the response stream. Mirrors the previous WS keepAlive cadence.
+    // out the response stream.
     ping: { enabled: true, intervalMs: 30_000 },
     // Client gives up and reconnects if no message (including ping) arrives
     // within this window. Set just above intervalMs so a single missed ping

@@ -55,11 +55,12 @@ export async function replayMembers(
 
 /**
  * Rebuild MemberAnswers[] from the merged raw-entry set, preserving the
- * already-decrypted name/anatomy from the previous state. Used on the WS
- * merge path where we receive new journal entries but the member metadata
- * (name/anatomy) hasn't changed — re-running full `replayMembers` would
- * pass already-decrypted strings back through `unwrapSensitive`, which is
- * idempotent but wasteful and obscures the contract.
+ * already-decrypted name/anatomy from the previous state. Used on the
+ * subscription merge path where we receive new journal entries but the
+ * member metadata (name/anatomy) hasn't changed — re-running full
+ * `replayMembers` would pass already-decrypted strings back through
+ * `unwrapSensitive`, which is idempotent but wasteful and obscures the
+ * contract.
  */
 export async function rebuildMemberAnswers(
   members: MemberAnswers[],

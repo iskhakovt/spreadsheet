@@ -106,7 +106,7 @@ function makeLocalStorageHook<T>(suffix: string, parse: (raw: string | null) => 
 //
 // `getAnswers()` is the canonical localStorage reader; `useSelfJournal`
 // uses it as the local-truth input to the merge so optimistic edits
-// survive the WS echo of their own commits.
+// survive the subscription echo of their own commits.
 
 /**
  * Validate persisted answers via `Answer.safeParse`. The schema itself

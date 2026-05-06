@@ -5,6 +5,28 @@ import { setCookie } from "hono/cookie";
 const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 /**
+ * SPA-shell HTML producer. Two flavours:
+ *
+ *   default — landing & free routes: og:image = /og-image.png, standard copy
+ *   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
+ *
+ * Returning `null` means "no shell available" (e.g. dev with no built bundle
+ * and no Vite to ask). The route handlers map that to a 404.
+ *
+ * Two implementations live downstream:
+ *
+ *   prod — pre-renders both variants from dist/index.html at startup (cached
+ *          strings; no per-request work).
+ *   dev  — reads packages/web/index.html, runs renderIndex for the variant,
+ *          then funnels the result through Vite's transformIndexHtml so the
+ *          SPA bundle, HMR client, and module rewrites all wire up correctly.
+ */
+export interface ShellRenderer {
+  default(): Promise<string | null>;
+  invite(): Promise<string | null>;
+}
+
+/**
  * Builds the SPA route handlers. Factored out of index.ts so the bootstrap
  * behaviour can be unit-tested without booting the server.
  *
@@ -29,10 +51,11 @@ const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
  * preserve cookies; serving the invite-flavoured HTML directly at the
  * shared URL keeps og:image/og:title working for link-unfurling.
  */
-export function makeSpaRoutes(htmlInvite: string | null, htmlDefault: string | null) {
+export function makeSpaRoutes(shell: ShellRenderer) {
   return {
-    serveBootstrap(c: Context) {
-      if (!htmlInvite) return c.text("Not found", 404);
+    async serveBootstrap(c: Context) {
+      const html = await shell.invite();
+      if (!html) return c.text("Not found", 404);
       const token = c.req.param("token");
       if (!token) return c.text("Not found", 404);
 
@@ -48,13 +71,14 @@ export function makeSpaRoutes(htmlInvite: string | null, htmlDefault: string | n
         maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
       });
       c.header("Cache-Control", "no-cache");
-      return c.html(htmlInvite);
+      return c.html(html);
     },
 
-    serveDefault(c: Context) {
-      if (!htmlDefault) return c.text("Not found", 404);
+    async serveDefault(c: Context) {
+      const html = await shell.default();
+      if (!html) return c.text("Not found", 404);
       c.header("Cache-Control", "no-cache");
-      return c.html(htmlDefault);
+      return c.html(html);
     },
   };
 }

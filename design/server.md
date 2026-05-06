@@ -81,7 +81,7 @@ Unexpected exceptions surface as 5xx responses, logged at `error` level by the r
 
 | Command | What |
 |-|-|
-| `serve` (default) | Start the HTTP + WS server (`index.ts`) |
+| `serve` (default) | Start the HTTP server (`index.ts`) — handles queries, mutations, and SSE subscriptions through one fetch pipeline |
 | `migrate` | Apply pending database migrations |
 | `seed` | Sync question bank data — deletes categories / questions / dependencies that disappeared from `questions.yml`, then upserts current rows. Stale-removal runs in FK-safe order (deps → questions → categories), with the category delete deferred until after the question upsert so a kept question can move between categories without a transient FK violation. |
 | `setup` | migrate + seed (convenience) |
