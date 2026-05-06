@@ -3,11 +3,9 @@ import type { Answer } from "./types.js";
 
 /**
  * Build a `p:1:` plaintext journal op for tests. Typing `data` against
- * Answer means dropping a field from the schema fails compile at fixture
- * sites instead of silently leaving stale keys — Zod would strip unknown
- * keys on read, masking the change (this is how `timing` survived #131).
- * Used by both server and web tests; tests that need legacy/extra keys to
- * exercise the strip-on-read path build the raw string by hand.
+ * Answer makes field drops fail compile instead of silently leaving stale
+ * keys (Zod strips unknowns on read). Tests exercising the strip-on-read
+ * path build the raw string by hand.
  */
 export function plainOp(key: string, data: Answer | null): string {
   return encodeOpaque(false, JSON.stringify({ key, data }));
