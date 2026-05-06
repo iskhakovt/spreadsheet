@@ -105,17 +105,9 @@ function spreadsheetDev(): Plugin {
 
 export default defineConfig({
   plugins: [
-    // HTTPS in dev so the browser uses HTTP/2 to localhost (Vite serves
-    // h2 when `server.https` is set; cleartext h2c isn't supported by any
-    // browser, so HTTPS is the only path to /2 locally). Each developer
-    // gets a self-signed cert in a per-checkout cache; the first browser
-    // load shows a warning to accept once.
-    //
-    // Why we want HTTP/2 in dev specifically: subscriptions are SSE-per-
-    // stream (see PR #139), three concurrent streams per tab. HTTP/1.1's
-    // 6-per-origin connection cap starves at 3+ same-origin tabs (which
-    // happens during cross-device-hydration testing and ad-hoc multi-tab
-    // sync work). HTTP/2 lifts the cap to ~100 streams per connection.
+    // HTTPS gets us HTTP/2, which lifts the browser's 6-per-origin
+    // connection cap — needed because SSE subscriptions are one stream
+    // each (see PR #139) and would starve at 3+ same-origin tabs on /1.1.
     basicSsl(),
     spreadsheetDev(),
     devServer({
