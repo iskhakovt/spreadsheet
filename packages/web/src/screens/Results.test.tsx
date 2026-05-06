@@ -11,7 +11,7 @@ vi.mock("@tanstack/react-query", async () => {
   return { ...actual, useMutation: () => ({ mutate: trackFn }) };
 });
 
-vi.mock("../../../lib/person-app-context.js", () => ({
+vi.mock("../lib/person-app-context.js", () => ({
   usePersonApp: () => ({
     token: "test-token",
     authedStatus: {
@@ -21,22 +21,21 @@ vi.mock("../../../lib/person-app-context.js", () => ({
   }),
 }));
 
-vi.mock("../../../lib/trpc.js", () => ({
+vi.mock("../lib/trpc.js", () => ({
   useTRPC: () => ({
     analytics: { track: { mutationOptions: () => ({}) } },
   }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: () => (config: { component: unknown }) => config,
   useNavigate: () => vi.fn(),
 }));
 
-vi.mock("../../../screens/Comparison.js", () => ({
+vi.mock("./Comparison.js", () => ({
   Comparison: () => null,
 }));
 
-const { ResultsRoute } = await import("./results.js");
+const { Results } = await import("./Results.js");
 
 function wrapper({ children }: Readonly<{ children: ReactNode }>) {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
@@ -48,14 +47,14 @@ afterEach(() => {
 });
 
 it("calls analytics.track with results_viewed on mount", () => {
-  render(createElement(ResultsRoute), { wrapper });
+  render(createElement(Results), { wrapper });
   expect(trackFn).toHaveBeenCalledOnce();
   expect(trackFn).toHaveBeenCalledWith({ event: "results_viewed" });
 });
 
 it("does not call analytics.track again on re-render", () => {
-  const { rerender } = render(createElement(ResultsRoute), { wrapper });
+  const { rerender } = render(createElement(Results), { wrapper });
   trackFn.mockReset();
-  rerender(createElement(ResultsRoute));
+  rerender(createElement(Results));
   expect(trackFn).not.toHaveBeenCalled();
 });

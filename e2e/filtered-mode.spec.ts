@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.js";
+import { NAV_TIMEOUT } from "./helpers.js";
 
 test.describe("filtered mode — admin picks anatomy", () => {
   test("shows anatomy pickers in setup and completes", async ({ page }) => {
@@ -10,7 +11,7 @@ test.describe("filtered mode — admin picks anatomy", () => {
     await page.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(page).toHaveURL(/\/p\/.+/);
 
-    await expect(page.getByText("Set up your group")).toBeVisible();
+    await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByPlaceholder("Enter your name").fill("Alice");
 
     // Admin's body type picker
@@ -25,6 +26,6 @@ test.describe("filtered mode — admin picks anatomy", () => {
     await partnerSection.getByRole("radio", { name: "Penis", exact: true }).click();
 
     await page.getByRole("button", { name: "Create & get links", exact: true }).click();
-    await expect(page.getByText("You're all set")).toBeVisible();
+    await expect(page.getByText("You're all set")).toBeVisible({ timeout: NAV_TIMEOUT });
   });
 });
