@@ -5,6 +5,7 @@ import devServer from "@hono/vite-dev-server";
 import nodeAdapter from "@hono/vite-dev-server/node";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { compression } from "vite-plugin-compression2";
@@ -104,6 +105,18 @@ function spreadsheetDev(): Plugin {
 
 export default defineConfig({
   plugins: [
+    // HTTPS in dev so the browser uses HTTP/2 to localhost (Vite serves
+    // h2 when `server.https` is set; cleartext h2c isn't supported by any
+    // browser, so HTTPS is the only path to /2 locally). Each developer
+    // gets a self-signed cert in a per-checkout cache; the first browser
+    // load shows a warning to accept once.
+    //
+    // Why we want HTTP/2 in dev specifically: subscriptions are SSE-per-
+    // stream (see PR #139), three concurrent streams per tab. HTTP/1.1's
+    // 6-per-origin connection cap starves at 3+ same-origin tabs (which
+    // happens during cross-device-hydration testing and ad-hoc multi-tab
+    // sync work). HTTP/2 lifts the cap to ~100 streams per connection.
+    basicSsl(),
     spreadsheetDev(),
     devServer({
       adapter: nodeAdapter,
