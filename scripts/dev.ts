@@ -12,7 +12,7 @@ const SERVER_DIR = resolve(ROOT, "packages/server");
 
 async function main() {
   console.log("Starting Postgres...");
-  const container = await new PostgreSqlContainer("postgres:17")
+  const container = await new PostgreSqlContainer("public.ecr.aws/docker/library/postgres:18")
     .withReuse()
     .withLabels({ "com.spreadsheet.dev": "true" })
     .start();
