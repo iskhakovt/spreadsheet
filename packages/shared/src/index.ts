@@ -1,5 +1,6 @@
 export { decodeOpaque, encodeOpaque, FORMAT_VERSION, PREFIX_ENCRYPTED, PREFIX_PLAINTEXT } from "./crypto.js";
 export { fnv1a } from "./hash.js";
+export { plainOp, plainProgress } from "./test-helpers.js";
 export {
   ANATOMY_LABEL_PRESETS,
   Anatomy,

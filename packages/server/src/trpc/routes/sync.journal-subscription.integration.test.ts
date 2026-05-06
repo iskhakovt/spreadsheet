@@ -1,3 +1,4 @@
+import { plainOp } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -72,12 +73,12 @@ async function setupCompletedPair() {
   // Each pushes one journal entry, then both mark complete.
   const alicePush = await aliceCaller0.sync.push({
     stoken: null,
-    operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+    operations: [plainOp("oral:give", { rating: "yes", note: null })],
     progress: undefined,
   });
   const bobPush = await bobCaller0.sync.push({
     stoken: null,
-    operations: ['p:1:{"key":"oral:receive","data":{"rating":"yes"}}'],
+    operations: [plainOp("oral:receive", { rating: "yes", note: null })],
     progress: undefined,
   });
 
@@ -157,7 +158,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
 
     await alice.caller.sync.push({
       stoken: alice.stoken,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"no"}}'],
+      operations: [plainOp("oral:give", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -183,7 +184,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     // Alice pushes another entry while nobody's subscribed
     await alice.caller.sync.push({
       stoken: alice.stoken,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"no"}}'],
+      operations: [plainOp("oral:give", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -212,7 +213,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     // so the resume backfill from sub2 should include exactly that one.
     await alice.caller.sync.push({
       stoken: alice.stoken,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"maybe"}}'],
+      operations: [plainOp("oral:give", { rating: "maybe", note: null })],
       progress: undefined,
     });
 
@@ -238,7 +239,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
 
     await alice.caller.sync.push({
       stoken: alice.stoken,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"no"}}'],
+      operations: [plainOp("oral:give", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -266,7 +267,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     // lands before the subscriber has received the initial backfill. Use a
     // uniquely-identifiable operation payload so we can find it in the
     // collected stream even amongst the 2 initial entries from setup.
-    const racingOp = 'p:1:{"key":"oral:give","data":{"rating":"maybe"}}';
+    const racingOp = plainOp("oral:give", { rating: "maybe", note: null });
     await alice.caller.sync.push({
       stoken: alice.stoken,
       operations: [racingOp],

@@ -1,3 +1,4 @@
+import { plainOp, plainProgress } from "@spreadsheet/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents, journalEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
@@ -107,14 +108,14 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:mutual", { rating: "yes", note: null })],
       progress: undefined,
     });
     expect(push).toHaveBeenCalledWith(
       "p1",
       {
         stoken: null,
-        operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
+        operations: [plainOp("a:mutual", { rating: "yes", note: null })],
         progress: undefined,
       },
       false,
@@ -135,7 +136,7 @@ describe("sync.push", () => {
     const caller = createCaller(ctx);
     const result = await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:mutual", { rating: "yes", note: null })],
       progress: undefined,
     });
     expect(result).toEqual({ stoken: "s1", entries: [], pushRejected: false });
@@ -172,7 +173,7 @@ describe("sync.push journal bus emission", () => {
     const caller = createCaller(ctx);
     await caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"a:mutual","data":{"rating":"yes"}}'],
+      operations: [plainOp("a:mutual", { rating: "yes", note: null })],
       progress: undefined,
     });
     expect(handler).toHaveBeenCalledTimes(1);
@@ -213,7 +214,7 @@ describe("sync.push journal bus emission", () => {
     journalEvents.on("journal:g1", handler);
     const ctx = mockCtx({ person, group, sync: { push } });
     const caller = createCaller(ctx);
-    await caller.sync.push({ stoken: null, operations: [], progress: 'p:1:{"answered":5,"total":10}' });
+    await caller.sync.push({ stoken: null, operations: [], progress: plainProgress({ answered: 5, total: 10 }) });
     expect(handler).not.toHaveBeenCalled();
   });
 

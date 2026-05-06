@@ -1,3 +1,4 @@
+import { plainOp } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -96,8 +97,8 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     await alice.caller.sync.push({
       stoken: null,
       operations: [
-        'p:1:{"key":"oral:give","data":{"rating":"yes"}}',
-        'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}',
+        plainOp("oral:give", { rating: "yes", note: null }),
+        plainOp("blindfold:mutual", { rating: "maybe", note: null }),
       ],
       progress: undefined,
     });
@@ -117,7 +118,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // Bob writes, alice subscribes — alice must NOT see bob's entry.
     await bob.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:receive","data":{"rating":"no"}}'],
+      operations: [plainOp("oral:receive", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -138,7 +139,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // to the live append.
     const pushResult = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
       progress: undefined,
     });
     expect(pushResult.pushRejected).toBe(false);
@@ -160,7 +161,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     const sub = await openSubscription(selfSub(alice.ctx));
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
       progress: undefined,
     });
 
@@ -174,7 +175,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     const { alice } = await setupPair();
     const initialPush = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
       progress: undefined,
     });
 
@@ -188,7 +189,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // Alice pushes another entry while nobody's subscribed
     await alice.caller.sync.push({
       stoken: initialPush.stoken,
-      operations: ['p:1:{"key":"blindfold:mutual","data":{"rating":"no"}}'],
+      operations: [plainOp("blindfold:mutual", { rating: "no", note: null })],
       progress: undefined,
     });
 
@@ -209,13 +210,13 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // larger window for a racing emit to slip through).
     const seedPush = await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
       progress: undefined,
     });
 
     const sub = await openSubscription(selfSub(alice.ctx));
 
-    const racingOp = 'p:1:{"key":"blindfold:mutual","data":{"rating":"maybe"}}';
+    const racingOp = plainOp("blindfold:mutual", { rating: "maybe", note: null });
     await alice.caller.sync.push({
       stoken: seedPush.stoken,
       operations: [racingOp],
@@ -254,7 +255,7 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     // flush, so push one to flush the backfill yield.
     await alice.caller.sync.push({
       stoken: null,
-      operations: ['p:1:{"key":"oral:give","data":{"rating":"yes"}}'],
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
       progress: undefined,
     });
     await sub.next(1000);
