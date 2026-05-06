@@ -107,7 +107,7 @@ export default defineConfig({
   plugins: [
     // HTTPS gets us HTTP/2, which lifts the browser's 6-per-origin
     // connection cap — needed because SSE subscriptions are one stream
-    // each (see PR #139) and would starve at 3+ same-origin tabs on /1.1.
+    // each and would starve at 3+ same-origin tabs on /1.1.
     basicSsl(),
     spreadsheetDev(),
     devServer({
