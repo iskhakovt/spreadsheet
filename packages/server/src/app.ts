@@ -93,8 +93,12 @@ export function createApp(opts: AppOptions): Hono<HonoLoggerEnv> {
 
   const { serveBootstrap, serveDefault } = makeSpaRoutes(shell);
 
-  // /p/:token (and sub-paths) — bootstrap-only: validates token, sets a
-  // per-person httpOnly session cookie, serves the invite-flavoured HTML.
+  // /p/:token (and sub-paths) — bootstrap-only: writes the token to a
+  // per-person httpOnly session cookie and serves the invite-flavoured HTML.
+  // Token validity is NOT checked here; the next authenticated request
+  // (queries / mutations / SSE subscriptions) goes through createContext,
+  // which reads the cookie and rejects unknown tokens. Deferring keeps this
+  // handler fast and avoids special-casing pre-setup admin tokens.
   // Client-side `replaceState`s the URL to root once it's read its session
   // identity (the hash) — see web-side bootstrap route.
   //

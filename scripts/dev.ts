@@ -45,19 +45,19 @@ async function main() {
     stdio: "inherit",
   });
 
-  function cleanup() {
+  function cleanup(exitCode = 0) {
     vite.kill();
     // Container stays running (withReuse) — fast restart next time
-    process.exit(0);
+    process.exit(exitCode);
   }
 
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
+  process.on("SIGINT", () => cleanup());
+  process.on("SIGTERM", () => cleanup());
 
   vite.on("exit", (code) => {
     if (code !== null && code !== 0) {
       console.error(`Vite exited with code ${code}`);
-      cleanup();
+      cleanup(code);
     }
   });
 }

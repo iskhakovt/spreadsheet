@@ -32,7 +32,7 @@ const stores = {
 //   invite  — /p/:token: og:image = /og-invite.png, "Your turn" copy
 // Messenger crawlers (Facebook, iMessage, WhatsApp) fetch og:image from the
 // HTML at the invite URL, so per-token links unfurl with invite-framed copy.
-function loadShells(staticRoot: string): { default: string | null; invite: string | null } {
+function loadShells(staticRoot: string): { default: string; invite: string } {
   try {
     const raw = readFileSync(resolve(staticRoot, "index.html"), "utf-8");
     return {
@@ -48,10 +48,9 @@ function loadShells(staticRoot: string): { default: string | null; invite: strin
       }),
     };
   } catch (err) {
-    if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
-      logger.warn({ staticRoot }, "index.html not found — SPA fallback disabled (expected during dev)");
-      return { default: null, invite: null };
-    }
+    // Prod-only path — dev uses dev/entry.ts via Vite, never index.ts. A
+    // missing dist/index.html means a broken Docker image; halt rather
+    // than silently degrade to "Not found" on every page load.
     logger.fatal({ err, staticRoot }, "failed to pre-render SPA fallback");
     throw err;
   }
