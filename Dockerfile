@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build ---
-FROM public.ecr.aws/docker/library/node:24-slim AS build
+FROM public.ecr.aws/docker/library/node:26-slim AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
