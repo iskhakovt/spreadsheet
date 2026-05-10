@@ -12,12 +12,12 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.1",
+    "@hono/node-server": "^2.0.2",
     "@hono/trpc-server": "^0.4.0",
     "@spreadsheet/shared": "workspace:*",
     "@trpc/server": "^11.17.0",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.12.16",
+    "hono": "^4.12.18",
     "node-html-parser": "^7.1.0",
     "pino": "^10.3.1",
     "postgres": "^3.4.0",
