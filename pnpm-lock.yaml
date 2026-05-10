@@ -49,11 +49,11 @@ importers:
   packages/server:
     dependencies:
       '@hono/node-server':
-        specifier: ^2.0.1
-        version: 2.0.1(hono@4.12.16)
+        specifier: ^2.0.2
+        version: 2.0.2(hono@4.12.18)
       '@hono/trpc-server':
         specifier: ^0.4.0
-        version: 0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.16)
+        version: 0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.18)
       '@spreadsheet/shared':
         specifier: workspace:*
         version: link:../shared
@@ -64,8 +64,8 @@ importers:
         specifier: ^0.45.0
         version: 0.45.2(@electric-sql/pglite@0.4.5)(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
       hono:
-        specifier: ^4.12.16
-        version: 4.12.16
+        specifier: ^4.12.18
+        version: 4.12.18
       node-html-parser:
         specifier: ^7.1.0
         version: 7.1.0
@@ -164,7 +164,7 @@ importers:
     devDependencies:
       '@hono/vite-dev-server':
         specifier: ~0.25.3
-        version: 0.25.3(hono@4.12.16)
+        version: 0.25.3(hono@4.12.18)
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -1348,8 +1348,8 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@hono/node-server@2.0.1':
-    resolution: {integrity: sha512-jI9yMDyFpqBeSighf/zlXnQG/nl9AyBc6aAgy4XtxJMyt/CNyJpvPfzDD+bCc2zAOmhhqtF6TnmIaY+xV4mIrw==}
+  '@hono/node-server@2.0.2':
+    resolution: {integrity: sha512-tXlTi1h/4V7sDe7i97IVP+9re9ZU7wXZZggnR5ucCRclf1+AX6YhGStrR5w8bLj+3Mlyl0pKfBh9gqTqqnGKfQ==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
@@ -3138,8 +3138,8 @@ packages:
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
 
-  hono@4.12.16:
-    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
+  hono@4.12.18:
+    resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
     engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
@@ -5776,23 +5776,23 @@ snapshots:
       protobufjs: 7.5.4
       yargs: 17.7.2
 
-  '@hono/node-server@1.19.14(hono@4.12.16)':
+  '@hono/node-server@1.19.14(hono@4.12.18)':
     dependencies:
-      hono: 4.12.16
+      hono: 4.12.18
 
-  '@hono/node-server@2.0.1(hono@4.12.16)':
+  '@hono/node-server@2.0.2(hono@4.12.18)':
     dependencies:
-      hono: 4.12.16
+      hono: 4.12.18
 
-  '@hono/trpc-server@0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.16)':
+  '@hono/trpc-server@0.4.2(@trpc/server@11.17.0(typescript@6.0.3))(hono@4.12.18)':
     dependencies:
       '@trpc/server': 11.17.0(typescript@6.0.3)
-      hono: 4.12.16
+      hono: 4.12.18
 
-  '@hono/vite-dev-server@0.25.3(hono@4.12.16)':
+  '@hono/vite-dev-server@0.25.3(hono@4.12.18)':
     dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.16)
-      hono: 4.12.16
+      '@hono/node-server': 1.19.14(hono@4.12.18)
+      hono: 4.12.18
       minimatch: 9.0.9
 
   '@isaacs/cliui@8.0.2':
@@ -7506,7 +7506,7 @@ snapshots:
 
   help-me@5.0.0: {}
 
-  hono@4.12.16: {}
+  hono@4.12.18: {}
 
   hookified@1.15.1: {}
 
