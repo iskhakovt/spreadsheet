@@ -1,7 +1,7 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, QuestionData } from "@spreadsheet/shared";
 import { describe, expect, it } from "vitest";
 import type { PairMatch, QuestionInfo } from "./build-pair-matches.js";
-import { buildGroupedMatches, buildPairMatches } from "./build-pair-matches.js";
+import { buildGroupedMatches, buildPairMatches, filterVisibleAnswers } from "./build-pair-matches.js";
 
 // --- Helpers ---
 
@@ -538,5 +538,107 @@ describe("buildGroupedMatches", () => {
     const snapshot = [...input];
     buildGroupedMatches(input, questions, categoryLabels, categoryOrder, questionOrder);
     expect(input).toEqual(snapshot);
+  });
+});
+
+describe("filterVisibleAnswers", () => {
+  function qData(overrides: Partial<QuestionData> & { id: string }): QuestionData {
+    return {
+      categoryId: "cat",
+      text: overrides.id,
+      giveText: null,
+      receiveText: null,
+      description: null,
+      notePrompt: null,
+      targetGive: "all",
+      targetReceive: "all",
+      requiresGroupAnatomy: [],
+      tier: 1,
+      requires: [],
+      ...overrides,
+    };
+  }
+
+  // Mirrors the real bank: frot needs two penises (mutual, both sides amab);
+  // cbt needs a penis present in the group; kissing is anatomy-agnostic.
+  const frot = qData({ id: "frot", targetGive: "amab", targetReceive: "amab" });
+  const cbt = qData({ id: "cbt", requiresGroupAnatomy: ["amab"] });
+  const kissing = qData({ id: "kissing" });
+  const map = new Map([frot, cbt, kissing].map((q) => [q.id, q]));
+
+  it("drops a stale answer to a question no longer anatomy-visible (frot for an M+F male)", () => {
+    const answers = { "frot:mutual": yes, "kissing:mutual": yes };
+    // viewer amab, the only other member afab → frot needs a second penis, gone.
+    const result = filterVisibleAnswers(answers, "amab", ["afab"], "filtered", map);
+    expect(result).toEqual({ "kissing:mutual": yes });
+  });
+
+  it("keeps the answer when the partner anatomy satisfies it (frot in an M+M pair)", () => {
+    const answers = { "frot:mutual": yes };
+    expect(filterVisibleAnswers(answers, "amab", ["amab"], "filtered", map)).toEqual({ "frot:mutual": yes });
+  });
+
+  it("drops a group-gated answer when the required anatomy is absent (cbt in an F+F pair)", () => {
+    const answers = { "cbt:mutual": yes };
+    expect(filterVisibleAnswers(answers, "afab", ["afab"], "filtered", map)).toEqual({});
+    // But kept when a penis is present.
+    expect(filterVisibleAnswers({ "cbt:mutual": yes }, "afab", ["amab"], "filtered", map)).toEqual({
+      "cbt:mutual": yes,
+    });
+  });
+
+  it("is a no-op in 'all' mode — every stored answer is kept regardless of anatomy", () => {
+    const answers = { "frot:mutual": yes, "cbt:mutual": yes, "kissing:mutual": yes };
+    expect(filterVisibleAnswers(answers, "afab", ["afab"], "all", map)).toEqual(answers);
+  });
+
+  it("is pair-precise — a group-gated question stays hidden for a pair lacking the anatomy", () => {
+    // cat-position needs both amab+afab. PairComparison passes ONLY the
+    // partner's anatomy as `otherAnatomies`, so in an M+M+F group the M–M pair
+    // drops it even though an afab exists elsewhere in the group. (Passing the
+    // group-wide set instead would leak a PIV-only row into the M–M pair.)
+    const catPosition = qData({ id: "cat-position", requiresGroupAnatomy: ["amab", "afab"] });
+    const m = new Map([[catPosition.id, catPosition]]);
+    // M–M pair (partner is amab) → required afab absent from the pair → dropped.
+    expect(filterVisibleAnswers({ "cat-position:mutual": yes }, "amab", ["amab"], "filtered", m)).toEqual({});
+    // M–F pair (partner is afab) → both anatomies present → kept.
+    expect(filterVisibleAnswers({ "cat-position:mutual": yes }, "amab", ["afab"], "filtered", m)).toEqual({
+      "cat-position:mutual": yes,
+    });
+  });
+
+  it("filters give/receive keys by their own side (partner can't receive → give dropped)", () => {
+    // fellatio: anyone can give, but the receiver must be amab. In an F+F pair
+    // the give side has no amab partner to receive it → dropped; with an amab
+    // partner it's kept. Exercises the give/receive branches of sideVisible.
+    const fellatio = qData({ id: "fellatio", giveText: "give", receiveText: "receive", targetReceive: "amab" });
+    const m = new Map([[fellatio.id, fellatio]]);
+    expect(filterVisibleAnswers({ "fellatio:give": yes }, "afab", ["afab"], "filtered", m)).toEqual({});
+    expect(filterVisibleAnswers({ "fellatio:give": yes }, "afab", ["amab"], "filtered", m)).toEqual({
+      "fellatio:give": yes,
+    });
+  });
+
+  it("treats a 'none' anatomy as matching no specific target (keeps 'all', drops anatomy-specific)", () => {
+    // The fallback PairComparison uses for a member with no recorded anatomy.
+    const answers = { "frot:mutual": yes, "kissing:mutual": yes };
+    expect(filterVisibleAnswers(answers, "none", ["none"], "filtered", map)).toEqual({ "kissing:mutual": yes });
+  });
+
+  it("keeps answers to unknown questions (removed from the bank) — caller drops them later", () => {
+    const answers = { "gone:mutual": yes };
+    expect(filterVisibleAnswers(answers, "afab", ["afab"], "filtered", map)).toEqual({ "gone:mutual": yes });
+  });
+
+  it("makes a stale mutual answer vanish from the pair's results", () => {
+    // End-to-end: both members of an F+F pair answered cbt before the regrade.
+    // Filtering each side first means buildPairMatches sees no cbt key at all.
+    const aRaw = { "cbt:mutual": yes, "kissing:mutual": yes };
+    const bRaw = { "cbt:mutual": yes, "kissing:mutual": yes };
+    const a = filterVisibleAnswers(aRaw, "afab", ["afab"], "filtered", map);
+    const b = filterVisibleAnswers(bRaw, "afab", ["afab"], "filtered", map);
+    const slim = { cbt: mutualQ, kissing: mutualQ };
+    const result = buildPairMatches(a, b, slim);
+    expect(result.map((m) => m.questionId)).toEqual(["kissing"]);
   });
 });

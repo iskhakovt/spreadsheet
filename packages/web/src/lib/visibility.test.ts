@@ -239,6 +239,61 @@ describe("requiresGroupAnatomy gate", () => {
   });
 });
 
+describe("mutual question — targetReceive is partner-aware", () => {
+  // "Two of the same anatomy" activities (frot, tribadism) are mutual questions
+  // whose targetReceive names the anatomy a *second* person must have. The
+  // mutual branch must check it against the rest of the group, not ignore it.
+  const frot = q({ id: "frot", targetGive: "amab", targetReceive: "amab" });
+
+  it("hides frot for a lone amab viewer in a mixed pair (no second penis)", () => {
+    expect(anatomySides(frot, "amab", ["afab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: false,
+    });
+  });
+
+  it("shows frot when another group member shares the anatomy", () => {
+    expect(anatomySides(frot, "amab", ["amab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: true,
+    });
+  });
+
+  it("hides frot for an afab viewer regardless of the group", () => {
+    expect(anatomySides(frot, "afab", ["amab"], "filtered").canMutual).toBe(false);
+  });
+
+  it("M+M+F: hides frot for the afab member even though two penises are present", () => {
+    // The F isn't one of the two penis-havers. anyOther('amab') is satisfied by
+    // the two M's, but the viewer-side targetGive check (amab) still excludes her.
+    expect(anatomySides(frot, "afab", ["amab", "amab"], "filtered").canMutual).toBe(false);
+  });
+
+  it("M+M+F: shows frot to each amab member (a non-participating afab is present)", () => {
+    expect(anatomySides(frot, "amab", ["amab", "afab"], "filtered").canMutual).toBe(true);
+  });
+
+  it("M+M+F: hides tribadism for the lone afab member (no second vulva)", () => {
+    const tribadism = q({ id: "tribadism", targetGive: "afab", targetReceive: "afab" });
+    expect(anatomySides(tribadism, "afab", ["amab", "amab"], "filtered").canMutual).toBe(false);
+  });
+
+  it("leaves ordinary mutual questions (targetReceive defaults to 'all') unaffected", () => {
+    const kissing = q({ id: "kissing" });
+    expect(anatomySides(kissing, "amab", ["afab"], "filtered")).toEqual({
+      canGive: false,
+      canReceive: false,
+      canMutual: true,
+    });
+  });
+
+  it("bypasses the partner check in 'all' mode", () => {
+    expect(anatomySides(frot, "amab", ["afab"], "all").canMutual).toBe(true);
+  });
+});
+
 describe("gatedSides + anatomy interaction", () => {
   it("treats anatomy='both' user the same as any other for gating purposes", () => {
     // gatedSides reads only answers, not anatomy — a 'both' user with a

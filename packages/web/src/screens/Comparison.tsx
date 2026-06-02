@@ -1,4 +1,4 @@
-import type { Rating } from "@spreadsheet/shared";
+import type { QuestionData, Rating } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { Pencil } from "lucide-react";
@@ -6,7 +6,12 @@ import { useMemo, useRef, useState } from "react";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { SourceLink } from "../components/source-link.js";
 import { TipJarLink } from "../components/tip-jar-link.js";
-import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
+import {
+  buildGroupedMatches,
+  buildPairMatches,
+  filterVisibleAnswers,
+  type QuestionInfo,
+} from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
 import {
@@ -47,6 +52,9 @@ interface ComparisonProps {
   viewerId: string;
   encrypted: boolean;
   token: string;
+  /** Group question mode — gates the per-member anatomy-visibility filter
+   *  ("all" mode shows every question regardless of anatomy). */
+  questionMode: string;
   onBack?: () => void;
 }
 
@@ -58,6 +66,11 @@ interface PairComparisonProps {
   aIsViewer: boolean;
   bIsViewer: boolean;
   questions: Record<string, QuestionInfo>;
+  /** Full question records (with anatomy targeting) for the pair-precise
+   *  visibility filter. */
+  questionsById: ReadonlyMap<string, QuestionData>;
+  /** Group question mode — gates the visibility filter ("all" mode keeps every answer). */
+  questionMode: string;
   categories: Record<string, string>;
   categoryOrder: string[];
   questionOrder: Record<string, number>;
@@ -215,7 +228,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * See Step 4's sync.journal-subscription.integration.test.ts for the full
  * contract.
  */
-export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, encrypted, token, questionMode, onBack }: Readonly<ComparisonProps>) {
   // React Compiler reports a false-positive "Cannot access refs during render"
   // — `seqRef.current` is only touched inside the async `onData` callback. The
   // compiler can't prove the callback isn't synchronous, so it falls back to
@@ -255,6 +268,14 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
 
   const questionOrder = useMemo<Record<string, number>>(
     () => Object.fromEntries(questionsData.questions.map((q, i) => [q.id, i])),
+    [questionsData.questions],
+  );
+
+  // Full question records (with anatomy targeting) for the pair-precise
+  // visibility filter in PairComparison — distinct from the slim `questions`
+  // lookup above, which only carries display fields.
+  const questionsById = useMemo<Map<string, QuestionData>>(
+    () => new Map(questionsData.questions.map((q) => [q.id, q])),
     [questionsData.questions],
   );
 
@@ -421,6 +442,8 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
                   aIsViewer={visiblePair.a.id === viewerId}
                   bIsViewer={visiblePair.b.id === viewerId}
                   questions={questions}
+                  questionsById={questionsById}
+                  questionMode={questionMode}
                   categories={categories}
                   categoryOrder={categoryOrder}
                   questionOrder={questionOrder}
@@ -465,7 +488,7 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
   );
 }
 
-function PairComparison({
+export function PairComparison({
   a,
   b,
   aDisplayName,
@@ -473,12 +496,33 @@ function PairComparison({
   aIsViewer,
   bIsViewer,
   questions,
+  questionsById,
+  questionMode,
   categories,
   categoryOrder,
   questionOrder,
   showHeading = true,
 }: Readonly<PairComparisonProps>) {
-  const pairMatches = buildPairMatches(a.answers, b.answers, questions, {
+  // Filter each person's answers to questions still anatomy-visible *to this
+  // pair* before comparing. Two reasons:
+  //  1. Stale answers — a gating change (a retagged question, or a changed
+  //     anatomy) would otherwise keep surfacing a match neither can see anymore.
+  //  2. Pair precision — a group-level `requiresGroupAnatomy` gate is satisfied
+  //     by anyone in the group, so in a 3+ group an M–M pair could surface a
+  //     PIV-only row (e.g. cat-position) just because an afab exists elsewhere.
+  //     Gating each side against only the partner's anatomy keeps the row to
+  //     pairs it actually applies to. No-op for the dominant 2-person case
+  //     (pair == group) and in "all" mode (every answer is kept).
+  // A member with no recorded anatomy falls back to "none" — the anatomy
+  // picker's own value for "no relevant anatomy", which anatomyMatches already
+  // treats as matching no specific target. In filtered mode the /anatomy guard
+  // makes this belt-and-suspenders; in "all" mode the filter is a no-op anyway.
+  const aAnatomy = a.anatomy ?? "none";
+  const bAnatomy = b.anatomy ?? "none";
+  const aAnswers = filterVisibleAnswers(a.answers, aAnatomy, [bAnatomy], questionMode, questionsById);
+  const bAnswers = filterVisibleAnswers(b.answers, bAnatomy, [aAnatomy], questionMode, questionsById);
+
+  const pairMatches = buildPairMatches(aAnswers, bAnswers, questions, {
     aName: aDisplayName,
     aIsViewer,
   });

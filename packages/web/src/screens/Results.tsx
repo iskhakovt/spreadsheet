@@ -20,6 +20,7 @@ export function Results() {
       viewerId={authedStatus.person.id}
       encrypted={authedStatus.group.encrypted}
       token={token}
+      questionMode={authedStatus.group.questionMode}
       onBack={() => void navigate({ to: "/p/$token/questions", params: { token } })}
     />
   );
