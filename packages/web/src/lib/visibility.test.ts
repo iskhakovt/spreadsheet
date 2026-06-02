@@ -265,6 +265,21 @@ describe("mutual question — targetReceive is partner-aware", () => {
     expect(anatomySides(frot, "afab", ["amab"], "filtered").canMutual).toBe(false);
   });
 
+  it("M+M+F: hides frot for the afab member even though two penises are present", () => {
+    // The F isn't one of the two penis-havers. anyOther('amab') is satisfied by
+    // the two M's, but the viewer-side targetGive check (amab) still excludes her.
+    expect(anatomySides(frot, "afab", ["amab", "amab"], "filtered").canMutual).toBe(false);
+  });
+
+  it("M+M+F: shows frot to each amab member (a non-participating afab is present)", () => {
+    expect(anatomySides(frot, "amab", ["amab", "afab"], "filtered").canMutual).toBe(true);
+  });
+
+  it("M+M+F: hides tribadism for the lone afab member (no second vulva)", () => {
+    const tribadism = q({ id: "tribadism", targetGive: "afab", targetReceive: "afab" });
+    expect(anatomySides(tribadism, "afab", ["amab", "amab"], "filtered").canMutual).toBe(false);
+  });
+
   it("leaves ordinary mutual questions (targetReceive defaults to 'all') unaffected", () => {
     const kissing = q({ id: "kissing" });
     expect(anatomySides(kissing, "amab", ["afab"], "filtered")).toEqual({
