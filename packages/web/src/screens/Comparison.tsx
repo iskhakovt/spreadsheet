@@ -409,7 +409,7 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
   );
 }
 
-function PairComparison({
+export function PairComparison({
   a,
   b,
   aDisplayName,
