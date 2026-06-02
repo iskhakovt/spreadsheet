@@ -498,6 +498,21 @@ describe("filterVisibleAnswers", () => {
     expect(filterVisibleAnswers(answers, "afab", ["afab"], "all", map)).toEqual(answers);
   });
 
+  it("is pair-precise — a group-gated question stays hidden for a pair lacking the anatomy", () => {
+    // cat-position needs both amab+afab. PairComparison passes ONLY the
+    // partner's anatomy as `otherAnatomies`, so in an M+M+F group the M–M pair
+    // drops it even though an afab exists elsewhere in the group. (Passing the
+    // group-wide set instead would leak a PIV-only row into the M–M pair.)
+    const catPosition = qData({ id: "cat-position", requiresGroupAnatomy: ["amab", "afab"] });
+    const m = new Map([[catPosition.id, catPosition]]);
+    // M–M pair (partner is amab) → required afab absent from the pair → dropped.
+    expect(filterVisibleAnswers({ "cat-position:mutual": yes }, "amab", ["amab"], "filtered", m)).toEqual({});
+    // M–F pair (partner is afab) → both anatomies present → kept.
+    expect(filterVisibleAnswers({ "cat-position:mutual": yes }, "amab", ["afab"], "filtered", m)).toEqual({
+      "cat-position:mutual": yes,
+    });
+  });
+
   it("keeps answers to unknown questions (removed from the bank) — caller drops them later", () => {
     const answers = { "gone:mutual": yes };
     expect(filterVisibleAnswers(answers, "afab", ["afab"], "filtered", map)).toEqual({ "gone:mutual": yes });

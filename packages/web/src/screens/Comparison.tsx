@@ -56,6 +56,11 @@ interface PairComparisonProps {
   aIsViewer: boolean;
   bIsViewer: boolean;
   questions: Record<string, QuestionInfo>;
+  /** Full question records (with anatomy targeting) for the pair-precise
+   *  visibility filter. */
+  questionsById: ReadonlyMap<string, QuestionData>;
+  /** Group question mode — gates the visibility filter ("all" mode keeps every answer). */
+  questionMode: string;
   categories: Record<string, string>;
   categoryOrder: string[];
   questionOrder: Record<string, number>;
@@ -187,9 +192,9 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     [questionsData.questions],
   );
 
-  // Full question records (with anatomy targeting) for the per-member
-  // visibility filter — distinct from the slim `questions` lookup above,
-  // which only carries display fields.
+  // Full question records (with anatomy targeting) for the pair-precise
+  // visibility filter in PairComparison — distinct from the slim `questions`
+  // lookup above, which only carries display fields.
   const questionsById = useMemo<Map<string, QuestionData>>(
     () => new Map(questionsData.questions.map((q) => [q.id, q])),
     [questionsData.questions],
@@ -237,29 +242,7 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     ),
   );
 
-  // Sort viewer-first, then strip each member's answers to questions still
-  // anatomy-visible to them. Without this, an answer left behind by a gating
-  // change (a retagged question, or a changed anatomy) would keep surfacing as
-  // a match even though neither person can see the question anymore.
-  const memberAnswers = useMemo(() => {
-    const sorted = sortMembersViewerFirst(journal.members, viewerId);
-    return sorted.map((member) => {
-      const otherAnatomies = sorted
-        .filter((other) => other.id !== member.id)
-        .map((other) => other.anatomy)
-        .filter((anatomy): anatomy is string => !!anatomy);
-      return {
-        ...member,
-        answers: filterVisibleAnswers(
-          member.answers,
-          member.anatomy ?? "",
-          otherAnatomies,
-          questionMode,
-          questionsById,
-        ),
-      };
-    });
-  }, [journal.members, viewerId, questionMode, questionsById]);
+  const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
 
   const [activePairKey, setActivePairKey] = useState<string>();
 
@@ -380,6 +363,8 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
                   aIsViewer={visiblePair.a.id === viewerId}
                   bIsViewer={visiblePair.b.id === viewerId}
                   questions={questions}
+                  questionsById={questionsById}
+                  questionMode={questionMode}
                   categories={categories}
                   categoryOrder={categoryOrder}
                   questionOrder={questionOrder}
@@ -432,12 +417,29 @@ function PairComparison({
   aIsViewer,
   bIsViewer,
   questions,
+  questionsById,
+  questionMode,
   categories,
   categoryOrder,
   questionOrder,
   showHeading = true,
 }: Readonly<PairComparisonProps>) {
-  const pairMatches = buildPairMatches(a.answers, b.answers, questions, {
+  // Filter each person's answers to questions still anatomy-visible *to this
+  // pair* before comparing. Two reasons:
+  //  1. Stale answers — a gating change (a retagged question, or a changed
+  //     anatomy) would otherwise keep surfacing a match neither can see anymore.
+  //  2. Pair precision — a group-level `requiresGroupAnatomy` gate is satisfied
+  //     by anyone in the group, so in a 3+ group an M–M pair could surface a
+  //     PIV-only row (e.g. cat-position) just because an afab exists elsewhere.
+  //     Gating each side against only the partner's anatomy keeps the row to
+  //     pairs it actually applies to. No-op for the dominant 2-person case
+  //     (pair == group) and in "all" mode (every answer is kept).
+  const aAnatomy = a.anatomy ?? "";
+  const bAnatomy = b.anatomy ?? "";
+  const aAnswers = filterVisibleAnswers(a.answers, aAnatomy, bAnatomy ? [bAnatomy] : [], questionMode, questionsById);
+  const bAnswers = filterVisibleAnswers(b.answers, bAnatomy, aAnatomy ? [aAnatomy] : [], questionMode, questionsById);
+
+  const pairMatches = buildPairMatches(aAnswers, bAnswers, questions, {
     aName: aDisplayName,
     aIsViewer,
   });
