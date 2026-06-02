@@ -8,6 +8,7 @@ export {
   AnatomyPicker,
   Answer,
   type CategoryData,
+  Compare,
   type Group,
   type GroupStatus,
   groupSchema,

@@ -125,12 +125,14 @@ questions:
     description: Who starts intimate moments, expected response, freedom to say no
 
   - id: spontaneous
+    compare: agreement
     category: foundations
     tier: 1
     text: Spontaneous intimacy
     description: Intimate moments without planning, when the mood strikes
 
   - id: scheduling
+    compare: agreement
     category: foundations
     tier: 1
     text: Scheduling intimate time
@@ -172,12 +174,14 @@ questions:
 
   # T2 ungated
   - id: discuss-with-friends
+    compare: agreement
     category: foundations
     tier: 2
     text: Talking about our intimacy with close friends
     description: Discussing what happens between us with people we trust outside the relationship
 
   - id: discuss-with-therapist
+    compare: agreement
     category: foundations
     tier: 2
     text: Talking about our intimacy with a therapist
@@ -210,6 +214,7 @@ questions:
     requires: sex-generally
 
   - id: slow-sex
+    compare: agreement
     category: foundations
     tier: 2
     text: Slow, deliberate sex
@@ -217,6 +222,7 @@ questions:
     requires: sex-generally
 
   - id: long-foreplay
+    compare: agreement
     category: foundations
     tier: 2
     text: Long, drawn-out foreplay
@@ -224,6 +230,7 @@ questions:
     requires: sex-generally
 
   - id: quickie
+    compare: agreement
     category: foundations
     tier: 2
     text: Quickies (fast, urgent sex)
@@ -276,6 +283,7 @@ questions:
 
   # ── Communication & Language ─────────────────────────────────
   - id: clinical-terms
+    compare: agreement
     category: communication
     tier: 1
     text: Use clinical terms during intimacy (penis, vulva, breasts)
@@ -283,6 +291,7 @@ questions:
     notePrompt: any specific words to use or avoid?
 
   - id: slang-terms
+    compare: agreement
     category: communication
     tier: 1
     text: Use casual / slang terms (cock, pussy, tits)
@@ -290,6 +299,7 @@ questions:
     notePrompt: any specific words you like or want avoided?
 
   - id: avoid-specific-words
+    compare: disclose
     category: communication
     tier: 1
     text: There are specific words I don't want used
@@ -298,12 +308,14 @@ questions:
 
   # ── Sexual Response Norms ────────────────────────────────────
   - id: emotional-reactions-ok
+    compare: agreement
     category: response
     tier: 1
     text: Emotional reactions during or after intimacy are welcome
     description: Crying, laughing, sudden vulnerability — all welcome and okay
 
   - id: orgasm-not-required
+    compare: agreement
     category: response
     tier: 1
     text: Sex without orgasm is fine — no pressure to come
@@ -311,6 +323,7 @@ questions:
     requires: sex-generally
 
   - id: multiple-orgasms
+    compare: agreement
     category: response
     tier: 1
     text: Aiming for multiple orgasms when possible
@@ -318,6 +331,7 @@ questions:
     requires: sex-generally
 
   - id: no-faking
+    compare: agreement
     category: response
     tier: 1
     text: Honesty about not coming — no faking it
@@ -325,6 +339,7 @@ questions:
     requires: sex-generally
 
   - id: erection-lubrication-ok
+    compare: agreement
     category: response
     tier: 1
     text: Erection or lubrication issues are okay — we adapt
@@ -334,66 +349,77 @@ questions:
   # ── Sensory Environment ──────────────────────────────────────
   # All ungated — applies to any intimate time
   - id: dim-lighting
+    compare: agreement
     category: environment
     tier: 1
     text: Dim lighting / candles
     description: Soft, low light during intimacy
 
   - id: full-dark
+    compare: agreement
     category: environment
     tier: 1
     text: Complete darkness
     description: Lights off, dark room
 
   - id: bright-light
+    compare: agreement
     category: environment
     tier: 1
     text: Bright light — wanting to see everything
     description: Lights fully on, bodies clearly visible
 
   - id: music
+    compare: agreement
     category: environment
     tier: 1
     text: Music / playlist during
     description: Music playing in the background
 
   - id: silence
+    compare: agreement
     category: environment
     tier: 1
     text: Silence (no music, no TV)
     description: Quiet — just us, no audio backdrop
 
   - id: white-noise
+    compare: agreement
     category: environment
     tier: 1
     text: White noise / fan
     description: Fan or white-noise machine running
 
   - id: unscented
+    compare: agreement
     category: environment
     tier: 1
     text: Unscented everything
     description: No perfume, no scented candles, no scented products
 
   - id: weighted-blanket
+    compare: disclose
     category: environment
     tier: 1
     text: Weighted blanket during or after
     description: Heavy blanket for deep-pressure comfort
 
   - id: firm-pressure
+    compare: disclose
     category: environment
     tier: 1
     text: Firm pressure over light touch
     description: I prefer firm, steady contact rather than light or unpredictable touch
 
   - id: warn-before-touch
+    compare: disclose
     category: environment
     tier: 1
     text: Warn me before touching a new body area
     description: A heads-up before reaching a new place on my body for the first time
 
   - id: non-verbal-signals
+    compare: disclose
     category: environment
     tier: 1
     text: Non-verbal check-in signals
@@ -401,6 +427,7 @@ questions:
     notePrompt: which signal means what (stop / slow / more)?
 
   - id: transition-time
+    compare: disclose
     category: environment
     tier: 1
     text: Need transition time from daily activity to intimacy
@@ -413,30 +440,35 @@ questions:
     description: Pausing for water, bathroom, or a breather, and picking up again
 
   - id: eyes-closed-ok
+    compare: agreement
     category: environment
     tier: 1
     text: Eyes closed during intimacy is welcome
     description: Closing eyes to manage sensory input — not a sign of disconnection
 
   - id: stimming-ok
+    compare: agreement
     category: environment
     tier: 1
     text: Stimming during intimacy is welcome
     description: Self-soothing repetitive movements — rocking, hand-flapping, fidgeting
 
   - id: flat-affect-ok
+    compare: disclose
     category: environment
     tier: 1
     text: I may not look like I'm enjoying it — but I am
     description: Quiet face or flat affect doesn't mean disengagement. No pressure to perform visible pleasure.
 
   - id: scented-candles
+    compare: agreement
     category: environment
     tier: 2
     text: Scented candles / incense
     description: Scent in the room — candles, incense, or similar
 
   - id: clean-sheets
+    compare: disclose
     category: environment
     tier: 2
     text: Fresh / clean sheets specifically
@@ -449,24 +481,28 @@ questions:
     description: Showering together as part of warm-up
 
   - id: warmup-hands
+    compare: disclose
     category: environment
     tier: 2
     text: Warm hands and toys before touching
     description: Cold contact is a sensory interruption — warming up first matters
 
   - id: verbal-narration
+    compare: disclose
     category: environment
     tier: 2
     text: Narrate what you'll do before doing it
     description: '"I''m going to kiss your neck now" — verbal cues before each new touch.'
 
   - id: one-sensation
+    compare: disclose
     category: environment
     tier: 2
     text: One type of stimulation at a time
     description: Building gradually rather than combining kissing + touching + penetration simultaneously
 
   - id: predictable-rhythm
+    compare: disclose
     category: environment
     tier: 2
     text: Predictable rhythm and pattern
@@ -481,6 +517,7 @@ questions:
     requires: sex-generally
 
   - id: sti-test-before
+    compare: agreement
     category: health
     tier: 1
     text: STI test results shared before our first sex
@@ -488,6 +525,7 @@ questions:
     requires: sex-generally
 
   - id: sti-test-regular
+    compare: agreement
     category: health
     tier: 1
     text: Regular STI testing while we're sleeping together
@@ -495,6 +533,7 @@ questions:
     requires: sex-generally
 
   - id: condoms-always
+    compare: agreement
     category: health
     tier: 1
     text: Always using condoms
@@ -503,6 +542,7 @@ questions:
     requires: sex-generally
 
   - id: condoms-fluid-bonded
+    compare: agreement
     category: health
     tier: 1
     text: Sex without condoms (fluid-bonded)
@@ -512,6 +552,7 @@ questions:
     requires: sex-generally
 
   - id: pull-out
+    compare: agreement
     category: health
     tier: 1
     text: Pull-out / withdrawal as the default
@@ -524,6 +565,7 @@ questions:
     requires: sex-generally
 
   - id: sex-drunk
+    compare: agreement
     category: health
     tier: 1
     text: Sex while drunk
@@ -531,6 +573,7 @@ questions:
     requires: sex-generally
 
   - id: sex-high
+    compare: agreement
     category: health
     tier: 1
     text: Sex while high
@@ -538,6 +581,7 @@ questions:
     requires: sex-generally
 
   - id: dental-dams
+    compare: agreement
     category: health
     tier: 2
     text: Dental dams for oral on a vulva or anus
@@ -545,6 +589,7 @@ questions:
     requires: sex-generally
 
   - id: latex-gloves
+    compare: agreement
     category: health
     tier: 2
     text: Latex / nitrile gloves for fingering or anal
@@ -553,6 +598,7 @@ questions:
 
   # ── Reproductive ─────────────────────────────────────────────
   - id: emergency-contraception
+    compare: agreement
     category: reproductive
     tier: 1
     text: Comfortable using emergency contraception if needed
@@ -564,6 +610,7 @@ questions:
     requires: sex-generally
 
   - id: birth-control-only
+    compare: agreement
     category: reproductive
     tier: 1
     text: Sex relying on birth control alone
@@ -576,6 +623,7 @@ questions:
     requires: sex-generally
 
   - id: pregnancy-risk-bare
+    compare: agreement
     category: reproductive
     tier: 1
     text: Sex with pregnancy risk (no birth control)
@@ -653,6 +701,7 @@ questions:
     description: Back, shoulders, neck — straightforward massage to relax
 
   - id: pubic-hair-self
+    compare: disclose
     category: touch
     tier: 2
     text: I have a preference about my own pubic hair
@@ -660,6 +709,7 @@ questions:
     notePrompt: kept, trimmed, shaped, shaved?
 
   - id: pubic-hair-partner
+    compare: disclose
     category: touch
     tier: 2
     text: I have a preference about my partner's pubic hair
@@ -1890,6 +1940,7 @@ questions:
 
   # ── Group & External ─────────────────────────────────────────
   - id: external-people-generally
+    compare: agreement
     category: group
     tier: 1
     text: External people involved in our sex life is welcome
@@ -2002,6 +2053,7 @@ questions:
     requires: sex-generally
 
   - id: body-hair
+    compare: disclose
     category: fetish
     tier: 2
     text: Body hair as a turn-on
@@ -2176,6 +2228,7 @@ questions:
     text: Talking about what we liked / didn't like
 
   - id: comfort-items
+    compare: disclose
     category: aftercare
     tier: 1
     text: Specific comfort items afterward (pillow, blanket, plush)
@@ -2183,6 +2236,7 @@ questions:
     notePrompt: which item?
 
   - id: reassurance-after
+    compare: disclose
     category: aftercare
     tier: 1
     text: Verbal reassurance after intense play

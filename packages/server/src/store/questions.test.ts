@@ -43,6 +43,7 @@ function q(overrides: { id: string; category: string; requires?: string[] }) {
     targetGive: "all" as const,
     targetReceive: "all" as const,
     requiresGroupAnatomy: [],
+    compare: "activity" as const,
     requires: overrides.requires ?? [],
   };
 }
@@ -76,6 +77,37 @@ describe("validateDependencies error paths", () => {
         ],
       }),
     ).rejects.toThrow(/child tier must be >= parent tier/);
+  });
+
+  it("rejects a compare: disclose question that has give/receive text", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [
+          { ...q({ id: "bad", category: "c" }), compare: "disclose", giveText: "Give it", receiveText: "Receive it" },
+        ],
+      }),
+    ).rejects.toThrow(/disclose must be a mutual question/);
+  });
+
+  it("rejects a compare: disclose question that is anatomy-targeted", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [{ ...q({ id: "bad", category: "c" }), compare: "disclose", targetReceive: "afab" }],
+      }),
+    ).rejects.toThrow(/disclose must be target: all/);
+  });
+
+  it("allows compare: agreement on a give/receive question", async () => {
+    await expect(
+      store.seed({
+        categories: [{ id: "c", label: "C", description: "" }],
+        questions: [
+          { ...q({ id: "ok", category: "c" }), compare: "agreement", giveText: "Give it", receiveText: "Receive it" },
+        ],
+      }),
+    ).resolves.not.toThrow();
   });
 });
 
@@ -112,6 +144,24 @@ describe("QuestionStore.list — field round-trip", () => {
     expect(byId["with-gate"].requiresGroupAnatomy).toEqual(["amab", "afab"]);
     expect(byId["amab-only"].requiresGroupAnatomy).toEqual(["amab"]);
     expect(byId["no-gate"].requiresGroupAnatomy).toEqual([]);
+  });
+
+  it("preserves compare through seed → list (default activity)", async () => {
+    const seed: SeedData = {
+      categories: [{ id: "c", label: "C", description: "" }],
+      questions: [
+        { ...q({ id: "norm", category: "c" }), compare: "agreement" },
+        { ...q({ id: "pref", category: "c" }), compare: "disclose" },
+        q({ id: "plain", category: "c" }),
+      ],
+    };
+    await store.seed(seed);
+    const { questions: rows } = await store.list();
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+
+    expect(byId.norm.compare).toBe("agreement");
+    expect(byId.pref.compare).toBe("disclose");
+    expect(byId.plain.compare).toBe("activity");
   });
 });
 
