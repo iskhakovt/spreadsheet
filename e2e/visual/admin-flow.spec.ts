@@ -4,9 +4,10 @@ import {
   assertNoOverflowingText,
   createGroupAndSetup,
   goThroughIntro,
+  NAV_TIMEOUT,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "../helpers.js";
 
 // Selectors for elements where label overflow has historically hidden
@@ -29,7 +30,7 @@ test.describe("admin 2-person flow", () => {
     await alice.getByRole("radio", { name: "All questions", exact: true }).click();
     await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
-    await expect(alice.getByText("Set up your group")).toBeVisible();
+    await expect(alice.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
@@ -113,7 +114,7 @@ test.describe("admin 2-person flow", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with match type variety ---
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(alice).toHaveScreenshot("results-2p.png");
   });
 

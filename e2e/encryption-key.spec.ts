@@ -6,7 +6,7 @@ import {
   NAV_TIMEOUT,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("missing encryption key", () => {
@@ -63,10 +63,10 @@ test.describe("copy my link button", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both complete → results screen
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(bob.getByText("Copy my link")).toBeVisible();
 
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(alice.getByText("Copy my link")).toBeVisible();
   });
 

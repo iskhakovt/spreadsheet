@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, narrowToCategory } from "./helpers.js";
+import { answerAllQuestions, createGroupAndSetup, NAV_TIMEOUT, narrowToCategory } from "./helpers.js";
 
 test.describe("questionnaire flow", () => {
   test("create group → setup → answer questions", async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe("questionnaire flow", () => {
     await expect(page).toHaveURL(/\/p\/.+/);
 
     // Combined setup — admin name + partner
-    await expect(page.getByText("Set up your group")).toBeVisible();
+    await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByPlaceholder("Enter your name").fill("Alice");
     await page.getByPlaceholder("Partner's name").fill("Bob");
     await page.getByRole("button", { name: "Create & get links", exact: true }).click();

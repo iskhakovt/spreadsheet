@@ -5,7 +5,7 @@ import {
   NAV_TIMEOUT,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("multi-tab isolation", () => {
@@ -142,7 +142,7 @@ test.describe("multi-tab isolation", () => {
 
     // Bob should reach waiting or results
     await expect(bob.getByText("Your matches").or(bob.getByText("Waiting for everyone"))).toBeVisible({
-      timeout: WS_TIMEOUT,
+      timeout: REALTIME_TIMEOUT,
     });
   });
 

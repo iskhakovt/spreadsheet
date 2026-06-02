@@ -4,8 +4,8 @@ import {
   createGroupAndSetup,
   goThroughIntro,
   narrowToCategory,
+  REALTIME_TIMEOUT,
   scopedGet,
-  WS_TIMEOUT,
 } from "./helpers.js";
 
 /**
@@ -47,8 +47,8 @@ test.describe("tracked() reconnect resume", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results via the live status push
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Both see "match" (both-yes) rows initially. Target by data-match-type
     // attribute so we don't collide with summary-strip text ("Total matches").

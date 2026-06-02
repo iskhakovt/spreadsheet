@@ -6,7 +6,7 @@ import {
   goThroughIntro,
   NAV_TIMEOUT,
   narrowToCategory,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("results display", () => {
@@ -26,13 +26,13 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(bob.getByText("You & Alice")).toBeVisible();
 
     // All should be matches (both yes). Target the data-match-type
     // attribute on match rows so we don't collide with summary-strip labels.
     const matchRows = bob.locator('[data-testid="match-row"][data-match-type="match"]');
-    await expect(matchRows.first()).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(matchRows.first()).toBeVisible({ timeout: REALTIME_TIMEOUT });
     expect(await matchRows.count()).toBeGreaterThan(0);
 
     // No other match types should appear.
@@ -66,7 +66,7 @@ test.describe("results display", () => {
     await answerQuestionsCycling(bob, bobRatings);
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Verify that multiple distinct match types appear on the same results
     // page. Use data-match-type to avoid colliding with summary strip labels.
@@ -161,7 +161,7 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     const notedNotes = bob
       .locator('[data-testid="match-row"][data-match-type="noted"]')
@@ -190,7 +190,7 @@ test.describe("results display", () => {
     await answerAllQuestions(bob, "no");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     const differNotes = bob
       .locator('[data-testid="match-row"][data-match-type="differ"]')
@@ -220,7 +220,7 @@ test.describe("results display", () => {
     await answerQuestionsCycling(bob, ["no", "no", "yes", "maybe", "yes"]);
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     const rendered = await bob.locator('[data-testid="match-row"]').count();
     const excluded = await bob

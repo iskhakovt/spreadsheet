@@ -7,7 +7,7 @@ import {
   goThroughIntro,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "../helpers.js";
 
 const RATING_RADIOS = '[role="radiogroup"][aria-label="Rate this activity"] [role="radio"]';
@@ -101,7 +101,7 @@ test.describe("notes UI", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     // Make sure the note row paints before the screenshot.
     await expect(bob.locator('[data-testid="match-notes"]', { hasText: NOTE })).toBeVisible();
     await expect(bob).toHaveScreenshot("comparison-with-notes.png");

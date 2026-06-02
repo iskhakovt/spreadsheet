@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.js";
+import { NAV_TIMEOUT } from "./helpers.js";
 
 test.describe("landing and group creation", () => {
   test("shows landing page", async ({ page }) => {
@@ -45,7 +46,7 @@ test.describe("landing and group creation", () => {
     await expect(page).toHaveURL(/\/p\/.+/);
 
     // Should see combined setup screen (admin)
-    await expect(page.getByText("Set up your group")).toBeVisible();
+    await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await page.getByPlaceholder("Enter your name").fill("TestUser");
     await page.getByPlaceholder("Partner's name").fill("Partner");
 
