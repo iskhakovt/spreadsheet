@@ -1,11 +1,50 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, QuestionData } from "@spreadsheet/shared";
 import { classifyMatch, type MatchType } from "./classify-match.js";
+import { anatomySides } from "./visibility.js";
 
 export interface QuestionInfo {
   text: string;
   categoryId: string;
   giveText: string | null;
   receiveText: string | null;
+}
+
+/**
+ * Drop a member's stored answers for questions that are no longer anatomy-
+ * visible to them. `buildPairMatches` keys off stored answers, not current
+ * visibility, so an answer left behind by a gating change (a question retagged
+ * in `questions.yml`, or a person's anatomy changed) would otherwise keep
+ * surfacing on /results. Re-running the same `anatomySides` gate the question
+ * flow uses guarantees results show only questions still in play for the pair.
+ *
+ * This is a no-op in "all" mode (every side is visible) and for every
+ * correctly-gated question (a person never answered a question they couldn't
+ * see), so it only removes answers orphaned by a gating change. Dependency
+ * gating is intentionally NOT applied here — results have always shown answered
+ * children whose parent was later set to "no", and that behavior is unchanged.
+ */
+export function filterVisibleAnswers(
+  answers: Record<string, Answer>,
+  anatomy: string,
+  otherAnatomies: readonly string[],
+  questionMode: string,
+  questionsById: ReadonlyMap<string, QuestionData>,
+): Record<string, Answer> {
+  const out: Record<string, Answer> = {};
+  for (const [key, answer] of Object.entries(answers)) {
+    const [questionId, role] = key.split(":");
+    const q = questionsById.get(questionId);
+    // Unknown question (e.g. removed from the bank): keep it — buildPairMatches
+    // drops it via its own lookup, and we can't gate what we can't see.
+    if (!q) {
+      out[key] = answer;
+      continue;
+    }
+    const sides = anatomySides(q, anatomy, otherAnatomies, questionMode);
+    const visible = role === "give" ? sides.canGive : role === "receive" ? sides.canReceive : sides.canMutual;
+    if (visible) out[key] = answer;
+  }
+  return out;
 }
 
 export interface PairMatch {

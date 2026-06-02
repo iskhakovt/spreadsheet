@@ -38,9 +38,10 @@ export function anatomySides(
     }
   }
 
+  const others = otherAnatomies.filter(Boolean);
+  const anyOther = (target: string) => target === "all" || others.some((a) => anatomyMatches(target, a));
+
   if (isGR) {
-    const others = otherAnatomies.filter(Boolean);
-    const anyOther = (target: string) => target === "all" || others.some((a) => anatomyMatches(target, a));
     return {
       canGive: anatomyMatches(q.targetGive, anatomy) && anyOther(q.targetReceive),
       canReceive: anatomyMatches(q.targetReceive, anatomy) && anyOther(q.targetGive),
@@ -48,10 +49,17 @@ export function anatomySides(
     };
   }
 
+  // A mutual question reads `targetGive` against the viewer and `targetReceive`
+  // against the rest of the group — the same partner-aware check the give/
+  // receive branch uses. This matters for "needs two of the same anatomy"
+  // activities (frot, tribadism): `targetReceive` requires a *second* person
+  // with that anatomy, so a lone amab/afab viewer in a mixed pair is excluded.
+  // `targetReceive` defaults to "all", so every ordinary mutual question is
+  // unaffected (`anyOther("all")` is always true).
   return {
     canGive: false,
     canReceive: false,
-    canMutual: anatomyMatches(q.targetGive, anatomy),
+    canMutual: anatomyMatches(q.targetGive, anatomy) && anyOther(q.targetReceive),
   };
 }
 

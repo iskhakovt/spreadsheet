@@ -1042,8 +1042,10 @@ questions:
     category: penetration
     tier: 2
     text: Coital alignment technique (CAT)
-    targetGive: amab
-    targetReceive: afab
+    # A PIV position both partners share, so it must reach both — not just the
+    # amab side. Gate on the group having both anatomies rather than per-side
+    # targeting (which, on a mutual question, would hide it from the afab partner).
+    requiresGroupAnatomy: [amab, afab]
     description: Missionary variant where the penis angles down to rub against the clitoris
     requires: vaginal-penetration
 
@@ -2112,16 +2114,19 @@ questions:
   - id: cbt
     category: edge
     tier: 4
+    # Acts on a penis. As a mutual question, per-side targeting is ignored — gate
+    # on the group containing an amab body instead, so the whole pair sees it
+    # when one is present and an afab+afab pair never does.
+    requiresGroupAnatomy: [amab]
     text: Cock and ball torture (CBT)
-    targetReceive: amab
     description: Pressure, impact, or restriction applied to penis and testicles
     requires: edge-generally
 
   - id: sounding
     category: edge
     tier: 4
+    requiresGroupAnatomy: [amab]
     text: Sounding (urethral play)
-    targetReceive: amab
     description: Inserting a smooth rod into the urethra. Requires sterile technique.
     requires: edge-generally
 

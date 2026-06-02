@@ -1,3 +1,4 @@
+import type { QuestionData } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { Pencil } from "lucide-react";
@@ -5,7 +6,12 @@ import { useMemo, useRef, useState } from "react";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { SourceLink } from "../components/source-link.js";
 import { TipJarLink } from "../components/tip-jar-link.js";
-import { buildGroupedMatches, buildPairMatches, type QuestionInfo } from "../lib/build-pair-matches.js";
+import {
+  buildGroupedMatches,
+  buildPairMatches,
+  filterVisibleAnswers,
+  type QuestionInfo,
+} from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
 import {
@@ -36,6 +42,9 @@ interface ComparisonProps {
   viewerId: string;
   encrypted: boolean;
   token: string;
+  /** Group question mode — gates the per-member anatomy-visibility filter
+   *  ("all" mode shows every question regardless of anatomy). */
+  questionMode: string;
   onBack?: () => void;
 }
 
@@ -141,7 +150,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  * See Step 4's sync.journal-subscription.integration.test.ts for the full
  * contract.
  */
-export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<ComparisonProps>) {
+export function Comparison({ viewerId, encrypted, token, questionMode, onBack }: Readonly<ComparisonProps>) {
   // React Compiler reports a false-positive "Cannot access refs during render"
   // — `seqRef.current` is only touched inside the async `onData` callback. The
   // compiler can't prove the callback isn't synchronous, so it falls back to
@@ -175,6 +184,14 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
 
   const questionOrder = useMemo<Record<string, number>>(
     () => Object.fromEntries(questionsData.questions.map((q, i) => [q.id, i])),
+    [questionsData.questions],
+  );
+
+  // Full question records (with anatomy targeting) for the per-member
+  // visibility filter — distinct from the slim `questions` lookup above,
+  // which only carries display fields.
+  const questionsById = useMemo<Map<string, QuestionData>>(
+    () => new Map(questionsData.questions.map((q) => [q.id, q])),
     [questionsData.questions],
   );
 
@@ -220,7 +237,29 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
     ),
   );
 
-  const memberAnswers = useMemo(() => sortMembersViewerFirst(journal.members, viewerId), [journal.members, viewerId]);
+  // Sort viewer-first, then strip each member's answers to questions still
+  // anatomy-visible to them. Without this, an answer left behind by a gating
+  // change (a retagged question, or a changed anatomy) would keep surfacing as
+  // a match even though neither person can see the question anymore.
+  const memberAnswers = useMemo(() => {
+    const sorted = sortMembersViewerFirst(journal.members, viewerId);
+    return sorted.map((member) => {
+      const otherAnatomies = sorted
+        .filter((other) => other.id !== member.id)
+        .map((other) => other.anatomy)
+        .filter((anatomy): anatomy is string => !!anatomy);
+      return {
+        ...member,
+        answers: filterVisibleAnswers(
+          member.answers,
+          member.anatomy ?? "",
+          otherAnatomies,
+          questionMode,
+          questionsById,
+        ),
+      };
+    });
+  }, [journal.members, viewerId, questionMode, questionsById]);
 
   const [activePairKey, setActivePairKey] = useState<string>();
 
