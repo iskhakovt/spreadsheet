@@ -106,6 +106,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: ./.github/actions/prepull-postgres
       - run: pnpm test:integration
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
@@ -170,6 +171,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: ./.github/actions/prepull-postgres
       - run: pnpm test:e2e
         env:
           CI: true

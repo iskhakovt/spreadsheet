@@ -6,7 +6,7 @@ import {
   goThroughIntro,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "../helpers.js";
 
 // Selectors for elements where label overflow has historically hidden
@@ -113,7 +113,7 @@ test.describe("admin 2-person flow", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with match type variety ---
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(alice).toHaveScreenshot("results-2p.png");
   });
 

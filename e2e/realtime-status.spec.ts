@@ -4,7 +4,7 @@ import {
   createGroupAndSetup,
   goThroughIntro,
   narrowToCategory,
-  WS_PERF_TIMEOUT,
+  REALTIME_PERF_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("realtime status", () => {
@@ -31,7 +31,7 @@ test.describe("realtime status", () => {
     // click would hide the click's own processing time.
     const start = Date.now();
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_PERF_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_PERF_TIMEOUT });
     const elapsed = Date.now() - start;
 
     // Hard check: SSE push must arrive on the first delivery attempt.

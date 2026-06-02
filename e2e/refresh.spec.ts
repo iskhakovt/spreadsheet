@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory, WS_TIMEOUT } from "./helpers.js";
+import { createGroupAndSetup, goThroughIntro, NAV_TIMEOUT, narrowToCategory, REALTIME_TIMEOUT } from "./helpers.js";
 
 test.describe("refresh persistence", () => {
   test("refresh on questions screen stays on questions", async ({ page }) => {
@@ -22,7 +22,7 @@ test.describe("refresh persistence", () => {
     // Wait for content to load — either welcome or question screen
     await expect(page.getByText(/\d+ questions/).or(page.getByRole("radio", { name: "Yes", exact: true }))).toBeVisible(
       {
-        timeout: WS_TIMEOUT,
+        timeout: REALTIME_TIMEOUT,
       },
     );
   });

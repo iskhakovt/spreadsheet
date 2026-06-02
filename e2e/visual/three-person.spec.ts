@@ -6,7 +6,7 @@ import {
   goThroughIntro,
   narrowToCategory,
   personBase,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "../helpers.js";
 
 test.describe("3-person comparison", () => {
@@ -51,7 +51,7 @@ test.describe("3-person comparison", () => {
     await carol.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // --- Results with 3 people: pair tabs ---
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(alice.getByRole("tablist")).toBeVisible();
     await expect(alice).toHaveScreenshot("results-3p-first-tab.png");
 

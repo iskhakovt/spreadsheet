@@ -5,7 +5,7 @@ import {
   goThroughIntro,
   NAV_TIMEOUT,
   narrowToCategory,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "./helpers.js";
 
 test.describe("edit after completion", () => {
@@ -28,8 +28,8 @@ test.describe("edit after completion", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both reach /results. Alice's view should update via the live status push.
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Both should see "match" (both-yes) rows since everyone answered yes.
     // Target via data-match-type to avoid any collision with summary-strip

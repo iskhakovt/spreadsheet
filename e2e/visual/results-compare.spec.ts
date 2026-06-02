@@ -4,7 +4,7 @@ import {
   createGroupAndSetup,
   goThroughIntro,
   narrowToCategory,
-  WS_TIMEOUT,
+  REALTIME_TIMEOUT,
 } from "../helpers.js";
 
 test.describe("results — compare-semantics rows", () => {
@@ -29,7 +29,7 @@ test.describe("results — compare-semantics rows", () => {
     await answerQuestionsCycling(bob, ["no", "no", "yes", "maybe", "yes"]);
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Guard the premise: all three otherwise-uncaptured row types are present
     // before we snapshot, so a baseline can never silently lose them.

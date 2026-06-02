@@ -1,5 +1,11 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, WS_TIMEOUT } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  REALTIME_TIMEOUT,
+} from "./helpers.js";
 
 test.describe("free-text notes", () => {
   test("note round-trips from authoring through to /results", async ({ alice, bob }) => {
@@ -33,7 +39,7 @@ test.describe("free-text notes", () => {
     await answerAllQuestions(bob, "yes");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Alice's note shows up under the eye-contact match row on Bob's view,
     // attributed to Alice (Bob is the viewer, so partner names render verbatim).

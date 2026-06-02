@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, narrowToCategory, WS_TIMEOUT } from "./helpers.js";
+import { answerAllQuestions, NAV_TIMEOUT, narrowToCategory, REALTIME_TIMEOUT } from "./helpers.js";
 
 test.describe("filtered mode — self-pick anatomy flow", () => {
   test("both players pick anatomy, wait for each other, then answer", async ({ alice, bob }) => {
@@ -13,7 +13,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(alice).toHaveURL(/\/p\/.+/);
 
     // Admin setup — no anatomy pickers in self-pick mode
-    await expect(alice.getByText("Set up your group")).toBeVisible();
+    await expect(alice.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
     await alice.getByRole("button", { name: "Create & get links", exact: true }).click();
@@ -48,7 +48,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
     await expect(bob.getByText("Here's how it works")).toBeVisible();
 
     // SSE push delivers the group-ready broadcast → guard redirects to /intro
-    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: REALTIME_TIMEOUT });
 
     // Both go through intro → narrow via Summary UI → answer → complete
     await alice.getByRole("button", { name: "Let's go", exact: true }).click();

@@ -1,5 +1,11 @@
 import { expect, test } from "../fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, WS_TIMEOUT } from "../helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  REALTIME_TIMEOUT,
+} from "../helpers.js";
 
 test.describe("results edge cases", () => {
   test("results empty state — no overlaps", async ({ alice, bob }) => {
@@ -21,7 +27,7 @@ test.describe("results edge cases", () => {
     await answerAllQuestions(bob, "no");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     await expect(alice.getByText("No overlaps")).toBeVisible();
     await expect(alice).toHaveScreenshot("results-empty.png");
   });

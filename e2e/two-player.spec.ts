@@ -1,5 +1,11 @@
 import { expect, test } from "./fixtures.js";
-import { answerAllQuestions, createGroupAndSetup, goThroughIntro, narrowToCategory, WS_TIMEOUT } from "./helpers.js";
+import {
+  answerAllQuestions,
+  createGroupAndSetup,
+  goThroughIntro,
+  narrowToCategory,
+  REALTIME_TIMEOUT,
+} from "./helpers.js";
 
 // Encrypted is the production default (REQUIRE_ENCRYPTION=true), and the
 // crypto path is a strict superset of plaintext (key in URL fragment +
@@ -29,14 +35,14 @@ test.describe("two-player completion flow", () => {
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
     // Both complete → Bob goes straight to results
-    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
-    await expect(bob.getByText("You & Alice")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
+    await expect(bob.getByText("You & Alice")).toBeVisible({ timeout: REALTIME_TIMEOUT });
     // Target by data-match-type — plain getByText("Match") would substring-match
     // the "Your matches" header and "Total matches" summary strip label.
     await expect(bob.locator('[data-testid="match-row"][data-match-type="match"]').first()).toBeVisible();
 
     // SSE push delivers Bob's completion to Alice → guard redirects to /results
-    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
-    await expect(alice.getByText("You & Bob")).toBeVisible({ timeout: WS_TIMEOUT });
+    await expect(alice.getByText("Your matches")).toBeVisible({ timeout: REALTIME_TIMEOUT });
+    await expect(alice.getByText("You & Bob")).toBeVisible({ timeout: REALTIME_TIMEOUT });
   });
 });

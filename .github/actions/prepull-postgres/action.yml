@@ -1,0 +1,29 @@
+name: Pre-pull Postgres image
+description: >
+  Pull the Postgres testcontainer image with retries. public.ecr.aws
+  intermittently 404s under load, and testcontainers pulls inline at container
+  start with no retry — without this a single registry blip fails the whole job
+  (CI runs with retries: 0). Requires the repo to be checked out first.
+
+inputs:
+  image:
+    description: >
+      Image reference to pull. Must match the tag hardcoded in
+      packages/server/src/test/integration-setup.ts and e2e/global-setup.ts.
+    required: false
+    default: public.ecr.aws/docker/library/postgres:18
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        image="${{ inputs.image }}"
+        for attempt in 1 2 3; do
+          if docker pull "$image"; then exit 0; fi
+          echo "::warning::pull attempt $attempt for $image failed; retrying in $((attempt * 5))s"
+          sleep "$((attempt * 5))"
+        done
+        echo "::error::failed to pull $image after 3 attempts"
+        exit 1
