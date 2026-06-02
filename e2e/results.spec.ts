@@ -174,7 +174,7 @@ test.describe("results display", () => {
 
   test("agreement-split rows show each person's stance", async ({ alice, bob }) => {
     // The "Group & External" gate (external-people-generally) is an
-    // `agreement` question; Alice yes vs Bob no → "You differ", and the row
+    // `agreement` question; Alice yes vs Bob no → "Out of sync", and the row
     // must reveal the opposing stances.
     const { partnerLink } = await createGroupAndSetup(alice);
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();

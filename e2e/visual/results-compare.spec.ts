@@ -9,7 +9,7 @@ import {
 
 test.describe("results — compare-semantics rows", () => {
   // Locks the styling of the match types the other results baselines never
-  // hit: "You differ" (agreement split), "Both pass" (aligned-no), "Noted"
+  // hit: "Out of sync" (agreement split), "Both pass" (aligned-no), "Noted"
   // (disclose), and the per-person StanceLine. "Sensory Environment" mixes
   // `agreement` (lighting/sound/scent) and `disclose` (sensory needs)
   // questions, so a varied answer split renders all of them on one page.

@@ -103,7 +103,7 @@ function NoteLine({ who, isViewer, text }: Readonly<{ who: string; isViewer: boo
 /**
  * One stance line — attribution + each person's rating, with their note
  * appended when present. Used for `noted` / `differ` rows, where the badge
- * alone ("Noted" / "You differ") doesn't reveal who answered what.
+ * alone ("Noted" / "Out of sync") doesn't reveal who answered what.
  */
 function StanceLine({
   who,
@@ -168,7 +168,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
   differ: {
     container: "bg-surface/70 border border-border/50",
     badge: "bg-neutral/15 text-text",
-    label: "You differ",
+    label: "Out of sync",
     labelStyle: "font-medium",
   },
   // Disclose questions — each person's stated preference / note, no verdict.
@@ -486,7 +486,7 @@ function PairComparison({
   const groups = buildGroupedMatches(pairMatches, questions, categories, categoryOrder, questionOrder);
 
   // "Total matches" counts what the couple is into / open to / could explore.
-  // Exclude "You differ" (a clash), "Noted" (a neutral disclosure), and
+  // Exclude "Out of sync" (a clash), "Noted" (a neutral disclosure), and
   // "Both pass" (aligned-no — a shared *non*-interest): all still render as
   // rows, but none belong in a celebratory match tally. Per-category counts
   // below still list every row.

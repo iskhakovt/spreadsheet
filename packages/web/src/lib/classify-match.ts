@@ -75,7 +75,7 @@ function classifyActivity(a: Answer, b: Answer): MatchType {
  *
  *  - both land "in"  → aligned-yes ("Both in")
  *  - both land "out" → aligned-no  ("Both pass")  ← the "no is the match" case
- *  - yes vs no       → differ      ("You differ") ← surfaced, not hidden
+ *  - yes vs no       → differ      ("Out of sync") ← surfaced, not hidden
  *  - any unresolved maybe/fantasy → both-maybe ("Worth discussing")
  */
 function classifyAgreement(a: Answer, b: Answer): MatchType {
