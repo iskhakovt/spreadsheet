@@ -203,6 +203,11 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # The visual run uses the same globalSetup (e2e/global-setup.ts), which
+      # starts a Postgres testcontainer on the host daemon — visual-docker.sh
+      # mounts /var/run/docker.sock. Same transient ECR 404 exposure as the
+      # integration/e2e jobs, so pre-pull on the host daemon here too.
+      - uses: ./.github/actions/prepull-postgres
       # Pull the Playwright image so screenshots render identically
       # across dev machines and CI (same fonts, libraries, Chromium).
       - name: Pull Playwright Docker image

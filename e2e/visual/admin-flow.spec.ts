@@ -4,6 +4,7 @@ import {
   assertNoOverflowingText,
   createGroupAndSetup,
   goThroughIntro,
+  NAV_TIMEOUT,
   narrowToCategory,
   personBase,
   REALTIME_TIMEOUT,
@@ -29,7 +30,7 @@ test.describe("admin 2-person flow", () => {
     await alice.getByRole("radio", { name: "All questions", exact: true }).click();
     await alice.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(alice).toHaveURL(/\/p\/.+/);
-    await expect(alice.getByText("Set up your group")).toBeVisible();
+    await expect(alice.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     await alice.getByPlaceholder("Enter your name").fill("Alice");
     await alice.getByPlaceholder("Partner's name").fill("Bob");
