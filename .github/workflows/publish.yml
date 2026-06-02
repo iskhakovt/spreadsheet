@@ -71,8 +71,10 @@ jobs:
   # provenance attestations we used to attach: those were unverifiable
   # (anyone with packages:write could forge them), whereas this surfaces
   # actionable CVEs — plus any secret accidentally baked into an image
-  # layer — in what we actually ship. `severity`/`ignore-unfixed` filter
-  # only the CVE side; secret findings (reported CRITICAL) always surface.
+  # layer — in what we actually ship. `severity: HIGH,CRITICAL` filters
+  # both kinds, so a sub-HIGH secret would be dropped; real leaked
+  # credentials still land because Trivy's secret rules are nearly all
+  # CRITICAL. `ignore-unfixed` is vuln-only (secrets have no fixed version).
   #
   # amd64-only: most findings overlap with arm64, but arch-specific binaries
   # (Node native, libssl variants) can carry arm64-only CVEs we miss.
