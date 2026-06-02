@@ -434,10 +434,14 @@ function PairComparison({
   //     Gating each side against only the partner's anatomy keeps the row to
   //     pairs it actually applies to. No-op for the dominant 2-person case
   //     (pair == group) and in "all" mode (every answer is kept).
-  const aAnatomy = a.anatomy ?? "";
-  const bAnatomy = b.anatomy ?? "";
-  const aAnswers = filterVisibleAnswers(a.answers, aAnatomy, bAnatomy ? [bAnatomy] : [], questionMode, questionsById);
-  const bAnswers = filterVisibleAnswers(b.answers, bAnatomy, aAnatomy ? [aAnatomy] : [], questionMode, questionsById);
+  // A member with no recorded anatomy falls back to "none" — the anatomy
+  // picker's own value for "no relevant anatomy", which anatomyMatches already
+  // treats as matching no specific target. In filtered mode the /anatomy guard
+  // makes this belt-and-suspenders; in "all" mode the filter is a no-op anyway.
+  const aAnatomy = a.anatomy ?? "none";
+  const bAnatomy = b.anatomy ?? "none";
+  const aAnswers = filterVisibleAnswers(a.answers, aAnatomy, [bAnatomy], questionMode, questionsById);
+  const bAnswers = filterVisibleAnswers(b.answers, bAnatomy, [aAnatomy], questionMode, questionsById);
 
   const pairMatches = buildPairMatches(aAnswers, bAnswers, questions, {
     aName: aDisplayName,

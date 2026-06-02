@@ -513,6 +513,24 @@ describe("filterVisibleAnswers", () => {
     });
   });
 
+  it("filters give/receive keys by their own side (partner can't receive → give dropped)", () => {
+    // fellatio: anyone can give, but the receiver must be amab. In an F+F pair
+    // the give side has no amab partner to receive it → dropped; with an amab
+    // partner it's kept. Exercises the give/receive branches of sideVisible.
+    const fellatio = qData({ id: "fellatio", giveText: "give", receiveText: "receive", targetReceive: "amab" });
+    const m = new Map([[fellatio.id, fellatio]]);
+    expect(filterVisibleAnswers({ "fellatio:give": yes }, "afab", ["afab"], "filtered", m)).toEqual({});
+    expect(filterVisibleAnswers({ "fellatio:give": yes }, "afab", ["amab"], "filtered", m)).toEqual({
+      "fellatio:give": yes,
+    });
+  });
+
+  it("treats a 'none' anatomy as matching no specific target (keeps 'all', drops anatomy-specific)", () => {
+    // The fallback PairComparison uses for a member with no recorded anatomy.
+    const answers = { "frot:mutual": yes, "kissing:mutual": yes };
+    expect(filterVisibleAnswers(answers, "none", ["none"], "filtered", map)).toEqual({ "kissing:mutual": yes });
+  });
+
   it("keeps answers to unknown questions (removed from the bank) — caller drops them later", () => {
     const answers = { "gone:mutual": yes };
     expect(filterVisibleAnswers(answers, "afab", ["afab"], "filtered", map)).toEqual({ "gone:mutual": yes });

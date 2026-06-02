@@ -1,12 +1,27 @@
 import type { Answer, QuestionData } from "@spreadsheet/shared";
 import { classifyMatch, type MatchType } from "./classify-match.js";
-import { anatomySides } from "./visibility.js";
+import { type AnatomySides, anatomySides } from "./visibility.js";
 
 export interface QuestionInfo {
   text: string;
   categoryId: string;
   giveText: string | null;
   receiveText: string | null;
+}
+
+/** Visibility of the side an answer key names. Unknown roles — only reachable
+ *  from a malformed key — fail closed (hidden) rather than defaulting to mutual. */
+function sideVisible(sides: AnatomySides, role: string): boolean {
+  switch (role) {
+    case "give":
+      return sides.canGive;
+    case "receive":
+      return sides.canReceive;
+    case "mutual":
+      return sides.canMutual;
+    default:
+      return false;
+  }
 }
 
 /**
@@ -41,8 +56,7 @@ export function filterVisibleAnswers(
       continue;
     }
     const sides = anatomySides(q, anatomy, otherAnatomies, questionMode);
-    const visible = role === "give" ? sides.canGive : role === "receive" ? sides.canReceive : sides.canMutual;
-    if (visible) out[key] = answer;
+    if (sideVisible(sides, role)) out[key] = answer;
   }
   return out;
 }
