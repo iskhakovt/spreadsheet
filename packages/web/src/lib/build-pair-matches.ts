@@ -1,4 +1,4 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, Compare } from "@spreadsheet/shared";
 import { classifyMatch, type MatchType } from "./classify-match.js";
 
 export interface QuestionInfo {
@@ -6,6 +6,8 @@ export interface QuestionInfo {
   categoryId: string;
   giveText: string | null;
   receiveText: string | null;
+  /** Comparison semantics; absent is treated as "activity" (stale-cache safe). */
+  compare?: Compare;
 }
 
 export interface PairMatch {
@@ -60,7 +62,7 @@ export function buildPairMatches(
     if (!aAnswers[key] || !bAnswers[key]) continue;
     const q = questions[questionId];
     if (!q) continue;
-    const matchType = classifyMatch(aAnswers[key], bAnswers[key]);
+    const matchType = classifyMatch(aAnswers[key], bAnswers[key], q.compare);
     if (matchType === "hidden") continue;
     matches.push({ questionId, displayText: q.text, matchType, answerA: aAnswers[key], answerB: bAnswers[key] });
     seen.add(questionId);
@@ -80,7 +82,7 @@ export function buildPairMatches(
     seen.add(pairKey);
     const q = questions[qId];
     if (!q) continue;
-    const matchType = classifyMatch(aAnswers[keyA], bAnswers[keyB]);
+    const matchType = classifyMatch(aAnswers[keyA], bAnswers[keyB], q.compare);
     if (matchType === "hidden") continue;
     // Display from A's perspective
     let displayText: string;

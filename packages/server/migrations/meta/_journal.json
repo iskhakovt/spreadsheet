@@ -36,6 +36,13 @@
       "when": 1777899329744,
       "tag": "0004_show_timing_default",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780392194889,
+      "tag": "0005_add_question_compare",
+      "breakpoints": true
     }
   ]
 }

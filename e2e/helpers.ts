@@ -213,7 +213,12 @@ export async function createGroupAndSetup(
 
 /** Navigate through intro screen. */
 export async function goThroughIntro(page: Page) {
-  await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: 2_000 });
+  // The intro lives under the /p/$token layout, so it only paints once that
+  // route's status + questions.list suspense queries resolve. Reached via a
+  // full page load (bob.goto) or an in-app transition, it's a navigation-class
+  // wait like every other post-nav screen here — use NAV_TIMEOUT, not a tighter
+  // outlier (a hardcoded 2s flaked on cold boot under parallel load).
+  await expect(page.getByText("Here's how it works")).toBeVisible({ timeout: NAV_TIMEOUT });
   await page.getByRole("button", { name: "Let's go", exact: true }).click();
 }
 

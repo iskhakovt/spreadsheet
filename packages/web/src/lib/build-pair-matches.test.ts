@@ -82,6 +82,100 @@ describe("buildPairMatches", () => {
     });
   });
 
+  describe("compare: agreement — mutual-no and splits surface", () => {
+    const agreementQ: QuestionInfo = {
+      text: "External people involved is welcome",
+      categoryId: "group",
+      giveText: null,
+      receiveText: null,
+      compare: "agreement",
+    };
+    const qMap = questions({ exclusivity: agreementQ });
+
+    it("both no → aligned-no (surfaced, not hidden)", () => {
+      const result = buildPairMatches({ "exclusivity:mutual": no }, { "exclusivity:mutual": no }, qMap);
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("aligned-no");
+    });
+
+    it("both yes → aligned-yes", () => {
+      const result = buildPairMatches({ "exclusivity:mutual": yes }, { "exclusivity:mutual": yes }, qMap);
+      expect(result[0].matchType).toBe("aligned-yes");
+    });
+
+    it("yes vs no → differ (surfaced, not hidden)", () => {
+      const result = buildPairMatches({ "exclusivity:mutual": yes }, { "exclusivity:mutual": no }, qMap);
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("differ");
+    });
+
+    it("if-partner-wants vs no → aligned-no (willing defers to the 'no')", () => {
+      const result = buildPairMatches({ "exclusivity:mutual": ifPartner }, { "exclusivity:mutual": no }, qMap);
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("aligned-no");
+    });
+
+    it("works on give/receive agreement questions across roles", () => {
+      const condomQ: QuestionInfo = {
+        text: "Sex without a condom",
+        categoryId: "reproductive",
+        giveText: "Sex without a condom while partner uses birth control",
+        receiveText: "Using birth control as the only barrier",
+        compare: "agreement",
+      };
+      // A is willing (defers), B says no → they land on "no" together.
+      const result = buildPairMatches(
+        { "condom:give": ifPartner },
+        { "condom:receive": no },
+        questions({ condom: condomQ }),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("aligned-no");
+    });
+  });
+
+  describe("compare: disclose — always surfaced, no verdict", () => {
+    const discloseQ: QuestionInfo = {
+      text: "I have a preference about my own pubic hair",
+      categoryId: "touch",
+      giveText: null,
+      receiveText: null,
+      compare: "disclose",
+    };
+    const qMap = questions({ pubic: discloseQ });
+
+    it("yes + no → noted (a 'no' no longer hides it)", () => {
+      const result = buildPairMatches(
+        { "pubic:mutual": { rating: "yes", note: "shaved" } },
+        { "pubic:mutual": no },
+        qMap,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("noted");
+      expect(result[0].answerA.note).toBe("shaved");
+    });
+
+    it("still requires both to have answered", () => {
+      const result = buildPairMatches({ "pubic:mutual": yes }, {}, qMap);
+      expect(result).toHaveLength(0);
+    });
+
+    it("both no with no note → hidden (nothing to disclose)", () => {
+      const result = buildPairMatches({ "pubic:mutual": no }, { "pubic:mutual": no }, qMap);
+      expect(result).toHaveLength(0);
+    });
+
+    it("both no but one wrote a note → noted (there is something to disclose)", () => {
+      const result = buildPairMatches(
+        { "pubic:mutual": { rating: "no", note: "kept natural" } },
+        { "pubic:mutual": no },
+        qMap,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].matchType).toBe("noted");
+    });
+  });
+
   describe("give/receive questions — cross-role matching", () => {
     const qMap = questions({ oral: giveReceiveQ });
 

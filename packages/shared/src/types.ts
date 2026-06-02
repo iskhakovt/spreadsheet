@@ -17,6 +17,25 @@ export type Target = z.infer<typeof Target>;
 export const Role = z.enum(["give", "receive", "mutual"]);
 export type Role = z.infer<typeof Role>;
 
+/**
+ * Comparison semantics for a question — how two people's answers combine on
+ * the /results page. This is a *display-only* axis: it changes how an answer
+ * pair is classified into a match bucket, never how answers are stored.
+ *
+ *  - `activity`  (default) — "do you both want to do this?" Positive overlap
+ *    is surfaced; a "no" from either side hides the row (privacy / no pressure).
+ *  - `agreement` — a symmetric norm. Both-affirm, both-decline, AND a split
+ *    are all meaningful: a mutual "no" is alignment worth showing (not hidden),
+ *    and a split is surfaced as something to discuss (e.g. barrier/risk norms,
+ *    exclusivity, response norms, competing preferences like lighting).
+ *  - `disclose`  — a self-referential preference or stated need where the note
+ *    is the content. Each person's answer always surfaces to the partner
+ *    regardless of overlap; there's no "match" verdict (e.g. pubic hair,
+ *    sensory accommodations, "words I don't want used").
+ */
+export const Compare = z.enum(["activity", "agreement", "disclose"]);
+export type Compare = z.infer<typeof Compare>;
+
 export const QuestionMode = z.enum(["all", "filtered"]);
 export type QuestionMode = z.infer<typeof QuestionMode>;
 
@@ -97,6 +116,12 @@ export interface QuestionData {
   tier: number;
   /** Single-parent dependencies; transitively gated when a parent is answered "no". Empty when none. */
   requires: string[];
+  /**
+   * How answers to this question combine on /results. Optional on the read
+   * type so a stale `questions.list` cache (pre-`compare` shape) degrades
+   * gracefully — absent is treated as "activity". The server always sets it.
+   */
+  compare?: Compare;
 }
 
 /** Category as returned by the questions.list query */

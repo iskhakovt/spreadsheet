@@ -1,3 +1,4 @@
+import type { Rating } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { Pencil } from "lucide-react";
@@ -18,7 +19,17 @@ import {
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { mergeJournal } from "../lib/merge-journal.js";
 import { useScrollReset } from "../lib/route-reset.js";
+import { UI } from "../lib/strings.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
+
+/** Human-readable label for a rating, matching the question-card vocabulary. */
+const STANCE_LABEL: Record<Rating, string> = {
+  yes: UI.question.yes,
+  "if-partner-wants": UI.question.willing,
+  maybe: UI.question.maybe,
+  fantasy: UI.question.fantasy,
+  no: UI.question.no,
+};
 
 /**
  * Visual treatment per match type. "Go for it" is the celebratory tier:
@@ -61,8 +72,10 @@ interface PairComparisonProps {
 function noteDividerClass(type: MatchType): string {
   switch (type) {
     case "match":
+    case "aligned-yes":
       return "border-accent/15";
     case "fantasy":
+    case "noted":
       return "border-dashed border-border/60";
     default:
       return "border-text-muted/15";
@@ -87,6 +100,36 @@ function NoteLine({ who, isViewer, text }: Readonly<{ who: string; isViewer: boo
   );
 }
 
+/**
+ * One stance line — attribution + each person's rating, with their note
+ * appended when present. Used for `noted` / `differ` rows, where the badge
+ * alone ("Noted" / "You differ") doesn't reveal who answered what.
+ */
+function StanceLine({
+  who,
+  isViewer,
+  rating,
+  note,
+}: Readonly<{ who: string; isViewer: boolean; rating: Rating; note: string | null }>) {
+  const label = isViewer ? "You" : who;
+  return (
+    <p className="text-[13px] leading-[1.55] text-text/75 flex gap-2.5 items-baseline">
+      <span
+        className={cn(
+          "shrink-0 not-italic font-medium text-[12px] min-w-[3rem] text-right",
+          isViewer ? "text-accent-dark" : "text-text/75",
+        )}
+      >
+        {label}
+      </span>
+      <span className="text-pretty">
+        <span className="font-medium text-text/85">{STANCE_LABEL[rating]}</span>
+        {note && <span className="italic text-text-muted"> — {note}</span>}
+      </span>
+    </p>
+  );
+}
+
 const MATCH_STYLES: Record<MatchType, MatchStyle> = {
   match: {
     container: [
@@ -102,6 +145,37 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
     container: "bg-surface/70 border border-border/40",
     badge: "bg-neutral/12 text-text-muted",
     label: "Worth discussing",
+    labelStyle: "font-medium",
+  },
+  // Agreement questions — both affirm the norm. Positive, but calmer than an
+  // activity "Match": this is "we're on the same page," not "let's do it."
+  "aligned-yes": {
+    container: "bg-gradient-to-br from-accent/10 to-accent/[0.04] border border-accent/15 shadow-warm-sm",
+    badge: "bg-accent/15 text-accent-dark",
+    label: "Both in",
+    labelStyle: "font-semibold",
+  },
+  // Agreement questions — both decline. The "no is the match" case: a shared
+  // boundary worth surfacing (e.g. both exclusive, both sober), not hidden.
+  "aligned-no": {
+    container: "bg-surface/60 border border-border/40",
+    badge: "bg-neutral/12 text-text-muted",
+    label: "Both pass",
+    labelStyle: "font-medium",
+  },
+  // Agreement questions — one affirms, one declines. Surfaced so the gap gets
+  // a conversation (matters most for barrier / pregnancy-risk norms).
+  differ: {
+    container: "bg-surface/70 border border-border/50",
+    badge: "bg-neutral/15 text-text",
+    label: "You differ",
+    labelStyle: "font-medium",
+  },
+  // Disclose questions — each person's stated preference / note, no verdict.
+  noted: {
+    container: "bg-surface/50 border border-dashed border-border/45",
+    badge: "bg-neutral/8 text-text-muted/80",
+    label: "Noted",
     labelStyle: "font-medium",
   },
   possible: {
@@ -160,7 +234,13 @@ export function Comparison({ viewerId, encrypted, token, onBack }: Readonly<Comp
       Object.fromEntries(
         questionsData.questions.map((q) => [
           q.id,
-          { text: q.text, categoryId: q.categoryId, giveText: q.giveText, receiveText: q.receiveText },
+          {
+            text: q.text,
+            categoryId: q.categoryId,
+            giveText: q.giveText,
+            receiveText: q.receiveText,
+            compare: q.compare,
+          },
         ]),
       ),
     [questionsData.questions],
@@ -405,7 +485,13 @@ function PairComparison({
 
   const groups = buildGroupedMatches(pairMatches, questions, categories, categoryOrder, questionOrder);
 
-  const totalMatches = pairMatches.length;
+  // "Total matches" counts what the couple is into / open to / could explore.
+  // Exclude "You differ" (a clash), "Noted" (a neutral disclosure), and
+  // "Both pass" (aligned-no — a shared *non*-interest): all still render as
+  // rows, but none belong in a celebratory match tally. Per-category counts
+  // below still list every row.
+  const EXCLUDED_FROM_TOTAL: MatchType[] = ["differ", "noted", "aligned-no"];
+  const totalMatches = pairMatches.filter((m) => !EXCLUDED_FROM_TOTAL.includes(m.matchType)).length;
 
   return (
     <div className="space-y-8">
@@ -454,7 +540,11 @@ function PairComparison({
                   // legacy in-flight data never opens an empty notes block.
                   const noteA = match.answerA.note;
                   const noteB = match.answerB.note;
-                  const showNotes = !!noteA || !!noteB;
+                  // "noted" (disclose) and "differ" (agreement split) badges
+                  // don't reveal each person's answer, so always surface both
+                  // stances for them. Every other badge fully encodes the state.
+                  const showStance = match.matchType === "noted" || match.matchType === "differ";
+                  const showNotes = showStance || !!noteA || !!noteB;
                   return (
                     <div
                       key={`${match.questionId}-${match.displayText}`}
@@ -482,8 +572,27 @@ function PairComparison({
                           className={cn("mt-2.5 pt-2.5 space-y-1.5", "border-t", noteDividerClass(match.matchType))}
                           data-testid="match-notes"
                         >
-                          {noteA && <NoteLine who={aDisplayName} isViewer={aIsViewer} text={noteA} />}
-                          {noteB && <NoteLine who={bDisplayName} isViewer={bIsViewer} text={noteB} />}
+                          {showStance ? (
+                            <>
+                              <StanceLine
+                                who={aDisplayName}
+                                isViewer={aIsViewer}
+                                rating={match.answerA.rating}
+                                note={noteA}
+                              />
+                              <StanceLine
+                                who={bDisplayName}
+                                isViewer={bIsViewer}
+                                rating={match.answerB.rating}
+                                note={noteB}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              {noteA && <NoteLine who={aDisplayName} isViewer={aIsViewer} text={noteA} />}
+                              {noteB && <NoteLine who={bDisplayName} isViewer={bIsViewer} text={noteB} />}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

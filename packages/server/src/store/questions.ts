@@ -20,6 +20,7 @@ interface SeedQuestion {
   targetGive: "all" | "amab" | "afab";
   targetReceive: "all" | "amab" | "afab";
   requiresGroupAnatomy: ("amab" | "afab")[];
+  compare: "activity" | "agreement" | "disclose";
   requires: string[];
 }
 
@@ -63,6 +64,32 @@ function validateDependencies(qs: SeedQuestion[]) {
   // position constraint, which would have thrown above.
 }
 
+/**
+ * `disclose` questions must be mutual. A disclose row surfaces one person's
+ * stated preference regardless of overlap; on a give/receive question the
+ * matcher emits one row per direction, so a single disclosure would render
+ * twice. (`agreement` over give/receive is fine — e.g. pull-out — because the
+ * cross-role pairing is meaningful.)
+ */
+function validateCompare(qs: SeedQuestion[]) {
+  for (const q of qs) {
+    if (q.compare === "disclose" && (q.giveText != null || q.receiveText != null)) {
+      throw new Error(
+        `Question "${q.id}" is compare: disclose but has give/receive text; disclose must be a mutual question. Drop giveText/receiveText or use compare: agreement.`,
+      );
+    }
+    // A disclose row only surfaces when both partners answered the question. An
+    // anatomy-targeted disclose would be hidden from the non-matching partner,
+    // so the disclosure silently never appears despite the "always surfaces"
+    // framing. Require target: all so both sides always see it.
+    if (q.compare === "disclose" && (q.targetGive !== "all" || q.targetReceive !== "all")) {
+      throw new Error(
+        `Question "${q.id}" is compare: disclose but is anatomy-targeted; disclose must be target: all so both partners always see it (a disclose row only surfaces when both have answered).`,
+      );
+    }
+  }
+}
+
 export class QuestionStore {
   #tx: <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;
 
@@ -87,6 +114,7 @@ export class QuestionStore {
           targetGive: questions.targetGive,
           targetReceive: questions.targetReceive,
           requiresGroupAnatomy: questions.requiresGroupAnatomy,
+          compare: questions.compare,
           tier: questions.tier,
           sortOrder: questions.sortOrder,
         })
@@ -119,6 +147,7 @@ export class QuestionStore {
 
   async seed(data: SeedData) {
     validateDependencies(data.questions);
+    validateCompare(data.questions);
 
     const seedCategoryIds = data.categories.map((c) => c.id);
     const seedQuestionIds = data.questions.map((q) => q.id);
@@ -192,6 +221,7 @@ export class QuestionStore {
             targetGive: q.targetGive,
             targetReceive: q.targetReceive,
             requiresGroupAnatomy: q.requiresGroupAnatomy,
+            compare: q.compare,
             tier: q.tier,
             sortOrder: sortWithinCategory,
           })
@@ -207,6 +237,7 @@ export class QuestionStore {
               targetGive: q.targetGive,
               targetReceive: q.targetReceive,
               requiresGroupAnatomy: q.requiresGroupAnatomy,
+              compare: q.compare,
               tier: q.tier,
               sortOrder: sortWithinCategory,
             },
