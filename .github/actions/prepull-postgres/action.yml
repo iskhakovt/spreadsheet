@@ -16,14 +16,20 @@ inputs:
 runs:
   using: composite
   steps:
+    # Bind the input via env rather than interpolating ${{ }} into the script
+    # body — expression substitution happens before the shell runs, so a value
+    # with shell metacharacters could break out. Env-binding passes it as data.
     - shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.image }}
       run: |
         set -euo pipefail
-        image="${{ inputs.image }}"
         for attempt in 1 2 3; do
-          if docker pull "$image"; then exit 0; fi
-          echo "::warning::pull attempt $attempt for $image failed; retrying in $((attempt * 5))s"
-          sleep "$((attempt * 5))"
+          if docker pull "$IMAGE_REF"; then exit 0; fi
+          if [ "$attempt" -lt 3 ]; then
+            echo "::warning::pull attempt $attempt for $IMAGE_REF failed; retrying in $((attempt * 5))s"
+            sleep "$((attempt * 5))"
+          fi
         done
-        echo "::error::failed to pull $image after 3 attempts"
+        echo "::error::failed to pull $IMAGE_REF after 3 attempts"
         exit 1
