@@ -29,6 +29,11 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm deploy --filter @spreadsheet/server --prod /app/deployed
 
 # --- Runtime (distroless — no shell, no package manager) ---
+# Distroless is tracked by its nodejs24-debian13 channel rather than a
+# pinned digest; the Trivy scan in publish.yml surfaces base-image CVEs.
+# Scope the untagged-base warning to this FROM so DL3006 still guards any
+# base image added later.
+# hadolint ignore=DL3006
 FROM gcr.io/distroless/nodejs24-debian13
 WORKDIR /app
 

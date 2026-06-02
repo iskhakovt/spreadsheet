@@ -6,10 +6,10 @@ on:
   pull_request:
 
 # Cancel superseded PR runs (fast feedback on the latest commit). Never
-# cancel main runs — once unit/integration/e2e/visual finish and release
-# starts tagging or publish starts pushing multi-arch layers, an interrupted
-# job leaves work half-done. A queued main run waits and runs after the
-# in-flight one; semantic-release is idempotent across the gap.
+# cancel main runs — main CI is the source of truth the manual release
+# workflow waits on before tagging (see release.yml), so a half-finished
+# main run must not be silently dropped. A queued main run waits and runs
+# after the in-flight one.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -22,6 +22,7 @@ jobs:
     name: PR Title
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -38,6 +39,7 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -52,9 +54,24 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm lint
 
+  # Dockerfile lint. Config in .hadolint.yaml at the repo root (auto-picked-up).
+  hadolint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+    # hadolint-action is a Docker action — covers cold container build.
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          dockerfile: Dockerfile
+
   unit:
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -70,6 +87,7 @@ jobs:
   integration:
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -95,6 +113,7 @@ jobs:
   e2e:
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -108,10 +127,6 @@ jobs:
       # write amd64 layers into the `scope=arm64` cache and degrade arm64
       # cache hits in the next publish run.
       - uses: docker/bake-action@6614cfa25eff9a0b2b2697efb0b6159e7680d584 # v7.2.0
-        env:
-          # Disable provenance/SBOM attestations — they attach as a manifest
-          # list, which `--load` into the docker daemon cannot import.
-          WITH_ATTEST: "false"
         with:
           source: .
           files: ./docker-bake.hcl
@@ -164,6 +179,7 @@ jobs:
   visual:
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -200,47 +216,3 @@ jobs:
           name: visual-diff
           path: test-results/
           retention-days: 7
-
-  release:
-    needs: [unit, integration, e2e, visual]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'iskhakovt/spreadsheet'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    outputs:
-      new_release_published: ${{ steps.semantic.outputs.published }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: 24
-      - id: semantic
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          npx --yes \
-            -p semantic-release@25.0.3 \
-            -p @semantic-release/commit-analyzer@13.0.1 \
-            -p @semantic-release/release-notes-generator@14.1.0 \
-            -p @semantic-release/github@12.0.6 \
-            semantic-release
-          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          fi
-
-  publish:
-    name: Publish Image
-    # `needs:` is required even though `if:` references the same job:
-    # without it the outputs context is empty and `if:` silently false.
-    needs: [release]
-    if: needs.release.outputs.new_release_published == 'true'
-    uses: ./.github/workflows/publish.yml
-    # Keep in sync with the docker job in publish.yml.
-    permissions:
-      contents: read
-      packages: write
