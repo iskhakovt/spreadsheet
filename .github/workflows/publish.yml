@@ -65,12 +65,14 @@ jobs:
           set: |
             app.args.VERSION=${{ steps.version.outputs.version }}
 
-  # Vulnerability scan against the released image. SARIF → code-scanning
+  # Vulnerability + secret scan of the released image. SARIF → code-scanning
   # (Security tab); findings don't block the release — triage async, ship
   # a patch for anything acute. Replaces the unsigned buildkit SBOM/
   # provenance attestations we used to attach: those were unverifiable
   # (anyone with packages:write could forge them), whereas this surfaces
-  # actionable CVEs in what we actually ship.
+  # actionable CVEs — plus any secret accidentally baked into an image
+  # layer — in what we actually ship. `severity`/`ignore-unfixed` filter
+  # only the CVE side; secret findings (reported CRITICAL) always surface.
   #
   # amd64-only: most findings overlap with arm64, but arch-specific binaries
   # (Node native, libssl variants) can carry arm64-only CVEs we miss.
