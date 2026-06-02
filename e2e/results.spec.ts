@@ -200,4 +200,36 @@ test.describe("results display", () => {
     await expect(differNotes).toContainText("Yes"); // Alice
     await expect(differNotes).toContainText("No"); // Bob (You)
   });
+
+  test("Total matches headline excludes differ / noted / aligned-no rows", async ({ alice, bob }) => {
+    // "Sensory Environment" mixes `agreement` (lighting/sound/scent) and
+    // `disclose` (sensory needs) questions, so a varied split produces
+    // differ + noted + aligned-no alongside counted rows — exercising the
+    // EXCLUDED_FROM_TOTAL headline filter.
+    const { partnerLink } = await createGroupAndSetup(alice);
+    await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
+    await goThroughIntro(alice);
+    await narrowToCategory(alice, "Sensory Environment");
+    await answerQuestionsCycling(alice, ["yes", "no", "yes", "maybe", "no"]);
+    await alice.getByRole("button", { name: "I'm done", exact: true }).click();
+    await expect(alice.getByText("Waiting for everyone")).toBeVisible();
+
+    await bob.goto(partnerLink);
+    await goThroughIntro(bob);
+    await narrowToCategory(bob, "Sensory Environment");
+    await answerQuestionsCycling(bob, ["no", "no", "yes", "maybe", "yes"]);
+    await bob.getByRole("button", { name: "I'm done", exact: true }).click();
+
+    await expect(bob.getByText("Your matches")).toBeVisible({ timeout: WS_TIMEOUT });
+
+    const rendered = await bob.locator('[data-testid="match-row"]').count();
+    const excluded = await bob
+      .locator('[data-match-type="differ"], [data-match-type="noted"], [data-match-type="aligned-no"]')
+      .count();
+    const total = Number(await bob.getByTestId("total-matches-count").textContent());
+
+    // The scenario must actually produce excluded rows, or the check is vacuous.
+    expect(excluded).toBeGreaterThan(0);
+    expect(total).toBe(rendered - excluded);
+  });
 });
