@@ -33,6 +33,7 @@ const QuestionSchema = z.object({
   targetGive: z.enum(["all", "amab", "afab"]).default("all"),
   targetReceive: z.enum(["all", "amab", "afab"]).default("all"),
   requiresGroupAnatomy: RequiresGroupAnatomySchema,
+  compare: z.enum(["activity", "agreement", "disclose"]).default("activity"),
   requires: RequiresSchema,
 });
 

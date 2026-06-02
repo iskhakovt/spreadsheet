@@ -1,0 +1,8 @@
+# Hadolint config — consumed by the `hadolint` job in
+# .github/workflows/ci.yml (auto-picked-up from the repo root).
+#
+# `warning` threshold tolerates info/style nits while still gating on
+# warnings and errors. Rule-level suppressions live inline at the offending
+# instruction (e.g. the DL3006 ignore above the distroless FROM in the
+# Dockerfile) so a rule stays active for every other instruction.
+failure-threshold: warning

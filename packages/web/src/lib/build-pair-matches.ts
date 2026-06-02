@@ -1,4 +1,4 @@
-import type { Answer, QuestionData } from "@spreadsheet/shared";
+import type { Answer, Compare, QuestionData } from "@spreadsheet/shared";
 import { classifyMatch, type MatchType } from "./classify-match.js";
 import { type AnatomySides, anatomySides } from "./visibility.js";
 
@@ -7,6 +7,8 @@ export interface QuestionInfo {
   categoryId: string;
   giveText: string | null;
   receiveText: string | null;
+  /** Comparison semantics; absent is treated as "activity" (stale-cache safe). */
+  compare?: Compare;
 }
 
 /** Visibility of the side an answer key names. Unknown roles — only reachable
@@ -113,7 +115,7 @@ export function buildPairMatches(
     if (!aAnswers[key] || !bAnswers[key]) continue;
     const q = questions[questionId];
     if (!q) continue;
-    const matchType = classifyMatch(aAnswers[key], bAnswers[key]);
+    const matchType = classifyMatch(aAnswers[key], bAnswers[key], q.compare);
     if (matchType === "hidden") continue;
     matches.push({ questionId, displayText: q.text, matchType, answerA: aAnswers[key], answerB: bAnswers[key] });
     seen.add(questionId);
@@ -133,7 +135,7 @@ export function buildPairMatches(
     seen.add(pairKey);
     const q = questions[qId];
     if (!q) continue;
-    const matchType = classifyMatch(aAnswers[keyA], bAnswers[keyB]);
+    const matchType = classifyMatch(aAnswers[keyA], bAnswers[keyB], q.compare);
     if (matchType === "hidden") continue;
     // Display from A's perspective
     let displayText: string;

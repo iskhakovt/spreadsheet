@@ -5,17 +5,19 @@ test.describe("results edge cases", () => {
   test("results empty state — no overlaps", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice);
 
-    // Alice answers yes, Bob answers no → all hidden
+    // Alice answers yes, Bob answers no → all hidden. Use a pure-activity
+    // category: "Group & External" now carries an `agreement` gate that would
+    // surface a "differ" row on a yes/no split, defeating the empty state.
     await alice.getByRole("button", { name: "Start filling out", exact: true }).click();
     await goThroughIntro(alice);
-    await narrowToCategory(alice, "Group & External");
+    await narrowToCategory(alice, "Bondage & Restraint");
     await answerAllQuestions(alice, "yes");
     await alice.getByRole("button", { name: "I'm done", exact: true }).click();
     await expect(alice.getByText("Waiting for everyone")).toBeVisible();
 
     await bob.goto(partnerLink);
     await goThroughIntro(bob);
-    await narrowToCategory(bob, "Group & External");
+    await narrowToCategory(bob, "Bondage & Restraint");
     await answerAllQuestions(bob, "no");
     await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 

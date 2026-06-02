@@ -17,6 +17,7 @@ import {
 
 export const targetEnum = pgEnum("target", ["all", "amab", "afab"]);
 export const questionModeEnum = pgEnum("question_mode", ["all", "filtered"]);
+export const compareEnum = pgEnum("compare", ["activity", "agreement", "disclose"]);
 
 export const groups = pgTable("groups", {
   id: uuid().defaultRandom().primaryKey(),
@@ -74,6 +75,7 @@ export const questions = pgTable(
     targetReceive: targetEnum().notNull(),
     requiresGroupAnatomy: text().array().notNull().default([]),
     tier: integer().notNull().default(1),
+    compare: compareEnum().notNull().default("activity"),
     sortOrder: integer().notNull(),
   },
   (t) => [index("questions_category_sort_idx").on(t.categoryId, t.sortOrder)],

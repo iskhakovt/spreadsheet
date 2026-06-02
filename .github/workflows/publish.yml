@@ -11,6 +11,10 @@ jobs:
   docker:
     name: Build & Push Image
     runs-on: ubuntu-latest
+    # Generous ceiling — the arm64 leg builds under QEMU emulation, which
+    # is several times slower than native. Catches a genuine hang without
+    # false-positiving a cold-cache emulated build.
+    timeout-minutes: 60
     concurrency:
       group: publish-image
       cancel-in-progress: false
@@ -18,6 +22,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -58,3 +64,65 @@ jobs:
           push: true
           set: |
             app.args.VERSION=${{ steps.version.outputs.version }}
+
+  # Vulnerability + secret scan of the released image. SARIF → code-scanning
+  # (Security tab); findings don't block the release — triage async, ship
+  # a patch for anything acute. Replaces the unsigned buildkit SBOM/
+  # provenance attestations we used to attach: those were unverifiable
+  # (anyone with packages:write could forge them), whereas this surfaces
+  # actionable CVEs — plus any secret accidentally baked into an image
+  # layer — in what we actually ship. `severity: HIGH,CRITICAL` filters
+  # both kinds, so a sub-HIGH secret would be dropped; real leaked
+  # credentials still land because Trivy's secret rules are nearly all
+  # CRITICAL. `ignore-unfixed` is vuln-only (secrets have no fixed version).
+  #
+  # amd64-only: most findings overlap with arm64, but arch-specific binaries
+  # (Node native, libssl variants) can carry arm64-only CVEs we miss.
+  # Acceptable gap at this scale.
+  scan:
+    name: Trivy scan
+    needs: [docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+      # Upload SARIF to code-scanning. Without `security-events: write`,
+      # the action fails on the upload itself. Without `actions: read`,
+      # the action fails earlier when it calls GET /actions/runs/{id} to
+      # enrich the SARIF with run metadata. Reusable-workflow permissions
+      # are capped by the caller — keep release.yml's publish job in sync.
+      security-events: write
+      actions: read
+    steps:
+      - uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.docker.outputs.version }}
+          format: sarif
+          output: trivy-results.sarif
+          # Explicit so a future trivy-action bump that changes the
+          # default doesn't silently flip behavior.
+          scanners: vuln,secret
+          # `ignore-unfixed` hides CVEs with no upstream patch — exactly
+          # the signal for base-image-swap decisions, so revisit then.
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          # Key rotates daily + release cadence means no cross-release
+          # cache hits anyway, so caching only buys log noise.
+          cache: false
+
+      - uses: github/codeql-action/upload-sarif@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4.36.1
+        # Run even if Trivy itself errored (e.g. DB download flake) so we
+        # don't lose partial results. The upload action no-ops on a missing
+        # file but logs a clear message.
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy

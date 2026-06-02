@@ -1,0 +1,108 @@
+name: Release
+
+# Manual-only. Trigger via the Actions UI ("Run workflow") or
+# `gh workflow run release.yml --ref main`. CI on main is the source of
+# truth for "main is shippable" — this workflow refuses to proceed unless
+# every check on the current main HEAD is green (success / skipped /
+# neutral). Use the `skip_ci_check` input to bypass when an external check
+# is stuck and you have independently verified main is shippable.
+on:
+  workflow_dispatch:
+    inputs:
+      skip_ci_check:
+        description: "Skip the gate that requires CI green on main HEAD. Use only when an external check is stuck."
+        type: boolean
+        default: false
+
+permissions: {}
+
+# One release at a time across the repo. Two operators clicking "Run
+# workflow" simultaneously would each try to push the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    if: github.ref == 'refs/heads/main' && github.repository == 'iskhakovt/spreadsheet'
+    runs-on: ubuntu-latest
+    # Covers the 5-min wait-for-status-checks gate + ~1 min of
+    # semantic-release work + buffer.
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.published }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      # Polls check runs on this SHA; treats success / skipped / neutral
+      # as pass. `ignore: Release` self-excludes this job's own check run
+      # — the action's default exclusion matches on the YAML job_id
+      # (`release`), but GitHub's API returns the display name (`Release`,
+      # from `name:` above), and the match is case-sensitive exact-string.
+      # Keep `Release` here in sync with the job's `name:`. The short
+      # `timeout` covers "I clicked dispatch while CI was finishing"; if
+      # you dispatch with CI nowhere near done it fails after 5 min and you
+      # re-click once CI completes.
+      - name: Wait for CI green on main HEAD
+        if: ${{ !inputs.skip_ci_check }}
+        uses: poseidon/wait-for-status-checks@899c768d191b56eef585c18f8558da19e1f3e707 # v0.6.0
+        with:
+          token: ${{ github.token }}
+          ignore: Release
+          interval: 30
+          timeout: 300
+      - name: Skipped CI gate (operator override)
+        if: ${{ inputs.skip_ci_check }}
+        run: echo "::warning::skip_ci_check=true — releasing without verifying CI status on main HEAD"
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+      - id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Record tags already on HEAD before the run. semantic-release
+          # creates (and pushes) the git tag itself when it cuts a release,
+          # so a tag on HEAD that wasn't there before means THIS run
+          # published. Checking "is HEAD tagged?" after the fact would also
+          # fire on a re-dispatch of an already-released HEAD — where
+          # semantic-release correctly does nothing — and wrongly re-trigger
+          # publish. The `fetch-depth: 0` checkout above fetches existing
+          # tags, so a pre-released HEAD is seen here.
+          before="$(git tag --points-at HEAD | sort)"
+          npx --yes \
+            -p semantic-release@25.0.3 \
+            -p @semantic-release/commit-analyzer@13.0.1 \
+            -p @semantic-release/release-notes-generator@14.1.0 \
+            -p @semantic-release/github@12.0.6 \
+            semantic-release
+          after="$(git tag --points-at HEAD | sort)"
+          if [ "$before" != "$after" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish Image
+    # `needs:` is required even though `if:` references the same job:
+    # without it the outputs context is empty and `if:` silently false.
+    needs: [release]
+    if: needs.release.outputs.new_release_published == 'true'
+    uses: ./.github/workflows/publish.yml
+    # Union of permissions across publish.yml's jobs — reusable-workflow
+    # permissions are capped by the caller, so anything a nested job needs
+    # must be granted here too. The Trivy scan job needs security-events
+    # for SARIF upload and actions:read so codeql-action can fetch run
+    # metadata. Keep in sync with publish.yml's docker + scan jobs.
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      actions: read
