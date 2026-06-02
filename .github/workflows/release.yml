@@ -69,13 +69,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # Record tags already on HEAD before the run. semantic-release
+          # creates (and pushes) the git tag itself when it cuts a release,
+          # so a tag on HEAD that wasn't there before means THIS run
+          # published. Checking "is HEAD tagged?" after the fact would also
+          # fire on a re-dispatch of an already-released HEAD — where
+          # semantic-release correctly does nothing — and wrongly re-trigger
+          # publish. The `fetch-depth: 0` checkout above fetches existing
+          # tags, so a pre-released HEAD is seen here.
+          before="$(git tag --points-at HEAD | sort)"
           npx --yes \
             -p semantic-release@25.0.3 \
             -p @semantic-release/commit-analyzer@13.0.1 \
             -p @semantic-release/release-notes-generator@14.1.0 \
             -p @semantic-release/github@12.0.6 \
             semantic-release
-          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+          after="$(git tag --points-at HEAD | sort)"
+          if [ "$before" != "$after" ]; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           fi
 

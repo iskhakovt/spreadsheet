@@ -1,11 +1,8 @@
 # Hadolint config — consumed by the `hadolint` job in
 # .github/workflows/ci.yml (auto-picked-up from the repo root).
 #
-# `warning` threshold so genuine warnings gate the PR, not just errors.
+# `warning` threshold tolerates info/style nits while still gating on
+# warnings and errors. Rule-level suppressions live inline at the offending
+# instruction (e.g. the DL3006 ignore above the distroless FROM in the
+# Dockerfile) so a rule stays active for every other instruction.
 failure-threshold: warning
-ignored:
-  # DL3006 (tag the base image explicitly) fires on the distroless runtime
-  # base. We track it by its `nodejs24-debian13` channel rather than a
-  # pinned digest: a pinned digest goes stale silently, whereas the channel
-  # plus the Trivy scan in publish.yml surfaces base-image CVEs as they land.
-  - DL3006
