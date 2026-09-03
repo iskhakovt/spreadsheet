@@ -23,7 +23,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@hono/vite-dev-server": "~0.26.0",
+    "@hono/vite-dev-server": "~0.26.1",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query-devtools": "5.101.4",
