@@ -31,7 +31,7 @@
     "husky": "^9.1.7",
     "stylelint": "^17.12.0",
     "stylelint-config-standard": "^40.0.0",
-    "testcontainers": "^11.14.0",
+    "testcontainers": "^12.1.0",
     "tsx": "^4.21.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8",
