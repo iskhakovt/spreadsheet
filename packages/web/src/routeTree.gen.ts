@@ -9,28 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as QuestionsRouteImport } from './routes/questions'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as PTokenRouteRouteImport } from './routes/p/$token/route'
-import { Route as PTokenAnatomyRouteImport } from './routes/p/$token/anatomy'
-import { Route as PTokenGroupRouteImport } from './routes/p/$token/group'
-import { Route as PTokenIntroRouteImport } from './routes/p/$token/intro'
-import { Route as PTokenPendingRouteImport } from './routes/p/$token/pending'
-import { Route as PTokenQuestionsRouteImport } from './routes/p/$token/questions'
-import { Route as PTokenResultsRouteImport } from './routes/p/$token/results'
-import { Route as PTokenReviewRouteImport } from './routes/p/$token/review'
-import { Route as PTokenSetupRouteImport } from './routes/p/$token/setup'
-import { Route as PTokenSummaryRouteImport } from './routes/p/$token/summary'
 import { Route as PTokenWaitingRouteImport } from './routes/p/$token/waiting'
+import { Route as PTokenSummaryRouteImport } from './routes/p/$token/summary'
+import { Route as PTokenSetupRouteImport } from './routes/p/$token/setup'
+import { Route as PTokenReviewRouteImport } from './routes/p/$token/review'
+import { Route as PTokenResultsRouteImport } from './routes/p/$token/results'
+import { Route as PTokenQuestionsRouteImport } from './routes/p/$token/questions'
+import { Route as PTokenPendingRouteImport } from './routes/p/$token/pending'
+import { Route as PTokenIntroRouteImport } from './routes/p/$token/intro'
+import { Route as PTokenGroupRouteImport } from './routes/p/$token/group'
+import { Route as PTokenAnatomyRouteImport } from './routes/p/$token/anatomy'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const QuestionsRoute = QuestionsRouteImport.update({
   id: '/questions',
   path: '/questions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PTokenRouteRoute = PTokenRouteRouteImport.update({
@@ -38,44 +38,9 @@ const PTokenRouteRoute = PTokenRouteRouteImport.update({
   path: '/p/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PTokenAnatomyRoute = PTokenAnatomyRouteImport.update({
-  id: '/anatomy',
-  path: '/anatomy',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenGroupRoute = PTokenGroupRouteImport.update({
-  id: '/group',
-  path: '/group',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenIntroRoute = PTokenIntroRouteImport.update({
-  id: '/intro',
-  path: '/intro',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenPendingRoute = PTokenPendingRouteImport.update({
-  id: '/pending',
-  path: '/pending',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenQuestionsRoute = PTokenQuestionsRouteImport.update({
-  id: '/questions',
-  path: '/questions',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenResultsRoute = PTokenResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenReviewRoute = PTokenReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
-  getParentRoute: () => PTokenRouteRoute,
-} as any)
-const PTokenSetupRoute = PTokenSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const PTokenWaitingRoute = PTokenWaitingRouteImport.update({
+  id: '/waiting',
+  path: '/waiting',
   getParentRoute: () => PTokenRouteRoute,
 } as any)
 const PTokenSummaryRoute = PTokenSummaryRouteImport.update({
@@ -83,9 +48,44 @@ const PTokenSummaryRoute = PTokenSummaryRouteImport.update({
   path: '/summary',
   getParentRoute: () => PTokenRouteRoute,
 } as any)
-const PTokenWaitingRoute = PTokenWaitingRouteImport.update({
-  id: '/waiting',
-  path: '/waiting',
+const PTokenSetupRoute = PTokenSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenReviewRoute = PTokenReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenResultsRoute = PTokenResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenQuestionsRoute = PTokenQuestionsRouteImport.update({
+  id: '/questions',
+  path: '/questions',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenPendingRoute = PTokenPendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenIntroRoute = PTokenIntroRouteImport.update({
+  id: '/intro',
+  path: '/intro',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenGroupRoute = PTokenGroupRouteImport.update({
+  id: '/group',
+  path: '/group',
+  getParentRoute: () => PTokenRouteRoute,
+} as any)
+const PTokenAnatomyRoute = PTokenAnatomyRouteImport.update({
+  id: '/anatomy',
+  path: '/anatomy',
   getParentRoute: () => PTokenRouteRoute,
 } as any)
 
@@ -191,18 +191,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/questions': {
       id: '/questions'
       path: '/questions'
       fullPath: '/questions'
       preLoaderRoute: typeof QuestionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$token': {
@@ -212,60 +212,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PTokenRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/p/$token/anatomy': {
-      id: '/p/$token/anatomy'
-      path: '/anatomy'
-      fullPath: '/p/$token/anatomy'
-      preLoaderRoute: typeof PTokenAnatomyRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/group': {
-      id: '/p/$token/group'
-      path: '/group'
-      fullPath: '/p/$token/group'
-      preLoaderRoute: typeof PTokenGroupRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/intro': {
-      id: '/p/$token/intro'
-      path: '/intro'
-      fullPath: '/p/$token/intro'
-      preLoaderRoute: typeof PTokenIntroRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/pending': {
-      id: '/p/$token/pending'
-      path: '/pending'
-      fullPath: '/p/$token/pending'
-      preLoaderRoute: typeof PTokenPendingRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/questions': {
-      id: '/p/$token/questions'
-      path: '/questions'
-      fullPath: '/p/$token/questions'
-      preLoaderRoute: typeof PTokenQuestionsRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/results': {
-      id: '/p/$token/results'
-      path: '/results'
-      fullPath: '/p/$token/results'
-      preLoaderRoute: typeof PTokenResultsRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/review': {
-      id: '/p/$token/review'
-      path: '/review'
-      fullPath: '/p/$token/review'
-      preLoaderRoute: typeof PTokenReviewRouteImport
-      parentRoute: typeof PTokenRouteRoute
-    }
-    '/p/$token/setup': {
-      id: '/p/$token/setup'
-      path: '/setup'
-      fullPath: '/p/$token/setup'
-      preLoaderRoute: typeof PTokenSetupRouteImport
+    '/p/$token/waiting': {
+      id: '/p/$token/waiting'
+      path: '/waiting'
+      fullPath: '/p/$token/waiting'
+      preLoaderRoute: typeof PTokenWaitingRouteImport
       parentRoute: typeof PTokenRouteRoute
     }
     '/p/$token/summary': {
@@ -275,11 +226,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PTokenSummaryRouteImport
       parentRoute: typeof PTokenRouteRoute
     }
-    '/p/$token/waiting': {
-      id: '/p/$token/waiting'
-      path: '/waiting'
-      fullPath: '/p/$token/waiting'
-      preLoaderRoute: typeof PTokenWaitingRouteImport
+    '/p/$token/setup': {
+      id: '/p/$token/setup'
+      path: '/setup'
+      fullPath: '/p/$token/setup'
+      preLoaderRoute: typeof PTokenSetupRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/review': {
+      id: '/p/$token/review'
+      path: '/review'
+      fullPath: '/p/$token/review'
+      preLoaderRoute: typeof PTokenReviewRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/results': {
+      id: '/p/$token/results'
+      path: '/results'
+      fullPath: '/p/$token/results'
+      preLoaderRoute: typeof PTokenResultsRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/questions': {
+      id: '/p/$token/questions'
+      path: '/questions'
+      fullPath: '/p/$token/questions'
+      preLoaderRoute: typeof PTokenQuestionsRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/pending': {
+      id: '/p/$token/pending'
+      path: '/pending'
+      fullPath: '/p/$token/pending'
+      preLoaderRoute: typeof PTokenPendingRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/intro': {
+      id: '/p/$token/intro'
+      path: '/intro'
+      fullPath: '/p/$token/intro'
+      preLoaderRoute: typeof PTokenIntroRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/group': {
+      id: '/p/$token/group'
+      path: '/group'
+      fullPath: '/p/$token/group'
+      preLoaderRoute: typeof PTokenGroupRouteImport
+      parentRoute: typeof PTokenRouteRoute
+    }
+    '/p/$token/anatomy': {
+      id: '/p/$token/anatomy'
+      path: '/anatomy'
+      fullPath: '/p/$token/anatomy'
+      preLoaderRoute: typeof PTokenAnatomyRouteImport
       parentRoute: typeof PTokenRouteRoute
     }
   }
