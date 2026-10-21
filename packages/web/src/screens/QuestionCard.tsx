@@ -469,7 +469,7 @@ export function RatingGroup({
   firstButtonRef?: RefObject<HTMLButtonElement | null>;
 }>) {
   const checkedIdx = existingAnswer ? RATING_OPTIONS.findIndex((o) => o.rating === existingAnswer.rating) : -1;
-  const [focusIdx, setFocusIdx] = useState(checkedIdx >= 0 ? checkedIdx : 0);
+  const [focusIdx, setFocusIdx] = useState(Math.max(checkedIdx, 0));
   const [committing, setCommitting] = useState<Rating>();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
