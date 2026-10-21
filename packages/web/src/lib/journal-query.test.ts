@@ -3,7 +3,7 @@ import type { Answer } from "@spreadsheet/shared";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { encodeValue } from "./crypto.js";
-import { type CachedJournal, createJournalDeltaHandler, JOURNAL_QUERY_KEY } from "./journal-query.js";
+import { applyJournalDelta, type CachedJournal, JOURNAL_QUERY_KEY } from "./journal-query.js";
 import type { JournalEntry } from "./merge-journal.js";
 
 const yes: Answer = { rating: "yes", note: null };
@@ -30,11 +30,11 @@ function read(queryClient: QueryClient): CachedJournal {
   return data;
 }
 
-describe("createJournalDeltaHandler", () => {
+describe("applyJournalDelta", () => {
   it("applies a delta: raw entries, cursor, and replayed member answers", async () => {
     const queryClient = new QueryClient();
     seed(queryClient);
-    const apply = createJournalDeltaHandler(queryClient);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
 
     await apply([await entry("e1", "alice", "a:mutual", yes)]);
 
@@ -52,7 +52,7 @@ describe("createJournalDeltaHandler", () => {
     // (the server cursor had already moved past them).
     const queryClient = new QueryClient();
     seed(queryClient, [await entry("e1", "alice", "a:mutual", no)]);
-    const apply = createJournalDeltaHandler(queryClient);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
 
     const x = await entry("e2", "alice", "a:mutual", yes);
     const y = await entry("e3", "bob", "b:mutual", yes);
@@ -65,9 +65,22 @@ describe("createJournalDeltaHandler", () => {
     expect(data.members.find((m) => m.id === "bob")?.answers).toEqual({ "b:mutual": yes });
   });
 
+  it("never lets a stale rebuild overwrite members after the cache is replaced", async () => {
+    // E.g. a refetch / resetQueries (token switch) lands while a delta's
+    // decrypt + replay is in flight. The late rebuild must not write
+    // members derived from the old entry list onto the new one.
+    const queryClient = new QueryClient();
+    seed(queryClient);
+    const pending = applyJournalDelta(queryClient, [await entry("e1", "alice", "a:mutual", yes)]);
+    seed(queryClient, [await entry("f1", "alice", "a:mutual", no)]);
+    const replaced = read(queryClient);
+    await pending;
+    expect(read(queryClient)).toBe(replaced);
+  });
+
   it("ignores empty deltas and an unpopulated cache", async () => {
     const queryClient = new QueryClient();
-    const apply = createJournalDeltaHandler(queryClient);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
     await apply([await entry("e1", "alice", "a:mutual", yes)]);
     expect(queryClient.getQueryData(JOURNAL_QUERY_KEY)).toBeUndefined();
 

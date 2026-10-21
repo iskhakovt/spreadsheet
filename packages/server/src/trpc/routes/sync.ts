@@ -89,9 +89,16 @@ export const syncRouter = router({
         emitSelfJournalUpdate(ctx.person.id, result.committedEntries);
       }
 
-      syncPushCounter.inc({ result: result.pushRejected ? "conflict" : "clean" });
-      // The committedEntries field is internal — don't expose it on the wire.
-      const { committedEntries: _committedEntries, ...wireResult } = result;
+      if (result.stokenInvalid) {
+        // Expected after a STOKEN_SECRET rotation; otherwise a sign of
+        // corrupted client storage or tampering. Never log the stoken itself.
+        ctx.logger.warn({ personId: ctx.person.id }, "sync.push: unreadable stoken, forcing resync");
+      }
+      syncPushCounter.inc({
+        result: result.stokenInvalid ? "invalid_stoken" : result.pushRejected ? "conflict" : "clean",
+      });
+      // committedEntries and stokenInvalid are internal — don't expose them on the wire.
+      const { committedEntries: _committedEntries, stokenInvalid: _stokenInvalid, ...wireResult } = result;
       return wireResult;
     }),
 

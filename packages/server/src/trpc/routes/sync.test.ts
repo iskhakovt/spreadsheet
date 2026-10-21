@@ -74,6 +74,7 @@ const pushOk = (entries: { id: number; personId: string; operation: string }[] =
   entries: [],
   committedEntries: entries,
   pushRejected: false as const,
+  stokenInvalid: false,
 });
 
 /** Shared test fixture: what a conflict-rejected sync.push store call returns. */
@@ -82,6 +83,7 @@ const pushConflict = () => ({
   entries: [],
   committedEntries: [] as { id: number; personId: string; operation: string }[],
   pushRejected: true as const,
+  stokenInvalid: false,
 });
 
 describe("sync.push", () => {
@@ -161,6 +163,28 @@ describe("sync.push", () => {
     await createCaller(ctx).sync.push({ stoken: null, operations: [], progress: undefined });
     expect(spy).toHaveBeenCalledWith({ result: "conflict" });
     spy.mockRestore();
+  });
+
+  it("flags an unreadable stoken: warns without the token, labels the metric, keeps it off the wire", async () => {
+    const spy = vi.spyOn(syncPushCounter, "inc");
+    const ctx = mockCtx({
+      person,
+      group,
+      sync: { push: vi.fn().mockResolvedValue({ ...pushConflict(), stokenInvalid: true }) },
+    });
+    const warn = vi.spyOn(ctx.logger, "warn");
+    const result = await createCaller(ctx).sync.push({
+      stoken: "garbage-stoken",
+      operations: [],
+      progress: undefined,
+    });
+    expect(spy).toHaveBeenCalledWith({ result: "invalid_stoken" });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("garbage-stoken");
+    expect(result).not.toHaveProperty("stokenInvalid");
+    expect(result.pushRejected).toBe(true);
+    spy.mockRestore();
+    warn.mockRestore();
   });
 });
 

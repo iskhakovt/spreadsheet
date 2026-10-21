@@ -26,7 +26,10 @@ import { createCipheriv, createDecipheriv, hkdfSync, timingSafeEqual } from "nod
  */
 
 const TAG_LENGTH = 8;
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]{22}$/;
+// 22 base64url chars carry 132 bits for a 128-bit block, so the last
+// char's low 4 bits are padding. Only A/Q/g/w have them zero; requiring
+// one of those makes each id's token unique (no non-canonical aliases).
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{21}[AQgw]$/;
 
 const keyCache = new Map<string, Buffer>();
 
@@ -88,10 +91,7 @@ export function sealId(id: number, tag: string): string {
 export function openId(token: string, tag: string): number | null {
   if (!TOKEN_PATTERN.test(token)) return null;
   const sealed = Buffer.from(token, "base64url");
-  // 22 base64url chars carry 132 bits for a 128-bit block, so the last
-  // char has 4 ignored bits. Require the canonical spelling so each id
-  // has exactly one valid token.
-  if (sealed.length !== 16 || sealed.toString("base64url") !== token) return null;
+  if (sealed.length !== 16) return null;
   const decipher = createDecipheriv("aes-256-ecb", getKey(), null).setAutoPadding(false);
   const block = Buffer.concat([decipher.update(sealed), decipher.final()]);
   if (!timingSafeEqual(block.subarray(8), tagBytes(tag))) return null;

@@ -154,6 +154,7 @@ describe("SyncStore.push", () => {
     );
     if (!("pushRejected" in rejected)) throw new Error("unexpected error");
     expect(rejected.pushRejected).toBe(true);
+    expect(rejected.stokenInvalid).toBe(true);
     // Full journal so the client can merge from scratch, plus the real head.
     expect(rejected.entries).toEqual([plainOp("a:mutual", { rating: "yes", note: null })]);
     expect(rejected.stoken).toBe(first.stoken);
@@ -169,6 +170,7 @@ describe("SyncStore.push", () => {
     );
     if (!("pushRejected" in retry)) throw new Error("unexpected error");
     expect(retry.pushRejected).toBe(false);
+    expect(retry.stokenInvalid).toBe(false);
   });
 
   it("updates progress", async () => {

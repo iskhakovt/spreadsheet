@@ -40,19 +40,15 @@ async function selectJournalForPerson(
 }
 
 /**
- * Decode the client's push cursor. An unreadable stoken (rotated
- * `STOKEN_SECRET`, corrupted storage) is treated as maximally stale
- * rather than an error: `-1` never matches the head, so the push takes
- * the rejection path, which returns the full journal plus a fresh
- * stoken. Throwing instead would 500 every push from that client
- * forever, because the client only replaces its stoken from a
- * successful response.
+ * Decode the client's push cursor, or `null` if it's unreadable (rotated
+ * `STOKEN_SECRET`, corrupted storage, tampering). `push` treats `null` as
+ * maximally stale rather than an error — see the call site.
  */
-function decodeClientHead(stoken: string): number {
+function decodeClientHead(stoken: string): number | null {
   try {
     return decodeStoken(stoken);
   } catch {
-    return -1;
+    return null;
   }
 }
 
@@ -75,6 +71,8 @@ export class SyncStore {
         entries: string[];
         committedEntries: { id: number; personId: string; operation: string }[];
         pushRejected: boolean;
+        /** The client's stoken couldn't be decoded; the push was rejected to resync it. */
+        stokenInvalid: boolean;
       }
   > {
     const expectedMode = groupEncrypted ? PREFIX_ENCRYPTED : PREFIX_PLAINTEXT;
@@ -98,7 +96,14 @@ export class SyncStore {
         .limit(1);
 
       const currentHead = head?.id ?? 0;
-      const clientHead = input.stoken ? decodeClientHead(input.stoken) : 0;
+      const decodedHead = input.stoken ? decodeClientHead(input.stoken) : 0;
+      const stokenInvalid = decodedHead === null;
+      // An unreadable stoken is maximally stale, not an error: `-1` never
+      // matches the head, so the push takes the rejection path, which
+      // returns the full journal plus a fresh stoken. Throwing instead
+      // would fail every push from that client forever, because the client
+      // only replaces its stoken from a successful response.
+      const clientHead = decodedHead ?? -1;
 
       if (clientHead !== currentHead) {
         const { entries } = await selectJournalForPerson(tx, personId, clientHead);
@@ -108,6 +113,7 @@ export class SyncStore {
           entries: entries.map((e) => e.operation),
           committedEntries: [],
           pushRejected: true as const,
+          stokenInvalid,
         };
       }
 
@@ -131,6 +137,7 @@ export class SyncStore {
         entries: entries.map((e) => e.operation),
         committedEntries,
         pushRejected: false as const,
+        stokenInvalid: false,
       };
     });
   }

@@ -14,12 +14,7 @@ import {
 } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
-import {
-  createJournalDeltaHandler,
-  JOURNAL_QUERY_KEY,
-  type MemberAnswers,
-  makeJournalQueryFn,
-} from "../lib/journal-query.js";
+import { applyJournalDelta, JOURNAL_QUERY_KEY, type MemberAnswers, makeJournalQueryFn } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { useScrollReset } from "../lib/route-reset.js";
 import { UI } from "../lib/strings.js";
@@ -215,7 +210,7 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  *    The initial `lastEventId` is seeded from the HTTP query's cursor so
  *    the subscription starts streaming only new entries.
  * 3. Each subscription push's `onData` hands the delta to
- *    `createJournalDeltaHandler`, which merges the raw entries into the
+ *    `applyJournalDelta`, which merges the raw entries into the
  *    same TanStack cache entry synchronously (lossless under overlapping
  *    deliveries), then decrypts + replays per member and writes the
  *    derived `members` back — the query and the subscription share one
@@ -282,17 +277,12 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     return last?.id;
   });
 
-  // One handler per mount: it owns the rebuild sequence counter, so
-  // overlapping deliveries are ordered against each other (see
-  // `createJournalDeltaHandler` for why the raw merge must be synchronous).
-  const [applyJournalDelta] = useState(() => createJournalDeltaHandler(queryClient));
-
   useSubscription(
     trpc.sync.onJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
       {
         onData: (msg) => {
-          applyJournalDelta(msg.data.entries).catch((err) => {
+          applyJournalDelta(queryClient, msg.data.entries).catch((err) => {
             console.error("Failed to merge journal update:", err);
           });
         },
