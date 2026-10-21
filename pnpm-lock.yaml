@@ -54,6 +54,9 @@ importers:
       '@hono/trpc-server':
         specifier: ^0.4.2
         version: 0.4.2(@trpc/server@11.19.0(typescript@7.0.2))(hono@4.13.13)
+      '@prometheus-io/client':
+        specifier: ^0.16.1
+        version: 0.16.1
       '@spreadsheet/shared':
         specifier: workspace:*
         version: link:../shared
@@ -75,9 +78,6 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
-      prom-client:
-        specifier: ^15.1.3
-        version: 15.1.3
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -1479,6 +1479,10 @@ packages:
     resolution: {integrity: sha512-PG6q63nQg5c9rIi4/Z5lR5IVF7yU5MqmKaPOe0HSc0O2cX1fPi96sUQu5j7eo4gKCkB2AnNGoWt7y4/Xx3Kcqg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@prometheus-io/client@0.16.1':
+    resolution: {integrity: sha512-XkFPsGFGoSs/UMg/vh0QLDpanl/tsrOV5PLHdpGe8Ho+ir/Llhytr15j6y8ZwLrpIGzK9gTVVpIalA6C4UjUZw==}
+    engines: {node: ^22 || ^24 || >=26}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -4116,10 +4120,6 @@ packages:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
     engines: {node: '>= 0.6.0'}
 
-  prom-client@15.1.3:
-    resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
-    engines: {node: ^16 || ^18 || >=20}
-
   proper-lockfile@4.1.2:
     resolution: {integrity: sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA==}
 
@@ -6219,6 +6219,11 @@ snapshots:
     dependencies:
       playwright: 1.59.1
 
+  '@prometheus-io/client@0.16.1':
+    dependencies:
+      '@opentelemetry/api': 1.10.0
+      tdigest: 0.1.3
+
   '@protobufjs/aspromise@1.1.2': {}
 
   '@protobufjs/base64@1.1.2': {}
@@ -6875,7 +6880,7 @@ snapshots:
 
   '@types/pg@8.15.6':
     dependencies:
-      '@types/node': 26.6.5
+      '@types/node': 24.19.2
       pg-protocol: 1.16.1
       pg-types: 2.2.0
     optional: true
@@ -8584,11 +8589,6 @@ snapshots:
   process-warning@5.1.1: {}
 
   process@0.11.10: {}
-
-  prom-client@15.1.3:
-    dependencies:
-      '@opentelemetry/api': 1.10.0
-      tdigest: 0.1.3
 
   proper-lockfile@4.1.2:
     dependencies:
