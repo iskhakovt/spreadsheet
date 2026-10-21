@@ -1,4 +1,4 @@
-import type { Answer, JournalEntryId } from "@spreadsheet/shared";
+import type { Answer, GroupJournalResponse, JournalEntryId } from "@spreadsheet/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
@@ -37,7 +37,7 @@ export interface CachedJournal {
  * `answers` built by replaying the journal per person.
  */
 export async function replayMembers(
-  members: { id: string; name: string; anatomy: string | null }[],
+  members: GroupJournalResponse["members"],
   entries: JournalEntry[],
 ): Promise<MemberAnswers[]> {
   return Promise.all(

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { openId, sealId } from "./opaque-id.js";
+import { getSecret, openId, sealId } from "./opaque-id.js";
 
 const STOKEN_TAG = "stoken02";
 
@@ -45,9 +45,5 @@ function decodeLegacyStoken(stoken: string): number {
 }
 
 function signLegacy(payload: string): string {
-  const secret = process.env.STOKEN_SECRET;
-  if (!secret) {
-    throw new Error("STOKEN_SECRET environment variable is required");
-  }
-  return createHmac("sha256", secret).update(payload).digest("base64url");
+  return createHmac("sha256", getSecret()).update(payload).digest("base64url");
 }

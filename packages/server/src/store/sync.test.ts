@@ -128,6 +128,49 @@ describe("SyncStore.push", () => {
     }
   });
 
+  it("treats an unreadable stoken (e.g. rotated secret) as stale, not as an error", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [plainOp("a:mutual", { rating: "yes", note: null })],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+
+    // Must not throw — a throw here would 500 every push from this client,
+    // and the client only replaces its stoken from a successful response.
+    const rejected = await store.push(
+      personId,
+      {
+        stoken: "AAAAAAAAAAAAAAAAAAAAAA",
+        operations: [plainOp("b:mutual", { rating: "no", note: null })],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in rejected)) throw new Error("unexpected error");
+    expect(rejected.pushRejected).toBe(true);
+    // Full journal so the client can merge from scratch, plus the real head.
+    expect(rejected.entries).toEqual([plainOp("a:mutual", { rating: "yes", note: null })]);
+    expect(rejected.stoken).toBe(first.stoken);
+
+    const retry = await store.push(
+      personId,
+      {
+        stoken: rejected.stoken,
+        operations: [plainOp("b:mutual", { rating: "no", note: null })],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in retry)) throw new Error("unexpected error");
+    expect(retry.pushRejected).toBe(false);
+  });
+
   it("updates progress", async () => {
     const { personId, encrypted } = await createTestPerson();
     await store.push(

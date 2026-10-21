@@ -341,8 +341,11 @@ describe("sync.journal", () => {
     const caller = createCaller(ctx);
     await caller.sync.journal({ sinceId: "42" });
     await caller.sync.journal({ sinceId: "AAAAAAAAAAAAAAAAAAAAAA" });
+    // A tab still on the pre-opaque bundle sends a raw number.
+    await caller.sync.journal({ sinceId: 42 });
     expect(journalSince).toHaveBeenNthCalledWith(1, "g1", null);
     expect(journalSince).toHaveBeenNthCalledWith(2, "g1", null);
+    expect(journalSince).toHaveBeenNthCalledWith(3, "g1", null);
   });
 
   it("defaults sinceId to null when input is omitted", async () => {

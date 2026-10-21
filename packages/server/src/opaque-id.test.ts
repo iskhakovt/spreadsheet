@@ -1,5 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { decodeJournalId, encodeJournalCursor, encodeJournalId, openId, sealId, toWireEntries } from "./opaque-id.js";
+import {
+  decodeJournalId,
+  encodeJournalCursor,
+  encodeJournalId,
+  openId,
+  sealId,
+  sealIds,
+  toWireEntries,
+} from "./opaque-id.js";
 
 beforeAll(() => {
   process.env.STOKEN_SECRET = "test-secret-for-opaque-id";
@@ -40,6 +48,25 @@ describe("opaque journal ids", () => {
     const token = encodeJournalId(10);
     const tampered = (token[0] === "A" ? "B" : "A") + token.slice(1);
     expect(decodeJournalId(tampered)).toBe(null);
+  });
+
+  it("has exactly one valid spelling per id (no non-canonical base64url aliases)", () => {
+    const token = encodeJournalId(42);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    for (const c of alphabet) {
+      const variant = token.slice(0, 21) + c;
+      expect(decodeJournalId(variant)).toBe(variant === token ? 42 : null);
+    }
+  });
+
+  it("decodes numbers (pre-opaque clients) to null", () => {
+    expect(decodeJournalId(42)).toBe(null);
+  });
+
+  it("sealIds matches sealing each id on its own", () => {
+    const ids = [1, 2, 3, 99, 123456];
+    expect(sealIds(ids, "journal1")).toEqual(ids.map((id) => sealId(id, "journal1")));
+    expect(sealIds([], "journal1")).toEqual([]);
   });
 
   it("rejects tokens sealed under a different tag", () => {

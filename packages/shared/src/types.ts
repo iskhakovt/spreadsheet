@@ -110,14 +110,6 @@ export const SelfJournalResponse = z.object({
 });
 export type SelfJournalResponse = z.infer<typeof SelfJournalResponse>;
 
-/** Wire shape returned by `sync.journal` (group-wide, gated on all-complete). */
-export const GroupJournalResponse = z.object({
-  members: z.array(z.object({ id: z.string(), name: z.string(), anatomy: z.string().nullable() })),
-  entries: z.array(JournalEntry),
-  cursor: JournalEntryId.nullable(),
-});
-export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
-
 /** Question as returned by the questions.list query */
 export interface QuestionData {
   id: string;
@@ -183,6 +175,14 @@ export const memberSchema = z.object({
   progress: z.string().nullable(),
 });
 export type Member = z.infer<typeof memberSchema>;
+
+/** Wire shape returned by `sync.journal` (group-wide, gated on all-complete). */
+export const GroupJournalResponse = z.object({
+  members: z.array(memberSchema.pick({ id: true, name: true, anatomy: true })),
+  entries: z.array(JournalEntry),
+  cursor: JournalEntryId.nullable(),
+});
+export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
 
 export const groupSchema = z.object({
   id: z.string(),

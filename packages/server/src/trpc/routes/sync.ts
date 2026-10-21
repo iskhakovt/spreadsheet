@@ -11,7 +11,7 @@ import {
   selfJournalEvents,
 } from "../../events.js";
 import { markCompleteCounter, syncPushCounter, trackSseConnection } from "../../metrics.js";
-import { decodeJournalId, encodeJournalCursor, encodeJournalId, toWireEntries } from "../../opaque-id.js";
+import { decodeJournalId, encodeJournalCursor, toWireEntries } from "../../opaque-id.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -30,7 +30,17 @@ export interface JournalChangeMessage {
  * Rejecting instead would wedge an auto-reconnecting EventSource that
  * keeps re-sending the same `Last-Event-ID`.
  */
-const cursorInput = z.string().max(64).nullish();
+const cursorInput = z.union([z.string().max(64), z.number()]).nullish();
+
+/**
+ * Seal a batch of entries for a `tracked()` yield. The SSE event id is the
+ * last entry's (already sealed) id, so the resume cursor and the payload
+ * can't disagree and no raw bigserial can slip into either.
+ */
+function trackedDelta(entries: readonly { id: number; personId: string; operation: string }[]) {
+  const wire = toWireEntries(entries);
+  return tracked(wire[wire.length - 1].id, { entries: wire } satisfies JournalChangeMessage);
+}
 
 export const syncRouter = router({
   // Stays as authedProcedure on the status side (no groupEvents broadcast):
@@ -219,9 +229,7 @@ export const syncRouter = router({
       let cursor = sinceId;
       if (backfill.entries.length > 0) {
         const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield tracked(encodeJournalId(latestId), {
-          entries: toWireEntries(backfill.entries),
-        } satisfies JournalChangeMessage);
+        yield trackedDelta(backfill.entries);
         cursor = latestId;
       }
 
@@ -233,7 +241,7 @@ export const syncRouter = router({
         const fresh = entries.filter((e) => cursor === null || e.id > cursor);
         if (fresh.length === 0) continue;
         const latestId = fresh[fresh.length - 1].id;
-        yield tracked(encodeJournalId(latestId), { entries: toWireEntries(fresh) } satisfies JournalChangeMessage);
+        yield trackedDelta(fresh);
         cursor = latestId;
       }
     }),
@@ -271,9 +279,7 @@ export const syncRouter = router({
       let cursor = sinceId;
       if (backfill.entries.length > 0) {
         const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield tracked(encodeJournalId(latestId), {
-          entries: toWireEntries(backfill.entries),
-        } satisfies JournalChangeMessage);
+        yield trackedDelta(backfill.entries);
         cursor = latestId;
       }
 
@@ -282,7 +288,7 @@ export const syncRouter = router({
         const fresh = entries.filter((e) => cursor === null || e.id > cursor);
         if (fresh.length === 0) continue;
         const latestId = fresh[fresh.length - 1].id;
-        yield tracked(encodeJournalId(latestId), { entries: toWireEntries(fresh) } satisfies JournalChangeMessage);
+        yield trackedDelta(fresh);
         cursor = latestId;
       }
     }),

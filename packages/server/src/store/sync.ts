@@ -39,6 +39,23 @@ async function selectJournalForPerson(
   return { entries: rows, cursor };
 }
 
+/**
+ * Decode the client's push cursor. An unreadable stoken (rotated
+ * `STOKEN_SECRET`, corrupted storage) is treated as maximally stale
+ * rather than an error: `-1` never matches the head, so the push takes
+ * the rejection path, which returns the full journal plus a fresh
+ * stoken. Throwing instead would 500 every push from that client
+ * forever, because the client only replaces its stoken from a
+ * successful response.
+ */
+function decodeClientHead(stoken: string): number {
+  try {
+    return decodeStoken(stoken);
+  } catch {
+    return -1;
+  }
+}
+
 export class SyncStore {
   #tx: <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;
 
@@ -81,7 +98,7 @@ export class SyncStore {
         .limit(1);
 
       const currentHead = head?.id ?? 0;
-      const clientHead = input.stoken ? decodeStoken(input.stoken) : 0;
+      const clientHead = input.stoken ? decodeClientHead(input.stoken) : 0;
 
       if (clientHead !== currentHead) {
         const { entries } = await selectJournalForPerson(tx, personId, clientHead);

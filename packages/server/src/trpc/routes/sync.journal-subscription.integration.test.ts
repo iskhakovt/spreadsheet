@@ -146,7 +146,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     expect(first).toBeDefined();
     const msg = unwrap(first);
     expect(msg.entries).toHaveLength(2);
-    // tracked event id is the highest entry id (stringified)
+    // tracked event id is the last entry's (opaque) id
     expect(trackedId(first)).toBe(msg.entries[msg.entries.length - 1].id);
   });
 
@@ -197,6 +197,9 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const deltaMsg = unwrap(delta);
     expect(deltaMsg.entries).toHaveLength(1);
     expect(deltaMsg.entries[0].id).not.toBe(initialCursor);
+    // Ids are opaque, so prove "only newer" by content: the delta is
+    // exactly the entry pushed after the cursor.
+    expect(deltaMsg.entries[0].operation).toBe(plainOp("oral:give", { rating: "no", note: null }));
   });
 
   it("resume with lastEventId past the last id yields only fresh entries when they arrive", async () => {
@@ -226,6 +229,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const msg = unwrap(delta);
     expect(msg.entries).toHaveLength(1);
     expect(msg.entries[0].id).not.toBe(currentCursor);
+    expect(msg.entries[0].operation).toBe(plainOp("oral:give", { rating: "maybe", note: null }));
   });
 
   it("two concurrent subscribers both receive the same push", async () => {

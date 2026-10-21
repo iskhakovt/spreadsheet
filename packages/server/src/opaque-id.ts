@@ -21,7 +21,8 @@ import { createCipheriv, createDecipheriv, hkdfSync, timingSafeEqual } from "nod
  *
  * The key is derived from `STOKEN_SECRET` via HKDF, so no new deploy
  * secret is needed. Rotating the secret invalidates every outstanding
- * cursor; callers treat an undecodable cursor as absent (full replay).
+ * cursor; callers treat an undecodable cursor as absent (full replay)
+ * and an undecodable stoken as stale (push rejection path).
  */
 
 const TAG_LENGTH = 8;
@@ -29,7 +30,7 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 
 const keyCache = new Map<string, Buffer>();
 
-function getSecret(): string {
+export function getSecret(): string {
   const secret = process.env.STOKEN_SECRET;
   if (!secret) {
     throw new Error("STOKEN_SECRET environment variable is required");
@@ -55,22 +56,42 @@ function tagBytes(tag: string): Buffer {
   return bytes;
 }
 
-export function sealId(id: number, tag: string): string {
+function toBlock(id: number, tag: Buffer, out: Buffer, offset: number): void {
   if (!Number.isSafeInteger(id) || id < 0) {
     throw new Error("Opaque id must be a non-negative safe integer");
   }
-  const block = Buffer.alloc(16);
-  block.writeBigUInt64BE(BigInt(id), 0);
-  tagBytes(tag).copy(block, 8);
+  out.writeBigUInt64BE(BigInt(id), offset);
+  tag.copy(out, offset + 8);
+}
+
+/**
+ * Seal many ids with one cipher. ECB encrypts each 16-byte block
+ * independently, so a single `update` over the concatenated blocks is
+ * equivalent to sealing each id on its own — without paying cipher
+ * setup per entry on large backfills.
+ */
+export function sealIds(ids: readonly number[], tag: string): string[] {
+  if (ids.length === 0) return [];
+  const tagBuf = tagBytes(tag);
+  const blocks = Buffer.alloc(ids.length * 16);
+  for (const [i, id] of ids.entries()) toBlock(id, tagBuf, blocks, i * 16);
   const cipher = createCipheriv("aes-256-ecb", getKey(), null).setAutoPadding(false);
-  return Buffer.concat([cipher.update(block), cipher.final()]).toString("base64url");
+  const sealed = Buffer.concat([cipher.update(blocks), cipher.final()]);
+  return ids.map((_, i) => sealed.subarray(i * 16, i * 16 + 16).toString("base64url"));
+}
+
+export function sealId(id: number, tag: string): string {
+  return sealIds([id], tag)[0];
 }
 
 /** Returns `null` for anything that isn't a token sealed with this key + tag. */
 export function openId(token: string, tag: string): number | null {
   if (!TOKEN_PATTERN.test(token)) return null;
   const sealed = Buffer.from(token, "base64url");
-  if (sealed.length !== 16) return null;
+  // 22 base64url chars carry 132 bits for a 128-bit block, so the last
+  // char has 4 ignored bits. Require the canonical spelling so each id
+  // has exactly one valid token.
+  if (sealed.length !== 16 || sealed.toString("base64url") !== token) return null;
   const decipher = createDecipheriv("aes-256-ecb", getKey(), null).setAutoPadding(false);
   const block = Buffer.concat([decipher.update(sealed), decipher.final()]);
   if (!timingSafeEqual(block.subarray(8), tagBytes(tag))) return null;
@@ -89,11 +110,13 @@ export function encodeJournalId(id: number): string {
  * Inverse of {@link encodeJournalId}. Lenient by design: `null`,
  * malformed, tampered, legacy numeric (pre-opaque clients), or
  * secret-rotated cursors all decode to `null`, which every caller treats
- * as "no cursor" → full backfill. Full backfill is always safe because
- * both journal consumers dedup by entry id.
+ * as "no cursor" → full backfill. Full backfill is safe: consumers dedup
+ * the overlap by entry id, and replay stays correct even when a rotated
+ * key defeats the dedup (see design/sync.md).
  */
-export function decodeJournalId(token: string | null | undefined): number | null {
-  if (!token) return null;
+export function decodeJournalId(token: string | number | null | undefined): number | null {
+  // Numbers come from tabs still running the pre-opaque bundle.
+  if (typeof token !== "string" || !token) return null;
   const id = openId(token, JOURNAL_ID_TAG);
   return id !== null && id > 0 ? id : null;
 }
@@ -106,5 +129,9 @@ export function encodeJournalCursor(cursor: number | null): string | null {
 export function toWireEntries(
   entries: readonly { id: number; personId: string; operation: string }[],
 ): { id: string; personId: string; operation: string }[] {
-  return entries.map((e) => ({ id: encodeJournalId(e.id), personId: e.personId, operation: e.operation }));
+  const ids = sealIds(
+    entries.map((e) => e.id),
+    JOURNAL_ID_TAG,
+  );
+  return entries.map((e, i) => ({ id: ids[i], personId: e.personId, operation: e.operation }));
 }

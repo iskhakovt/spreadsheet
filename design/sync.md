@@ -42,9 +42,12 @@ tag   = "journal1" (entry ids / read cursors) | "stoken02" (push cursor)
 | Tamper-proof | A modified or foreign token decrypts to a block whose 8-byte tag doesn't match (2^-64 forgery odds) |
 | Domain-separated | Different tags, so a read cursor can't be replayed as a stoken |
 
-Clients treat ids as equality-only tokens. Entry order comes from the server's response order (commit order), never from the id.
+Clients treat ids as equality-only tokens. Entry order comes from the server's response order, never from the id: each stream delivers entries in ascending internal id, and every delta only carries ids past that stream's cursor, so arrival order is id order.
 
-Decoding is strict for the stoken (an invalid one is rejected) and lenient for read cursors: anything undecodable — legacy numeric cursors, a rotated secret, garbage — means "no cursor" → full backfill. That keeps an auto-reconnecting EventSource from looping on a stale `Last-Event-ID`; full backfill is always safe because both consumers dedup by id.
+Decoding is lenient everywhere, because the client can't recover from an error on a cursor it persisted:
+
+- **Read cursors** — anything undecodable (legacy numeric cursors, a rotated secret, garbage) means "no cursor" → full backfill. That keeps an auto-reconnecting EventSource from looping on a stale `Last-Event-ID`. Within one key, consumers dedup the overlap by id. After a secret rotation the same entries re-seal to different tokens, so an open `/results` tab holds a second copy of the journal until reload; replay stays correct because the complete sequence is replayed in order after the stale copy.
+- **Stoken** — an undecodable stoken is treated as maximally stale, so the push takes the normal rejection path (full journal + fresh stoken) instead of failing. A throw here would wedge the client: it only replaces its stoken from a successful push response.
 
 Legacy `v1` stokens (`base64url("v1:" + id + ":" + hmac)`) persisted by older clients are still accepted on push; the server only mints the opaque form.
 

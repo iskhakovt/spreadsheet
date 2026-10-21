@@ -1,14 +1,14 @@
-import type { JournalEntry, JournalEntryId } from "@spreadsheet/shared";
+import type { GroupJournalResponse, JournalEntry, JournalEntryId } from "@spreadsheet/shared";
 
 /**
  * Merge a delta of journal entries into an existing journal state.
  *
  * Idempotent by `id` (last-write-wins per id — new entries with an id that
  * already exists in `prev` overwrite the old one in place). Entry ids are
- * opaque, so order is never derived from them: the server always sends
- * entries in commit order, and every delta (subscription backfill or live
- * push) only contains entries committed after the previous cursor, so
- * appending unseen ids preserves commit order.
+ * opaque, so order is never derived from them: the server sends each
+ * stream in ascending internal id, and every delta (subscription backfill
+ * or live push) only carries ids past the stream's cursor, so appending
+ * unseen ids preserves that order.
  *
  * Used by Comparison to combine the initial HTTP backfill with incremental
  * SSE push updates from `sync.onJournalChange`, so the cache always reflects
@@ -18,7 +18,7 @@ import type { JournalEntry, JournalEntryId } from "@spreadsheet/shared";
 export type { JournalEntry };
 
 export interface JournalState {
-  members: { id: string; name: string; anatomy: string | null }[];
+  members: GroupJournalResponse["members"];
   entries: JournalEntry[];
   cursor: JournalEntryId | null;
 }

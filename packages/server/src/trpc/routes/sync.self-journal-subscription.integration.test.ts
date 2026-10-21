@@ -222,6 +222,8 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     const deltaMsg = unwrap(delta);
     expect(deltaMsg.entries).toHaveLength(1);
     expect(deltaMsg.entries[0].id).not.toBe(initialCursor);
+    // Ids are opaque, so prove "only newer" by content.
+    expect(deltaMsg.entries[0].operation).toBe(plainOp("blindfold:mutual", { rating: "no", note: null }));
   });
 
   it("subscribe-before-query invariant: emit during backfill is delivered", async () => {
