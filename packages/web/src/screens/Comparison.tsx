@@ -15,14 +15,12 @@ import {
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
 import {
-  type CachedJournal,
+  createJournalDeltaHandler,
   JOURNAL_QUERY_KEY,
   type MemberAnswers,
   makeJournalQueryFn,
-  rebuildMemberAnswers,
 } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
-import { mergeJournal } from "../lib/merge-journal.js";
 import { useScrollReset } from "../lib/route-reset.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC, useTRPCClient } from "../lib/trpc.js";
@@ -216,25 +214,20 @@ const MATCH_STYLES: Record<MatchType, MatchStyle> = {
  *    a tRPC v11 tracked subscription over SSE (`httpSubscriptionLink`).
  *    The initial `lastEventId` is seeded from the HTTP query's cursor so
  *    the subscription starts streaming only new entries.
- * 3. Each subscription push's `onData` merges the new entries into the
- *    same TanStack cache entry via `setQueryData` — the query and the
- *    subscription share one source of truth.
- * 4. A `useEffect` keyed on `journal.entries` runs async decryption and
- *    replay per member, producing `memberAnswers` which drives the UI.
+ * 3. Each subscription push's `onData` hands the delta to
+ *    `createJournalDeltaHandler`, which merges the raw entries into the
+ *    same TanStack cache entry synchronously (lossless under overlapping
+ *    deliveries), then decrypts + replays per member and writes the
+ *    derived `members` back — the query and the subscription share one
+ *    source of truth.
  *
  * Reconnect is lossless by construction: `httpSubscriptionLink` reopens the
  * EventSource with `Last-Event-ID` set to the latest tracked id, which the
- * server reads as `input.lastEventId` and uses to replay entries > that id.
+ * server reads as `input.lastEventId` and uses to replay entries after it.
  * See Step 4's sync.journal-subscription.integration.test.ts for the full
  * contract.
  */
 export function Comparison({ viewerId, encrypted, token, questionMode, onBack }: Readonly<ComparisonProps>) {
-  // React Compiler reports a false-positive "Cannot access refs during render"
-  // — `seqRef.current` is only touched inside the async `onData` callback. The
-  // compiler can't prove the callback isn't synchronous, so it falls back to
-  // the unmemoized form for THIS function. `PairComparison` and `NoteLine` in
-  // the same file still compile normally. See facebook/react#35982.
-  "use no memo";
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
@@ -289,30 +282,19 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     return last?.id;
   });
 
-  const seqRef = useRef(0);
+  // One handler per mount: it owns the rebuild sequence counter, so
+  // overlapping deliveries are ordered against each other (see
+  // `createJournalDeltaHandler` for why the raw merge must be synchronous).
+  const [applyJournalDelta] = useState(() => createJournalDeltaHandler(queryClient));
 
   useSubscription(
     trpc.sync.onJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
       {
-        onData: async (msg) => {
-          const entries = msg.data.entries;
-          if (entries.length === 0) return;
-          const mySeq = ++seqRef.current;
-          try {
-            const current = queryClient.getQueryData<CachedJournal>(JOURNAL_QUERY_KEY);
-            if (!current) return;
-            const mergedRaw = mergeJournal({ ...current }, entries);
-            const members = await rebuildMemberAnswers(current.members, mergedRaw.entries);
-            if (mySeq !== seqRef.current) return;
-            queryClient.setQueryData(JOURNAL_QUERY_KEY, {
-              members,
-              entries: mergedRaw.entries,
-              cursor: mergedRaw.cursor,
-            });
-          } catch (err) {
+        onData: (msg) => {
+          applyJournalDelta(msg.data.entries).catch((err) => {
             console.error("Failed to merge journal update:", err);
-          }
+          });
         },
         onError: (err) => {
           console.error("Journal subscription error:", err);

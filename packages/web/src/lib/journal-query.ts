@@ -4,7 +4,7 @@ import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { unwrapSensitive } from "./crypto.js";
 import { replayJournal } from "./journal.js";
-import type { JournalEntry } from "./merge-journal.js";
+import { type JournalEntry, mergeJournal } from "./merge-journal.js";
 
 type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
@@ -112,4 +112,49 @@ export function prefetchJournal(queryClient: QueryClient, trpcClient: TrpcClient
     queryKey: JOURNAL_QUERY_KEY,
     queryFn: makeJournalQueryFn(trpcClient),
   });
+}
+
+/**
+ * Build the `onData` handler for `sync.onJournalChange` deltas.
+ *
+ * Journal deltas are incremental — each carries entries no other delivery
+ * will repeat — so applying them must be lossless even when deliveries
+ * overlap with the async decrypt + replay. Two steps, with different
+ * concurrency rules:
+ *
+ *   1. Raw merge — synchronous, through `setQueryData`'s functional
+ *      updater, so every delta lands on top of the latest cache state no
+ *      matter how deliveries interleave. This is the lossless step.
+ *   2. Member rebuild — async (decrypt + replay). Latest-wins is correct
+ *      HERE because each rebuild replays the full merged entry list as of
+ *      its own merge, so a newer rebuild covers everything an older one
+ *      would have produced. The write only touches `members`, never the
+ *      raw entries.
+ *
+ * Doing the merge after the `await` instead (snapshot → rebuild → write)
+ * lets a later delta's write omit an earlier delta's entries, and since
+ * the server cursor has moved past them, nothing ever re-delivers them.
+ *
+ * Returned as a closure so the sequence counter lives with the handler,
+ * not in a component ref.
+ */
+export function createJournalDeltaHandler(queryClient: QueryClient) {
+  let latest = 0;
+  return async (entries: JournalEntry[]): Promise<void> => {
+    if (entries.length === 0) return;
+
+    let merged: CachedJournal | undefined;
+    queryClient.setQueryData<CachedJournal>(JOURNAL_QUERY_KEY, (prev) => {
+      if (!prev) return prev;
+      const raw = mergeJournal(prev, entries);
+      merged = { ...prev, entries: raw.entries, cursor: raw.cursor };
+      return merged;
+    });
+    if (!merged) return;
+
+    const seq = ++latest;
+    const members = await rebuildMemberAnswers(merged.members, merged.entries);
+    if (seq !== latest) return;
+    queryClient.setQueryData<CachedJournal>(JOURNAL_QUERY_KEY, (prev) => (prev ? { ...prev, members } : prev));
+  };
 }
