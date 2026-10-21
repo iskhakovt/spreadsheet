@@ -1,9 +1,10 @@
 name: Pre-pull Postgres image
 description: >
-  Pull the Postgres testcontainer image with retries. public.ecr.aws
-  intermittently 404s under load, and testcontainers pulls inline at container
-  start with no retry — without this a single registry blip fails the whole job
-  (CI runs with retries: 0). Requires the repo to be checked out first.
+  Pull the Postgres testcontainer image with retries. mirror.gcr.io (Google's
+  pull-through cache of Docker Hub library images) is best-effort, and
+  testcontainers pulls inline at container start with no retry — without this
+  a single registry blip fails the whole job (CI runs with retries: 0).
+  Requires the repo to be checked out first.
 
 inputs:
   image:
@@ -11,7 +12,7 @@ inputs:
       Image reference to pull. Must match the tag hardcoded in
       packages/server/src/test/integration-setup.ts and e2e/global-setup.ts.
     required: false
-    default: public.ecr.aws/docker/library/postgres:18
+    default: mirror.gcr.io/library/postgres:18
 
 runs:
   using: composite
