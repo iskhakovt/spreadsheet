@@ -34,6 +34,6 @@
     "testcontainers": "^12.2.1",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
