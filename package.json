@@ -34,8 +34,8 @@
     "testcontainers": "^12.2.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.12",
-    "vitest-mock-extended": "^4.0.0"
+    "vitest": "^5.0.5",
+    "vitest-mock-extended": "^5.1.1"
   },
   "packageManager": "pnpm@10.27.0"
 }
