@@ -20,33 +20,35 @@ journal_entries
   created_at    timestamptz      -- server receipt time
 ```
 
-The `id` is used by two distinct cursors with different threat models:
+The `id` is a global sequence, so its raw value would reveal how many answers the whole service has recorded (and how fast). It **never leaves the server**: every id on the wire — entry ids, read cursors, SSE event ids, the stoken — is sealed into an opaque token (`packages/server/src/opaque-id.ts`).
 
-- **Push cursor (`stoken`)** — used by `sync.push` for optimistic-concurrency-control. Must be tamper-proof because forging a stoken would let a client bypass the conflict-detection round-trip and insert out-of-sequence entries into someone's journal. Signed + opaque.
-- **Read cursor (raw `id`)** — used by every read path: `sync.journal` and `sync.onJournalChange` for the group-wide gated feed; `sync.selfJournal` and `sync.onSelfJournalChange` for the per-person ungated feed (`sinceId` on the query, `lastEventId` on the subscription). No forgery risk: every read path is gated by `authedProcedure`, scoping the cursor to entries the caller is already authorised to read. The cursor is just "where did I last read to?", and a numeric id is what tRPC v11's `tracked()` consumes natively, so no translation layer.
+Two cursors are derived from it:
 
-## Stoken Format
+- **Push cursor (`stoken`)** — used by `sync.push` for optimistic-concurrency-control. Must be tamper-proof because forging a stoken would let a client bypass the conflict-detection round-trip and insert out-of-sequence entries into someone's journal.
+- **Read cursor (opaque entry id)** — used by every read path: `sync.journal` and `sync.onJournalChange` for the group-wide gated feed; `sync.selfJournal` and `sync.onSelfJournalChange` for the per-person ungated feed (`sinceId` on the query, `lastEventId` on the subscription). Every read path is gated by `authedProcedure`, scoping the cursor to entries the caller is already authorised to read.
 
-The stoken is an HMAC-signed, versioned, base64url-encoded cursor used by the push path:
+## Opaque Id Format
 
 ```
-stoken = base64url("v1:" + id + ":" + hmac_sha256("v1:" + id, serverSecret))
+token = base64url(AES-256(key, u64_be(id) ‖ tag))      -- one 16-byte block, 22 chars
+key   = HKDF-SHA256(STOKEN_SECRET, info = "spreadsheet/opaque-id/v1")
+tag   = "journal1" (entry ids / read cursors) | "stoken02" (push cursor)
 ```
-
-Example: internal id `49` → stoken `djE6NDk6YTNmOGIy...`
 
 | Property | How |
 |-|-|
-| Opaque | Client can't interpret the cursor |
-| Tamper-proof | HMAC prevents forging a different id |
-| Versioned | `v1:` prefix allows changing format later |
-| Non-enumerable | Can't guess valid stokens for other ids |
+| Hides the count | Single-block AES is a keyed pseudorandom permutation — the token reveals neither the id nor ordering between ids |
+| Deterministic | Same id → same token, so clients can dedup entries by id |
+| Tamper-proof | A modified or foreign token decrypts to a block whose 8-byte tag doesn't match (2^-64 forgery odds) |
+| Domain-separated | Different tags, so a read cursor can't be replayed as a stoken |
 
-Server decodes and verifies the HMAC before using the id in queries. Invalid or forged stokens are rejected.
+Clients treat ids as equality-only tokens. Entry order comes from the server's response order (commit order), never from the id.
+
+Decoding is strict for the stoken (an invalid one is rejected) and lenient for read cursors: anything undecodable — legacy numeric cursors, a rotated secret, garbage — means "no cursor" → full backfill. That keeps an auto-reconnecting EventSource from looping on a stale `Last-Event-ID`; full backfill is always safe because both consumers dedup by id.
+
+Legacy `v1` stokens (`base64url("v1:" + id + ":" + hmac)`) persisted by older clients are still accepted on push; the server only mints the opaque form.
 
 `null` stoken on first sync = "give me everything."
-
-The read path is separately keyed by the raw numeric `id` as a cursor (`sinceId` on `sync.journal`, `lastEventId` on the subscription). See the "Reading the journal" section below for the details.
 
 ## Operation Payload
 
@@ -183,13 +185,13 @@ This ensures:
 POST /api/sync
 Request:
 {
-  "stoken": "djE6NDk6...",     // last known cursor (null on first sync)
+  "stoken": "Xq3v...",         // last known cursor (null on first sync)
   "operations": ["op1", "op2"] // new operations to push (may be empty for pull-only)
 }
 
 Response (success):
 {
-  "stoken": "djE6NTI6...",     // new cursor after all operations
+  "stoken": "b8Kd...",         // new cursor after all operations
   "entries": [                 // entries since client's stoken
     { "operation": "op_from_other_session" },
     { "operation": "op_from_other_session" },
@@ -200,7 +202,7 @@ Response (success):
 
 Response (conflict — stoken is stale):
 {
-  "stoken": "djE6NDk6...",     // current head
+  "stoken": "Xq3v...",         // current head
   "entries": [                 // entries since client's stoken
     { "operation": "..." },
     { "operation": "..." }
@@ -215,7 +217,7 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 
 ```
 1. Receive (stoken, operations)
-2. Decode and verify stoken HMAC (reject if forged)
+2. Decrypt and verify stoken (reject if forged)
 3. Resolve stoken to internal id
 4. Check: is id == current head for this person?
    YES → append operations, assign sequential ids, return new entries + signed stoken
@@ -234,8 +236,8 @@ Used by `useSelfJournal` to materialise the caller's own answer map into the Tan
 
 `sync.selfJournal({ sinceId })`:
 - `sinceId: null` → all of the caller's own entries
-- `sinceId: N` → entries with `id > N`
-- Response: `{ entries: [{ id, personId, operation }, ...], cursor, stoken }`. The `cursor` is the highest id (or echoes `sinceId` on empty delta). The `stoken` is the latest signed push cursor for the caller, returned as a courtesy so a follow-up `sync.push` doesn't need a separate handshake.
+- `sinceId: <opaque id>` → entries committed after that entry
+- Response: `{ entries: [{ id, personId, operation }, ...], cursor, stoken }`, with `id` and `cursor` as opaque tokens. The `cursor` is the last entry's id (or echoes `sinceId` on empty delta). The `stoken` is the latest signed push cursor for the caller, returned as a courtesy so a follow-up `sync.push` doesn't need a separate handshake.
 
 `sync.onSelfJournalChange({ lastEventId })`:
 - tRPC v11 `tracked()` subscription. Same generator shape as `sync.onJournalChange` but consumes the per-person bus (`selfJournalEvents`) and skips the all-complete check.
@@ -261,7 +263,7 @@ In every subscription resolver, the listener attaches BEFORE the backfill query 
 
 - Each `tracked(id, data)` yield becomes the SSE event id on the wire.
 - The browser's EventSource auto-reconnects after a fixed delay (default ~3 s, configurable per-message via the SSE `retry:` field if the server chooses) and sends the most recent id back as the `Last-Event-ID` header on the new request.
-- tRPC surfaces it as `input.lastEventId`, so the server's generator resumes from the cursor and replays entries > id via the backfill query.
+- tRPC surfaces it as `input.lastEventId`, so the server's generator resumes from the cursor and replays entries committed after it via the backfill query.
 
 **Lossless reconnect recovery.** Events lost during a disconnect window are replayed by the server's backfill query on the next reconnect. No polling needed, no out-of-order delivery possible.
 
@@ -376,12 +378,13 @@ The journal is the source of truth for answers; localStorage holds (a) the outbo
 ```
 localStorage (scoped per person):
   pendingOps          — operations not yet synced (opaque strings, write-side authoritative)
-  stoken              — last push cursor (signed, from server)
+  stoken              — last push cursor (opaque, from server)
   UI prefs            — hasSeenIntro, selectedTier, selectedCategories, currentScreen
 
   answers             — write-through snapshot of the self-journal cache slot,
                         for instant first paint while the delta fetch runs
-  selfJournalCursor   — numeric id, the last self-journal entry the client has integrated.
+  selfJournalCursor   — opaque id of the last self-journal entry the client has integrated.
+                        (Legacy numeric values read as absent → full replay.)
                         Absent → bootstrap path (full replay on next mount)
 
 TanStack Query cache (in-memory + persisted via the write-through above):

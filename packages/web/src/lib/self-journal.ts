@@ -1,4 +1,4 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, JournalEntry, JournalEntryId } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
@@ -21,7 +21,7 @@ type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
 export interface SelfJournalCache {
   answers: Record<string, Answer>;
-  cursor: number | null;
+  cursor: JournalEntryId | null;
 }
 
 /**
@@ -106,7 +106,7 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
-  newEntries: { id: number; personId: string; operation: string }[],
+  newEntries: JournalEntry[],
 ): Promise<Record<string, Answer>> {
   if (newEntries.length === 0) return prev;
   const serverEntryOps = newEntries.map((e) => e.operation);
@@ -152,9 +152,7 @@ export function useSelfJournal(): SelfJournalCache {
   // Same pattern as Comparison.tsx: the tracked id seed for the SSE resume
   // protocol comes from the suspense backfill once, after which the
   // EventSource owns it.
-  const [initialLastEventId] = useState<string | undefined>(() =>
-    data.cursor !== null ? String(data.cursor) : undefined,
-  );
+  const [initialLastEventId] = useState<string | undefined>(() => data.cursor ?? undefined);
 
   // Serialize onData callbacks. Self-journal events are INCREMENTAL —
   // each event carries entries that aren't in any other event. Dropping a

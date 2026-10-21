@@ -76,7 +76,7 @@ function selfSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | null)
     createCaller(ctx, { signal }).sync.onSelfJournalChange({ lastEventId: lastEventId ?? null });
 }
 
-type JournalEntry = { id: number; personId: string; operation: string };
+type JournalEntry = { id: string; personId: string; operation: string };
 type TrackedMessage = { entries: JournalEntry[] };
 
 function unwrap(yielded: unknown): TrackedMessage {
@@ -110,7 +110,27 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     expect(first).toBeDefined();
     const msg = unwrap(first);
     expect(msg.entries).toHaveLength(2);
-    expect(trackedId(first)).toBe(String(msg.entries[1].id));
+    expect(trackedId(first)).toBe(msg.entries[1].id);
+    // Ids on the wire are opaque, never the raw bigserial.
+    for (const e of msg.entries) expect(e.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
+  });
+
+  it("treats a legacy numeric lastEventId as a fresh subscribe (full backfill)", async () => {
+    // A tab still running pre-opaque code reconnects with a numeric
+    // Last-Event-ID. It must get a full backfill, not an error loop.
+    const { alice } = await setupPair();
+    await alice.caller.sync.push({
+      stoken: null,
+      operations: [plainOp("oral:give", { rating: "yes", note: null })],
+      progress: undefined,
+    });
+
+    const sub = await openSubscription(selfSub(alice.ctx, "999999"));
+    const first = await sub.next(1000);
+    sub.cancel();
+
+    expect(first).toBeDefined();
+    expect(unwrap(first).entries).toHaveLength(1);
   });
 
   it("does not deliver another person's entries", async () => {
@@ -194,14 +214,14 @@ describe("sync.onSelfJournalChange subscription (real Postgres)", () => {
     });
 
     // Resume with cursor — should only see the new entry
-    const sub2 = await openSubscription(selfSub(alice.ctx, String(initialCursor)));
+    const sub2 = await openSubscription(selfSub(alice.ctx, initialCursor));
     const delta = await sub2.next(1000);
     sub2.cancel();
 
     expect(delta).toBeDefined();
     const deltaMsg = unwrap(delta);
     expect(deltaMsg.entries).toHaveLength(1);
-    expect(deltaMsg.entries[0].id).toBeGreaterThan(initialCursor);
+    expect(deltaMsg.entries[0].id).not.toBe(initialCursor);
   });
 
   it("subscribe-before-query invariant: emit during backfill is delivered", async () => {

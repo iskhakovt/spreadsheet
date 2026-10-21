@@ -1,4 +1,4 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, JournalEntryId } from "@spreadsheet/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
@@ -26,7 +26,7 @@ export interface MemberAnswers {
 export interface CachedJournal {
   members: MemberAnswers[];
   entries: JournalEntry[];
-  cursor: number | null;
+  cursor: JournalEntryId | null;
 }
 
 /**

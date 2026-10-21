@@ -15,7 +15,7 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | Variable | Required | Default | Description |
 |-|-|-|-|
 | `DATABASE_URL` | Yes | — | Postgres connection string |
-| `STOKEN_SECRET` | Yes | — | HMAC secret for sync tokens (32+ random chars) |
+| `STOKEN_SECRET` | Yes | — | Secret for sync tokens and opaque journal cursors (32+ random chars) |
 | `PORT` | No | `8080` | HTTP port |
 | `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
@@ -140,7 +140,7 @@ On SIGTERM, the server fires `close()` on the metrics and main HTTP listeners. O
 
 - **Migrations are not run on server start.** Run `setup` (or `migrate`) explicitly before `serve`. This prevents race conditions with multiple replicas.
 - **Seed is idempotent.** `ON CONFLICT DO UPDATE` — safe to run on every deploy to pick up new/updated questions.
-- **STOKEN_SECRET must be stable.** Changing it invalidates all active sync tokens. Users will need to re-sync (happens automatically on next answer).
+- **STOKEN_SECRET must be stable.** Changing it invalidates all active sync tokens and journal cursors. Clients recover automatically: cursors fall back to a full journal replay, and sync re-handshakes on the next answer.
 - **Distroless image** — no shell, no package manager. Debug with `docker logs`, not `docker exec`.
 - **Static assets** are embedded in the image (`/app/web/`). No separate web server needed.
 

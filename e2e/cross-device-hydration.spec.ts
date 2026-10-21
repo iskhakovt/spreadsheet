@@ -91,7 +91,8 @@ test.describe("cross-device hydration from server journal", () => {
       // becomes a delta fetch instead of a full replay.
       const cursorOnFresh = await scopedGet(alice, "selfJournalCursor");
       expect(cursorOnFresh).not.toBeNull();
-      expect(Number(cursorOnFresh)).toBeGreaterThan(0);
+      // Opaque id — never the raw journal row number.
+      expect(cursorOnFresh).toMatch(/^[A-Za-z0-9_-]{22}$/);
     });
 
     test(`delta fetch on subsequent reload — cursor stays put on empty delta [encrypted=${encrypted}]`, async ({
@@ -111,7 +112,7 @@ test.describe("cross-device hydration from server journal", () => {
       // SSE delivers the entry — wait for it before reloading.
       await expect.poll(() => scopedGet(page, "selfJournalCursor"), { timeout: 5_000 }).not.toBeNull();
       const cursorAfterFirst = await scopedGet(page, "selfJournalCursor");
-      expect(Number(cursorAfterFirst)).toBeGreaterThan(0);
+      expect(cursorAfterFirst).toMatch(/^[A-Za-z0-9_-]{22}$/);
 
       // Reload — the layout's useSelfJournal calls sync.selfJournal with the
       // saved cursor, gets an empty delta, cursor stays put.

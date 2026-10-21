@@ -286,7 +286,7 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
 
   const [initialLastEventId] = useState<string | undefined>(() => {
     const last = journal.entries[journal.entries.length - 1];
-    return last ? String(last.id) : undefined;
+    return last?.id;
   });
 
   const seqRef = useRef(0);

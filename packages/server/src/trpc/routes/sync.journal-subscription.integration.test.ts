@@ -120,7 +120,7 @@ function journalSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | nu
  * to `{ id, data }` for the wire format. These helpers destructure the tuple
  * back into a usable shape for the integration tests.
  */
-type JournalEntry = { id: number; personId: string; operation: string };
+type JournalEntry = { id: string; personId: string; operation: string };
 type TrackedMessage = { entries: JournalEntry[] };
 
 function unwrap(yielded: unknown): TrackedMessage {
@@ -147,7 +147,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const msg = unwrap(first);
     expect(msg.entries).toHaveLength(2);
     // tracked event id is the highest entry id (stringified)
-    expect(trackedId(first)).toBe(String(msg.entries[msg.entries.length - 1].id));
+    expect(trackedId(first)).toBe(msg.entries[msg.entries.length - 1].id);
   });
 
   it("yields an append tracked event after sync.push commits a new entry", async () => {
@@ -189,14 +189,14 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     });
 
     // Fresh subscribe WITH the cursor — should only see the new entry
-    const sub2 = await openSubscription(journalSub(alice.ctx, String(initialCursor)));
+    const sub2 = await openSubscription(journalSub(alice.ctx, initialCursor));
     const delta = await sub2.next(1000);
     sub2.cancel();
 
     expect(delta).toBeDefined();
     const deltaMsg = unwrap(delta);
     expect(deltaMsg.entries).toHaveLength(1);
-    expect(deltaMsg.entries[0].id).toBeGreaterThan(initialCursor);
+    expect(deltaMsg.entries[0].id).not.toBe(initialCursor);
   });
 
   it("resume with lastEventId past the last id yields only fresh entries when they arrive", async () => {
@@ -218,14 +218,14 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     });
 
     // Fresh subscribe with the old cursor — backfill should include the new entry
-    const sub2 = await openSubscription(journalSub(alice.ctx, String(currentCursor)));
+    const sub2 = await openSubscription(journalSub(alice.ctx, currentCursor));
     const delta = await sub2.next(1000);
     sub2.cancel();
 
     expect(delta).toBeDefined();
     const msg = unwrap(delta);
     expect(msg.entries).toHaveLength(1);
-    expect(msg.entries[0].id).toBeGreaterThan(currentCursor);
+    expect(msg.entries[0].id).not.toBe(currentCursor);
   });
 
   it("two concurrent subscribers both receive the same push", async () => {
