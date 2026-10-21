@@ -89,6 +89,13 @@ updates:
       # see the docker ecosystem's node ignore below.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Vitest 5.0.x crashes while printing a globalSetup error
+      # (`code.charCodeAt is not a function` in vite's module-runner
+      # source-map lookup), so a failing integration setup shows up only as
+      # "No test files found". 5.1+ is still proposed; drop this once one
+      # reports setup errors properly.
+      - dependency-name: vitest
+        versions: ["5.0.x"]
 
   - package-ecosystem: docker
     directory: /
