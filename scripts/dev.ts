@@ -17,7 +17,7 @@ const WEB_DIR = resolve(ROOT, "packages/web");
 
 async function main() {
   console.log("Starting Postgres...");
-  const container = await new PostgreSqlContainer("public.ecr.aws/docker/library/postgres:18")
+  const container = await new PostgreSqlContainer("mirror.gcr.io/library/postgres:18")
     .withReuse()
     .withLabels({ "com.spreadsheet.dev": "true" })
     .start();
