@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2,
@@ -7,7 +7,7 @@
   },
   "linter": {
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         "noNonNullAssertion": "error",
         "useTemplate": "off"
@@ -44,6 +44,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/dist/", "!**/build/", "!**/*.yml", "!**/*.yaml", "!**/*.css", "!**/routeTree.gen.ts"]
+    "includes": [
+      "**",
+      "!**/dist/",
+      "!**/build/",
+      "!**/*.yml",
+      "!**/*.yaml",
+      "!**/*.css",
+      "!**/*.md",
+      "!**/*.svg",
+      "!**/routeTree.gen.ts"
+    ]
   }
 }

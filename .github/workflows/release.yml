@@ -52,7 +52,7 @@ jobs:
       # re-click once CI completes.
       - name: Wait for CI green on main HEAD
         if: ${{ !inputs.skip_ci_check }}
-        uses: poseidon/wait-for-status-checks@899c768d191b56eef585c18f8558da19e1f3e707 # v0.6.0
+        uses: poseidon/wait-for-status-checks@e7e24423722c5b8e97a6dd5848827d2a412f812d # v0.7.0
         with:
           token: ${{ github.token }}
           ignore: Release
@@ -61,7 +61,7 @@ jobs:
       - name: Skipped CI gate (operator override)
         if: ${{ inputs.skip_ci_check }}
         run: echo "::warning::skip_ci_check=true — releasing without verifying CI status on main HEAD"
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - id: semantic

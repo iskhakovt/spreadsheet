@@ -16,5 +16,3 @@ declare global {
   // eslint-disable-next-line no-var
   var __spreadsheetDevShell: ShellRenderer | undefined;
 }
-
-export {};
