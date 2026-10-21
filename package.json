@@ -37,5 +37,5 @@
     "vitest": "^4.1.8",
     "vitest-mock-extended": "^4.0.0"
   },
-  "packageManager": "pnpm@10.27.0"
+  "packageManager": "pnpm@12.14.0"
 }
