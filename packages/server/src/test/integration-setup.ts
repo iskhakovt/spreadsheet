@@ -11,7 +11,9 @@ export async function setup() {
   process.env.STOKEN_SECRET = "integration-test-secret";
 
   // Run migrations + seed via the main entrypoint
-  const serverDir = resolve(import.meta.dirname, "..");
+  // packages/server — tsx resolves `src/main.ts` against it. pnpm 10's exec
+  // silently moved to the package root; pnpm 11+ keeps the given cwd.
+  const serverDir = resolve(import.meta.dirname, "../..");
   execSync("pnpm exec tsx src/main.ts setup", {
     cwd: serverDir,
     env: { ...process.env, DATABASE_URL: url },
