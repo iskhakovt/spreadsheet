@@ -55,6 +55,7 @@ test.describe("keyboard-only completion", () => {
         .waitForFunction(
           ({ before }) => {
             const h = document.querySelector("h2")?.textContent ?? "";
+            // biome-ignore lint/performance/useDomNodeTextContent: only rendered text counts as "done"
             const d = document.body.innerText;
             return h !== before || d.includes("All done!") || d.includes("That's the last one");
           },

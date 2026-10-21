@@ -7,7 +7,7 @@ packages/server/src/
   events.ts   ← Three EventEmitter instances: groupEvents, journalEvents, selfJournalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
   request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
-  metrics.ts  ← prom-client registry, counters, gauges, histogram exports
+  metrics.ts  ← @prometheus-io/client registry, counters, gauges, histogram exports
   db/         ← schema, helpers, seed (data layer)
   store/      ← GroupStore, SyncStore, QuestionStore (business logic + DB)
   trpc/       ← routes, context, middleware (transport layer)
@@ -92,7 +92,7 @@ Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md)
 
 ## Metrics
 
-`packages/server/src/metrics.ts` exports a single prom-client `Registry` and all metric instances. A dedicated metrics-only Hono app serves `GET /metrics` on a separate port (default `9090`, configurable via `METRICS_PORT`), so it can be firewalled off from public traffic independently of the main app.
+`packages/server/src/metrics.ts` exports a single `@prometheus-io/client` `Registry` and all metric instances. A dedicated metrics-only Hono app serves `GET /metrics` on a separate port (default `9090`, configurable via `METRICS_PORT`), so it can be firewalled off from public traffic independently of the main app.
 
 ### Infrastructure metrics
 
