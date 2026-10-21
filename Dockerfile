@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build ---
-FROM public.ecr.aws/docker/library/node:24-slim AS build
+FROM mirror.gcr.io/library/node:24-slim AS build
 # pnpm 12 ships as a native binary that corepack can't run, so copy it
 # from the official image (https://pnpm.io/docker). Keep the tag in sync
 # with `packageManager` in package.json — a mismatch makes pnpm download

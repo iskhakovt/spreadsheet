@@ -89,6 +89,12 @@ updates:
       npm-security:
         applies-to: security-updates
         patterns: ["*"]
+    ignore:
+      # @types/node tracks the Node runtime major (.node-version, Dockerfile,
+      # CI), not the latest release. Bump it by hand alongside the runtime —
+      # see the docker ecosystem's node ignore below.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /

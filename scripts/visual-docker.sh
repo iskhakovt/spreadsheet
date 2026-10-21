@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # Pin to the same version as @playwright/test in package.json.
-IMAGE="mcr.microsoft.com/playwright:v1.59.1-noble"
+IMAGE="mcr.microsoft.com/playwright:v1.64.1-noble"
 
 # Run as the host user so files written to bind-mounts (test-results,
 # playwright-report, snapshot updates) aren't owned by root.
