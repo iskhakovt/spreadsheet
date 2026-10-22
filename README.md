@@ -12,7 +12,7 @@ TypeScript full stack — Hono, tRPC v11 (HTTP, queries/mutations + Server-Sent 
 ## Quick Start
 
 ```bash
-# Prerequisites: Node 24, pnpm, Docker
+# Prerequisites: Node 26, pnpm, Docker
 
 # Install dependencies (also sets up pre-commit hooks via Husky)
 pnpm install
