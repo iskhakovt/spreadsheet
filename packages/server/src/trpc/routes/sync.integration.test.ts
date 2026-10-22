@@ -108,7 +108,9 @@ describe("full sync flow (real Postgres)", () => {
 
     const delta = await alice.caller.sync.journal({ sinceId: initialCursor ?? undefined });
     expect(delta.entries).toHaveLength(1);
-    expect(delta.cursor).toBeGreaterThan(initialCursor ?? 0);
+    expect(delta.cursor).not.toBeNull();
+    expect(delta.cursor).not.toBe(initialCursor);
+    expect(delta.cursor).toBe(delta.entries[0].id);
 
     // Empty delta: fetching again with the new cursor returns nothing new
     const empty = await alice.caller.sync.journal({ sinceId: delta.cursor ?? undefined });

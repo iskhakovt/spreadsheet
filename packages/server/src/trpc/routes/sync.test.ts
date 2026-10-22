@@ -3,11 +3,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents, journalEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
 import { syncPushCounter } from "../../metrics.js";
+import { encodeJournalId } from "../../opaque-id.js";
 import type { TrpcContext } from "../context.js";
 import { createCallerFactory } from "../init.js";
 import { appRouter } from "../router.js";
 
 const createCaller = createCallerFactory(appRouter);
+
+// Journal ids are sealed with a key derived from STOKEN_SECRET.
+process.env.STOKEN_SECRET ??= "test-secret";
 
 afterEach(() => {
   groupEvents.removeAllListeners();
@@ -70,6 +74,7 @@ const pushOk = (entries: { id: number; personId: string; operation: string }[] =
   entries: [],
   committedEntries: entries,
   pushRejected: false as const,
+  stokenInvalid: false,
 });
 
 /** Shared test fixture: what a conflict-rejected sync.push store call returns. */
@@ -78,6 +83,7 @@ const pushConflict = () => ({
   entries: [],
   committedEntries: [] as { id: number; personId: string; operation: string }[],
   pushRejected: true as const,
+  stokenInvalid: false,
 });
 
 describe("sync.push", () => {
@@ -157,6 +163,28 @@ describe("sync.push", () => {
     await createCaller(ctx).sync.push({ stoken: null, operations: [], progress: undefined });
     expect(spy).toHaveBeenCalledWith({ result: "conflict" });
     spy.mockRestore();
+  });
+
+  it("flags an unreadable stoken: warns without the token, labels the metric, keeps it off the wire", async () => {
+    const spy = vi.spyOn(syncPushCounter, "inc");
+    const ctx = mockCtx({
+      person,
+      group,
+      sync: { push: vi.fn().mockResolvedValue({ ...pushConflict(), stokenInvalid: true }) },
+    });
+    const warn = vi.spyOn(ctx.logger, "warn");
+    const result = await createCaller(ctx).sync.push({
+      stoken: "garbage-stoken",
+      operations: [],
+      progress: undefined,
+    });
+    expect(spy).toHaveBeenCalledWith({ result: "invalid_stoken" });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("garbage-stoken");
+    expect(result).not.toHaveProperty("stokenInvalid");
+    expect(result.pushRejected).toBe(true);
+    spy.mockRestore();
+    warn.mockRestore();
   });
 });
 
@@ -300,13 +328,48 @@ describe("sync.journal", () => {
     expect(journalSince).toHaveBeenCalledWith("g1", null);
   });
 
-  it("passes sinceId through to the store", async () => {
+  it("decodes the opaque sinceId before passing it to the store", async () => {
     const data = { members: [], entries: [], cursor: 42 };
     const journalSince = vi.fn().mockResolvedValue(data);
     const ctx = mockCtx({ person, group, sync: { journalSince } });
     const caller = createCaller(ctx);
-    await caller.sync.journal({ sinceId: 42 });
+    const result = await caller.sync.journal({ sinceId: encodeJournalId(42) });
     expect(journalSince).toHaveBeenCalledWith("g1", 42);
+    expect(result.cursor).toBe(encodeJournalId(42));
+  });
+
+  it("never exposes raw numeric entry ids or cursors", async () => {
+    const data = {
+      members: [],
+      entries: [
+        { id: 1041, personId: "p1", operation: "p:1:a" },
+        { id: 1042, personId: "p2", operation: "p:1:b" },
+      ],
+      cursor: 1042,
+    };
+    const journalSince = vi.fn().mockResolvedValue(data);
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    const result = await caller.sync.journal();
+    expect(result.entries).toEqual([
+      { id: encodeJournalId(1041), personId: "p1", operation: "p:1:a" },
+      { id: encodeJournalId(1042), personId: "p2", operation: "p:1:b" },
+    ]);
+    expect(result.cursor).toBe(encodeJournalId(1042));
+    expect(JSON.stringify(result)).not.toMatch(/104[12]/);
+  });
+
+  it("treats a legacy numeric or garbage sinceId as no cursor (full backfill)", async () => {
+    const journalSince = vi.fn().mockResolvedValue({ members: [], entries: [], cursor: null });
+    const ctx = mockCtx({ person, group, sync: { journalSince } });
+    const caller = createCaller(ctx);
+    await caller.sync.journal({ sinceId: "42" });
+    await caller.sync.journal({ sinceId: "AAAAAAAAAAAAAAAAAAAAAA" });
+    // A tab still on the pre-opaque bundle sends a raw number.
+    await caller.sync.journal({ sinceId: 42 });
+    expect(journalSince).toHaveBeenNthCalledWith(1, "g1", null);
+    expect(journalSince).toHaveBeenNthCalledWith(2, "g1", null);
+    expect(journalSince).toHaveBeenNthCalledWith(3, "g1", null);
   });
 
   it("defaults sinceId to null when input is omitted", async () => {
@@ -333,7 +396,11 @@ describe("sync.selfJournal", () => {
     const ctx = mockCtx({ person, group, sync: { journalSinceForPerson } });
     const caller = createCaller(ctx);
     const result = await caller.sync.selfJournal({ sinceId: undefined });
-    expect(result).toEqual(data);
+    expect(result).toEqual({
+      entries: [{ id: encodeJournalId(1), personId: "p1", operation: "p:1:..." }],
+      cursor: encodeJournalId(1),
+      stoken: "s1",
+    });
     expect(journalSinceForPerson).toHaveBeenCalledWith("p1", null);
   });
 
@@ -341,7 +408,7 @@ describe("sync.selfJournal", () => {
     const journalSinceForPerson = vi.fn().mockResolvedValue({ entries: [], cursor: null, stoken: null });
     const ctx = mockCtx({ person, group, sync: { journalSinceForPerson } });
     const caller = createCaller(ctx);
-    await caller.sync.selfJournal({ sinceId: 42 });
+    await caller.sync.selfJournal({ sinceId: encodeJournalId(42) });
     expect(journalSinceForPerson).toHaveBeenCalledWith("p1", 42);
     // never the group id
     expect(journalSinceForPerson).not.toHaveBeenCalledWith("g1", expect.anything());

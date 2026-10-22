@@ -1,10 +1,10 @@
-import type { Answer } from "@spreadsheet/shared";
+import type { Answer, GroupJournalResponse, JournalEntryId } from "@spreadsheet/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
 import { unwrapSensitive } from "./crypto.js";
 import { replayJournal } from "./journal.js";
-import type { JournalEntry } from "./merge-journal.js";
+import { type JournalEntry, mergeJournal } from "./merge-journal.js";
 
 type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
@@ -26,7 +26,7 @@ export interface MemberAnswers {
 export interface CachedJournal {
   members: MemberAnswers[];
   entries: JournalEntry[];
-  cursor: number | null;
+  cursor: JournalEntryId | null;
 }
 
 /**
@@ -37,7 +37,7 @@ export interface CachedJournal {
  * `answers` built by replaying the journal per person.
  */
 export async function replayMembers(
-  members: { id: string; name: string; anatomy: string | null }[],
+  members: GroupJournalResponse["members"],
   entries: JournalEntry[],
 ): Promise<MemberAnswers[]> {
   return Promise.all(
@@ -112,4 +112,47 @@ export function prefetchJournal(queryClient: QueryClient, trpcClient: TrpcClient
     queryKey: JOURNAL_QUERY_KEY,
     queryFn: makeJournalQueryFn(trpcClient),
   });
+}
+
+/**
+ * Apply one `sync.onJournalChange` delta to the `/results` cache.
+ *
+ * Journal deltas are incremental — each carries entries no other delivery
+ * will repeat — so applying them must be lossless even when deliveries
+ * overlap with the async decrypt + replay. Two steps, with different
+ * concurrency rules:
+ *
+ *   1. Raw merge — synchronous, through `setQueryData`'s functional
+ *      updater, so every delta lands on top of the latest cache state no
+ *      matter how deliveries interleave. This is the lossless step.
+ *   2. Member rebuild — async (decrypt + replay), written back only if
+ *      the cache still holds the exact entry list that was rebuilt. Any
+ *      later merge, refetch, or reset swaps in a new `entries` array, so a
+ *      stale rebuild — from an older overlapping delta, a previous mount,
+ *      or the previous token before `resetQueries` — can never overwrite
+ *      newer state. The newest rebuild covers everything older ones would
+ *      have produced, because each replays the full merged list.
+ *
+ * Doing the merge after the `await` instead (snapshot → rebuild → write)
+ * lets a later delta's write omit an earlier delta's entries, and since
+ * the server cursor has moved past them, nothing ever re-delivers them.
+ */
+export async function applyJournalDelta(queryClient: QueryClient, entries: JournalEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+
+  // `setQueryData` returns the data as stored. Use that, not the object
+  // passed in: structural sharing may store a different `entries`
+  // reference, and the guard below compares against the stored one.
+  const merged = queryClient.setQueryData<CachedJournal>(JOURNAL_QUERY_KEY, (prev) => {
+    if (!prev) return prev;
+    const raw = mergeJournal(prev, entries);
+    return { ...prev, entries: raw.entries, cursor: raw.cursor };
+  });
+  if (!merged) return;
+
+  const rebuiltFrom = merged.entries;
+  const members = await rebuildMemberAnswers(merged.members, rebuiltFrom);
+  queryClient.setQueryData<CachedJournal>(JOURNAL_QUERY_KEY, (prev) =>
+    prev?.entries === rebuiltFrom ? { ...prev, members } : prev,
+  );
 }

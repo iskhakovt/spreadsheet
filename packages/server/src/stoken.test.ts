@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 
 // Set secret before importing stoken module
@@ -45,5 +46,26 @@ describe("stoken", () => {
     const id = 999999999;
     const stoken = encodeStoken(id);
     expect(decodeStoken(stoken)).toBe(id);
+  });
+
+  it("does not reveal the id", async () => {
+    const { encodeStoken } = await import("./stoken.js");
+    const stoken = encodeStoken(424242);
+    expect(stoken).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(Buffer.from(stoken, "base64url").toString("latin1")).not.toContain("424242");
+  });
+
+  it("still accepts legacy v1 stokens persisted by older clients", async () => {
+    const { decodeStoken } = await import("./stoken.js");
+    const payload = "v1:17";
+    const mac = createHmac("sha256", "test-secret-for-stoken").update(payload).digest("base64url");
+    const legacy = Buffer.from(`${payload}:${mac}`).toString("base64url");
+    expect(decodeStoken(legacy)).toBe(17);
+  });
+
+  it("rejects a legacy v1 stoken with a bad signature", async () => {
+    const { decodeStoken } = await import("./stoken.js");
+    const legacy = Buffer.from("v1:17:not-the-mac").toString("base64url");
+    expect(() => decodeStoken(legacy)).toThrow();
   });
 });

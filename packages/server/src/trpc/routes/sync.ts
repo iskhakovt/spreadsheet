@@ -1,16 +1,18 @@
-import { on } from "node:events";
-import { decodeOpaque, SelfJournalResponse } from "@spreadsheet/shared";
+import { decodeOpaque, GroupJournalResponse, type JournalEntry, SelfJournalResponse } from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
 import {
   emitJournalUpdate,
   emitSelfJournalUpdate,
+  type JournalEntryPayload,
   journalEventName,
   journalEvents,
+  journalUpdates,
   selfJournalEventName,
   selfJournalEvents,
 } from "../../events.js";
 import { markCompleteCounter, syncPushCounter, trackSseConnection } from "../../metrics.js";
+import { decodeJournalId, encodeJournalCursor, toWireEntries } from "../../opaque-id.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -18,7 +20,50 @@ import { authedProcedure, broadcastingProcedure, router } from "../init.js";
  * tracked event carries one or more newly-committed journal entries.
  */
 export interface JournalChangeMessage {
-  entries: { id: number; personId: string; operation: string }[];
+  entries: JournalEntry[];
+}
+
+/**
+ * Cursor inputs (`sinceId`, `lastEventId`) are opaque ids minted by
+ * `encodeJournalId`. Accept any short string and let `decodeJournalId`
+ * map anything unrecognised (legacy numeric cursors from pre-opaque
+ * clients, a rotated secret, garbage) to "no cursor" → full backfill.
+ * Rejecting instead would wedge an auto-reconnecting EventSource that
+ * keeps re-sending the same `Last-Event-ID`.
+ */
+const cursorInput = z.union([z.string().max(64), z.number()]).nullish();
+
+/**
+ * Shared tail of both journal subscriptions: yield the backfill, then the
+ * live stream, each as a sealed `tracked()` event.
+ *
+ * `cursor` (numeric, server-side only) dedups live deliveries that overlap
+ * the backfill — the iterable was buffering while the backfill query ran.
+ * The SSE event id is the last entry's sealed id, derived from the same
+ * entry that advances `cursor`, so the resume cursor and the dedup cursor
+ * can't drift and no raw bigserial reaches the wire.
+ *
+ * The caller must create `updates` BEFORE running the backfill query
+ * (subscribe-before-query invariant).
+ */
+async function* streamJournal(
+  updates: AsyncIterable<JournalEntryPayload[]>,
+  sinceId: number | null,
+  backfill: readonly JournalEntryPayload[],
+) {
+  let cursor = sinceId;
+  function* emit(entries: readonly JournalEntryPayload[]) {
+    const fresh = entries.filter((e) => cursor === null || e.id > cursor);
+    if (fresh.length === 0) return;
+    const wire = toWireEntries(fresh);
+    yield tracked(wire[wire.length - 1].id, { entries: wire } satisfies JournalChangeMessage);
+    cursor = fresh[fresh.length - 1].id;
+  }
+
+  yield* emit(backfill);
+  for await (const entries of updates) {
+    yield* emit(entries);
+  }
 }
 
 export const syncRouter = router({
@@ -68,9 +113,16 @@ export const syncRouter = router({
         emitSelfJournalUpdate(ctx.person.id, result.committedEntries);
       }
 
-      syncPushCounter.inc({ result: result.pushRejected ? "conflict" : "clean" });
-      // The committedEntries field is internal — don't expose it on the wire.
-      const { committedEntries: _committedEntries, ...wireResult } = result;
+      if (result.stokenInvalid) {
+        // Expected after a STOKEN_SECRET rotation; otherwise a sign of
+        // corrupted client storage or tampering. Never log the stoken itself.
+        ctx.logger.warn({ personId: ctx.person.id }, "sync.push: unreadable stoken, forcing resync");
+      }
+      syncPushCounter.inc({
+        result: result.stokenInvalid ? "invalid_stoken" : result.pushRejected ? "conflict" : "clean",
+      });
+      // committedEntries and stokenInvalid are internal — don't expose them on the wire.
+      const { committedEntries: _committedEntries, stokenInvalid: _stokenInvalid, ...wireResult } = result;
       return wireResult;
     }),
 
@@ -86,16 +138,21 @@ export const syncRouter = router({
   }),
 
   journal: authedProcedure
-    .input(z.object({ sinceId: z.number().int().nonnegative().optional() }).optional())
+    .input(z.object({ sinceId: cursorInput }).optional())
+    .output(GroupJournalResponse)
     .query(async ({ ctx, input }) => {
-      const result = await ctx.sync.journalSince(ctx.group.id, input?.sinceId ?? null);
+      const result = await ctx.sync.journalSince(ctx.group.id, decodeJournalId(input?.sinceId));
       if ("error" in result) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "All group members must mark complete before viewing journal",
         });
       }
-      return result;
+      return {
+        members: result.members,
+        entries: toWireEntries(result.entries),
+        cursor: encodeJournalCursor(result.cursor),
+      };
     }),
 
   /**
@@ -111,10 +168,15 @@ export const syncRouter = router({
    * its push cursor without a separate handshake.
    */
   selfJournal: authedProcedure
-    .input(z.object({ sinceId: z.number().int().nonnegative().optional() }).optional())
+    .input(z.object({ sinceId: cursorInput }).optional())
     .output(SelfJournalResponse)
     .query(async ({ ctx, input }) => {
-      return ctx.sync.journalSinceForPerson(ctx.person.id, input?.sinceId ?? null);
+      const result = await ctx.sync.journalSinceForPerson(ctx.person.id, decodeJournalId(input?.sinceId));
+      return {
+        entries: toWireEntries(result.entries),
+        cursor: encodeJournalCursor(result.cursor),
+        stoken: result.stoken,
+      };
     }),
 
   /**
@@ -139,10 +201,9 @@ export const syncRouter = router({
     .input(
       z
         .object({
-          // lastEventId is stringified journal entry id (bigserial > 0);
-          // reject non-numeric strings early so a malformed resume cursor
-          // can't reach the `Number(...)` cast below and produce NaN.
-          lastEventId: z.string().regex(/^\d+$/, "lastEventId must be a numeric string").nullish(),
+          // lastEventId is the opaque id of the last delivered entry (the
+          // SSE event id we yielded via `tracked()`).
+          lastEventId: cursorInput,
         })
         .optional(),
     )
@@ -183,10 +244,10 @@ export const syncRouter = router({
       // CRITICAL: listener BEFORE backfill query. Any emission in the
       // backfill window is buffered in the iterable and delivered after
       // we exit the for-await loop's startup.
-      const iterable = on(journalEvents, journalEventName(ctx.group.id), { signal });
+      const updates = journalUpdates(journalEvents, journalEventName(ctx.group.id), signal);
 
       // Backfill from the client's cursor (or the beginning on a fresh connect).
-      const sinceId = input?.lastEventId ? Number(input.lastEventId) : null;
+      const sinceId = decodeJournalId(input?.lastEventId);
       const backfill = await ctx.sync.journalSince(ctx.group.id, sinceId);
       if ("error" in backfill) {
         // Shouldn't happen (precondition already checked above), but be defensive.
@@ -196,24 +257,7 @@ export const syncRouter = router({
         });
       }
 
-      let cursor = sinceId;
-      if (backfill.entries.length > 0) {
-        const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield tracked(String(latestId), { entries: backfill.entries } satisfies JournalChangeMessage);
-        cursor = latestId;
-      }
-
-      // Live stream from the buffered iterable. Dedup entries that overlap
-      // with the backfill — the iterable may have been filling up while the
-      // query ran, producing rows the backfill already returned.
-      for await (const [payload] of iterable) {
-        const entries = payload as typeof backfill.entries;
-        const fresh = entries.filter((e) => cursor === null || e.id > cursor);
-        if (fresh.length === 0) continue;
-        const latestId = fresh[fresh.length - 1].id;
-        yield tracked(String(latestId), { entries: fresh } satisfies JournalChangeMessage);
-        cursor = latestId;
-      }
+      yield* streamJournal(updates, sinceId, backfill.entries);
     }),
 
   /**
@@ -232,7 +276,7 @@ export const syncRouter = router({
     .input(
       z
         .object({
-          lastEventId: z.string().regex(/^\d+$/, "lastEventId must be a numeric string").nullish(),
+          lastEventId: cursorInput,
         })
         .optional(),
     )
@@ -241,25 +285,11 @@ export const syncRouter = router({
       // CRITICAL: listener BEFORE backfill query. Same invariant as
       // onJournalChange — events emitted during the backfill round-trip
       // are buffered in the iterable, not lost.
-      const iterable = on(selfJournalEvents, selfJournalEventName(ctx.person.id), { signal });
+      const updates = journalUpdates(selfJournalEvents, selfJournalEventName(ctx.person.id), signal);
 
-      const sinceId = input?.lastEventId ? Number(input.lastEventId) : null;
+      const sinceId = decodeJournalId(input?.lastEventId);
       const backfill = await ctx.sync.journalSinceForPerson(ctx.person.id, sinceId);
 
-      let cursor = sinceId;
-      if (backfill.entries.length > 0) {
-        const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield tracked(String(latestId), { entries: backfill.entries } satisfies JournalChangeMessage);
-        cursor = latestId;
-      }
-
-      for await (const [payload] of iterable) {
-        const entries = payload as typeof backfill.entries;
-        const fresh = entries.filter((e) => cursor === null || e.id > cursor);
-        if (fresh.length === 0) continue;
-        const latestId = fresh[fresh.length - 1].id;
-        yield tracked(String(latestId), { entries: fresh } satisfies JournalChangeMessage);
-        cursor = latestId;
-      }
+      yield* streamJournal(updates, sinceId, backfill.entries);
     }),
 });
