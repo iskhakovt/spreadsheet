@@ -2,3 +2,14 @@ packages:
   - packages/*
 
 injectWorkspacePackages: true
+
+# pnpm 11+ fails the install on unreviewed dependency build scripts
+# (strictDepBuilds). None of these are needed: esbuild ships its binary
+# via optionalDependencies, protobufjs's script is a version notice, and
+# ssh2/cpu-features (testcontainers → dockerode) fall back to pure JS.
+# pnpm 10 skipped all of them silently, so `false` keeps that behavior.
+allowBuilds:
+  cpu-features: false
+  esbuild: false
+  protobufjs: false
+  ssh2: false

@@ -8,6 +8,12 @@ updates:
       # Matches commitlint / semantic-release config. Without this prefix,
       # the pr-title CI job fails on dependabot PRs.
       prefix: "chore(deps)"
+    # pnpm 11+ refuses lockfile entries published less than a day ago
+    # (minimumReleaseAge, default 1440 min), so a same-day release would
+    # fail `pnpm install --frozen-lockfile` in CI. Match it here.
+    # Security updates ignore cooldown.
+    cooldown:
+      default-days: 1
     # Group updates so pnpm-lock.yaml only has one merge state to validate
     # at a time. Multiple overlapping PRs touching the lockfile can produce
     # a corrupted lockfile because GitHub's textual auto-rebase runs per
@@ -113,6 +119,10 @@ updates:
       # LTS ships.
       - dependency-name: node
         update-types: ["version-update:semver-major"]
+      # The pnpm image tag must match `packageManager` in package.json,
+      # and Dependabot would bump the two independently. Bump both by
+      # hand together.
+      - dependency-name: "*pnpm/pnpm"
 
   - package-ecosystem: github-actions
     directory: /
