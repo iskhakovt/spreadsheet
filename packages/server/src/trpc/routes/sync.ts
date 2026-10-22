@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   emitJournalUpdate,
   emitSelfJournalUpdate,
+  type JournalEntryPayload,
   journalEventName,
   journalEvents,
   selfJournalEventName,
@@ -32,14 +33,39 @@ export interface JournalChangeMessage {
  */
 const cursorInput = z.union([z.string().max(64), z.number()]).nullish();
 
+type InternalEntry = JournalEntryPayload;
+
 /**
- * Seal a batch of entries for a `tracked()` yield. The SSE event id is the
- * last entry's (already sealed) id, so the resume cursor and the payload
- * can't disagree and no raw bigserial can slip into either.
+ * Shared tail of both journal subscriptions: yield the backfill, then the
+ * live stream, each as a sealed `tracked()` event.
+ *
+ * `cursor` (numeric, server-side only) dedups live deliveries that overlap
+ * the backfill — the iterable was buffering while the backfill query ran.
+ * The SSE event id is the last entry's sealed id, derived from the same
+ * entry that advances `cursor`, so the resume cursor and the dedup cursor
+ * can't drift and no raw bigserial reaches the wire.
+ *
+ * The caller must attach `iterable` BEFORE running the backfill query
+ * (subscribe-before-query invariant).
  */
-function trackedDelta(entries: readonly { id: number; personId: string; operation: string }[]) {
-  const wire = toWireEntries(entries);
-  return tracked(wire[wire.length - 1].id, { entries: wire } satisfies JournalChangeMessage);
+async function* streamJournal(
+  iterable: AsyncIterable<unknown[]>,
+  sinceId: number | null,
+  backfill: readonly InternalEntry[],
+) {
+  let cursor = sinceId;
+  function* emit(entries: readonly InternalEntry[]) {
+    const fresh = entries.filter((e) => cursor === null || e.id > cursor);
+    if (fresh.length === 0) return;
+    const wire = toWireEntries(fresh);
+    yield tracked(wire[wire.length - 1].id, { entries: wire } satisfies JournalChangeMessage);
+    cursor = fresh[fresh.length - 1].id;
+  }
+
+  yield* emit(backfill);
+  for await (const [payload] of iterable) {
+    yield* emit(payload as InternalEntry[]);
+  }
 }
 
 export const syncRouter = router({
@@ -233,24 +259,7 @@ export const syncRouter = router({
         });
       }
 
-      let cursor = sinceId;
-      if (backfill.entries.length > 0) {
-        const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield trackedDelta(backfill.entries);
-        cursor = latestId;
-      }
-
-      // Live stream from the buffered iterable. Dedup entries that overlap
-      // with the backfill — the iterable may have been filling up while the
-      // query ran, producing rows the backfill already returned.
-      for await (const [payload] of iterable) {
-        const entries = payload as typeof backfill.entries;
-        const fresh = entries.filter((e) => cursor === null || e.id > cursor);
-        if (fresh.length === 0) continue;
-        const latestId = fresh[fresh.length - 1].id;
-        yield trackedDelta(fresh);
-        cursor = latestId;
-      }
+      yield* streamJournal(iterable, sinceId, backfill.entries);
     }),
 
   /**
@@ -283,20 +292,6 @@ export const syncRouter = router({
       const sinceId = decodeJournalId(input?.lastEventId);
       const backfill = await ctx.sync.journalSinceForPerson(ctx.person.id, sinceId);
 
-      let cursor = sinceId;
-      if (backfill.entries.length > 0) {
-        const latestId = backfill.entries[backfill.entries.length - 1].id;
-        yield trackedDelta(backfill.entries);
-        cursor = latestId;
-      }
-
-      for await (const [payload] of iterable) {
-        const entries = payload as typeof backfill.entries;
-        const fresh = entries.filter((e) => cursor === null || e.id > cursor);
-        if (fresh.length === 0) continue;
-        const latestId = fresh[fresh.length - 1].id;
-        yield trackedDelta(fresh);
-        cursor = latestId;
-      }
+      yield* streamJournal(iterable, sinceId, backfill.entries);
     }),
 });

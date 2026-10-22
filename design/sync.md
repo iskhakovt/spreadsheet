@@ -42,7 +42,7 @@ tag   = "journal1" (entry ids / read cursors) | "stoken02" (push cursor)
 | Tamper-proof | A modified or foreign token decrypts to a block whose 8-byte tag doesn't match (2^-64 forgery odds) |
 | Domain-separated | Different tags, so a read cursor can't be replayed as a stoken |
 
-Clients treat ids as equality-only tokens. Entry order comes from the server's response order, never from the id: each stream delivers entries in ascending internal id, and every delta only carries ids past that stream's cursor, so arrival order is id order.
+Clients treat ids as equality-only tokens. Entry order comes from the server's response order, never from the id: each stream delivers entries in ascending internal id, and every delta only carries ids past that stream's cursor, so arrival order is id order. Known gap: the cursor filters assume id order equals commit order, which Postgres doesn't guarantee for concurrent pushes — an entry whose transaction commits after a higher id can be skipped by a live stream (tracked in `todo.md`).
 
 Decoding is lenient everywhere, because the client can't recover from an error on a cursor it persisted:
 
