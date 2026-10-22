@@ -89,6 +89,14 @@ updates:
       # see the docker ecosystem's node ignore below.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Vitest <=5.0.5 with Vite 8.3.5 crashes while printing a globalSetup
+      # error (`code.charCodeAt is not a function`: Vitest's server runner
+      # reads a temp file as a Buffer, Vite 8.3.5 expects text), so a failing
+      # integration setup shows up only as "No test files found".
+      # https://github.com/vitest-dev/vitest/issues/11682 — the fix lands in
+      # Vitest, so later releases are still proposed; drop this once one is out.
+      - dependency-name: vitest
+        versions: [">=5.0.0 <=5.0.5"]
 
   - package-ecosystem: docker
     directory: /
