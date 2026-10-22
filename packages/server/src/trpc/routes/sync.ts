@@ -1,4 +1,3 @@
-import { on } from "node:events";
 import { decodeOpaque, GroupJournalResponse, type JournalEntry, SelfJournalResponse } from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
@@ -8,6 +7,7 @@ import {
   type JournalEntryPayload,
   journalEventName,
   journalEvents,
+  journalUpdates,
   selfJournalEventName,
   selfJournalEvents,
 } from "../../events.js";
@@ -33,8 +33,6 @@ export interface JournalChangeMessage {
  */
 const cursorInput = z.union([z.string().max(64), z.number()]).nullish();
 
-type InternalEntry = JournalEntryPayload;
-
 /**
  * Shared tail of both journal subscriptions: yield the backfill, then the
  * live stream, each as a sealed `tracked()` event.
@@ -45,16 +43,16 @@ type InternalEntry = JournalEntryPayload;
  * entry that advances `cursor`, so the resume cursor and the dedup cursor
  * can't drift and no raw bigserial reaches the wire.
  *
- * The caller must attach `iterable` BEFORE running the backfill query
+ * The caller must create `updates` BEFORE running the backfill query
  * (subscribe-before-query invariant).
  */
 async function* streamJournal(
-  iterable: AsyncIterable<unknown[]>,
+  updates: AsyncIterable<JournalEntryPayload[]>,
   sinceId: number | null,
-  backfill: readonly InternalEntry[],
+  backfill: readonly JournalEntryPayload[],
 ) {
   let cursor = sinceId;
-  function* emit(entries: readonly InternalEntry[]) {
+  function* emit(entries: readonly JournalEntryPayload[]) {
     const fresh = entries.filter((e) => cursor === null || e.id > cursor);
     if (fresh.length === 0) return;
     const wire = toWireEntries(fresh);
@@ -63,8 +61,8 @@ async function* streamJournal(
   }
 
   yield* emit(backfill);
-  for await (const [payload] of iterable) {
-    yield* emit(payload as InternalEntry[]);
+  for await (const entries of updates) {
+    yield* emit(entries);
   }
 }
 
@@ -246,7 +244,7 @@ export const syncRouter = router({
       // CRITICAL: listener BEFORE backfill query. Any emission in the
       // backfill window is buffered in the iterable and delivered after
       // we exit the for-await loop's startup.
-      const iterable = on(journalEvents, journalEventName(ctx.group.id), { signal });
+      const updates = journalUpdates(journalEvents, journalEventName(ctx.group.id), signal);
 
       // Backfill from the client's cursor (or the beginning on a fresh connect).
       const sinceId = decodeJournalId(input?.lastEventId);
@@ -259,7 +257,7 @@ export const syncRouter = router({
         });
       }
 
-      yield* streamJournal(iterable, sinceId, backfill.entries);
+      yield* streamJournal(updates, sinceId, backfill.entries);
     }),
 
   /**
@@ -287,11 +285,11 @@ export const syncRouter = router({
       // CRITICAL: listener BEFORE backfill query. Same invariant as
       // onJournalChange — events emitted during the backfill round-trip
       // are buffered in the iterable, not lost.
-      const iterable = on(selfJournalEvents, selfJournalEventName(ctx.person.id), { signal });
+      const updates = journalUpdates(selfJournalEvents, selfJournalEventName(ctx.person.id), signal);
 
       const sinceId = decodeJournalId(input?.lastEventId);
       const backfill = await ctx.sync.journalSinceForPerson(ctx.person.id, sinceId);
 
-      yield* streamJournal(iterable, sinceId, backfill.entries);
+      yield* streamJournal(updates, sinceId, backfill.entries);
     }),
 });
