@@ -69,7 +69,7 @@ Three Server-Sent Events subscriptions over `httpSubscriptionLink`, layered on t
 - **`sync.onJournalChange`** delivers group-wide append-only journal entries using tRPC v11's `tracked()` primitive. Gated on the all-complete precondition. Drives the live updates on `/results`.
 - **`sync.onSelfJournalChange`** delivers the caller's own append-only journal entries with the same `tracked()` resume semantics. Ungated. Drives the always-live answers cache (`useSelfJournal`) and cross-device hydration: a write on one device propagates to another device opened with the same person token within the SSE round-trip.
 
-For both `tracked()` subscriptions, the bigserial entry id flows through the SSE event id. The browser's EventSource sends the most recent id back as `Last-Event-ID` on reconnect; tRPC surfaces it as `input.lastEventId`, and the server's generator queries entries > cursor and replays them. Lossless by construction.
+For both `tracked()` subscriptions, the entry id — sealed into an opaque token so the global journal row count never leaves the server — flows through the SSE event id. The browser's EventSource sends the most recent id back as `Last-Event-ID` on reconnect; tRPC surfaces it as `input.lastEventId`, and the server's generator queries entries committed after the cursor and replays them. Lossless by construction.
 
 No polling fallback. Recovery relies on `httpSubscriptionLink` auto-reconnect + `tracked()` resume + server-side SSE pings (`sse.ping.intervalMs: 30_000`, client `reconnectAfterInactivityMs: 35_000`). If the stream is persistently broken the app degrades to "reload to fix".
 

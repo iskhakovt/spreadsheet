@@ -75,6 +75,23 @@ export interface OperationPayload {
 }
 
 /**
+ * Opaque journal entry id as it appears on the wire. The server seals the
+ * internal bigserial so clients can't read the global journal row count
+ * from it. Clients must treat it as an opaque, equality-only token: no
+ * parsing, no numeric comparison. Order comes from the server's response
+ * order, never from the id itself.
+ */
+export const JournalEntryId = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
+export type JournalEntryId = z.infer<typeof JournalEntryId>;
+
+export const JournalEntry = z.object({
+  id: JournalEntryId,
+  personId: z.string(),
+  operation: z.string(),
+});
+export type JournalEntry = z.infer<typeof JournalEntry>;
+
+/**
  * Wire shape returned by `sync.selfJournal` (and the backfill stage of
  * `sync.onSelfJournalChange`). Per-person, ungated, used by `useSelfJournal`
  * to hydrate the caller's own answers cache.
@@ -82,16 +99,13 @@ export interface OperationPayload {
  * Defined here in shared so the server route can `.output()` it for runtime
  * validation at the RPC boundary, and so the client can rely on the shape
  * without a `RouterOutputs` chain.
+ *
+ * `cursor` is the id of the last entry the response covers (or the echoed
+ * input cursor on an empty delta) — pass it back as `sinceId`.
  */
 export const SelfJournalResponse = z.object({
-  entries: z.array(
-    z.object({
-      id: z.number().int().nonnegative(),
-      personId: z.string(),
-      operation: z.string(),
-    }),
-  ),
-  cursor: z.number().int().nonnegative().nullable(),
+  entries: z.array(JournalEntry),
+  cursor: JournalEntryId.nullable(),
   stoken: z.string().nullable(),
 });
 export type SelfJournalResponse = z.infer<typeof SelfJournalResponse>;
@@ -161,6 +175,14 @@ export const memberSchema = z.object({
   progress: z.string().nullable(),
 });
 export type Member = z.infer<typeof memberSchema>;
+
+/** Wire shape returned by `sync.journal` (group-wide, gated on all-complete). */
+export const GroupJournalResponse = z.object({
+  members: z.array(memberSchema.pick({ id: true, name: true, anatomy: true })),
+  entries: z.array(JournalEntry),
+  cursor: JournalEntryId.nullable(),
+});
+export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
 
 export const groupSchema = z.object({
   id: z.string(),

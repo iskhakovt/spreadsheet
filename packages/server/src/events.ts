@@ -1,4 +1,4 @@
-import { EventEmitter } from "node:events";
+import { EventEmitter, on } from "node:events";
 
 /**
  * Shared event bus for server-side group state changes (status-level).
@@ -29,13 +29,43 @@ export function emitGroupUpdate(groupId: string): void {
  * `sync.onJournalChange` subscription listens and yields tracked events so
  * clients can resume losslessly on reconnect via the `lastEventId` cursor.
  */
-export const journalEvents = new EventEmitter();
+export const journalEvents = new EventEmitter<JournalEventMap>();
 journalEvents.setMaxListeners(0);
 
 export interface JournalEntryPayload {
   id: number;
   personId: string;
   operation: string;
+}
+
+/** Every journal event name carries one argument: the committed entries. */
+type JournalEventMap = Record<string, [entries: JournalEntryPayload[]]>;
+
+/**
+ * Typed wrapper over `events.on()` for the two journal buses.
+ *
+ * Node's `on()` yields `any[]` tuples whatever the emitter's event map, so
+ * the payload type is restored here — once, next to the emit side that
+ * guarantees it — instead of at every subscriber.
+ *
+ * The listener is attached synchronously, before this function returns.
+ * Subscribers rely on that for the subscribe-before-query invariant, so
+ * don't turn this into an async generator (its body would only run, and
+ * attach, on the first `next()`).
+ */
+export function journalUpdates(
+  emitter: EventEmitter<JournalEventMap>,
+  eventName: string,
+  signal: AbortSignal | undefined,
+): AsyncIterable<JournalEntryPayload[]> {
+  const events = on(emitter, eventName, { signal });
+  return {
+    async *[Symbol.asyncIterator](): AsyncGenerator<JournalEntryPayload[]> {
+      // `entries` is `any` from node's typings; the declared yield type
+      // above is where it becomes `JournalEntryPayload[]` again.
+      for await (const [entries] of events) yield entries;
+    },
+  };
 }
 
 export function journalEventName(groupId: string): string {
@@ -59,7 +89,7 @@ export function emitJournalUpdate(groupId: string, entries: JournalEntryPayload[
  * itself plus any other device the same person has open. The same-device
  * echo is harmless: the client merge step is idempotent on entry id.
  */
-export const selfJournalEvents = new EventEmitter();
+export const selfJournalEvents = new EventEmitter<JournalEventMap>();
 selfJournalEvents.setMaxListeners(0);
 
 export function selfJournalEventName(personId: string): string {

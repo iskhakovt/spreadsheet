@@ -25,6 +25,7 @@ const token = "test-token-" + Math.random().toString(36).slice(2);
 const yes: Answer = { rating: "yes", note: null };
 const no: Answer = { rating: "no", note: null };
 const maybe: Answer = { rating: "maybe", note: null };
+const OPAQUE_CURSOR = "AbCdEfGhIjKlMnOpQrSt_-";
 
 async function plainOp(key: string, data: Answer | null): Promise<string> {
   return encodeValue({ key, data }, null);
@@ -44,13 +45,13 @@ describe("getSelfJournalCursor / setSelfJournalCursor", () => {
     expect(getSelfJournalCursor()).toBe(null);
   });
 
-  it("round-trips a numeric cursor", () => {
-    setSelfJournalCursor(42);
-    expect(getSelfJournalCursor()).toBe(42);
+  it("round-trips an opaque cursor", () => {
+    setSelfJournalCursor(OPAQUE_CURSOR);
+    expect(getSelfJournalCursor()).toBe(OPAQUE_CURSOR);
   });
 
   it("clears the cursor when set to null", () => {
-    setSelfJournalCursor(42);
+    setSelfJournalCursor(OPAQUE_CURSOR);
     setSelfJournalCursor(null);
     expect(getSelfJournalCursor()).toBe(null);
   });
@@ -65,12 +66,13 @@ describe("getSelfJournalCursor / setSelfJournalCursor", () => {
     expect(getSelfJournalCursor()).toBe(null);
   });
 
-  it("treats negative or zero cursor values as absent", () => {
-    // Defense for the `> 0` branch in getSelfJournalCursor — a 0 or
-    // negative id can't be a valid bigserial.
-    localStorage.setItem(`${getScope()}selfJournalCursor`, "0");
+  it("migrates a legacy numeric cursor by treating it as absent", () => {
+    // Before ids became opaque this key held the raw bigserial. Old data
+    // must read as absent so the next mount does a full replay (the
+    // bootstrap path) and the write-through stores the new format.
+    localStorage.setItem(`${getScope()}selfJournalCursor`, "42");
     expect(getSelfJournalCursor()).toBe(null);
-    localStorage.setItem(`${getScope()}selfJournalCursor`, "-5");
+    localStorage.setItem(`${getScope()}selfJournalCursor`, "0");
     expect(getSelfJournalCursor()).toBe(null);
   });
 });
@@ -84,8 +86,8 @@ describe("applySelfJournalDelta", () => {
 
   it("bootstrap: empty prev + entries → server state", async () => {
     const entries = [
-      { id: 1, personId: "p", operation: await plainOp("a:mutual", yes) },
-      { id: 2, personId: "p", operation: await plainOp("b:give", no) },
+      { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) },
+      { id: "e2", personId: "p", operation: await plainOp("b:give", no) },
     ];
     const next = await applySelfJournalDelta({}, entries);
     expect(next).toEqual({ "a:mutual": yes, "b:give": no });
@@ -93,7 +95,7 @@ describe("applySelfJournalDelta", () => {
 
   it("server values overwrite prev for keys not in the outbox", async () => {
     const prev = { "a:mutual": no };
-    const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", yes) }];
+    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) }];
     clearPendingOps();
     const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(yes);
@@ -104,7 +106,7 @@ describe("applySelfJournalDelta", () => {
     addPendingOpForKey(await plainOp("a:mutual", maybe), "a:mutual");
     // Server says "yes", but pending op says "maybe" — pending wins because
     // the user's local edit hasn't reached the server yet.
-    const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", yes) }];
+    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) }];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(maybe);
   });
@@ -117,7 +119,7 @@ describe("applySelfJournalDelta", () => {
     // merge applies them, matching the bootstrap (full-replay) path.
     const prev = { "a:mutual": yes };
     clearPendingOps();
-    const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", null) }];
+    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", null) }];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next).not.toHaveProperty("a:mutual");
   });
@@ -127,7 +129,7 @@ describe("applySelfJournalDelta", () => {
     // deleting, the user's local intent must win (not yet pushed).
     const prev = { "a:mutual": yes };
     addPendingOpForKey(await plainOp("a:mutual", maybe), "a:mutual");
-    const entries = [{ id: 1, personId: "p", operation: await plainOp("a:mutual", null) }];
+    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", null) }];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(yes);
   });
@@ -137,8 +139,8 @@ describe("applySelfJournalDelta", () => {
     const prev = {};
     clearPendingOps();
     const entries = [
-      { id: 1, personId: "p", operation: await plainOp("a:mutual", yes) },
-      { id: 2, personId: "p", operation: await plainOp("a:mutual", null) },
+      { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) },
+      { id: "e2", personId: "p", operation: await plainOp("a:mutual", null) },
     ];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next).not.toHaveProperty("a:mutual");
@@ -148,8 +150,8 @@ describe("applySelfJournalDelta", () => {
     const prev = { "a:mutual": yes };
     clearPendingOps();
     const entries = [
-      { id: 1, personId: "p", operation: await plainOp("a:mutual", null) },
-      { id: 2, personId: "p", operation: await plainOp("a:mutual", maybe) },
+      { id: "e1", personId: "p", operation: await plainOp("a:mutual", null) },
+      { id: "e2", personId: "p", operation: await plainOp("a:mutual", maybe) },
     ];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(maybe);
@@ -157,7 +159,7 @@ describe("applySelfJournalDelta", () => {
 
   it("preserves prev values for keys not touched by the delta", async () => {
     const prev = { "a:mutual": yes, "c:give": no };
-    const entries = [{ id: 1, personId: "p", operation: await plainOp("b:mutual", maybe) }];
+    const entries = [{ id: "e1", personId: "p", operation: await plainOp("b:mutual", maybe) }];
     const next = await applySelfJournalDelta(prev, entries);
     expect(next["a:mutual"]).toEqual(yes);
     expect(next["c:give"]).toEqual(no);
@@ -172,8 +174,8 @@ describe("applySelfJournalDelta", () => {
     // applying serially against shared local state, then assert all
     // entries from both events are present in the final answers map.
     clearPendingOps();
-    const op1 = { id: 1, personId: "p", operation: await plainOp("a:mutual", yes) };
-    const op2 = { id: 2, personId: "p", operation: await plainOp("b:mutual", maybe) };
+    const op1 = { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) };
+    const op2 = { id: "e2", personId: "p", operation: await plainOp("b:mutual", maybe) };
 
     // Apply serially: each delta runs against the merged result of the
     // previous one. This is what the production chainRef-based onData
