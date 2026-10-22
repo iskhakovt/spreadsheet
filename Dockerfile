@@ -2,9 +2,17 @@
 
 # --- Build ---
 FROM mirror.gcr.io/library/node:24-slim AS build
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# pnpm 12 ships as a native binary that corepack can't run, so copy it
+# from the official image (https://pnpm.io/docker). Keep the tag in sync
+# with `packageManager` in package.json — a mismatch makes pnpm download
+# the pinned version at install time. /opt/pnpm also carries the node-gyp
+# pnpm uses for native deps, so copy the directory, not just the binary.
+COPY --from=ghcr.io/pnpm/pnpm:12.14.0 /opt/pnpm /opt/pnpm
+RUN ln -s /opt/pnpm/pnpm /usr/local/bin/pnpm
+# Explicit store so it lands on the cache mount below. pnpm 12 otherwise
+# falls back to node_modules/.pnpm-store when the store and project
+# can't hardlink across filesystems.
+ENV pnpm_config_store_dir=/pnpm/store
 WORKDIR /app
 
 # Install dependencies (lockfile-only layer for caching)
