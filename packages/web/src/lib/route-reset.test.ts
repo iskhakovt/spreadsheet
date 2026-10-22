@@ -46,7 +46,10 @@ describe("RouteReset", () => {
       render(createElement(RouterProvider, { router }));
     });
 
-    expect(scrollSpy).not.toHaveBeenCalled();
+    // RouteReset scrolls with the positional `scrollTo(0, 0)`. TanStack
+    // Router's own scroll restoration also resets the window on initial
+    // render, but via the options-object form — not ours to assert on.
+    expect(scrollSpy).not.toHaveBeenCalledWith(0, 0);
     expect(document.activeElement).toBe(document.body);
   });
 
