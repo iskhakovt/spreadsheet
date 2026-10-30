@@ -10,6 +10,12 @@ export default defineConfig({
           include: ["packages/*/src/**/*.test.{ts,tsx}"],
           exclude: ["packages/*/src/**/*.integration.test.ts"],
           env: { REQUIRE_ENCRYPTION: "false" },
+          // Node 25+ defines a global `localStorage` that is `undefined`
+          // without `--localstorage-file`, and happy-dom doesn't replace it,
+          // so DOM tests see no localStorage. Disable Node's Web Storage so
+          // the happy-dom one wins (vitest-dev/vitest#8757). The flag exists
+          // since Node 22.4, so older runtimes accept it too.
+          execArgv: ["--no-experimental-webstorage"],
         },
       },
       {
