@@ -375,8 +375,8 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
       vite-plugin-compression2:
-        specifier: ^2.5.3
-        version: 2.5.3(rollup@4.64.12)
+        specifier: ^2.5.4
+        version: 2.5.4(rollup@4.64.12)
       vite-plugin-pwa:
         specifier: ^2.0.0
         version: 2.0.0(supports-color@10.2.2)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(workbox-build@7.4.1(supports-color@10.2.2))(workbox-window@7.4.1)
@@ -4965,8 +4965,8 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  vite-plugin-compression2@2.5.3:
-    resolution: {integrity: sha512-ItPgqQWkcnBbVw7is9OKwiZ8v6+ju9rYROl5Lp6QfQDEx/d55AwJQb/KLpsQqsU9HoigYBsZ8tK6I02UwJNvEw==}
+  vite-plugin-compression2@2.5.4:
+    resolution: {integrity: sha512-zZ8gKdboMu+yoD1GD3MIgdEdN0ds8+leZ253/641yxMRa8bwa8Tl71DFcJR2IKLGLve1B+GRdLfIYyecv06QQQ==}
 
   vite-plugin-pwa@2.0.0:
     resolution: {integrity: sha512-6G9dsPKT9QKYpeTuTLJM28zZL3HsXUTUM/QUZBEgQk2jbfrPJDq2i8gTewAKqi1c9Mt6MiidrL4SFI+HthiQMg==}
@@ -9654,7 +9654,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite-plugin-compression2@2.5.3(rollup@4.64.12):
+  vite-plugin-compression2@2.5.4(rollup@4.64.12):
     dependencies:
       '@rollup/pluginutils': 5.4.0(rollup@4.64.12)
       tar-mini: 0.2.0
