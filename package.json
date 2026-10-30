@@ -24,7 +24,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.2",
+    "@biomejs/biome": "^2.6.4",
     "@dreamsicle.io/stylelint-config-tailwindcss": "^1.2.2",
     "@playwright/test": "^1.64.1",
     "@testcontainers/postgresql": "^12.2.1",
