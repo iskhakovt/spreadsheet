@@ -16,7 +16,7 @@
     "@hono/trpc-server": "^0.4.2",
     "@prometheus-io/client": "^0.16.1",
     "@spreadsheet/shared": "workspace:*",
-    "@trpc/server": "^11.19.0",
+    "@trpc/server": "^11.24.0",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.14",
     "node-html-parser": "^9.0.5",
