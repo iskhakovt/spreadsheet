@@ -338,9 +338,9 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
       </div>
 
       <div className="max-w-2xl mx-auto space-y-10">
-        {/* Entrance sequence. Heading lines, tabs and panel are flat siblings
-            so sibling-index() drives the .stagger cascade across all of them —
-            hence per-item centering and margins instead of a nested <header>. */}
+        {/* Flat on purpose: .stagger steps by sibling position, so heading
+            lines, tabs and panel stay siblings. Hence no <header> wrapper and
+            per-item centering/margins. */}
         <div>
           <p className="stagger mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-accent/70">
             Everyone's done

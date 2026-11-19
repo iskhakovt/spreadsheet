@@ -70,8 +70,7 @@ export function CategoryWelcomeScreen({
           {cat?.label}
         </h2>
 
-        {/* Description and question count land on the same beat, so they
-            share one .stagger wrapper (the delay comes from sibling-index()). */}
+        {/* One .stagger wrapper so description and count share a beat. */}
         <div className="stagger space-y-8">
           {cat?.description && (
             <p className="text-text-muted leading-[1.7] text-[15px] text-balance max-w-[22rem] mx-auto">

@@ -108,23 +108,18 @@ body::before {
   animation: fade-slide-in 0.4s var(--ease-spring) both;
 }
 
-/* Staggered entrance — siblings animate in sequence with a spring ease,
-   one 120ms step per position. The step comes from sibling-index(), which
-   is 1-based and counts every element sibling in DOM order: keep a
-   sequence's .stagger items together in one container, with no other
-   elements ahead of them, and wrap items that should land on the same
-   beat in a single .stagger element.
+/* Staggered entrance: one 120ms step per sibling position. sibling-index()
+   counts every element sibling, so a sequence's .stagger items must be the
+   leading children of one container; wrap items that share a beat in a
+   single .stagger element.
 
-   Browsers without tree-counting functions (Chrome < 138, Safari < 26.2,
-   Firefox < 154) fail the @supports test and take the :nth-child()
-   fallback, which counts siblings the same way but only covers the first
-   five positions (the longest sequence today) — add a rule if a screen
-   needs more. The fallback is gated by `@supports not` because
-   .stagger:nth-child() outranks .stagger and would otherwise shadow the
-   native rule. Feature queries rather than a fallback-then-override
-   declaration pair: a declaration that contains var() isn't validated at
-   parse time, so an unsupporting browser would keep it and drop the delay
-   to 0s instead of falling back. */
+   Without sibling-index() (Chrome < 138, Safari < 26.2, Firefox < 154) the
+   :nth-child() rules take over: same counting, first five positions only,
+   so add a rule for a longer sequence. They're gated by `@supports not`
+   because .stagger:nth-child() outranks .stagger. Feature queries, not a
+   fallback-then-override declaration pair: a declaration containing var()
+   isn't validated at parse time, so old browsers would keep it and get a
+   0s delay. */
 .stagger {
   animation: fade-slide-in 0.5s 80ms var(--ease-spring) both;
 }
@@ -135,7 +130,7 @@ body::before {
   }
 }
 
-/* (n - 1) * 120ms + 80ms, spelled out per position. */
+/* Keep in sync with the rule above: (n - 1) * 120ms + 80ms. */
 @supports not (animation-delay: calc(sibling-index() * 1ms)) {
   .stagger:nth-child(2) {
     animation-delay: 200ms;
