@@ -7,7 +7,7 @@ FROM mirror.gcr.io/library/node:26-slim AS build
 # with `packageManager` in package.json — a mismatch makes pnpm download
 # the pinned version at install time. /opt/pnpm also carries the node-gyp
 # pnpm uses for native deps, so copy the directory, not just the binary.
-COPY --from=ghcr.io/pnpm/pnpm:12.14.0 /opt/pnpm /opt/pnpm
+COPY --from=ghcr.io/pnpm/pnpm:12.22.0 /opt/pnpm /opt/pnpm
 RUN ln -s /opt/pnpm/pnpm /usr/local/bin/pnpm
 # Explicit store so it lands on the cache mount below. pnpm 12 otherwise
 # falls back to node_modules/.pnpm-store when the store and project
@@ -35,6 +35,15 @@ RUN pnpm --filter @spreadsheet/shared build \
 # Deploy server with production deps only
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm deploy --filter @spreadsheet/server --prod /app/deployed
+
+# Fail the build if build tooling leaks into the production deps. pnpm
+# auto-installs required peers, so a runtime package that lists e.g.
+# `typescript` as a non-optional peer drags the compiler — a Go binary
+# that Trivy flags for every Go stdlib CVE — into the image. See
+# packageExtensions in pnpm-workspace.yaml.
+RUN leaked="$(find /app/deployed/node_modules/.pnpm -maxdepth 1 \
+      \( -name 'typescript@*' -o -name '@typescript+*' -o -name 'esbuild@*' -o -name '@esbuild+*' \))" \
+    && if [ -n "$leaked" ]; then echo "build tooling in prod deps: $leaked" >&2; exit 1; fi
 
 # --- Runtime (distroless — no shell, no package manager) ---
 # Distroless is tracked by its nodejs26-debian13 channel rather than a

@@ -95,14 +95,13 @@ updates:
       # see the docker ecosystem's node ignore below.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # Vitest <=5.0.5 with Vite 8.3.5 crashes while printing a globalSetup
-      # error (`code.charCodeAt is not a function`: Vitest's server runner
-      # reads a temp file as a Buffer, Vite 8.3.5 expects text), so a failing
-      # integration setup shows up only as "No test files found".
-      # https://github.com/vitest-dev/vitest/issues/11682 — the fix lands in
-      # Vitest, so later releases are still proposed; drop this once one is out.
-      - dependency-name: vitest
-        versions: [">=5.0.0 <=5.0.5"]
+      # typescript is pinned to 7.1.0-beta, the first 7.x whose native
+      # compiler is built with Go >= 1.26.9 (7.0.2 ships Go 1.26.4). Its
+      # nightlies are 7.1.0-dev.* prereleases, which sort between -beta and
+      # -rc; skip them so only the RC and stable releases are proposed.
+      # Drop this once typescript is on a stable release again.
+      - dependency-name: typescript
+        versions: [">7.1.0-beta <7.1.0-rc"]
 
   - package-ecosystem: docker
     directory: /
