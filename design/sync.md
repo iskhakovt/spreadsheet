@@ -47,9 +47,7 @@ Clients treat ids as equality-only tokens. Entry order comes from the server's r
 Decoding is lenient everywhere, because the client can't recover from an error on a cursor it persisted:
 
 - **Read cursors** — anything undecodable (legacy numeric cursors, a rotated secret, garbage) means "no cursor" → full backfill. That keeps an auto-reconnecting EventSource from looping on a stale `Last-Event-ID`. Within one key, consumers dedup the overlap by id. After a secret rotation the same entries re-seal to different tokens, so an open `/results` tab holds a second copy of the journal until reload; replay stays correct because the complete sequence is replayed in order after the stale copy.
-- **Stoken** — an undecodable stoken is treated as maximally stale, so the push takes the normal rejection path (full journal + fresh stoken) instead of failing. A throw here would wedge the client: it only replaces its stoken from a successful push response.
-
-Legacy `v1` stokens (`base64url("v1:" + id + ":" + hmac)`) persisted by older clients are still accepted on push; the server only mints the opaque form.
+- **Stoken** — an undecodable stoken (a rotated secret, a pre-opaque `v1` token, garbage) is treated as maximally stale, so the push takes the normal rejection path (full journal + fresh stoken) instead of failing. A throw here would wedge the client: it only replaces its stoken from a successful push response.
 
 `null` stoken on first sync = "give me everything."
 

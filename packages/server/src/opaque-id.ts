@@ -33,7 +33,7 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{21}[AQgw]$/;
 
 const keyCache = new Map<string, Buffer>();
 
-export function getSecret(): string {
+function getSecret(): string {
   const secret = process.env.STOKEN_SECRET;
   if (!secret) {
     throw new Error("STOKEN_SECRET environment variable is required");
