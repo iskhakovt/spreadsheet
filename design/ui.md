@@ -46,12 +46,12 @@ All visual tokens are defined as CSS custom properties in `packages/web/src/inde
 
 **Animations** declared globally:
 - `.animate-in` — 400ms fade + slide-up entrance on the spring curve
-- `.stagger` — sibling entrance with per-element `--stagger-index` driving a 120ms step delay
+- `.stagger` — sibling entrance cascade, 120ms per step, with the step taken from CSS `sibling-index()`
 - `.float-a` / `.float-b` — 20s/26s drift for decorative background blobs (different periods to avoid settling)
 - `.celebrate` — one-shot scale + accent-color ring pulse for mark-complete moments
 - `@media (prefers-reduced-motion: reduce)` disables all of these
 
-The `stagger` class uses an inline `--stagger-index` prop rather than CSS `sibling-index()` because Firefox doesn't ship it yet — tracked in [../todo.md](../todo.md).
+`.stagger` is fully declarative — no inline style or index prop. `sibling-index()` counts every element sibling in DOM order (1-based), so a sequence's `.stagger` items sit together in one container with nothing ahead of them; items that should land on the same beat share one `.stagger` wrapper (the category welcome screen's description + question count). Conditionally rendered items just close the gap — no dead beat when one is absent. Browsers without tree-counting functions (Chrome < 138, Safari < 26.2, Firefox < 154) fail the `@supports` test and play every item together at the base delay.
 
 ## Screens
 

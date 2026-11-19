@@ -55,7 +55,7 @@ export function Landing() {
       </div>
 
       <div className="relative text-center max-w-sm w-full">
-        <div className="stagger flex justify-center mb-12" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+        <div className="stagger flex justify-center mb-12">
           <img
             src="/logo.svg"
             alt=""
@@ -65,27 +65,21 @@ export function Landing() {
           />
         </div>
 
-        <div className="stagger mb-5" style={{ "--stagger-index": 1 } as React.CSSProperties}>
+        <div className="stagger mb-5">
           <h1 className="text-[3.5rem] leading-[0.92] font-bold tracking-[-0.035em] text-text">{UI.appName}</h1>
         </div>
 
-        <div
-          className="stagger mb-12 flex items-center justify-center gap-4"
-          style={{ "--stagger-index": 2 } as React.CSSProperties}
-        >
+        <div className="stagger mb-12 flex items-center justify-center gap-4">
           <span className="h-px w-10 bg-gradient-to-r from-transparent to-accent/30" />
           <p className="text-[15px] text-accent font-medium italic tracking-wide">{UI.tagline}</p>
           <span className="h-px w-10 bg-gradient-to-l from-transparent to-accent/30" />
         </div>
 
-        <p
-          className="stagger text-text-muted leading-[1.75] text-[15px] text-balance mb-12"
-          style={{ "--stagger-index": 3 } as React.CSSProperties}
-        >
+        <p className="stagger text-text-muted leading-[1.75] text-[15px] text-balance mb-12">
           {UI.landing.description}
         </p>
 
-        <div className="stagger space-y-7" style={{ "--stagger-index": 4 } as React.CSSProperties}>
+        <div className="stagger space-y-7">
           <Button fullWidth onClick={() => navigate({ to: "/", state: (prev) => ({ ...prev, create: true }) })}>
             {UI.landing.getStarted}
           </Button>

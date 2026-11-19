@@ -108,10 +108,27 @@ body::before {
   animation: fade-slide-in 0.4s var(--ease-spring) both;
 }
 
-/* Staggered entrance — each sibling animates in sequence with a spring
-   ease. Set --stagger-index via inline style for per-element delay. */
+/* Staggered entrance — siblings animate in sequence with a spring ease,
+   one 120ms step per position. The step comes from sibling-index(), which
+   is 1-based and counts every element sibling in DOM order: keep a
+   sequence's .stagger items together in one container, with no other
+   elements ahead of them, and wrap items that should land on the same
+   beat in a single .stagger element.
+
+   Browsers without tree-counting functions (Chrome < 138, Safari < 26.2,
+   Firefox < 154) fail the @supports test and play every item at the base
+   delay — same entrance, minus the cascade. @supports rather than a
+   fallback-then-override declaration pair: a declaration that contains
+   var() isn't validated at parse time, so an unsupporting browser would
+   keep it and drop the delay to 0s instead of falling back. */
 .stagger {
-  animation: fade-slide-in 0.5s calc(var(--stagger-index, 0) * 120ms + 80ms) var(--ease-spring) both;
+  animation: fade-slide-in 0.5s 80ms var(--ease-spring) both;
+}
+
+@supports (animation-delay: calc(sibling-index() * 1ms)) {
+  .stagger {
+    animation-delay: calc((sibling-index() - 1) * 120ms + 80ms);
+  }
 }
 
 /* Gentle drift for decorative background blobs. Two variants with
