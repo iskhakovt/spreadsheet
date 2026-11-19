@@ -116,10 +116,10 @@ body::before {
    Without sibling-index() (Chrome < 138, Safari < 26.2, Firefox < 154) the
    :nth-child() rules take over: same counting, first five positions only,
    so add a rule for a longer sequence. They're gated by `@supports not`
-   because .stagger:nth-child() outranks .stagger. Feature queries, not a
-   fallback-then-override declaration pair: a declaration containing var()
-   isn't validated at parse time, so old browsers would keep it and get a
-   0s delay. */
+   because .stagger:nth-child() outranks .stagger. The @supports guard is
+   what keeps var() safe in the native rule (or folding it into the
+   animation shorthand): var() skips parse-time validation, so unguarded,
+   old browsers would keep the declaration and break the entrance. */
 .stagger {
   animation: fade-slide-in 0.5s 80ms var(--ease-spring) both;
 }
