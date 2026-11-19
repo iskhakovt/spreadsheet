@@ -116,11 +116,15 @@ body::before {
    beat in a single .stagger element.
 
    Browsers without tree-counting functions (Chrome < 138, Safari < 26.2,
-   Firefox < 154) fail the @supports test and play every item at the base
-   delay — same entrance, minus the cascade. @supports rather than a
-   fallback-then-override declaration pair: a declaration that contains
-   var() isn't validated at parse time, so an unsupporting browser would
-   keep it and drop the delay to 0s instead of falling back. */
+   Firefox < 154) fail the @supports test and take the :nth-child()
+   fallback, which counts siblings the same way but only covers the first
+   five positions (the longest sequence today) — add a rule if a screen
+   needs more. The fallback is gated by `@supports not` because
+   .stagger:nth-child() outranks .stagger and would otherwise shadow the
+   native rule. Feature queries rather than a fallback-then-override
+   declaration pair: a declaration that contains var() isn't validated at
+   parse time, so an unsupporting browser would keep it and drop the delay
+   to 0s instead of falling back. */
 .stagger {
   animation: fade-slide-in 0.5s 80ms var(--ease-spring) both;
 }
@@ -128,6 +132,25 @@ body::before {
 @supports (animation-delay: calc(sibling-index() * 1ms)) {
   .stagger {
     animation-delay: calc((sibling-index() - 1) * 120ms + 80ms);
+  }
+}
+
+/* (n - 1) * 120ms + 80ms, spelled out per position. */
+@supports not (animation-delay: calc(sibling-index() * 1ms)) {
+  .stagger:nth-child(2) {
+    animation-delay: 200ms;
+  }
+
+  .stagger:nth-child(3) {
+    animation-delay: 320ms;
+  }
+
+  .stagger:nth-child(4) {
+    animation-delay: 440ms;
+  }
+
+  .stagger:nth-child(5) {
+    animation-delay: 560ms;
   }
 }
 

@@ -51,7 +51,7 @@ All visual tokens are defined as CSS custom properties in `packages/web/src/inde
 - `.celebrate` — one-shot scale + accent-color ring pulse for mark-complete moments
 - `@media (prefers-reduced-motion: reduce)` disables all of these
 
-`.stagger` is fully declarative — no inline style or index prop. `sibling-index()` counts every element sibling in DOM order (1-based), so a sequence's `.stagger` items sit together in one container with nothing ahead of them; items that should land on the same beat share one `.stagger` wrapper (the category welcome screen's description + question count). Conditionally rendered items just close the gap — no dead beat when one is absent. Browsers without tree-counting functions (Chrome < 138, Safari < 26.2, Firefox < 154) fail the `@supports` test and play every item together at the base delay.
+`.stagger` is fully declarative — no inline style or index prop. `sibling-index()` counts every element sibling in DOM order (1-based), so a sequence's `.stagger` items sit together in one container with nothing ahead of them; items that should land on the same beat share one `.stagger` wrapper (the category welcome screen's description + question count). Conditionally rendered items just close the gap — no dead beat when one is absent. Browsers without tree-counting functions (Chrome < 138, Safari < 26.2, Firefox < 154) fail the `@supports` test and fall back to `:nth-child()` rules — same counting, same cascade, but only for the first five positions (the longest sequence today). A screen that needs a longer sequence adds a rule there.
 
 ## Screens
 
