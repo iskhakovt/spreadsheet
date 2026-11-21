@@ -97,6 +97,20 @@ The IV is not secret — it's stored alongside the ciphertext (prepended). The s
 
 The random IV also acts as a salt — encrypting the same value (e.g. `"amab"`) twice with different IVs produces completely different ciphertext. No pattern leakage from repeated values. This is inherent to GCM mode, no extra salting step needed.
 
+### Length padding
+
+GCM is a stream mode: ciphertext is exactly as long as its plaintext, so an unpadded op tells the server how long its JSON was. That is enough to read answers. The five ratings serialize to five different lengths (`no` = 2, `yes` = 3, `maybe` = 5, `fantasy` = 7, `if-partner-wants` = 16), set and clear differ, and the server can guess the question from answer order. Names and progress leak their length the same way.
+
+So before encrypting, the client pads the UTF-8 JSON with trailing spaces to a size bucket: **256 bytes, then the next power of two** (`padJson` in `packages/web/src/lib/crypto.ts`, applied to every value `encodeValue` encrypts).
+
+- 256 bytes covers every note-less op (the longest today, `watching-partner-masturbate:receive` + `if-partner-wants`, is 94 bytes), short notes, names, anatomy and progress. All of them encrypt to one identical length.
+- Above that, only long notes. The length reveals the power-of-two bucket, not the note's length.
+- Buckets are counted in UTF-8 bytes, not UTF-16 code units, so multibyte notes can't spill past their bucket.
+
+Trailing whitespace is insignificant to `JSON.parse`, so the padding stays inside the `e:1:` format with no version bump. The decrypt path needs no unpadding step, clients still on pre-padding code read padded values, and pre-padding entries (still in the append-only journal) decode as before. Those older entries keep their original lengths. Padding protects new writes only.
+
+Plaintext (`p:1:`) values aren't padded: the server can read them anyway.
+
 ### Key lifecycle
 
 | Step | How |
@@ -178,6 +192,7 @@ This ensures:
 
 - Person tokens, admin flags, completion status
 - How many journal entries each person has (it stores them), when they synced
+- Each value's padded size bucket (see [Length padding](#length-padding)): in practice, only whether a note is long, and roughly how long
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
 
 ## Sync Protocol
