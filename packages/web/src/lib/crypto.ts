@@ -38,11 +38,39 @@ async function importKey(base64urlKey: string): Promise<CryptoKey> {
   );
 }
 
-/** Encrypt a string. Returns base64url(iv || ciphertext) */
-async function encryptRaw(plaintext: string, key: CryptoKey): Promise<string> {
+/**
+ * Smallest padded plaintext, in bytes. AES-GCM ciphertext is exactly as long
+ * as its plaintext, so without padding the server could read an answer off
+ * the length of its op: the five ratings serialize to five different lengths,
+ * and the question key and set-vs-clear shift it further. 256 covers every
+ * note-less op (longest today: 94 bytes) with room for short notes and longer
+ * future question ids, so all of those encrypt to one identical length.
+ */
+const MIN_PADDED_BYTES = 256;
+
+/**
+ * UTF-8 encode a JSON string and pad it with trailing spaces to a size bucket:
+ * MIN_PADDED_BYTES, then the next power of two. Above the floor (long notes)
+ * the length reveals only which bucket a value fell in.
+ *
+ * Trailing whitespace is insignificant to `JSON.parse`, so this stays inside
+ * the `e:1:` format: `decodeValue` needs no unpadding step, clients still on
+ * pre-padding code read padded values unchanged, and older unpadded values
+ * keep decoding as before.
+ */
+function padJson(json: string): Uint8Array<ArrayBuffer> {
+  const bytes = new TextEncoder().encode(json);
+  let size = MIN_PADDED_BYTES;
+  while (size < bytes.length) size *= 2;
+  const padded = new Uint8Array(size).fill(0x20); // ASCII space
+  padded.set(bytes);
+  return padded;
+}
+
+/** Encrypt bytes. Returns base64url(iv || ciphertext) */
+async function encryptRaw(plaintext: Uint8Array<ArrayBuffer>, key: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  const encoded = new TextEncoder().encode(plaintext);
-  const ciphertext = await crypto.subtle.encrypt({ name: ALGO, iv }, key, encoded);
+  const ciphertext = await crypto.subtle.encrypt({ name: ALGO, iv }, key, plaintext);
   // Prepend IV to ciphertext
   const combined = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
   combined.set(iv, 0);
@@ -62,7 +90,8 @@ async function decryptRaw(encoded: string, key: CryptoKey): Promise<string> {
 /**
  * Encode a value as an opaque string.
  * - Plaintext mode: `p:1:json`
- * - Encrypted mode: `e:1:base64url(iv || ciphertext)`
+ * - Encrypted mode: `e:1:base64url(iv || ciphertext)`, JSON padded to a size
+ *   bucket first (see `padJson`) so the length doesn't leak the value.
  *
  * groupKey: omit to use the session key, pass null to force plaintext, pass a string to encrypt with that key.
  */
@@ -73,7 +102,7 @@ export async function encodeValue(value: unknown, groupKey?: string | null): Pro
     return encodeOpaque(false, json);
   }
   const key = await importKey(resolvedKey);
-  const encrypted = await encryptRaw(json, key);
+  const encrypted = await encryptRaw(padJson(json), key);
   return encodeOpaque(true, encrypted);
 }
 
