@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AnatomyPicker } from "../../../components/AnatomyPicker.js";
 import { Button } from "../../../components/Button.js";
 import { Card } from "../../../components/Card.js";
+import { wrapSensitive } from "../../../lib/crypto.js";
 import { usePersonApp } from "../../../lib/person-app-context.js";
 import { useTRPC } from "../../../lib/trpc.js";
 
@@ -64,7 +65,13 @@ function SetupRoute() {
         <Button
           fullWidth
           disabled={!canSubmit}
-          onClick={() => canSubmit && setProfileMutation.mutate({ name: trimmedName, anatomy: anatomy || null })}
+          onClick={async () => {
+            if (!canSubmit) return;
+            setProfileMutation.mutate({
+              name: await wrapSensitive(trimmedName),
+              anatomy: anatomy ? await wrapSensitive(anatomy) : null,
+            });
+          }}
         >
           Continue
         </Button>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AnatomyPicker } from "../../../components/AnatomyPicker.js";
 import { Button } from "../../../components/Button.js";
 import { Card } from "../../../components/Card.js";
+import { wrapSensitive } from "../../../lib/crypto.js";
 import { usePersonApp } from "../../../lib/person-app-context.js";
 import { useTRPC } from "../../../lib/trpc.js";
 
@@ -35,9 +36,15 @@ function AnatomyRoute() {
         <Button
           fullWidth
           disabled={!selected || setProfileMutation.isPending}
-          onClick={() => {
+          onClick={async () => {
             if (!selected || setProfileMutation.isPending) return;
-            setProfileMutation.mutate({ name: authedStatus.person.name, anatomy: selected });
+            // `authedStatus` holds the decrypted status, so both fields are
+            // plaintext here and must be re-wrapped before they reach the
+            // server. Sending the name as-is would overwrite its ciphertext.
+            setProfileMutation.mutate({
+              name: await wrapSensitive(authedStatus.person.name),
+              anatomy: await wrapSensitive(selected),
+            });
           }}
         >
           Continue
