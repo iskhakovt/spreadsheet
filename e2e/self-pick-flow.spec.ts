@@ -13,12 +13,15 @@ interface ProfileInput {
  * input by its index in that list.
  */
 async function continueAndCaptureProfile(page: Page): Promise<ProfileInput> {
-  const request = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("groups.setProfile"));
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  const req = await request;
-  const procedures = new URL(req.url()).pathname.split("/").at(-1)?.split(",") ?? [];
+  const proceduresOf = (url: string) => new URL(url).pathname.replace(/^\/api\/trpc\//, "").split(",");
+  const [req] = await Promise.all([
+    page.waitForRequest((r) => r.method() === "POST" && proceduresOf(r.url()).includes("groups.setProfile")),
+    page.getByRole("button", { name: "Continue", exact: true }).click(),
+  ]);
   const body = JSON.parse(req.postData() ?? "{}") as Record<string, ProfileInput>;
-  return body[String(procedures.indexOf("groups.setProfile"))];
+  const input = body[String(proceduresOf(req.url()).indexOf("groups.setProfile"))];
+  expect(input, "groups.setProfile input in batch body").toBeDefined();
+  return input;
 }
 
 /**
