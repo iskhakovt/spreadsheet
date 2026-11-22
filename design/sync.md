@@ -103,11 +103,13 @@ GCM is a stream mode: ciphertext is exactly as long as its plaintext, so an unpa
 
 So before encrypting, the client pads the UTF-8 JSON with trailing spaces to a size bucket: **256 bytes, then the next power of two** (`padJson` in `packages/web/src/lib/crypto.ts`, applied to every value `encodeValue` encrypts).
 
-- 256 bytes covers every note-less op (the longest today, `watching-partner-masturbate:receive` + `if-partner-wants`, is 94 bytes), short notes, names, anatomy and progress. All of them encrypt to one identical length.
-- Above that, only long notes. The length reveals the power-of-two bucket, not the note's length.
+- 256 bytes covers every note-less op (the longest today, `watching-partner-masturbate:receive` + `if-partner-wants`, is 94 bytes), notes up to about 160 bytes, names, anatomy and progress. Within that bucket, rating, question, set/clear and note presence are all hidden.
+- Above 256 bytes, the length reveals the power-of-two bucket of the **whole serialized value**, not the note's exact length. The rating and key are part of that value, so a note sitting just under a boundary can be pushed over it by a longer rating (`if-partner-wants` vs `no` is 14 bytes). The server learns that the value crossed a boundary, which only narrows the rating if it already knows the note's length to within those few bytes. Very long names (over about 250 bytes) leave the first bucket too.
 - Buckets are counted in UTF-8 bytes, not UTF-16 code units, so multibyte notes can't spill past their bucket.
 
-Trailing whitespace is insignificant to `JSON.parse`, so the padding stays inside the `e:1:` format with no version bump. The decrypt path needs no unpadding step, clients still on pre-padding code read padded values, and pre-padding entries (still in the append-only journal) decode as before. Those older entries keep their original lengths. Padding protects new writes only.
+Trailing whitespace is insignificant to `JSON.parse`, so the padding stays inside the `e:1:` format with no version bump. The decrypt path needs no unpadding step, clients still on pre-padding code read padded values, and pre-padding entries (still in the append-only journal) decode as before.
+
+The guarantee covers values encoded by updated clients only. Entries already in the append-only journal keep their original lengths. A client still on the old service worker keeps sending unpadded values until it updates. So does an outbox op encoded before the update: `pendingOps` are opaque and sent as stored.
 
 Plaintext (`p:1:`) values aren't padded: the server can read them anyway.
 
@@ -192,7 +194,7 @@ This ensures:
 
 - Person tokens, admin flags, completion status
 - How many journal entries each person has (it stores them), when they synced
-- Each value's padded size bucket (see [Length padding](#length-padding)): in practice, only whether a note is long, and roughly how long
+- Each value's padded size bucket (see [Length padding](#length-padding)): in practice, whether an answer carries a long note and roughly how long. Values from pre-padding clients show their exact length.
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
 
 ## Sync Protocol

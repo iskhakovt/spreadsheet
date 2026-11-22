@@ -163,6 +163,14 @@ describe("encrypted length padding", () => {
     }
   });
 
+  it("encodes very long notes (padded past 128 KiB) without overflowing the argument limit", async () => {
+    // 70 KB of note pads to a 128 KiB bucket. Spreading that into a single
+    // String.fromCharCode call throws RangeError in V8.
+    const key = await generateGroupKey();
+    const value = op("kissing:mutual", { rating: "yes", note: "x".repeat(70_000) });
+    expect(await decodeValue(await encodeValue(value, key), key)).toEqual(value);
+  });
+
   it("decodes legacy unpadded e:1: values", async () => {
     // Pre-padding clients encrypted the bare JSON. Those journal entries
     // and profile fields stay on the server, so new code must keep reading them.

@@ -208,8 +208,17 @@ export function buildPersonLink(token: string): string {
 
 // --- base64url helpers (no padding) ---
 
+/** Bytes per `String.fromCharCode` call, well under engines' argument-count limits. */
+const BINARY_CHUNK = 0x8000;
+
 function base64urlEncode(bytes: Uint8Array): string {
-  const binary = String.fromCharCode(...bytes);
+  // Chunked: spreading a whole buffer into one call throws RangeError once it
+  // passes the engine's argument limit (V8: somewhere between 64 and 128 KiB).
+  // Padding rounds long notes up to powers of two, which reaches that limit.
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += BINARY_CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BINARY_CHUNK));
+  }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
