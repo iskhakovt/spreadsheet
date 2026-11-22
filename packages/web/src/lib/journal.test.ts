@@ -50,6 +50,24 @@ describe("replayJournal", () => {
     expect(state["oral:give"]).toEqual({ rating: "yes", note: null });
   });
 
+  it("skips plaintext entries injected into an encrypted journal", async () => {
+    // The server can't forge e: ciphertext but can insert p: rows. With a
+    // key held they're skipped, so a forged "yes" can't override, or stand
+    // in for, the member's real encrypted answer.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const key = await generateGroupKey();
+    const real = await encodeValue({ key: "oral:give", data: { rating: "no", note: null } }, key);
+    const entries = [
+      { operation: real },
+      { operation: plainOp("oral:give", { rating: "yes", note: null }) },
+      { operation: plainOp("anal:receive", { rating: "yes", note: null }) },
+    ];
+    const state = await replayJournal(entries, key);
+    expect(state).toEqual({ "oral:give": { rating: "no", note: null } });
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+  });
+
   it("backfills note: null for legacy envelopes that predate the field", async () => {
     // Pre-PR-89 journal entries serialize `{ rating, timing }` with no
     // `note` key. New code consumes `Answer` as `{ rating, timing, note }`,

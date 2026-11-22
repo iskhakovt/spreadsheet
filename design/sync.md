@@ -127,7 +127,7 @@ e:1:dGhpcyBpcyBlbmNyeXB0ZWQ...
 
 The client parses by locating the first two colons — the payload after the second colon is preserved verbatim (it may itself contain `:`). Old format versions remain supported — a `p:1:` entry still works after `p:2:` is introduced.
 
-The server stores and returns the full prefixed string as-is. It may optionally validate that the prefix matches the group's `encrypted` flag.
+The server stores and returns the full prefixed string as-is. It rejects pushed operations whose prefix doesn't match the group's `encrypted` flag (`encryption_mismatch`). Clients holding a key check independently on read and refuse anything but `e:` (see [Threat model](#threat-model)).
 
 | Mode | `group.encrypted` | Prefix | Key management |
 |-|-|-|-|
@@ -179,6 +179,27 @@ This ensures:
 - Person tokens, admin flags, completion status
 - How many journal entries each person has (it stores them), when they synced
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
+
+### Threat model
+
+Encryption keeps answers, names, anatomy and progress unreadable to the server. It does not make the server trustworthy. What each kind of attacker can do in an encrypted group:
+
+| Attacker | Can | Can't |
+|-|-|-|
+| Reads the database or traffic (leaked dump, backup, logs) | See the metadata listed above | Read any encrypted field |
+| Edits database rows or API responses, but not the JavaScript the browser runs | Reassign entries or names to a different member; drop or reorder a member's entries so an older answer wins; release the journal before everyone completes | Read anything; create new `e:` ciphertext; move an answer to a different question (the `questionId:role` key is inside the ciphertext); inject plaintext answers or names (below) |
+| Controls the JavaScript the browser runs | Everything: read `#key=` from the URL and send itself every decrypted answer | — |
+
+The last row is the ceiling for any browser app with end-to-end encryption: whoever serves the code can remove every client-side check. Today the same Hono process serves both the SPA and the API, and the PWA auto-updates (`registerType: "autoUpdate"`), so a compromise of the server process means a compromise of the code. The client-side checks are aimed at the middle row: an attacker who can edit stored data or API responses but can't ship code.
+
+**A held key means every value must be `e:`.** `decodeValue` throws `UnencryptedValueError` on `p:` values, and `unwrapSensitive` throws it on `p:` and raw strings, whenever a group key is present. Without this, a server that can't forge ciphertext could still write a `p:1:` answer or a raw name into an encrypted group, and the client would show it as the member's own. Replay skips refused journal entries (like any malformed entry), and a refused name or anatomy fails the screen. That's the same as a ciphertext that fails GCM authentication. Honest clients never produce these values, because they encrypt whenever they hold a key and the server rejects mismatched pushes. One exception: journal rows pushed before that server check (#82, 2026-04-27) by a client that had no key. Those are now skipped. They were never encrypted to begin with.
+
+Known gaps, not addressed:
+
+- **Owner binding.** Neither `personId` on journal entries nor the member id next to an encrypted name is bound to the ciphertext, so the middle-row attacker can swap whose answers are whose. AES-GCM `additionalData` (`groupId|personId|field`, as a new `e:2:` format) would bind them. That only helps if the id comes from something the client knows independently, like its own link: person ids are server-assigned, so a lying server could just tell Alice that Bob's id is hers. And at setup the admin encrypts partner names before any ids exist. Doing it properly changes the setup API.
+- **Rollback and omission.** Replay is last-write-wins in server order. Fixing it means hash-chaining each member's operations and recording the head at `markComplete`, which interacts with editing answers after completion.
+- **Member + server collusion.** All members share one group key, so any member can create valid ciphertext attributed to anyone. Preventing that needs a signing key per person and a trusted member list.
+- **Blind matching** is enforced only by the server (see above).
 
 ## Sync Protocol
 

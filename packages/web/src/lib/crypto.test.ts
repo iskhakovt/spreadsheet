@@ -4,6 +4,7 @@ import {
   encodeValue,
   generateGroupKey,
   MissingKeyError,
+  UnencryptedValueError,
   unwrapSensitive,
   wrapSensitive,
 } from "./crypto.js";
@@ -73,6 +74,15 @@ describe("encodeValue / decodeValue", () => {
     await expect(decodeValue(encoded, null)).rejects.toThrow(MissingKeyError);
   });
 
+  it("refuses plaintext while holding a key", async () => {
+    // A server without the key can't forge e: ciphertext, but it could
+    // write a p: answer into an encrypted group. Holding a key means the
+    // group is encrypted, so p: is never legitimate here.
+    const key = await generateGroupKey();
+    const forged = await encodeValue({ key: "oral:give", data: { rating: "yes", note: null } }, null);
+    await expect(decodeValue(forged, key)).rejects.toThrow(UnencryptedValueError);
+  });
+
   it("handles complex objects", async () => {
     const key = await generateGroupKey();
     const obj = { key: "cunnilingus:give", data: { rating: "if-partner-wants" } };
@@ -114,6 +124,14 @@ describe("wrapSensitive / unwrapSensitive", () => {
     const key = await generateGroupKey();
     const encoded = await encodeValue("secret", key);
     await expect(unwrapSensitive(encoded, null)).rejects.toThrow();
+  });
+
+  it("unwrap refuses raw and plaintext opaque strings while holding a key", async () => {
+    const key = await generateGroupKey();
+    await expect(unwrapSensitive("Alice", key)).rejects.toThrow(UnencryptedValueError);
+    await expect(unwrapSensitive("", key)).rejects.toThrow(UnencryptedValueError);
+    const plain = await encodeValue("Alice", null);
+    await expect(unwrapSensitive(plain, key)).rejects.toThrow(UnencryptedValueError);
   });
 
   it("wrap returns raw string when no session key", async () => {

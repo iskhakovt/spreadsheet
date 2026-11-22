@@ -11,6 +11,24 @@ export class MissingKeyError extends NonRetriableError {
   }
 }
 
+/**
+ * Thrown when a group key is held but the value is not `e:` ciphertext.
+ *
+ * Holding a key means the group is encrypted, and every value an honest
+ * client writes there is encrypted (the server also rejects pushed `p:` ops
+ * as `encryption_mismatch`). The server can't forge ciphertext without the
+ * key, but it could write a plaintext `p:1:` answer or a raw name into the
+ * group, and accepting those would let it put words in a member's mouth.
+ * See "Threat model" in design/sync.md.
+ */
+export class UnencryptedValueError extends NonRetriableError {
+  readonly code = "UNENCRYPTED_VALUE" as const;
+  constructor() {
+    super("Refusing unencrypted value while holding a group key");
+    this.name = "UnencryptedValueError";
+  }
+}
+
 const ALGO = "AES-GCM";
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12; // 96 bits — recommended for AES-GCM
@@ -79,16 +97,19 @@ export async function encodeValue(value: unknown, groupKey?: string | null): Pro
 
 /**
  * Decode an opaque string back to a value.
- * Handles both `p:1:` and `e:1:` prefixes.
+ * Handles both `p:1:` and `e:1:` prefixes, but only `e:` once a key is held:
+ * a `p:` value with a key throws `UnencryptedValueError`.
  *
- * groupKey: omit to use the session key, pass a string to decrypt with that key.
+ * groupKey: omit to use the session key, pass null for a plaintext group,
+ * pass a string to decrypt with that key.
  */
 export async function decodeValue<T = unknown>(opaque: string, groupKey?: string | null): Promise<T> {
   const { mode, payload } = decodeOpaque(opaque);
+  const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
   if (mode === "p") {
+    if (resolvedKey) throw new UnencryptedValueError();
     return JSON.parse(payload) as T;
   }
-  const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
   if (!resolvedKey) {
     throw new MissingKeyError();
   }
@@ -156,7 +177,8 @@ export async function wrapSensitive(value: string): Promise<string> {
 
 /**
  * Unwrap a stored sensitive string — decodes if opaque format (p:N: or e:N:), returns raw otherwise.
- * Safe to call on both encrypted and plaintext values.
+ * Plaintext groups store raw strings; encrypted groups store `e:` ciphertext.
+ * While a key is held, anything but `e:` throws `UnencryptedValueError`.
  *
  * groupKey: omit to use session key, pass explicitly in tests.
  */
@@ -164,6 +186,8 @@ export async function unwrapSensitive(value: string, groupKey?: string | null): 
   if (/^[pe]:\d+:/.test(value)) {
     return decodeValue<string>(value, groupKey);
   }
+  const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
+  if (resolvedKey) throw new UnencryptedValueError();
   return value;
 }
 
