@@ -124,6 +124,29 @@ describe("decryptStatus", () => {
     await expect(decryptStatus(raw, encrypted)).rejects.toBeInstanceOf(WrongKeyError);
   });
 
+  it("can't be locked out by someone else's ciphertext under another key", async () => {
+    // Bob wrote under a wrong key in a group with no other ciphertext. His
+    // fields drop; yours are untouched and the app keeps working.
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(true, { id: "me", name: plainSealed("Alice"), anatomy: null }, [
+      { id: "bob", name: await theirs.seal("Bob"), anatomy: await theirs.seal("amab") },
+    ]);
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.person?.name).toBe("Alice");
+    expect(opened.members.find((m) => m.id === "bob")).toMatchObject({ name: UI.unreadableName, anatomy: null });
+    expect(opened.profileNeedsReseal).toBeUndefined();
+  });
+
+  it("keeps a key proven by an earlier status, so a later bad own field drops instead of failing", async () => {
+    await decryptStatus(status(true, { id: "me", name: await encrypted.seal("Alice"), anatomy: null }, []), encrypted);
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const opened = await decryptStatus(
+      status(true, { id: "me", name: await theirs.seal("Alice"), anatomy: null }, []),
+      encrypted,
+    );
+    expect(opened.person?.name).toBe("");
+  });
+
   it("empties your own name when it doesn't open but the key is verified, so /setup asks for it again", async () => {
     // e.g. a tampered row: Bob's name proves the key, so only yours is bad.
     const theirs = createGroupCodec(true, await generateGroupKey());
