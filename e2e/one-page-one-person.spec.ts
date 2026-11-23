@@ -10,7 +10,7 @@ import { createGroupAndSetup, NAV_TIMEOUT } from "./helpers.js";
  *
  * No UI performs such a switch today (group creation uses a full
  * navigation; partner links are copy-only), so the test simulates one with
- * a history navigation the router picks up. That's the bypass this guards
+ * a pushState navigation the router picks up. That's the bypass this guards
  * against: a future in-app link, or anything else that moves the router to
  * another token without loading a page.
  */
@@ -36,10 +36,8 @@ test.describe("one page = one person", () => {
       const reloaded = alice.waitForEvent("load");
       // On a timer so this evaluate returns before the page goes away.
       await alice.evaluate((target) => {
-        setTimeout(() => {
-          window.history.pushState({}, "", target);
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        });
+        // TanStack's history notifies the router on pushState itself.
+        setTimeout(() => window.history.pushState({}, "", target));
       }, bob.pathname + bob.hash);
       await documentRequest;
       await reloaded;

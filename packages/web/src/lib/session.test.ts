@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// `pagePersonHash` is module memory per document; a fresh module import
+// `pagePersonToken` is module memory per document; a fresh module import
 // stands in for a fresh page load.
 async function freshPage() {
   vi.resetModules();
