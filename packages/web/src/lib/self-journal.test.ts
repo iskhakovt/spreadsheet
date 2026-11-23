@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import { type Answer, OperationPayload, plainOp } from "@spreadsheet/shared";
+import { type Answer, plainOp } from "@spreadsheet/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
@@ -445,7 +445,7 @@ describe("makeSelfJournalQueryFn (wrong key)", () => {
 describe("applySelfJournalDelta (proven key)", () => {
   it("skips a corrupt entry instead of failing once the key is proven", async () => {
     const mine = createGroupCodec(true, await generateGroupKey());
-    await mine.open(await mine.seal({ key: "kissing:mutual", data: null }), OperationPayload);
+    mine.markKeyProven();
     const theirs = createGroupCodec(true, await generateGroupKey());
     const corrupt = await theirs.seal({ key: "kissing:mutual", data: { rating: "yes", note: null } });
 

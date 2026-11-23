@@ -74,11 +74,18 @@ export type OpenResult<T> = { ok: true; value: T } | { ok: false; reason: Sealed
 export interface GroupCodec {
   readonly encrypted: boolean;
   /**
-   * True once any `e:` value has decrypted under this codec's key, even one
-   * whose payload then failed its schema (GCM authenticated it). Monotonic:
-   * a proven key stays proven for the codec's lifetime.
+   * True once the caller's OWN server-side ciphertext (their profile fields,
+   * progress or journal entries) has decrypted under this key, even if its
+   * payload then failed its schema (GCM authenticated it). Monotonic for the
+   * codec's lifetime.
+   *
+   * Set only through {@link markKeyProven}, never by a decrypt by itself:
+   * another member's value, or one from the local outbox, opening proves only
+   * that the key matches whoever wrote it, which could be the same wrong key.
    */
-  readonly keyVerified: boolean;
+  readonly keyProven: boolean;
+  /** Record that the caller's own server-side ciphertext opened under this key. */
+  markKeyProven(): void;
   seal<T>(value: T): Promise<Sealed<T>>;
   /** Open and validate; throws {@link SealedValueError} on a rejected value. */
   open<T>(value: string, schema: PayloadSchema<T>): Promise<T>;
@@ -100,10 +107,14 @@ class Codec implements GroupCodec {
   /** Set when the codec can't be used at all; thrown from every seal/open. */
   readonly #unusable: Error | null;
   readonly #key: Promise<CryptoKey> | null;
-  #keyVerified = false;
+  #keyProven = false;
 
-  get keyVerified(): boolean {
-    return this.#keyVerified;
+  get keyProven(): boolean {
+    return this.#keyProven;
+  }
+
+  markKeyProven(): void {
+    this.#keyProven = true;
   }
 
   constructor(encrypted: boolean, groupKey: string | null) {
@@ -163,14 +174,11 @@ class Codec implements GroupCodec {
   async #plaintextJson(value: string): Promise<string> {
     const { payload } = decodeOpaque(value);
     if (!this.#key) return payload;
-    let json: string;
     try {
-      json = await decryptJson(payload, await this.#key);
+      return await decryptJson(payload, await this.#key);
     } catch {
       throw new SealedValueError("decrypt");
     }
-    this.#keyVerified = true;
-    return json;
   }
 
   #parse<T>(json: string, schema: PayloadSchema<T>): T {
@@ -187,11 +195,16 @@ class Codec implements GroupCodec {
 }
 
 /**
- * Throw {@link WrongKeyError} if `values` hold ciphertext and none of it
- * opens under the codec's key. A value that decrypts but fails `schema`
- * still proves the key (GCM authenticated it). No-op in plaintext groups,
- * when there's no ciphertext to test, or once the key is already proven
- * (`codec.keyVerified`), so one corrupt entry can't pass for a wrong key.
+ * Prove the key on the caller's OWN server-side ciphertext (e.g. their
+ * journal entries), or throw {@link WrongKeyError}: if `ownValues` hold
+ * ciphertext and none of it opens, this tab carries the wrong key. A value
+ * that decrypts but fails `schema` still proves it (GCM authenticated it),
+ * and marks the codec proven. No-op in plaintext groups, without ciphertext
+ * to test, or once the key is already proven (so one corrupt entry can't
+ * pass for a wrong key).
+ *
+ * Only pass the caller's own server-side data: another member's value or
+ * the local outbox opening proves nothing about the group's key.
  *
  * Call it before persisting anything derived from a replay (e.g. a cursor):
  * under a wrong key every entry is dropped, and advancing the cursor past
@@ -199,16 +212,19 @@ class Codec implements GroupCodec {
  */
 export async function assertKeyOpens<T>(
   codec: GroupCodec,
-  values: readonly string[],
+  ownValues: readonly string[],
   schema: PayloadSchema<T>,
 ): Promise<void> {
-  if (!codec.encrypted || codec.keyVerified) return;
+  if (!codec.encrypted || codec.keyProven) return;
   let sawCiphertext = false;
-  for (const value of values) {
+  for (const value of ownValues) {
     if (!sealedModeMatches(value, true)) continue;
     sawCiphertext = true;
-    await codec.tryOpen(value, schema);
-    if (codec.keyVerified) return;
+    const result = await codec.tryOpen(value, schema);
+    if (result.ok || result.reason === "payload") {
+      codec.markKeyProven();
+      return;
+    }
   }
   if (sawCiphertext) throw new WrongKeyError();
 }

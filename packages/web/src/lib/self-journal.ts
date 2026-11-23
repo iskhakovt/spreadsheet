@@ -4,7 +4,7 @@ import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
-import { assertKeyOpens, type GroupCodec } from "./codec.js";
+import { assertKeyOpens, type GroupCodec, WrongKeyError } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { getScope } from "./session.js";
 import {
@@ -172,6 +172,13 @@ export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
   // only orders multiple onData callbacks against each other.
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
 
+  // A wrong key on a live delta stops the stream from being applied: a later
+  // delta that does open must not move the cursor past the rejected one
+  // (which the next load would then skip). The error surfaces on the next
+  // render, so the screen's boundary shows the key-mismatch screen.
+  const stoppedRef = useRef(false);
+  const [streamError, setStreamError] = useState<WrongKeyError | null>(null);
+
   useSubscription(
     trpc.sync.onSelfJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
@@ -179,6 +186,7 @@ export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
         onData: (msg) => {
           chainRef.current = chainRef.current
             .then(async () => {
+              if (stoppedRef.current) return;
               const entries = msg.data.entries;
               if (entries.length === 0) return;
               // Use getAnswers() (localStorage), not the cache slot — the
@@ -195,6 +203,11 @@ export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
               setSelfJournalCursor(newCursor);
             })
             .catch((err) => {
+              if (err instanceof WrongKeyError) {
+                stoppedRef.current = true;
+                setStreamError(err);
+                return;
+              }
               console.error("Failed to apply self-journal update:", err);
             });
         },
@@ -238,6 +251,7 @@ export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
     };
   }, [queryClient]);
 
+  if (streamError) throw streamError;
   return data;
 }
 

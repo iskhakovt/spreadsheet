@@ -138,35 +138,38 @@ describe("logging", () => {
   });
 });
 
-describe("keyVerified", () => {
-  it("turns true once ciphertext decrypts, even if its payload then fails the schema", async () => {
+describe("keyProven", () => {
+  it("isn't set by a decrypt by itself: someone else's value opening proves nothing", async () => {
     const key = await generateGroupKey();
-    const writer = createGroupCodec(true, key);
-    const sealed = await writer.seal("");
-
     const reader = createGroupCodec(true, key);
-    expect(reader.keyVerified).toBe(false);
-    expect(await reader.tryOpen(sealed, PersonName)).toEqual({ ok: false, reason: "payload" });
-    expect(reader.keyVerified).toBe(true);
+    expect(await reader.open(await createGroupCodec(true, key).seal("Bob"), PersonName)).toBe("Bob");
+    expect(reader.keyProven).toBe(false);
   });
 
-  it("stays false when nothing decrypts", async () => {
+  it("is set by markKeyProven and stays set", async () => {
     const codec = createGroupCodec(true, await generateGroupKey());
-    const other = createGroupCodec(true, await generateGroupKey());
-    await codec.tryOpen(await other.seal("x"), PersonName);
-    await codec.tryOpen(plainSealed("x"), PersonName);
-    expect(codec.keyVerified).toBe(false);
+    codec.markKeyProven();
+    expect(codec.keyProven).toBe(true);
   });
 });
 
 describe("assertKeyOpens", () => {
-  it("passes when any ciphertext opens, even one that then fails its schema", async () => {
-    const codec = createGroupCodec(true, await generateGroupKey());
+  it("passes, and marks the key proven, when any of your ciphertext opens", async () => {
+    const key = await generateGroupKey();
+    const codec = createGroupCodec(true, key);
     const other = createGroupCodec(true, await generateGroupKey());
     await expect(assertKeyOpens(codec, [await other.seal("x"), await codec.seal("Alice")], PersonName)).resolves.toBe(
       undefined,
     );
-    await expect(assertKeyOpens(codec, [await codec.seal("")], PersonName)).resolves.toBe(undefined);
+    expect(codec.keyProven).toBe(true);
+  });
+
+  it("counts a value that decrypts but fails its schema (fresh reader)", async () => {
+    const key = await generateGroupKey();
+    const sealed = await createGroupCodec(true, key).seal("");
+    const reader = createGroupCodec(true, key);
+    await expect(assertKeyOpens(reader, [sealed], PersonName)).resolves.toBe(undefined);
+    expect(reader.keyProven).toBe(true);
   });
 
   it("throws WrongKeyError when there is ciphertext and none of it opens", async () => {
@@ -179,7 +182,7 @@ describe("assertKeyOpens", () => {
 
   it("passes once the key is already proven, so a corrupt value can't pass for a wrong key", async () => {
     const codec = createGroupCodec(true, await generateGroupKey());
-    await codec.open(await codec.seal("Alice"), PersonName);
+    codec.markKeyProven();
     const other = createGroupCodec(true, await generateGroupKey());
     await expect(assertKeyOpens(codec, [await other.seal("x")], PersonName)).resolves.toBe(undefined);
   });

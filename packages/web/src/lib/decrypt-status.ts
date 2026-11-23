@@ -31,9 +31,9 @@ export type LiveGroupStatus = GroupStatus & {
  *  - another member's name → `UI.unreadableName`; anatomy / progress → null.
  *  - your own name → "" (routes you to /setup to enter it again); anatomy → null.
  *
- * Fail closed on your OWN ciphertext only: if it exists and nothing has
- * proven the key (`codec.keyVerified`), the link carries the wrong key, so
- * throw {@link WrongKeyError}. Dropping instead would send you to re-enter
+ * Fail closed on your OWN ciphertext only (name, anatomy, progress): if it
+ * exists and none of your own data has proven the key (`codec.keyProven`),
+ * the link carries the wrong key, so throw {@link WrongKeyError}. Dropping instead would send you to re-enter
  * your fields, sealed under that wrong key, overwriting what the right key
  * can read. Other members' ciphertext that doesn't open is only dropped:
  * you can't overwrite their data, and someone who wrote under a wrong key
@@ -51,11 +51,17 @@ export async function decryptStatus(
 ): Promise<LiveGroupStatus> {
   const selfId = raw.person?.id ?? null;
   let ownCiphertext = false;
+  let ownCiphertextOpened = false;
   let ownLegacyPlaintext = false;
 
   async function attempt<T>(value: string, schema: PayloadSchema<T>, own: boolean): Promise<OpenResult<T>> {
-    if (own && codec.encrypted && sealedModeMatches(value, true)) ownCiphertext = true;
-    return codec.tryOpen(value, schema);
+    const result = await codec.tryOpen(value, schema);
+    if (own && codec.encrypted && sealedModeMatches(value, true)) {
+      ownCiphertext = true;
+      // Decrypted, even if the payload then failed its schema: GCM authenticated it.
+      if (result.ok || result.reason === "payload") ownCiphertextOpened = true;
+    }
+    return result;
   }
 
   async function openOther<T>(value: string, schema: PayloadSchema<T>): Promise<T | null> {
@@ -79,6 +85,14 @@ export async function decryptStatus(
     return null;
   }
 
+  /** Your own progress: counts as your own ciphertext, but has no legacy plaintext to accept. */
+  async function openOwnStrict<T>(value: string, schema: PayloadSchema<T>): Promise<T | null> {
+    const result = await attempt(value, schema, true);
+    if (result.ok) return result.value;
+    console.error(`Dropping your own field (${result.reason})`);
+    return null;
+  }
+
   async function openProfile(fields: {
     id: string;
     name: string;
@@ -98,12 +112,15 @@ export async function decryptStatus(
     raw.members.map(async (m) => ({
       ...m,
       ...(await openProfile(m)),
-      progress: m.progress === null ? null : await openOther(m.progress, Progress),
+      progress: m.progress === null ? null : await (m.id === selfId ? openOwnStrict : openOther)(m.progress, Progress),
     })),
   );
 
-  if (ownCiphertext && !codec.keyVerified) throw new WrongKeyError();
+  // Only your own server-side data proves the key: another member's value
+  // opening shows only that this key matches whoever wrote it.
+  if (ownCiphertextOpened) codec.markKeyProven();
+  if (ownCiphertext && !codec.keyProven) throw new WrongKeyError();
 
-  const reseal = ownLegacyPlaintext && codec.keyVerified;
+  const reseal = ownLegacyPlaintext && codec.keyProven;
   return { ...raw, person, members, ...(reseal ? { profileNeedsReseal: true as const } : {}) };
 }

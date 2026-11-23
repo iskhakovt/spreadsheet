@@ -31,7 +31,8 @@ const { useSaveProfile } = await import("./use-save-profile.js");
 const seal = vi.fn();
 const codec: GroupCodec = {
   encrypted: true,
-  keyVerified: true,
+  keyProven: true,
+  markKeyProven: vi.fn(),
   seal,
   open: vi.fn(),
   openOrDrop: vi.fn(),
