@@ -16,10 +16,11 @@ import { UI } from "./strings.js";
 export type LiveGroupStatus = GroupStatus & {
   /**
    * The caller's own name or anatomy is legacy plaintext in an encrypted
-   * group (written by an older client), and the key is verified. The layout
-   * seals and writes it back.
+   * group (written by an older client). Set whether or not the key is
+   * proven yet: proof may come later, from the journal. The layout seals and
+   * writes it back once `codec.keyProven`.
    */
-  profileNeedsReseal?: true;
+  profileHasLegacyPlaintext?: true;
 };
 
 /**
@@ -40,7 +41,7 @@ export type LiveGroupStatus = GroupStatus & {
  * mustn't be able to lock everyone else out.
  *
  * Your own legacy plaintext in an encrypted group is read as-is and flagged
- * for re-sealing (`profileNeedsReseal`), but only once the key is proven.
+ * (`profileHasLegacyPlaintext`); re-sealing it waits until the key is proven.
  */
 export async function decryptStatus(
   // The row type (plain strings) rather than SealedGroupStatus: subscription
@@ -121,6 +122,5 @@ export async function decryptStatus(
   if (ownCiphertextOpened) codec.markKeyProven();
   if (ownCiphertext && !codec.keyProven) throw new WrongKeyError();
 
-  const reseal = ownLegacyPlaintext && codec.keyProven;
-  return { ...raw, person, members, ...(reseal ? { profileNeedsReseal: true as const } : {}) };
+  return { ...raw, person, members, ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}) };
 }

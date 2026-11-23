@@ -1,6 +1,7 @@
 import { type QueryKey, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { WrongKeyError } from "./codec.js";
 import { decryptStatus, type LiveGroupStatus } from "./decrypt-status.js";
 import { getScope } from "./session.js";
 import { useTRPC, useTRPCClient } from "./trpc.js";
@@ -68,6 +69,12 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
   // interleave, we always want the latest to win.
   const seqRef = useRef(0);
 
+  // A live status that proves the key wrong (e.g. another device just saved
+  // this profile under the right key) replaces the layout with the
+  // key-mismatch screen on the next render, so a form already open under
+  // the wrong key can't be submitted.
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
+
   useSubscription(
     trpc.groups.onStatus.subscriptionOptions(undefined, {
       enabled: !!personId,
@@ -87,6 +94,10 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
           if (mySeq !== seqRef.current || !belongs()) return;
           queryClient.setQueryData<LiveGroupStatus | null>(target, decrypted);
         } catch (err) {
+          if (err instanceof WrongKeyError) {
+            setKeyError(err);
+            return;
+          }
           console.error("Failed to decrypt status update:", err);
         }
       },
@@ -100,6 +111,7 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
     await queryClient.invalidateQueries({ queryKey: statusKey });
   }
 
+  if (keyError) throw keyError;
   return { status, refresh };
 }
 

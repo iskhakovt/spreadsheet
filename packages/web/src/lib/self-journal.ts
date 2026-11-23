@@ -40,7 +40,8 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  * one) can run the same hydration step.
  *
  * Steps:
- *   1. Fetch the per-person delta since the persisted cursor.
+ *   1. Fetch the per-person delta since the persisted cursor (or, while
+ *      the key is unproven, the whole journal: see below).
  *   2. Decrypt + replay each entry into a partial state map.
  *   3. Merge with the previous answers map plus the local outbox: server
  *      values win for keys without a pending edit, the outbox wins for
@@ -50,7 +51,12 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  */
 export function makeSelfJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<SelfJournalCache> => {
-    const cursor = getSelfJournalCursor();
+    // While nothing has proven the key (status had none of your ciphertext),
+    // fetch your whole journal instead of the delta: the entries behind a
+    // saved cursor may be the only data of yours that can prove or refute
+    // it, and an empty delta would let a wrong key through unchecked.
+    const keyUnproven = codec.encrypted && !codec.keyProven;
+    const cursor = keyUnproven ? null : getSelfJournalCursor();
     const result = await trpcClient.sync.selfJournal.query({ sinceId: cursor ?? undefined }, { signal });
     // Short-circuit before the (potentially slow) decrypt/replay so we
     // don't burn CPU on data we're about to discard. The post-decode

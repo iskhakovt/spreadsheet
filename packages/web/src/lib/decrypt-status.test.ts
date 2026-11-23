@@ -57,7 +57,7 @@ describe("decryptStatus", () => {
         ["Alice", "afab", { answered: 3, total: 40 }],
         ["Bob", null, { answered: 3, total: 40 }],
       ]);
-      expect(opened.profileNeedsReseal).toBeUndefined();
+      expect(opened.profileHasLegacyPlaintext).toBeUndefined();
     }
   });
 
@@ -95,14 +95,15 @@ describe("decryptStatus", () => {
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.person).toMatchObject({ name: "Alice", anatomy: "afab" });
     expect(opened.members[0]).toMatchObject({ name: "Alice", anatomy: "afab" });
-    expect(opened.profileNeedsReseal).toBe(true);
+    expect(opened.profileHasLegacyPlaintext).toBe(true);
   });
 
-  it("shows your legacy plaintext but doesn't re-seal it while nothing verifies the key", async () => {
+  it("flags your legacy plaintext even before anything proves the key (re-sealing waits for proof)", async () => {
     const raw = status(true, { id: "me", name: plainSealed("Alice"), anatomy: null }, []);
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.person?.name).toBe("Alice");
-    expect(opened.profileNeedsReseal).toBeUndefined();
+    expect(opened.profileHasLegacyPlaintext).toBe(true);
+    expect(encrypted.keyProven).toBe(false);
   });
 
   it("never re-seals another member's legacy plaintext", async () => {
@@ -111,7 +112,7 @@ describe("decryptStatus", () => {
     ]);
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.members.find((m) => m.id === "bob")?.name).toBe(UI.unreadableName);
-    expect(opened.profileNeedsReseal).toBeUndefined();
+    expect(opened.profileHasLegacyPlaintext).toBeUndefined();
   });
 
   it("throws WrongKeyError when none of the group's ciphertext opens, instead of dropping it", async () => {
@@ -137,7 +138,9 @@ describe("decryptStatus", () => {
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.person?.name).toBe("Alice");
     expect(opened.members.find((m) => m.id === "bob")).toMatchObject({ name: UI.unreadableName, anatomy: null });
-    expect(opened.profileNeedsReseal).toBeUndefined();
+    // Your legacy name is flagged, but nothing of yours proved the key, so it isn't re-sealed yet.
+    expect(opened.profileHasLegacyPlaintext).toBe(true);
+    expect(encrypted.keyProven).toBe(false);
   });
 
   it("keeps a key proven by an earlier status, so a later bad own field drops instead of failing", async () => {

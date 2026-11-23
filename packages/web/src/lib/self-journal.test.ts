@@ -453,3 +453,45 @@ describe("applySelfJournalDelta (proven key)", () => {
     await expect(applySelfJournalDelta(prev, [{ operation: corrupt }], mine)).resolves.toEqual(prev);
   });
 });
+
+describe("makeSelfJournalQueryFn (unproven key)", () => {
+  const fakeClient = (entries: { id: string; personId: string; operation: string }[]) => {
+    const query = vi.fn(async (_input: { sinceId?: string }) => ({ entries, cursor: null, stoken: null }));
+    // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
+    return { query, client: { sync: { selfJournal: { query } } } as any };
+  };
+
+  beforeEach(() => {
+    adoptSession("token-unproven-" + Math.random().toString(36).slice(2));
+  });
+
+  it("fetches your whole journal, ignoring a saved cursor, and fails closed when none of it opens", async () => {
+    // Entries behind the cursor may be the only data of yours that can
+    // refute a wrong key; an empty delta would let it through.
+    setSelfJournalCursor(OPAQUE_CURSOR);
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const mine = createGroupCodec(true, await generateGroupKey());
+    const { query, client } = fakeClient([
+      {
+        id: "AAAAAAAAAAAAAAAAAAAAAA",
+        personId: "p1",
+        operation: await theirs.seal({ key: "kissing:mutual", data: null }),
+      },
+    ]);
+
+    await expect(makeSelfJournalQueryFn(client, mine)({ signal: new AbortController().signal })).rejects.toBeInstanceOf(
+      WrongKeyError,
+    );
+    expect(query.mock.calls[0][0]).toEqual({ sinceId: undefined });
+    expect(getSelfJournalCursor()).toBe(OPAQUE_CURSOR);
+  });
+
+  it("fetches the delta from the saved cursor once the key is proven", async () => {
+    setSelfJournalCursor(OPAQUE_CURSOR);
+    const mine = createGroupCodec(true, await generateGroupKey());
+    mine.markKeyProven();
+    const { query, client } = fakeClient([]);
+    await makeSelfJournalQueryFn(client, mine)({ signal: new AbortController().signal });
+    expect(query.mock.calls[0][0]).toEqual({ sinceId: OPAQUE_CURSOR });
+  });
+});
