@@ -125,19 +125,38 @@ export function getGroupKeyFromUrl(): string | null {
     cachedScope = scope;
   }
 
-  const hash = window.location.hash;
-  if (hash) {
-    const params = new URLSearchParams(hash.slice(1));
-    const key = params.get("key");
-    if (key) {
-      cachedGroupKey = key;
-      sessionStorage.setItem(`${scope}groupKey`, key);
-    }
+  const key = keyFromHash();
+  // One page = one key: once this page uses a key for this person, a
+  // different one in the fragment doesn't replace it in place. Everything
+  // the page opened, verified and cached is tied to the first key;
+  // `isKeySwitch` tells the layout to reload into the new one instead.
+  if (key && cachedGroupKey === null) {
+    cachedGroupKey = key;
+    sessionStorage.setItem(`${scope}groupKey`, key);
   }
   if (!cachedGroupKey) {
     cachedGroupKey = sessionStorage.getItem(`${scope}groupKey`);
   }
   return cachedGroupKey;
+}
+
+/** The `#key=` value in the URL fragment, or null. */
+function keyFromHash(): string | null {
+  const { hash } = window.location;
+  return hash ? new URLSearchParams(hash.slice(1)).get("key") : null;
+}
+
+/**
+ * True when the URL fragment carries a different key than the one this
+ * page already uses for the current person: the key counterpart of
+ * `isPersonSwitch`. The caller reloads (a fresh page adopts the fragment's
+ * key and verifies it from scratch) rather than switching keys in place,
+ * where cached, already-verified state would be sealed under the new key.
+ */
+export function isKeySwitch(): boolean {
+  if (typeof window === "undefined" || cachedScope !== getScope() || cachedGroupKey === null) return false;
+  const key = keyFromHash();
+  return key !== null && key !== cachedGroupKey;
 }
 
 /**

@@ -80,6 +80,12 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     return { getGroupKeyFromUrl, adoptSession };
   }
 
+  async function loadKeyModules() {
+    const { getGroupKeyFromUrl, isKeySwitch } = await import("./crypto.js");
+    const { adoptSession } = await import("./session.js");
+    return { getGroupKeyFromUrl, isKeySwitch, adoptSession };
+  }
+
   it("caches the URL hash key under the current scope", async () => {
     const { getGroupKeyFromUrl, adoptSession } = await loadModules();
     locationStub.hash = "#key=firstGroupKey";
@@ -109,6 +115,38 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     // was stored scoped under A's hash in sessionStorage.
     adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
+  });
+
+  it("keeps the page's key when the fragment changes to another one (one page = one key)", async () => {
+    const { getGroupKeyFromUrl, isKeySwitch, adoptSession } = await loadKeyModules();
+    locationStub.hash = "#key=FIRST_KEY";
+    adoptSession("TOKEN_A");
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+    expect(isKeySwitch()).toBe(false);
+
+    // Same person, different #key=: not adopted in place; the layout reloads.
+    locationStub.hash = "#key=OTHER_KEY";
+    expect(isKeySwitch()).toBe(true);
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+
+    // No fragment (router navigations drop it) is not a switch.
+    locationStub.hash = "";
+    expect(isKeySwitch()).toBe(false);
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+  });
+
+  it("adopts the fragment's key on a fresh page, even with another key cached for the tab", async () => {
+    const first = await loadKeyModules();
+    locationStub.hash = "#key=FIRST_KEY";
+    first.adoptSession("TOKEN_A");
+    expect(first.getGroupKeyFromUrl()).toBe("FIRST_KEY");
+
+    vi.resetModules();
+    const reloaded = await loadKeyModules();
+    locationStub.hash = "#key=OTHER_KEY";
+    reloaded.adoptSession("TOKEN_A");
+    expect(reloaded.isKeySwitch()).toBe(false);
+    expect(reloaded.getGroupKeyFromUrl()).toBe("OTHER_KEY");
   });
 
   it("keeps separate keys for two encrypted groups visited in the same tab", async () => {

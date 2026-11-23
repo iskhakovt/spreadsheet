@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GroupCodec } from "./codec.js";
+import { type GroupCodec, WrongKeyError } from "./codec.js";
 import { getAnswers } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
@@ -24,6 +24,11 @@ export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
+  // A push that reveals a wrong key (see flushPendingOps) goes to the
+  // screen's boundary on the next render, which shows the key-mismatch
+  // screen instead of letting the person keep answering under that key.
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
+
   const handleSync = useCallback(async (): Promise<void> => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -40,6 +45,10 @@ export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
       inFlightRef.current = false;
     } catch (err) {
       inFlightRef.current = false;
+      if (err instanceof WrongKeyError) {
+        setKeyError(err);
+        return;
+      }
       throw err;
     }
   }, [pushMutation, totalQuestions, codec]);
@@ -74,6 +83,8 @@ export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
       clearTimeout(syncIndicatorTimerRef.current);
     };
   }, []);
+
+  if (keyError) throw keyError;
 
   return {
     syncing: pushMutation.isPending,

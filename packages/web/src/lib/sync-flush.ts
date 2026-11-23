@@ -1,5 +1,5 @@
-import type { OperationPayload, Progress, Sealed } from "@spreadsheet/shared";
-import type { GroupCodec } from "./codec.js";
+import { OperationPayload, type Progress, type Sealed } from "@spreadsheet/shared";
+import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
 
@@ -70,6 +70,11 @@ export async function flushPendingOps(
   // up this localStorage write via its own subscription's onData when
   // the retry's commit echoes back, so the slot eventually catches up
   // without us poking it directly here.
+  // The rejection carries your own entries you hadn't seen: possibly the
+  // first evidence about this tab's key. If they're ciphertext and none of
+  // it opens, stop (WrongKeyError) rather than merge them away and append
+  // ops sealed under the wrong key.
+  await assertKeyOpens(codec, result.entries, OperationPayload);
   const merged = await mergeAfterRejection(getAnswers(), ops, result.entries, codec);
   setAnswers(merged);
   const retryProgress = await getProgress();

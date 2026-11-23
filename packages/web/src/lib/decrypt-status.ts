@@ -21,6 +21,12 @@ export type LiveGroupStatus = GroupStatus & {
    * writes it back once `codec.keyProven`.
    */
   profileHasLegacyPlaintext?: true;
+  /**
+   * The caller's own ciphertext is in the status, but none of it opened and
+   * nothing else has proven the key yet. Not decided here: the journal may
+   * still prove it. `assertKeyNotRefuted` decides once hydration has run.
+   */
+  ownCiphertextUnproven?: true;
 };
 
 /**
@@ -33,8 +39,9 @@ export type LiveGroupStatus = GroupStatus & {
  *  - your own name → "" (routes you to /setup to enter it again); anatomy → null.
  *
  * Fail closed on your OWN ciphertext only (name, anatomy, progress): if it
- * exists and none of your own data has proven the key (`codec.keyProven`),
- * the link carries the wrong key, so throw {@link WrongKeyError}. Dropping instead would send you to re-enter
+ * exists and none of it opens, flag `ownCiphertextUnproven`; once journal
+ * hydration has had its chance to prove the key, `assertKeyNotRefuted`
+ * throws {@link WrongKeyError} if nothing did. Dropping instead would send you to re-enter
  * your fields, sealed under that wrong key, overwriting what the right key
  * can read. Other members' ciphertext that doesn't open is only dropped:
  * you can't overwrite their data, and someone who wrote under a wrong key
@@ -120,7 +127,25 @@ export async function decryptStatus(
   // Only your own server-side data proves the key: another member's value
   // opening shows only that this key matches whoever wrote it.
   if (ownCiphertextOpened) codec.markKeyProven();
-  if (ownCiphertext && !codec.keyProven) throw new WrongKeyError();
+  const unproven = ownCiphertext && !codec.keyProven;
 
-  return { ...raw, person, members, ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}) };
+  return {
+    ...raw,
+    person,
+    members,
+    ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}),
+    ...(unproven ? { ownCiphertextUnproven: true as const } : {}),
+  };
+}
+
+/**
+ * The one place a wrong key is decided for the status: your own ciphertext
+ * is in it, none of it opened, and nothing of yours (status or journal) has
+ * proven the key since. Called after journal hydration, so the journal gets
+ * its chance first, and on every later render, so a refetched or live status
+ * is covered too. Throws {@link WrongKeyError}; the boundary shows the
+ * key-mismatch screen before any screen can write.
+ */
+export function assertKeyNotRefuted(status: Pick<LiveGroupStatus, "ownCiphertextUnproven">, codec: GroupCodec): void {
+  if (status.ownCiphertextUnproven && !codec.keyProven) throw new WrongKeyError();
 }

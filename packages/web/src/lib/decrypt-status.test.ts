@@ -2,7 +2,7 @@ import { type GroupStatusRow, plainSealed } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGroupCodec, type GroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey, MissingKeyError } from "./crypto.js";
-import { decryptStatus } from "./decrypt-status.js";
+import { assertKeyNotRefuted, decryptStatus } from "./decrypt-status.js";
 import { UI } from "./strings.js";
 
 interface Profile {
@@ -115,7 +115,7 @@ describe("decryptStatus", () => {
     expect(opened.profileHasLegacyPlaintext).toBeUndefined();
   });
 
-  it("throws WrongKeyError when none of the group's ciphertext opens, instead of dropping it", async () => {
+  it("refutes the key when none of your ciphertext opens, instead of dropping it", async () => {
     // Dropping would route you to /setup and re-seal your name under the
     // wrong key, overwriting what the right key can still read.
     const theirs = createGroupCodec(true, await generateGroupKey());
@@ -125,7 +125,9 @@ describe("decryptStatus", () => {
       [{ id: "bob", name: await theirs.seal("Bob"), anatomy: null }],
       await theirs.seal({ answered: 1, total: 2 }),
     );
-    await expect(decryptStatus(raw, encrypted)).rejects.toBeInstanceOf(WrongKeyError);
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.ownCiphertextUnproven).toBe(true);
+    expect(() => assertKeyNotRefuted(opened, encrypted)).toThrow(WrongKeyError);
   });
 
   it("can't be locked out by someone else's ciphertext under another key", async () => {
@@ -188,7 +190,9 @@ describe("decryptStatus", () => {
     const raw = status(true, { id: "me", name: await groupKey.seal("Alice"), anatomy: null }, [
       { id: "bob", name: await bobWriter.seal("Bob"), anatomy: null },
     ]);
-    await expect(decryptStatus(raw, createGroupCodec(true, keyB))).rejects.toBeInstanceOf(WrongKeyError);
+    const codecB = createGroupCodec(true, keyB);
+    const opened = await decryptStatus(raw, codecB);
+    expect(() => assertKeyNotRefuted(opened, codecB)).toThrow(WrongKeyError);
   });
 
   it("counts your own progress as your own ciphertext", async () => {
@@ -200,7 +204,24 @@ describe("decryptStatus", () => {
       await encrypted.seal({ answered: 3, total: 9 }),
     );
     const wrong = createGroupCodec(true, await generateGroupKey());
-    await expect(decryptStatus(raw, wrong)).rejects.toBeInstanceOf(WrongKeyError);
+    const opened = await decryptStatus(raw, wrong);
+    expect(() => assertKeyNotRefuted(opened, wrong)).toThrow(WrongKeyError);
+  });
+
+  it("leaves the decision to after journal hydration: your journal can still prove the key", async () => {
+    // Legacy profile, own progress unreadable (e.g. tampered), journal readable.
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(
+      true,
+      { id: "me", name: plainSealed("Alice"), anatomy: null },
+      [],
+      await theirs.seal({ answered: 1, total: 2 }),
+    );
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.ownCiphertextUnproven).toBe(true);
+    // Journal hydration's assertKeyOpens proves it from your own entries.
+    encrypted.markKeyProven();
+    expect(() => assertKeyNotRefuted(opened, encrypted)).not.toThrow();
   });
 
   it("returns a pre-setup status (no person, no members) without needing the key", async () => {

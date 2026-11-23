@@ -11,7 +11,8 @@ import {
   ScreenErrorFallback,
 } from "../../../components/ErrorFallback.js";
 import { getGroupCodec } from "../../../lib/codec.js";
-import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
+import { getGroupKeyFromUrl, isKeySwitch } from "../../../lib/crypto.js";
+import { assertKeyNotRefuted } from "../../../lib/decrypt-status.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../../../lib/journal-query.js";
 import { sortMembersViewerFirst } from "../../../lib/member-display.js";
 import {
@@ -65,7 +66,8 @@ function reloadForPersonSwitch(): void {
 /** Renders nothing for a different person's link while the page reloads into it. */
 function PersonAppGate() {
   const { token } = Route.useParams();
-  const switching = isPersonSwitch(token);
+  // Also one page = one key: a different #key= for the same person reloads too.
+  const switching = isPersonSwitch(token) || isKeySwitch();
   // The loader normally reloads first; this covers a render that beats it.
   useEffect(() => {
     if (switching) reloadForPersonSwitch();
@@ -222,8 +224,11 @@ function PersonAppLayout() {
  * in the parent).
  */
 function AuthedShell({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { codec } = usePersonApp();
+  const { codec, authedStatus } = usePersonApp();
   useSelfJournal(codec);
+  // After hydration (useSelfJournal suspends until it's done), so your
+  // journal can prove the key before a status-only doubt locks you out.
+  assertKeyNotRefuted(authedStatus, codec);
   useResealLegacyProfile();
   return <>{children}</>;
 }

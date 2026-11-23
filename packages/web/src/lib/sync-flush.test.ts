@@ -1,8 +1,8 @@
 import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { createGroupCodec } from "./codec.js";
+import { createGroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
-import { addPendingOp, getAnswers, getPendingOps } from "./storage.js";
+import { addPendingOp, getAnswers, getPendingOps, setPendingOps } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 const codec = createGroupCodec(false, null);
@@ -298,5 +298,22 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     // push + markComplete each called exactly once
     expect(push).toHaveBeenCalledTimes(1);
     expect(markComplete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("flushPendingOps (rejected push under an unproven key)", () => {
+  test("stops with WrongKeyError instead of merging your unreadable entries away and retrying", async () => {
+    // The rejection can carry the first evidence of a wrong key: your own
+    // entries, written by another device under the group's key.
+    const groupKey = createGroupCodec(true, await generateGroupKey());
+    const tabCodec = createGroupCodec(true, await generateGroupKey());
+    const mine = await tabCodec.seal({ key: "kissing:mutual", data: { rating: "yes" as const, note: null } });
+    setPendingOps([mine]);
+    const serverEntry = await groupKey.seal({ key: "oral:give", data: { rating: "no" as const, note: null } });
+    const push = vi.fn().mockResolvedValue({ stoken: "s1", pushRejected: true, entries: [serverEntry] });
+
+    await expect(flushPendingOps(push, async () => undefined, tabCodec)).rejects.toBeInstanceOf(WrongKeyError);
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(getPendingOps()).toEqual([mine]);
   });
 });

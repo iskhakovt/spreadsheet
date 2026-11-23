@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useRef } from "react";
-import type { GroupCodec } from "./codec.js";
+import { useCallback, useRef, useState } from "react";
+import { type GroupCodec, WrongKeyError } from "./codec.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
 
@@ -31,7 +31,11 @@ export function useMarkComplete(token: string, codec: GroupCodec): () => Promise
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
-  return useCallback(async () => {
+  // A flush that reveals a wrong key surfaces on the next render (the
+  // boundary shows the key-mismatch screen) instead of marking complete.
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
+
+  const markComplete = useCallback(async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
@@ -45,7 +49,14 @@ export function useMarkComplete(token: string, codec: GroupCodec): () => Promise
       inFlightRef.current = false;
     } catch (err) {
       inFlightRef.current = false;
+      if (err instanceof WrongKeyError) {
+        setKeyError(err);
+        return;
+      }
       throw err;
     }
   }, [pushMutation, markCompleteMutation, navigate, token, codec]);
+
+  if (keyError) throw keyError;
+  return markComplete;
 }
