@@ -1,3 +1,4 @@
+import { type OperationPayload, Rating } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   decodeValue,
@@ -89,6 +90,120 @@ describe("encodeValue / decodeValue", () => {
     expect(decoded).toEqual(obj);
   });
 });
+
+describe("encrypted length padding", () => {
+  // The server stores every `e:1:` string it receives. These pin the
+  // observable contract (the opaque string's length must not reveal the
+  // value), not the bucket arithmetic behind it.
+  const lengthOf = async (value: unknown, key: string) => (await encodeValue(value, key)).length;
+  const distinctLengths = async (values: unknown[], key: string) =>
+    new Set(await Promise.all(values.map((v) => lengthOf(v, key))));
+  const op = (key: string, data: OperationPayload["data"]): OperationPayload => ({ key, data });
+
+  it("note-less ops share one length across every rating, key, role, and set/clear", async () => {
+    const key = await generateGroupKey();
+    const keys = ["kissing:mutual", "oral:give", "watching-partner-masturbate:receive"];
+    const ops = keys.flatMap((k) => [op(k, null), ...Rating.options.map((rating) => op(k, { rating, note: null }))]);
+    expect((await distinctLengths(ops, key)).size).toBe(1);
+  });
+
+  it("a short note doesn't change the length", async () => {
+    const key = await generateGroupKey();
+    const k = "watching-partner-masturbate:receive";
+    const ops = [
+      op(k, { rating: "if-partner-wants", note: null }),
+      op(k, { rating: "no", note: "" }),
+      op(k, { rating: "yes", note: "only on weekends, and only if we've talked about it first" }),
+    ];
+    expect((await distinctLengths(ops, key)).size).toBe(1);
+  });
+
+  it("long notes are bucketed: same bucket, same length; next bucket, longer", async () => {
+    const key = await generateGroupKey();
+    const withNote = (note: string) => op("kissing:mutual", { rating: "yes", note });
+    const [a, b, c] = await Promise.all(
+      [withNote("x".repeat(300)), withNote("x".repeat(380)), withNote("x".repeat(600))].map((v) => lengthOf(v, key)),
+    );
+    expect(a).toBe(b);
+    expect(c).toBeGreaterThan(b);
+  });
+
+  it("buckets by UTF-8 bytes, so multibyte notes don't leak their exact length", async () => {
+    // "é" is one UTF-16 code unit but two UTF-8 bytes. Bucketing by
+    // `string.length` would overshoot the bucket by the extra bytes and
+    // give these two notes different ciphertext lengths.
+    const key = await generateGroupKey();
+    const withNote = (note: string) => op("kissing:mutual", { rating: "yes", note });
+    expect((await distinctLengths([withNote("é".repeat(150)), withNote("é".repeat(180))], key)).size).toBe(1);
+  });
+
+  it("names, anatomy, and progress don't leak their length either", async () => {
+    const key = await generateGroupKey();
+    const values = [
+      "Al",
+      "Alexandra-Josephine",
+      "amab",
+      "none",
+      { answered: 3, total: 40 },
+      { answered: 147, total: 312 },
+    ];
+    expect((await distinctLengths(values, key)).size).toBe(1);
+  });
+
+  it("padded values round-trip unchanged, multibyte notes included", async () => {
+    const key = await generateGroupKey();
+    const values = [
+      op("kissing:mutual", { rating: "maybe", note: "Ça me plaît 🙂" }),
+      op("kissing:mutual", { rating: "yes", note: "x".repeat(2000) }),
+      op("kissing:mutual", null),
+      "Alice",
+    ];
+    for (const value of values) {
+      expect(await decodeValue(await encodeValue(value, key), key)).toEqual(value);
+    }
+  });
+
+  it("encodes very long notes (padded past 128 KiB) without overflowing the argument limit", async () => {
+    // 70 KB of note pads to a 128 KiB bucket. Spreading that into a single
+    // String.fromCharCode call throws RangeError in V8.
+    const key = await generateGroupKey();
+    const value = op("kissing:mutual", { rating: "yes", note: "x".repeat(70_000) });
+    expect(await decodeValue(await encodeValue(value, key), key)).toEqual(value);
+  });
+
+  it("decodes legacy unpadded e:1: values", async () => {
+    // Pre-padding clients encrypted the bare JSON. Those journal entries
+    // and profile fields stay on the server, so new code must keep reading them.
+    const key = await generateGroupKey();
+    const value = op("kissing:mutual", { rating: "fantasy", note: "legacy" });
+    const legacy = await legacyEncrypt(value, key);
+    expect(legacy.length).toBeLessThan(await lengthOf(value, key));
+    expect(await decodeValue(legacy, key)).toEqual(value);
+  });
+
+  it("leaves plaintext mode unpadded (the server can read it anyway)", async () => {
+    expect(await encodeValue("hello", null)).toBe('p:1:"hello"');
+  });
+});
+
+/** Encrypt the way pre-padding clients did: bare JSON, no padding. */
+async function legacyEncrypt(value: unknown, base64urlKey: string): Promise<string> {
+  const fromB64url = (s: string) =>
+    Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0));
+  const toB64url = (bytes: Uint8Array) =>
+    btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  const cryptoKey = await crypto.subtle.importKey("raw", fromB64url(base64urlKey), "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(value));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, plaintext));
+  const combined = new Uint8Array(iv.length + ciphertext.length);
+  combined.set(iv);
+  combined.set(ciphertext, iv.length);
+  return `e:1:${toB64url(combined)}`;
+}
 
 describe("wrapSensitive / unwrapSensitive", () => {
   it("unwrap returns raw strings as-is", async () => {
