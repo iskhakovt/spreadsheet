@@ -39,6 +39,31 @@ export const sessionStore = createStore<Session>()(() => ({
 }));
 
 /**
+ * The person this page (document) belongs to: the token of the first
+ * `adoptSession` in the document, never changed after. Module memory on
+ * purpose: a reload starts a new document, so the next page can belong to
+ * someone else. The persisted hash above can't serve here, because it can't
+ * tell a reload from a switch. The full token rather than its hash, so two
+ * tokens can't pass for one; it's already in the URL, and never persisted.
+ */
+let pagePersonToken: string | null = null;
+
+/**
+ * One page = one person. True when `token` belongs to someone other than
+ * the person this page already belongs to.
+ *
+ * The caller must not switch in place: reload instead (see the `/p/$token`
+ * layout route). Too much per-tab state outlives an in-place switch: queued
+ * tRPC batches read the session header when they go out, async work (sealing,
+ * sync retries) re-reads it at each step, and SSE streams keep the previous
+ * session's connection. A full page load drops all of it, and it's also what
+ * sets the new person's session cookie (the server's `/p/:token` response).
+ */
+export function isPersonSwitch(token: string): boolean {
+  return pagePersonToken !== null && pagePersonToken !== token;
+}
+
+/**
  * Adopts a session for the given token. Called from the bootstrap route once,
  * when the user first lands on `/p/$token`. Writes the hash to sessionStorage
  * so reloads in the same tab keep the session.
@@ -52,6 +77,7 @@ export const sessionStore = createStore<Session>()(() => ({
  */
 export function adoptSession(token: string) {
   const hash = fnv1a(token);
+  pagePersonToken ??= token;
   if (sessionStore.getState().hash === hash) return;
   try {
     safeSessionStorage()?.setItem(STORAGE_KEY, hash);
