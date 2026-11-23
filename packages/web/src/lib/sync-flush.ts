@@ -1,10 +1,12 @@
+import type { OperationPayload, Progress, Sealed } from "@spreadsheet/shared";
+import type { GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
 
 interface PushInput {
   stoken: string | null;
-  operations: string[];
-  progress?: string;
+  operations: Sealed<OperationPayload>[];
+  progress?: Sealed<Progress>;
 }
 
 interface PushResult {
@@ -37,7 +39,11 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  * another question while the push was in flight, that newer op was
  * appended after our snapshot and must survive.
  */
-export async function flushPendingOps(push: PushFn, getProgress: () => Promise<string | undefined>): Promise<void> {
+export async function flushPendingOps(
+  push: PushFn,
+  getProgress: () => Promise<Sealed<Progress> | undefined>,
+  codec: GroupCodec,
+): Promise<void> {
   const ops = getPendingOps();
   if (ops.length === 0) return;
   const sentCount = ops.length;
@@ -64,7 +70,7 @@ export async function flushPendingOps(push: PushFn, getProgress: () => Promise<s
   // up this localStorage write via its own subscription's onData when
   // the retry's commit echoes back, so the slot eventually catches up
   // without us poking it directly here.
-  const merged = await mergeAfterRejection(getAnswers(), ops, result.entries);
+  const merged = await mergeAfterRejection(getAnswers(), ops, result.entries, codec);
   setAnswers(merged);
   const retryProgress = await getProgress();
   const retry = await push({

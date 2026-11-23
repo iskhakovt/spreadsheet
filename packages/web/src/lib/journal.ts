@@ -1,5 +1,5 @@
-import { Answer, type OperationPayload } from "@spreadsheet/shared";
-import { decodeValue } from "./crypto.js";
+import { type Answer, OperationPayload } from "@spreadsheet/shared";
+import type { GroupCodec } from "./codec.js";
 
 /**
  * Validate that a decoded operation key matches the canonical
@@ -31,31 +31,18 @@ type DeletableState = Map<string, Answer | typeof DELETED>;
  * `mergeAfterRejection` so the delta merge can apply both kinds of
  * intent against the local cache.
  */
-async function replayJournalDeletable(
-  entries: { operation: string }[],
-  groupKey?: string | null,
-): Promise<DeletableState> {
+async function replayJournalDeletable(entries: { operation: string }[], codec: GroupCodec): Promise<DeletableState> {
   const state: DeletableState = new Map();
   for (const entry of entries) {
-    try {
-      const payload = await decodeValue<OperationPayload>(entry.operation, groupKey);
-      if (!isSafeOperationKey(payload.key)) {
-        console.error("Skipping journal entry with unsafe key:", payload.key);
-        continue;
-      }
-      if (payload.data === null) {
-        state.set(payload.key, DELETED);
-      } else {
-        const parsed = Answer.safeParse(payload.data);
-        if (parsed.success) {
-          state.set(payload.key, parsed.data);
-        } else {
-          console.error("Skipping malformed journal entry payload:", payload.key, parsed.error.issues);
-        }
-      }
-    } catch (err) {
-      console.error("Skipping malformed journal entry:", entry.operation.slice(0, 50), err);
+    // Rejected entries (wrong mode for the group, tampered, malformed, or a
+    // payload that fails the schema) are dropped and logged by the codec.
+    const payload = await codec.openOrDrop(entry.operation, OperationPayload);
+    if (payload === null) continue;
+    if (!isSafeOperationKey(payload.key)) {
+      console.error("Skipping journal entry with unsafe key:", payload.key);
+      continue;
     }
+    state.set(payload.key, payload.data === null ? DELETED : payload.data);
   }
   return state;
 }
@@ -64,37 +51,31 @@ async function replayJournalDeletable(
  * Replay journal entries to build current answer state.
  * Last operation for each key wins. Null data = delete.
  *
- * Each non-null payload runs through `Answer.safeParse` — the schema
+ * Each payload runs through the `OperationPayload` schema, whose `Answer`
  * defaults missing `note` to null (legacy pre-PR-89 entries) and strips
- * the legacy `timing` key (pre-timing-removal entries). A malformed
- * entry is skipped rather than tanking the whole replay.
+ * the legacy `timing` key (pre-timing-removal entries). A rejected entry
+ * is skipped rather than tanking the whole replay.
  *
  * Returns a plain object — deleted keys are absent. For the merge path
  * that needs to see deletions explicitly, use `replayJournalDeletable`.
- *
- * groupKey: omit to use session key, pass explicitly in tests.
  */
 export async function replayJournal(
   entries: { operation: string }[],
-  groupKey?: string | null,
+  codec: GroupCodec,
 ): Promise<Record<string, Answer>> {
   // Null-prototype map — `state["__proto__"] = x` would set a normal
   // property here instead of invoking the Object.prototype setter.
   const state: Record<string, Answer> = Object.create(null);
-  const deletable = await replayJournalDeletable(entries, groupKey);
+  const deletable = await replayJournalDeletable(entries, codec);
   for (const [key, value] of deletable) {
     if (value !== DELETED) state[key] = value;
   }
   return state;
 }
 
-async function extractKey(op: string, groupKey?: string | null): Promise<string | null> {
-  try {
-    const payload = await decodeValue<OperationPayload>(op, groupKey);
-    return isSafeOperationKey(payload.key) ? payload.key : null;
-  } catch {
-    return null;
-  }
+async function extractKey(op: string, codec: GroupCodec): Promise<string | null> {
+  const payload = await codec.openOrDrop(op, OperationPayload);
+  return payload && isSafeOperationKey(payload.key) ? payload.key : null;
 }
 
 /**
@@ -116,21 +97,19 @@ async function extractKey(op: string, groupKey?: string | null): Promise<string 
  *   value sets the key, a `null` deletes it.
  * - For keys only in local state (not touched by server entries): keep
  *   the local value.
- *
- * groupKey: omit to use session key, pass explicitly in tests.
  */
 export async function mergeAfterRejection(
   localAnswers: Record<string, Answer>,
   pendingOps: string[],
   serverEntries: string[],
-  groupKey?: string | null,
+  codec: GroupCodec,
 ): Promise<Record<string, Answer>> {
   const serverState = await replayJournalDeletable(
     serverEntries.map((op) => ({ operation: op })),
-    groupKey,
+    codec,
   );
 
-  const extractedKeys = await Promise.all(pendingOps.map((op) => extractKey(op, groupKey)));
+  const extractedKeys = await Promise.all(pendingOps.map((op) => extractKey(op, codec)));
   const pendingKeys = new Set<string>(extractedKeys.filter((k): k is string => k !== null));
 
   const merged = { ...localAnswers };

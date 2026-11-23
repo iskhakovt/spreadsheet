@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import type { Answer } from "@spreadsheet/shared";
+import { type Answer, plainOp } from "@spreadsheet/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
@@ -9,7 +9,7 @@ interface WrapperProps {
 }
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { encodeValue } from "./crypto.js";
+import { createGroupCodec } from "./codec.js";
 import { applySelfJournalDelta, makeSelfJournalQueryFn, SELF_JOURNAL_QUERY_KEY, useAnswers } from "./self-journal.js";
 import { adoptSession, getScope } from "./session.js";
 import {
@@ -27,9 +27,7 @@ const no: Answer = { rating: "no", note: null };
 const maybe: Answer = { rating: "maybe", note: null };
 const OPAQUE_CURSOR = "AbCdEfGhIjKlMnOpQrSt_-";
 
-async function plainOp(key: string, data: Answer | null): Promise<string> {
-  return encodeValue({ key, data }, null);
-}
+const codec = createGroupCodec(false, null);
 
 beforeEach(() => {
   adoptSession(token);
@@ -80,34 +78,34 @@ describe("getSelfJournalCursor / setSelfJournalCursor", () => {
 describe("applySelfJournalDelta", () => {
   it("returns prev unchanged on empty delta", async () => {
     const prev = { "a:mutual": yes };
-    const next = await applySelfJournalDelta(prev, []);
+    const next = await applySelfJournalDelta(prev, [], codec);
     expect(next).toBe(prev);
   });
 
   it("bootstrap: empty prev + entries → server state", async () => {
     const entries = [
-      { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) },
-      { id: "e2", personId: "p", operation: await plainOp("b:give", no) },
+      { id: "e1", personId: "p", operation: plainOp("a:mutual", yes) },
+      { id: "e2", personId: "p", operation: plainOp("b:give", no) },
     ];
-    const next = await applySelfJournalDelta({}, entries);
+    const next = await applySelfJournalDelta({}, entries, codec);
     expect(next).toEqual({ "a:mutual": yes, "b:give": no });
   });
 
   it("server values overwrite prev for keys not in the outbox", async () => {
     const prev = { "a:mutual": no };
-    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) }];
+    const entries = [{ id: "e1", personId: "p", operation: plainOp("a:mutual", yes) }];
     clearPendingOps();
-    const next = await applySelfJournalDelta(prev, entries);
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next["a:mutual"]).toEqual(yes);
   });
 
   it("outbox wins for keys with a pending op", async () => {
     const prev = { "a:mutual": maybe };
-    addPendingOpForKey(await plainOp("a:mutual", maybe), "a:mutual");
+    addPendingOpForKey(plainOp("a:mutual", maybe), "a:mutual");
     // Server says "yes", but pending op says "maybe" — pending wins because
     // the user's local edit hasn't reached the server yet.
-    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) }];
-    const next = await applySelfJournalDelta(prev, entries);
+    const entries = [{ id: "e1", personId: "p", operation: plainOp("a:mutual", yes) }];
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next["a:mutual"]).toEqual(maybe);
   });
 
@@ -119,8 +117,8 @@ describe("applySelfJournalDelta", () => {
     // merge applies them, matching the bootstrap (full-replay) path.
     const prev = { "a:mutual": yes };
     clearPendingOps();
-    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", null) }];
-    const next = await applySelfJournalDelta(prev, entries);
+    const entries = [{ id: "e1", personId: "p", operation: plainOp("a:mutual", null) }];
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next).not.toHaveProperty("a:mutual");
   });
 
@@ -128,9 +126,9 @@ describe("applySelfJournalDelta", () => {
     // If the user has a pending op for the same key that the server is
     // deleting, the user's local intent must win (not yet pushed).
     const prev = { "a:mutual": yes };
-    addPendingOpForKey(await plainOp("a:mutual", maybe), "a:mutual");
-    const entries = [{ id: "e1", personId: "p", operation: await plainOp("a:mutual", null) }];
-    const next = await applySelfJournalDelta(prev, entries);
+    addPendingOpForKey(plainOp("a:mutual", maybe), "a:mutual");
+    const entries = [{ id: "e1", personId: "p", operation: plainOp("a:mutual", null) }];
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next["a:mutual"]).toEqual(yes);
   });
 
@@ -139,10 +137,10 @@ describe("applySelfJournalDelta", () => {
     const prev = {};
     clearPendingOps();
     const entries = [
-      { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) },
-      { id: "e2", personId: "p", operation: await plainOp("a:mutual", null) },
+      { id: "e1", personId: "p", operation: plainOp("a:mutual", yes) },
+      { id: "e2", personId: "p", operation: plainOp("a:mutual", null) },
     ];
-    const next = await applySelfJournalDelta(prev, entries);
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next).not.toHaveProperty("a:mutual");
   });
 
@@ -150,17 +148,17 @@ describe("applySelfJournalDelta", () => {
     const prev = { "a:mutual": yes };
     clearPendingOps();
     const entries = [
-      { id: "e1", personId: "p", operation: await plainOp("a:mutual", null) },
-      { id: "e2", personId: "p", operation: await plainOp("a:mutual", maybe) },
+      { id: "e1", personId: "p", operation: plainOp("a:mutual", null) },
+      { id: "e2", personId: "p", operation: plainOp("a:mutual", maybe) },
     ];
-    const next = await applySelfJournalDelta(prev, entries);
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next["a:mutual"]).toEqual(maybe);
   });
 
   it("preserves prev values for keys not touched by the delta", async () => {
     const prev = { "a:mutual": yes, "c:give": no };
-    const entries = [{ id: "e1", personId: "p", operation: await plainOp("b:mutual", maybe) }];
-    const next = await applySelfJournalDelta(prev, entries);
+    const entries = [{ id: "e1", personId: "p", operation: plainOp("b:mutual", maybe) }];
+    const next = await applySelfJournalDelta(prev, entries, codec);
     expect(next["a:mutual"]).toEqual(yes);
     expect(next["c:give"]).toEqual(no);
     expect(next["b:mutual"]).toEqual(maybe);
@@ -174,14 +172,14 @@ describe("applySelfJournalDelta", () => {
     // applying serially against shared local state, then assert all
     // entries from both events are present in the final answers map.
     clearPendingOps();
-    const op1 = { id: "e1", personId: "p", operation: await plainOp("a:mutual", yes) };
-    const op2 = { id: "e2", personId: "p", operation: await plainOp("b:mutual", maybe) };
+    const op1 = { id: "e1", personId: "p", operation: plainOp("a:mutual", yes) };
+    const op2 = { id: "e2", personId: "p", operation: plainOp("b:mutual", maybe) };
 
     // Apply serially: each delta runs against the merged result of the
     // previous one. This is what the production chainRef-based onData
     // guarantees — no concurrent applies, no lost entries.
-    const afterFirst = await applySelfJournalDelta({}, [op1]);
-    const afterSecond = await applySelfJournalDelta(afterFirst, [op2]);
+    const afterFirst = await applySelfJournalDelta({}, [op1], codec);
+    const afterSecond = await applySelfJournalDelta(afterFirst, [op2], codec);
 
     expect(afterSecond).toEqual({ "a:mutual": yes, "b:mutual": maybe });
   });
@@ -354,7 +352,7 @@ describe("makeSelfJournalQueryFn (token switch)", () => {
       // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
     } as any;
 
-    const queryFn = makeSelfJournalQueryFn(fakeTrpc);
+    const queryFn = makeSelfJournalQueryFn(fakeTrpc, codec);
     const ac = new AbortController();
     const promise = queryFn({ signal: ac.signal });
 
@@ -399,7 +397,7 @@ describe("makeSelfJournalQueryFn (token switch)", () => {
       // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
     } as any;
 
-    const queryFn = makeSelfJournalQueryFn(fakeTrpc);
+    const queryFn = makeSelfJournalQueryFn(fakeTrpc, codec);
     const promise = queryFn({ signal: ac.signal });
 
     // Simulate the user navigating to a new token after the abort fires

@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { encodeValue } from "./crypto.js";
+import type { GroupCodec } from "./codec.js";
 import { getAnswers } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
@@ -13,7 +13,7 @@ import { useTRPC } from "./trpc.js";
  * `sync-flush.ts#flushPendingOps`, shared with `useMarkComplete` so
  * there is exactly one code path that clears the pending-ops queue.
  */
-export function useSyncQueue(totalQuestions: number) {
+export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
   const trpc = useTRPC();
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
 
@@ -31,17 +31,18 @@ export function useSyncQueue(totalQuestions: number) {
       await flushPendingOps(
         (input) => pushMutation.mutateAsync(input),
         async () =>
-          encodeValue({
+          codec.seal({
             answered: Object.keys(getAnswers()).length,
             total: totalQuestions,
           }),
+        codec,
       );
       inFlightRef.current = false;
     } catch (err) {
       inFlightRef.current = false;
       throw err;
     }
-  }, [pushMutation, totalQuestions]);
+  }, [pushMutation, totalQuestions, codec]);
 
   /**
    * Schedule or cancel a debounced sync. Call this whenever the pending

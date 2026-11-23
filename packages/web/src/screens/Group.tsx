@@ -15,7 +15,8 @@ import { Card } from "../components/Card.js";
 import { CopyLinkField } from "../components/copy-link-field.js";
 import { CopyMyLink } from "../components/copy-my-link.js";
 import { cn } from "../lib/cn.js";
-import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
+import { getGroupCodec } from "../lib/codec.js";
+import { buildPersonLink } from "../lib/crypto.js";
 import { useAnswers } from "../lib/self-journal.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -83,9 +84,9 @@ export function Group({
     e.preventDefault();
     if (!name) return;
     if (needsAnatomy && !anatomy) return;
-    const encName = await wrapSensitive(name);
-    const rawAnatomy = needsAnatomy ? (anatomy as string) : null;
-    const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : rawAnatomy;
+    const codec = getGroupCodec(group.encrypted);
+    const encName = await codec.seal(name);
+    const encAnatomy = needsAnatomy && anatomy ? await codec.seal<Anatomy>(anatomy) : null;
 
     const result = await addPersonMutation.mutateAsync({
       name: encName,

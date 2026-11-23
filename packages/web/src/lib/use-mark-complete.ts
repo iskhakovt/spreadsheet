@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useRef } from "react";
+import type { GroupCodec } from "./codec.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
 
@@ -19,7 +20,7 @@ import { useTRPC } from "./trpc.js";
  * roll your own mark-complete flow: the whole point is that every
  * mark-complete goes through the same flush.
  */
-export function useMarkComplete(token: string): () => Promise<void> {
+export function useMarkComplete(token: string, codec: GroupCodec): () => Promise<void> {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export function useMarkComplete(token: string): () => Promise<void> {
       await flushPendingOps(
         (input) => pushMutation.mutateAsync(input),
         async () => undefined,
+        codec,
       );
       await markCompleteMutation.mutateAsync();
       void navigate({ to: "/p/$token/waiting", params: { token } });
@@ -45,5 +47,5 @@ export function useMarkComplete(token: string): () => Promise<void> {
       inFlightRef.current = false;
       throw err;
     }
-  }, [pushMutation, markCompleteMutation, navigate, token]);
+  }, [pushMutation, markCompleteMutation, navigate, token, codec]);
 }

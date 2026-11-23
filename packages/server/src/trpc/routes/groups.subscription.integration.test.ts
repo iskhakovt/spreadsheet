@@ -1,4 +1,4 @@
-import { plainOp, plainProgress } from "@spreadsheet/shared";
+import { fakeEncrypted, plainOp, plainProgress, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -60,9 +60,9 @@ async function setupAliceAndBob() {
   const { adminToken } = await caller.groups.create(defaultCreate());
   const { partnerTokens } = await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: plainSealed("Alice"),
     anatomy: null,
-    partners: [{ name: "Bob", anatomy: null }],
+    partners: [{ name: plainSealed("Bob"), anatomy: null }],
   });
   const bobToken = partnerTokens[0];
 
@@ -99,7 +99,7 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     sub.cancel();
 
     expect(first).toBeDefined();
-    expect(first?.person?.name).toBe("Alice");
+    expect(first?.person?.name).toBe(plainSealed("Alice"));
     expect(first?.members).toHaveLength(2);
   });
 
@@ -108,14 +108,14 @@ describe("groups.onStatus subscription (real Postgres)", () => {
 
     const sub = await openSubscription(aliceSub(alice.ctx));
     const initial = await sub.next(1000);
-    expect(initial?.members.find((m) => m.name === "Bob")?.isCompleted).toBe(false);
+    expect(initial?.members.find((m) => m.name === plainSealed("Bob"))?.isCompleted).toBe(false);
 
     await bob.caller.sync.markComplete();
     const after = await sub.next(1000);
     sub.cancel();
 
     expect(after).toBeDefined();
-    expect(after?.members.find((m) => m.name === "Bob")?.isCompleted).toBe(true);
+    expect(after?.members.find((m) => m.name === plainSealed("Bob"))?.isCompleted).toBe(true);
   });
 
   it("yields again after groups.setProfile fires the broadcast", async () => {
@@ -124,11 +124,11 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     const sub = await openSubscription(aliceSub(alice.ctx));
     await sub.next(1000); // initial
 
-    await bob.caller.groups.setProfile({ name: "Robert", anatomy: null });
+    await bob.caller.groups.setProfile({ name: plainSealed("Robert"), anatomy: null });
     const after = await sub.next(1000);
     sub.cancel();
 
-    expect(after?.members.find((m) => m.id === bob.status.person?.id)?.name).toBe("Robert");
+    expect(after?.members.find((m) => m.id === bob.status.person?.id)?.name).toBe(plainSealed("Robert"));
   });
 
   it("yields different personalised status to each subscriber", async () => {
@@ -142,8 +142,8 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     aSub.cancel();
     bSub.cancel();
 
-    expect(aliceFirst?.person?.name).toBe("Alice");
-    expect(bobFirst?.person?.name).toBe("Bob");
+    expect(aliceFirst?.person?.name).toBe(plainSealed("Alice"));
+    expect(bobFirst?.person?.name).toBe(plainSealed("Bob"));
   });
 
   it("delivers a single broadcast to multiple group subscribers", async () => {
@@ -164,8 +164,8 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     aSub.cancel();
     bSub.cancel();
 
-    expect(aliceUpdate?.members.find((m) => m.name === "Alice")?.isCompleted).toBe(true);
-    expect(bobUpdate?.members.find((m) => m.name === "Alice")?.isCompleted).toBe(true);
+    expect(aliceUpdate?.members.find((m) => m.name === plainSealed("Alice"))?.isCompleted).toBe(true);
+    expect(bobUpdate?.members.find((m) => m.name === plainSealed("Alice"))?.isCompleted).toBe(true);
   });
 
   it("does NOT yield when sync.push is called (push doesn't broadcast)", async () => {
@@ -191,8 +191,8 @@ describe("groups.onStatus subscription (real Postgres)", () => {
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
     await caller.groups.setupAdmin({
       adminToken,
-      name: "e:1:encryptedAlice",
-      anatomy: "e:1:encryptedAfab",
+      name: fakeEncrypted("encryptedAlice"),
+      anatomy: fakeEncrypted("encryptedAfab"),
       partners: [],
     });
 

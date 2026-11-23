@@ -1,6 +1,16 @@
+import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { addPendingOp, getPendingOps } from "./storage.js";
+import { createGroupCodec } from "./codec.js";
+import { generateGroupKey } from "./crypto.js";
+import { addPendingOp, getAnswers, getPendingOps } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
+
+const codec = createGroupCodec(false, null);
+const yes: Answer = { rating: "yes", note: null };
+const op1 = plainOp("q1:mutual", yes);
+const op2 = plainOp("q2:mutual", yes);
+const op3 = plainOp("q3:mutual", yes);
+const progress = plainProgress({ answered: 3, total: 10 });
 
 // Minimal in-memory localStorage stub for the node test env.
 // storage.ts reads/writes through `localStorage` directly, so mocking at
@@ -19,25 +29,25 @@ beforeEach(() => {
 describe("flushPendingOps", () => {
   test("is a no-op when there are no pending ops", async () => {
     const push = vi.fn();
-    await flushPendingOps(push, async () => "p:1:progress");
+    await flushPendingOps(push, async () => progress, codec);
     expect(push).not.toHaveBeenCalled();
   });
 
   test("pushes pending ops and clears them on success", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2", "op3"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1, op2, op3]));
     const push = vi.fn().mockResolvedValue({
       stoken: "new-stoken",
       pushRejected: false,
       entries: [],
     });
 
-    await flushPendingOps(push, async () => "p:1:progress");
+    await flushPendingOps(push, async () => progress, codec);
 
     expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith({
       stoken: null,
-      operations: ["op1", "op2", "op3"],
-      progress: "p:1:progress",
+      operations: [op1, op2, op3],
+      progress,
     });
     // pendingOps cleared
     expect(getPendingOps()).toEqual([]);
@@ -49,50 +59,50 @@ describe("flushPendingOps", () => {
     // This is the markComplete flush path — we don't want to touch the
     // progress column on the final flush because the user is about to
     // be marked complete and the value is moot.
-    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1]));
     const push = vi.fn().mockResolvedValue({
       stoken: "s",
       pushRejected: false,
       entries: [],
     });
 
-    await flushPendingOps(push, async () => undefined);
+    await flushPendingOps(push, async () => undefined, codec);
 
     expect(push).toHaveBeenCalledWith(expect.objectContaining({ progress: undefined }));
     expect(getPendingOps()).toEqual([]);
   });
 
   test("does not clear pending ops if push throws", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1]));
     const push = vi.fn().mockRejectedValue(new Error("network"));
 
-    await expect(flushPendingOps(push, async () => undefined)).rejects.toThrow("network");
+    await expect(flushPendingOps(push, async () => undefined, codec)).rejects.toThrow("network");
 
     // Ops must still be in the queue so the next retry picks them up.
-    expect(JSON.parse(localStorage.getItem("pendingOps") ?? "[]")).toEqual(["op1"]);
+    expect(JSON.parse(localStorage.getItem("pendingOps") ?? "[]")).toEqual([op1]);
   });
 
   test("preserves ops enqueued during in-flight push", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1, op2]));
 
     // The push mock simulates a user answering another question while
     // the network request is in flight: when push is called, we append
-    // "op3" to the queue before resolving.
+    // op3 to the queue before resolving.
     const push = vi.fn().mockImplementation(async () => {
-      addPendingOp("op3");
+      addPendingOp(op3);
       return { stoken: "s", pushRejected: false, entries: [] };
     });
 
-    await flushPendingOps(push, async () => undefined);
+    await flushPendingOps(push, async () => undefined, codec);
 
     // Only op1 + op2 were sent; op3 was enqueued after the snapshot
     // and must survive in the queue for the next sync cycle.
-    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: ["op1", "op2"] }));
-    expect(getPendingOps()).toEqual(["op3"]);
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: [op1, op2] }));
+    expect(getPendingOps()).toEqual([op3]);
   });
 
   test("both pushes rejected — ops preserved, stoken updated to latest", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1, op2]));
     const push = vi
       .fn()
       .mockResolvedValueOnce({
@@ -106,17 +116,17 @@ describe("flushPendingOps", () => {
         entries: [],
       });
 
-    await flushPendingOps(push, async () => "p:1:progress");
+    await flushPendingOps(push, async () => progress, codec);
 
     expect(push).toHaveBeenCalledTimes(2);
     // Ops stay in the queue for the next sync cycle
-    expect(getPendingOps()).toEqual(["op1", "op2"]);
+    expect(getPendingOps()).toEqual([op1, op2]);
     // Stoken advanced to the latest server response
     expect(localStorage.getItem("stoken")).toBe("s2");
   });
 
   test("retries once on conflict and clears on retry success", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["opA"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1]));
     // First response: rejected with a conflict + empty server entries
     // (no merge work needed). Second response: success.
     const push = vi
@@ -132,11 +142,40 @@ describe("flushPendingOps", () => {
         entries: [],
       });
 
-    await flushPendingOps(push, async () => "p:1:progress");
+    await flushPendingOps(push, async () => progress, codec);
 
     expect(push).toHaveBeenCalledTimes(2);
     expect(getPendingOps()).toEqual([]);
     expect(localStorage.getItem("stoken")).toBe("s2");
+  });
+
+  test("on conflict, merges the server's entries through the group's codec before retrying", async () => {
+    // Encrypted group: the server's entries only open with this codec. Keys
+    // without a pending op take the server's value; keys with one keep the
+    // local edit, and the retry re-sends the same ops.
+    const encrypted = createGroupCodec(true, await generateGroupKey());
+    const maybe: Answer = { rating: "maybe", note: null };
+    const localOp = await encrypted.seal({ key: "q1:mutual", data: maybe });
+    localStorage.setItem("answers", JSON.stringify({ "q1:mutual": maybe }));
+    localStorage.setItem("pendingOps", JSON.stringify([localOp]));
+    const push = vi
+      .fn()
+      .mockResolvedValueOnce({
+        stoken: "s1",
+        pushRejected: true,
+        entries: [
+          await encrypted.seal({ key: "q1:mutual", data: yes }),
+          await encrypted.seal({ key: "q2:mutual", data: yes }),
+        ],
+      })
+      .mockResolvedValueOnce({ stoken: "s2", pushRejected: false, entries: [] });
+
+    await flushPendingOps(push, async () => undefined, encrypted);
+
+    expect(getAnswers()).toEqual({ "q1:mutual": maybe, "q2:mutual": yes });
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push.mock.calls[1][0]).toMatchObject({ stoken: "s1", operations: [localOp] });
+    expect(getPendingOps()).toEqual([]);
   });
 });
 
@@ -144,7 +183,7 @@ describe("flushPendingOps", () => {
  * Integration test for the mark-complete flow.
  *
  * Reproduces the exact sequence that `useMarkComplete` executes:
- *   1. `await flushPendingOps(push, getProgress)`
+ *   1. `await flushPendingOps(push, getProgress, codec)`
  *   2. `await markComplete()`
  *
  * The original bug was that step 1 was missing on the `/review → Done`
@@ -154,7 +193,7 @@ describe("flushPendingOps", () => {
  */
 describe("mark-complete integration: flush-before-mark ordering", () => {
   test("push is called before markComplete when there are pending ops", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1, op2]));
 
     const callOrder: string[] = [];
     const push = vi.fn().mockImplementation(async () => {
@@ -166,15 +205,15 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     });
 
     // The exact sequence useMarkComplete executes:
-    await flushPendingOps(push, async () => undefined);
+    await flushPendingOps(push, async () => undefined, codec);
     await markComplete();
 
     expect(callOrder).toEqual(["push", "markComplete"]);
-    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: ["op1", "op2"] }));
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ operations: [op1, op2] }));
   });
 
   test("pending ops are fully cleared before markComplete runs", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1", "op2", "op3"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1, op2, op3]));
 
     const push = vi.fn().mockImplementation(async () => {
       return { stoken: "s", pushRejected: false, entries: [] };
@@ -187,7 +226,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
       expect(remainingOps).toEqual([]);
     });
 
-    await flushPendingOps(push, async () => undefined);
+    await flushPendingOps(push, async () => undefined, codec);
     await markComplete();
 
     expect(markComplete).toHaveBeenCalledTimes(1);
@@ -200,7 +239,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     const push = vi.fn();
     const markComplete = vi.fn();
 
-    await flushPendingOps(push, async () => undefined);
+    await flushPendingOps(push, async () => undefined, codec);
     await markComplete();
 
     expect(push).not.toHaveBeenCalled();
@@ -208,7 +247,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
   });
 
   test("markComplete does NOT run if push fails (network error)", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1]));
 
     const push = vi.fn().mockRejectedValue(new Error("network"));
     const markComplete = vi.fn();
@@ -218,18 +257,18 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
     // because their answers haven't been saved.
     await expect(
       (async () => {
-        await flushPendingOps(push, async () => undefined);
+        await flushPendingOps(push, async () => undefined, codec);
         await markComplete();
       })(),
     ).rejects.toThrow("network");
 
     expect(markComplete).not.toHaveBeenCalled();
     // Ops are still in the queue for retry
-    expect(getPendingOps()).toEqual(["op1"]);
+    expect(getPendingOps()).toEqual([op1]);
   });
 
   test("concurrent double-click: second call is a no-op via external guard", async () => {
-    localStorage.setItem("pendingOps", JSON.stringify(["op1"]));
+    localStorage.setItem("pendingOps", JSON.stringify([op1]));
 
     // Simulate the inFlightRef guard that useMarkComplete uses.
     // The first call holds the lock; the second bails immediately.
@@ -246,7 +285,7 @@ describe("mark-complete integration: flush-before-mark ordering", () => {
       if (inFlight) return;
       inFlight = true;
       try {
-        await flushPendingOps(push, async () => undefined);
+        await flushPendingOps(push, async () => undefined, codec);
         await markComplete();
       } finally {
         inFlight = false;

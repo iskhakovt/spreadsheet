@@ -1,26 +1,19 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AnatomyPicker } from "../../../components/AnatomyPicker.js";
 import { Button } from "../../../components/Button.js";
 import { Card } from "../../../components/Card.js";
 import { usePersonApp } from "../../../lib/person-app-context.js";
-import { useTRPC } from "../../../lib/trpc.js";
+import { useSaveProfile } from "../../../lib/use-save-profile.js";
 
 export const Route = createFileRoute("/p/$token/anatomy")({
   component: AnatomyRoute,
 });
 
 function AnatomyRoute() {
-  const { authedStatus } = usePersonApp();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const setProfileMutation = useMutation(
-    trpc.groups.setProfile.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
-    }),
-  );
+  const { authedStatus, codec } = usePersonApp();
+  const { save, saving } = useSaveProfile(codec);
 
   const anatomyLabelKey = (authedStatus.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
@@ -34,10 +27,12 @@ function AnatomyRoute() {
         <AnatomyPicker selected={selected} onSelect={setSelected} labels={labels} />
         <Button
           fullWidth
-          disabled={!selected || setProfileMutation.isPending}
+          disabled={!selected || saving}
           onClick={() => {
-            if (!selected || setProfileMutation.isPending) return;
-            setProfileMutation.mutate({ name: authedStatus.person.name, anatomy: selected });
+            if (!selected) return;
+            // `authedStatus` holds the opened status, so the name is
+            // plaintext here; useSaveProfile seals it again.
+            void save({ name: authedStatus.person.name, anatomy: selected });
           }}
         >
           Continue

@@ -1,3 +1,4 @@
+import { fakeEncrypted, plainOp, plainSealed, type Sealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -42,7 +43,9 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
   // for this property test we only need values that look like `e:1:<bytes>`
   // and don't contain the plaintext markers in their payload (base64 of
   // "alice" is "YWxpY2U", which doesn't contain "alice").
-  const opaque = (label: string) => `e:1:${Buffer.from(label).toString("base64url")}`;
+  function opaque<T>(label: string): Sealed<T> {
+    return fakeEncrypted<T>(Buffer.from(label).toString("base64url"));
+  }
 
   // Plaintext markers we'd expect to leak if the server ever decrypted or
   // mirrored cleartext. Each is the input to `opaque()` above; if any
@@ -100,5 +103,47 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
     for (const marker of PLAINTEXT_MARKERS) {
       expect(allPersistedText, `plaintext marker "${marker}" leaked into persisted PII columns`).not.toContain(marker);
     }
+  });
+
+  it("rejects p: values on every write path and persists none of them", async () => {
+    const caller = createCaller(anonCtx(db));
+    const { adminToken } = await caller.groups.create({
+      encrypted: true,
+      questionMode: "all",
+      anatomyLabels: null,
+      anatomyPicker: null,
+    });
+    const mismatch = { code: "BAD_REQUEST", message: "Value encryption does not match group setting" };
+
+    await expect(
+      caller.groups.setupAdmin({ adminToken, name: plainSealed("alice"), anatomy: null, partners: [] }),
+    ).rejects.toMatchObject(mismatch);
+    await expect(
+      caller.groups.setupAdmin({
+        adminToken,
+        name: opaque("alice"),
+        anatomy: null,
+        partners: [{ name: plainSealed("bob"), anatomy: null }],
+      }),
+    ).rejects.toMatchObject(mismatch);
+    expect(await db.select().from(persons)).toEqual([]);
+
+    await caller.groups.setupAdmin({ adminToken, name: opaque("alice"), anatomy: null, partners: [] });
+    const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
+    const alice = createCaller(authedCtx(db, status!, adminToken));
+
+    await expect(alice.groups.setProfile({ name: plainSealed("alice"), anatomy: null })).rejects.toMatchObject(
+      mismatch,
+    );
+    await expect(
+      alice.sync.push({ stoken: null, operations: [plainOp("a:mutual", { rating: "yes", note: null })] }),
+    ).rejects.toMatchObject(mismatch);
+    await expect(
+      alice.sync.push({ stoken: null, operations: [opaque("op")], progress: plainSealed({ answered: 1, total: 2 }) }),
+    ).rejects.toMatchObject(mismatch);
+
+    const personRows = await db.select({ name: persons.name, progress: persons.progress }).from(persons);
+    expect(personRows).toEqual([{ name: opaque("alice"), progress: null }]);
+    expect(await db.select().from(journalEntries)).toEqual([]);
   });
 });

@@ -1,9 +1,10 @@
-import type { Answer, JournalEntry, JournalEntryId } from "@spreadsheet/shared";
+import type { Answer, JournalEntryId } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
+import type { GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { getScope } from "./session.js";
 import {
@@ -47,7 +48,7 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  *   4. Persist the new answers + cursor as a write-through, and prime the
  *      stoken so the next `sync.push` doesn't have to re-handshake.
  */
-export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
+export function makeSelfJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<SelfJournalCache> => {
     const cursor = getSelfJournalCursor();
     const result = await trpcClient.sync.selfJournal.query({ sinceId: cursor ?? undefined }, { signal });
@@ -59,7 +60,7 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
       throw new DOMException("aborted", "AbortError");
     }
 
-    const merged = await applySelfJournalDelta(getAnswers(), result.entries);
+    const merged = await applySelfJournalDelta(getAnswers(), result.entries, codec);
 
     // Re-check abort BEFORE writing scoped storage. The user may have
     // navigated to a different /p/$token in the meantime; useTokenSwitchCleanup
@@ -106,11 +107,13 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
-  newEntries: JournalEntry[],
+  // Rows, not JournalEntry: subscription payloads arrive unvalidated.
+  newEntries: readonly { operation: string }[],
+  codec: GroupCodec,
 ): Promise<Record<string, Answer>> {
   if (newEntries.length === 0) return prev;
   const serverEntryOps = newEntries.map((e) => e.operation);
-  return mergeAfterRejection(prev, getPendingOps(), serverEntryOps);
+  return mergeAfterRejection(prev, getPendingOps(), serverEntryOps, codec);
 }
 
 /**
@@ -125,7 +128,7 @@ export async function applySelfJournalDelta(
  * The hook returns the cache slot. Play screens read it via `useAnswers`
  * (also exported from this file), which is a thin reader of the same slot.
  */
-export function useSelfJournal(): SelfJournalCache {
+export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
   // React Compiler can't prove `seqRef.current` is only touched in async
   // callbacks; mirror the directive used in Comparison/useLiveStatus.
   "use no memo";
@@ -136,7 +139,7 @@ export function useSelfJournal(): SelfJournalCache {
 
   const { data } = useSuspenseQuery({
     queryKey: SELF_JOURNAL_QUERY_KEY,
-    queryFn: makeSelfJournalQueryFn(trpcClient),
+    queryFn: makeSelfJournalQueryFn(trpcClient, codec),
   });
 
   // Capture the initial lastEventId once on mount with `useState`'s lazy
@@ -179,7 +182,7 @@ export function useSelfJournal(): SelfJournalCache {
               // slot can lag behind a synchronous setAnswer that happened
               // between the last slot write and this SSE update.
               // localStorage is the up-to-date local truth.
-              const merged = await applySelfJournalDelta(getAnswers(), entries);
+              const merged = await applySelfJournalDelta(getAnswers(), entries, codec);
               const newCursor = entries[entries.length - 1].id;
               queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {
                 answers: merged,

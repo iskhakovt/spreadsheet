@@ -1,16 +1,19 @@
 /** @vitest-environment happy-dom */
-import type { Answer } from "@spreadsheet/shared";
+import { type Anatomy, type Answer, fakeEncrypted, plainOp, plainSealed } from "@spreadsheet/shared";
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
-import { encodeValue } from "./crypto.js";
-import { applyJournalDelta, type CachedJournal, JOURNAL_QUERY_KEY } from "./journal-query.js";
+import { describe, expect, it, vi } from "vitest";
+import { createGroupCodec } from "./codec.js";
+import { generateGroupKey } from "./crypto.js";
+import { applyJournalDelta, type CachedJournal, JOURNAL_QUERY_KEY, replayMembers } from "./journal-query.js";
 import type { JournalEntry } from "./merge-journal.js";
+import { UI } from "./strings.js";
 
 const yes: Answer = { rating: "yes", note: null };
 const no: Answer = { rating: "no", note: null };
+const codec = createGroupCodec(false, null);
 
-async function entry(id: string, personId: string, key: string, data: Answer): Promise<JournalEntry> {
-  return { id, personId, operation: await encodeValue({ key, data }, null) };
+function entry(id: string, personId: string, key: string, data: Answer): JournalEntry {
+  return { id, personId, operation: plainOp(key, data) };
 }
 
 function seed(queryClient: QueryClient, entries: JournalEntry[] = []): void {
@@ -30,13 +33,55 @@ function read(queryClient: QueryClient): CachedJournal {
   return data;
 }
 
+describe("replayMembers", () => {
+  it("opens each member's name and anatomy and replays their own entries", async () => {
+    const encrypted = createGroupCodec(true, await generateGroupKey());
+    const members = [
+      { id: "alice", name: await encrypted.seal("Alice"), anatomy: await encrypted.seal<Anatomy>("afab") },
+      { id: "bob", name: await encrypted.seal("Bob"), anatomy: null },
+    ];
+    const entries = [
+      { id: "e1", personId: "alice", operation: await encrypted.seal({ key: "a:mutual", data: yes }) },
+      { id: "e2", personId: "bob", operation: await encrypted.seal({ key: "a:mutual", data: no }) },
+    ];
+
+    expect(await replayMembers(members, entries, encrypted)).toEqual([
+      { id: "alice", name: "Alice", anatomy: "afab", answers: { "a:mutual": yes } },
+      { id: "bob", name: "Bob", anatomy: null, answers: { "a:mutual": no } },
+    ]);
+  });
+
+  it("shows UI.unreadableName and no anatomy for fields that don't open, and still replays answers", async () => {
+    // A `p:` value in an encrypted group (forged without the key), a
+    // ciphertext under another group's key, and a garbled ciphertext.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const encrypted = createGroupCodec(true, await generateGroupKey());
+    const otherGroup = createGroupCodec(true, await generateGroupKey());
+    const members = [
+      { id: "forged", name: plainSealed("Mallory"), anatomy: plainSealed<Anatomy>("amab") },
+      { id: "other-key", name: await otherGroup.seal("Eve"), anatomy: await otherGroup.seal<Anatomy>("afab") },
+      { id: "garbled", name: fakeEncrypted<string>("garbled"), anatomy: fakeEncrypted<Anatomy>("garbled") },
+    ];
+    const entries = [{ id: "e1", personId: "forged", operation: await encrypted.seal({ key: "a:mutual", data: yes }) }];
+
+    const result = await replayMembers(members, entries, encrypted);
+
+    expect(result).toEqual([
+      { id: "forged", name: UI.unreadableName, anatomy: null, answers: { "a:mutual": yes } },
+      { id: "other-key", name: UI.unreadableName, anatomy: null, answers: {} },
+      { id: "garbled", name: UI.unreadableName, anatomy: null, answers: {} },
+    ]);
+    spy.mockRestore();
+  });
+});
+
 describe("applyJournalDelta", () => {
   it("applies a delta: raw entries, cursor, and replayed member answers", async () => {
     const queryClient = new QueryClient();
     seed(queryClient);
-    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries, codec);
 
-    await apply([await entry("e1", "alice", "a:mutual", yes)]);
+    await apply([entry("e1", "alice", "a:mutual", yes)]);
 
     const data = read(queryClient);
     expect(data.entries.map((e) => e.id)).toEqual(["e1"]);
@@ -51,11 +96,11 @@ describe("applyJournalDelta", () => {
     // write was discarded as stale, and those entries were lost for good
     // (the server cursor had already moved past them).
     const queryClient = new QueryClient();
-    seed(queryClient, [await entry("e1", "alice", "a:mutual", no)]);
-    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
+    seed(queryClient, [entry("e1", "alice", "a:mutual", no)]);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries, codec);
 
-    const x = await entry("e2", "alice", "a:mutual", yes);
-    const y = await entry("e3", "bob", "b:mutual", yes);
+    const x = entry("e2", "alice", "a:mutual", yes);
+    const y = entry("e3", "bob", "b:mutual", yes);
     await Promise.all([apply([x]), apply([y])]);
 
     const data = read(queryClient);
@@ -71,8 +116,8 @@ describe("applyJournalDelta", () => {
     // members derived from the old entry list onto the new one.
     const queryClient = new QueryClient();
     seed(queryClient);
-    const pending = applyJournalDelta(queryClient, [await entry("e1", "alice", "a:mutual", yes)]);
-    seed(queryClient, [await entry("f1", "alice", "a:mutual", no)]);
+    const pending = applyJournalDelta(queryClient, [entry("e1", "alice", "a:mutual", yes)], codec);
+    seed(queryClient, [entry("f1", "alice", "a:mutual", no)]);
     const replaced = read(queryClient);
     await pending;
     expect(read(queryClient)).toBe(replaced);
@@ -80,8 +125,8 @@ describe("applyJournalDelta", () => {
 
   it("ignores empty deltas and an unpopulated cache", async () => {
     const queryClient = new QueryClient();
-    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries);
-    await apply([await entry("e1", "alice", "a:mutual", yes)]);
+    const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries, codec);
+    await apply([entry("e1", "alice", "a:mutual", yes)]);
     expect(queryClient.getQueryData(JOURNAL_QUERY_KEY)).toBeUndefined();
 
     seed(queryClient);

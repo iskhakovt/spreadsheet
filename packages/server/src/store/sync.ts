@@ -1,8 +1,9 @@
-import { decodeOpaque, PREFIX_ENCRYPTED, PREFIX_PLAINTEXT } from "@spreadsheet/shared";
+import type { OperationPayload, Progress, Sealed } from "@spreadsheet/shared";
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
 import { decodeStoken, encodeStoken } from "../stoken.js";
+import { sealedInGroupMode } from "./sealed-mode.js";
 
 /**
  * Read entries for a single person, optionally filtered by `sinceId`. Used
@@ -60,9 +61,13 @@ export class SyncStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
+  /**
+   * Rejects the whole push with `encryption_mismatch`, before touching the
+   * DB, if any op or the progress wasn't sealed in the group's mode.
+   */
   async push(
     personId: string,
-    input: { stoken: string | null; operations: string[]; progress?: string },
+    input: { stoken: string | null; operations: Sealed<OperationPayload>[]; progress?: Sealed<Progress> },
     groupEncrypted: boolean,
   ): Promise<
     | { error: "encryption_mismatch" }
@@ -75,12 +80,8 @@ export class SyncStore {
         stokenInvalid: boolean;
       }
   > {
-    const expectedMode = groupEncrypted ? PREFIX_ENCRYPTED : PREFIX_PLAINTEXT;
-    for (const op of input.operations) {
-      const { mode } = decodeOpaque(op);
-      if (mode !== expectedMode) {
-        return { error: "encryption_mismatch" };
-      }
+    if (!sealedInGroupMode([...input.operations, input.progress], groupEncrypted)) {
+      return { error: "encryption_mismatch" };
     }
 
     return this.#tx(async (tx) => {

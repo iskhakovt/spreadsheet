@@ -1,4 +1,4 @@
-import type { GroupJournalResponse, JournalEntry, JournalEntryId } from "@spreadsheet/shared";
+import type { GroupJournalResponse, JournalEntryId, JournalEntryRow } from "@spreadsheet/shared";
 
 /**
  * Merge a delta of journal entries into an existing journal state.
@@ -15,16 +15,25 @@ import type { GroupJournalResponse, JournalEntry, JournalEntryId } from "@spread
  * the monotonically-growing journal.
  */
 
-export type { JournalEntry };
+/**
+ * A journal entry with its operation still sealed. The row type (plain
+ * string) because subscription deltas arrive without output validation;
+ * entries from the validated HTTP response are assignable to it.
+ */
+export type JournalEntry = JournalEntryRow;
 
-export interface JournalState {
-  members: GroupJournalResponse["members"];
+/** `M` is whatever member shape the caller keeps: sealed from the wire, or opened in the /results cache. */
+export interface JournalState<M = GroupJournalResponse["members"][number]> {
+  members: M[];
   entries: JournalEntry[];
   cursor: JournalEntryId | null;
 }
 
-export function mergeJournal(prev: JournalState | undefined, newEntries: JournalEntry[]): JournalState {
-  const base: JournalState = prev ?? { members: [], entries: [], cursor: null };
+export function mergeJournal<M>(
+  prev: JournalState<M> | undefined,
+  newEntries: readonly JournalEntry[],
+): JournalState<M> {
+  const base: JournalState<M> = prev ?? { members: [], entries: [], cursor: null };
   if (newEntries.length === 0) return base;
 
   // Map preserves first-insertion position on overwrite, so duplicates

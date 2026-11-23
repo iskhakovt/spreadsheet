@@ -1,9 +1,8 @@
-import type { GroupStatus } from "@spreadsheet/shared";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { type QueryKey, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useRef } from "react";
-import { decryptStatus } from "./decrypt-status.js";
-import { useTRPC } from "./trpc.js";
+import { decryptStatus, type LiveGroupStatus } from "./decrypt-status.js";
+import { useTRPC, useTRPCClient } from "./trpc.js";
 
 /**
  * Live-updating group status with TanStack Query + tRPC SSE subscription.
@@ -28,7 +27,7 @@ import { useTRPC } from "./trpc.js";
  * Suspense-query surfaces to the nearest ErrorBoundary. No separate
  * "error" state tracked in the hook.
  */
-export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Promise<void> } {
+export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () => Promise<void> } {
   // React Compiler reports a false-positive "Cannot access refs during render"
   // — `seqRef.current` is only touched inside the async `onData` callback. The
   // compiler can't prove the callback isn't synchronous, so it falls back to
@@ -38,15 +37,16 @@ export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Pr
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Grab the proxy-generated options (stable queryKey, typed queryFn) and
-  // override the queryFn to decrypt before returning. The cache stores the
-  // decrypted shape — readers don't need an extra useEffect cycle.
-  const baseOptions = trpc.groups.status.queryOptions();
+  // The cache holds the OPENED status (see decryptStatus), not the sealed
+  // wire shape tRPC's query key is tagged with. So the key is widened to a
+  // plain QueryKey and the slot is typed by the queryFn instead: reading it
+  // through a tRPC-typed key would claim the values are still sealed.
+  const trpcClient = useTRPCClient();
+  const statusKey: QueryKey = trpc.groups.status.queryKey();
   const { data: status } = useSuspenseQuery({
-    ...baseOptions,
-    queryFn: async (context) => {
-      // biome-ignore lint/style/noNonNullAssertion: proxy-generated queryFn is always defined at runtime
-      const raw = await baseOptions.queryFn!(context);
+    queryKey: statusKey,
+    queryFn: async ({ signal }): Promise<LiveGroupStatus | null> => {
+      const raw = await trpcClient.groups.status.query(undefined, { signal });
       return raw ? await decryptStatus(raw) : null;
     },
   });
@@ -72,7 +72,7 @@ export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Pr
           const decrypted = await decryptStatus(raw);
           // If a newer push landed while we were decrypting, drop this one.
           if (mySeq !== seqRef.current) return;
-          queryClient.setQueryData(baseOptions.queryKey, decrypted);
+          queryClient.setQueryData<LiveGroupStatus | null>(statusKey, decrypted);
         } catch (err) {
           console.error("Failed to decrypt status update:", err);
         }
@@ -84,7 +84,7 @@ export function useLiveStatus(): { status: GroupStatus | null; refresh: () => Pr
   );
 
   async function refresh(): Promise<void> {
-    await queryClient.invalidateQueries({ queryKey: baseOptions.queryKey });
+    await queryClient.invalidateQueries({ queryKey: statusKey });
   }
 
   return { status, refresh };

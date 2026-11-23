@@ -1,4 +1,12 @@
-import { plainOp, plainProgress } from "@spreadsheet/shared";
+import {
+  fakeEncrypted,
+  type OperationPayload,
+  type Progress,
+  plainOp,
+  plainProgress,
+  plainSealed,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents, journalEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
@@ -58,7 +66,14 @@ function mockCtx(
   } as unknown as TrpcContext;
 }
 
-const person = { id: "p1", groupId: "g1", name: "Alice", anatomy: "afab", isAdmin: true, isCompleted: false };
+const person = {
+  id: "p1",
+  groupId: "g1",
+  name: plainSealed("Alice"),
+  anatomy: plainSealed("afab"),
+  isAdmin: true,
+  isCompleted: false,
+};
 const group = {
   id: "g1",
   encrypted: false,
@@ -67,6 +82,13 @@ const group = {
   anatomyLabels: null,
   anatomyPicker: null,
 };
+
+/** A raw string typed as sealed, to get past the compiler and test the runtime schema. */
+function unsealed<T>(value: string): Sealed<T> {
+  return value as Sealed<T>;
+}
+
+const sealedFormatError = { code: "BAD_REQUEST", message: expect.stringContaining("Expected a sealed value") };
 
 /** Shared test fixture: what a successful sync.push store call returns. */
 const pushOk = (entries: { id: number; personId: string; operation: string }[] = []) => ({
@@ -87,12 +109,18 @@ const pushConflict = () => ({
 });
 
 describe("sync.push", () => {
-  it("validates opaque format before calling store", async () => {
-    const ctx = mockCtx({ person, group });
-    const caller = createCaller(ctx);
-    await expect(caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: undefined })).rejects.toThrow(
-      "Invalid operation format",
+  it.each([
+    ["an unprefixed op", { operations: [unsealed<OperationPayload>("not-opaque")] }],
+    ["an op with an unknown mode", { operations: [unsealed<OperationPayload>("x:1:payload")] }],
+    ["an op without a version", { operations: [unsealed<OperationPayload>("p:payload")] }],
+    ["raw progress", { operations: [], progress: unsealed<Progress>('{"answered":1,"total":2}') }],
+  ])("rejects %s with BAD_REQUEST before calling the store", async (_label, fields) => {
+    const push = vi.fn();
+    const ctx = mockCtx({ person, group, sync: { push } });
+    await expect(createCaller(ctx).sync.push({ stoken: null, progress: undefined, ...fields })).rejects.toMatchObject(
+      sealedFormatError,
     );
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("throws BAD_REQUEST when store returns encryption_mismatch", async () => {
@@ -102,10 +130,22 @@ describe("sync.push", () => {
     await expect(
       caller.sync.push({
         stoken: null,
-        operations: ["e:1:encryptedpayload"],
+        operations: [fakeEncrypted<OperationPayload>("encryptedpayload")],
         progress: undefined,
       }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Operation encryption does not match group setting" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Value encryption does not match group setting" });
+  });
+
+  it("passes the group's encrypted flag and the progress to the store", async () => {
+    const push = vi.fn().mockResolvedValue(pushOk());
+    const ctx = mockCtx({ person, group: { ...group, encrypted: true }, sync: { push } });
+    const input = {
+      stoken: null,
+      operations: [fakeEncrypted<OperationPayload>("op")],
+      progress: fakeEncrypted<Progress>("progress"),
+    };
+    await createCaller(ctx).sync.push(input);
+    expect(push).toHaveBeenCalledWith("p1", input, true);
   });
 
   it("passes valid operations to store", async () => {
@@ -229,9 +269,9 @@ describe("sync.push journal bus emission", () => {
     journalEvents.on("journal:g1", handler);
     const ctx = mockCtx({ person, group, sync: { push } });
     const caller = createCaller(ctx);
-    await expect(caller.sync.push({ stoken: null, operations: ["not-opaque"], progress: undefined })).rejects.toThrow(
-      "Invalid operation format",
-    );
+    await expect(
+      caller.sync.push({ stoken: null, operations: [unsealed("not-opaque")], progress: undefined }),
+    ).rejects.toMatchObject(sealedFormatError);
     expect(push).not.toHaveBeenCalled();
     expect(handler).not.toHaveBeenCalled();
   });

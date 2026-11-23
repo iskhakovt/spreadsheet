@@ -1,4 +1,3 @@
-import { decodeOpaque, encodeOpaque } from "@spreadsheet/shared";
 import { NonRetriableError } from "./errors.js";
 import { getScope } from "./session.js";
 
@@ -27,7 +26,7 @@ export async function generateGroupKey(): Promise<string> {
 }
 
 /** Import a base64url-encoded key string into a CryptoKey */
-async function importKey(base64urlKey: string): Promise<CryptoKey> {
+export async function importGroupKey(base64urlKey: string): Promise<CryptoKey> {
   const raw = base64urlDecode(base64urlKey);
   return crypto.subtle.importKey(
     "raw",
@@ -54,7 +53,7 @@ const MIN_PADDED_BYTES = 256;
  * the length reveals only which bucket a value fell in.
  *
  * Trailing whitespace is insignificant to `JSON.parse`, so this stays inside
- * the `e:1:` format: `decodeValue` needs no unpadding step, clients still on
+ * the `e:1:` format: opening needs no unpadding step, clients still on
  * pre-padding code read padded values unchanged, and older unpadded values
  * keep decoding as before.
  */
@@ -67,10 +66,13 @@ function padJson(json: string): Uint8Array<ArrayBuffer> {
   return padded;
 }
 
-/** Encrypt bytes. Returns base64url(iv || ciphertext) */
-async function encryptRaw(plaintext: Uint8Array<ArrayBuffer>, key: CryptoKey): Promise<string> {
+/**
+ * Pad and encrypt a JSON string. Returns base64url(iv || ciphertext), the
+ * payload of an `e:1:` sealed value. Only the group codec calls this.
+ */
+export async function encryptJson(json: string, key: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  const ciphertext = await crypto.subtle.encrypt({ name: ALGO, iv }, key, plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: ALGO, iv }, key, padJson(json));
   // Prepend IV to ciphertext
   const combined = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
   combined.set(iv, 0);
@@ -78,52 +80,17 @@ async function encryptRaw(plaintext: Uint8Array<ArrayBuffer>, key: CryptoKey): P
   return base64urlEncode(combined);
 }
 
-/** Decrypt base64url(iv || ciphertext) back to a string */
-async function decryptRaw(encoded: string, key: CryptoKey): Promise<string> {
+/**
+ * Decrypt base64url(iv || ciphertext) back to its JSON string (padding
+ * included; JSON.parse ignores it). Throws if the key is wrong or the
+ * ciphertext was tampered with: GCM authenticates it.
+ */
+export async function decryptJson(encoded: string, key: CryptoKey): Promise<string> {
   const combined = base64urlDecode(encoded);
   const iv = combined.slice(0, IV_LENGTH);
   const ciphertext = combined.slice(IV_LENGTH);
   const decrypted = await crypto.subtle.decrypt({ name: ALGO, iv }, key, ciphertext);
   return new TextDecoder().decode(decrypted);
-}
-
-/**
- * Encode a value as an opaque string.
- * - Plaintext mode: `p:1:json`
- * - Encrypted mode: `e:1:base64url(iv || ciphertext)`, JSON padded to a size
- *   bucket first (see `padJson`) so the length doesn't leak the value.
- *
- * groupKey: omit to use the session key, pass null to force plaintext, pass a string to encrypt with that key.
- */
-export async function encodeValue(value: unknown, groupKey?: string | null): Promise<string> {
-  const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
-  const json = JSON.stringify(value);
-  if (!resolvedKey) {
-    return encodeOpaque(false, json);
-  }
-  const key = await importKey(resolvedKey);
-  const encrypted = await encryptRaw(padJson(json), key);
-  return encodeOpaque(true, encrypted);
-}
-
-/**
- * Decode an opaque string back to a value.
- * Handles both `p:1:` and `e:1:` prefixes.
- *
- * groupKey: omit to use the session key, pass a string to decrypt with that key.
- */
-export async function decodeValue<T = unknown>(opaque: string, groupKey?: string | null): Promise<T> {
-  const { mode, payload } = decodeOpaque(opaque);
-  if (mode === "p") {
-    return JSON.parse(payload) as T;
-  }
-  const resolvedKey = groupKey === undefined ? getGroupKeyFromUrl() : groupKey;
-  if (!resolvedKey) {
-    throw new MissingKeyError();
-  }
-  const key = await importKey(resolvedKey);
-  const json = await decryptRaw(payload, key);
-  return JSON.parse(json) as T;
 }
 
 /**
@@ -171,29 +138,6 @@ export function getGroupKeyFromUrl(): string | null {
     cachedGroupKey = sessionStorage.getItem(`${scope}groupKey`);
   }
   return cachedGroupKey;
-}
-
-/**
- * Wrap a sensitive string for storage — encrypts if session key exists, returns raw otherwise.
- * Use for names, anatomy, and other PII that should be encrypted in encrypted groups.
- */
-export async function wrapSensitive(value: string): Promise<string> {
-  const key = getGroupKeyFromUrl();
-  if (!key) return value;
-  return encodeValue(value);
-}
-
-/**
- * Unwrap a stored sensitive string — decodes if opaque format (p:N: or e:N:), returns raw otherwise.
- * Safe to call on both encrypted and plaintext values.
- *
- * groupKey: omit to use session key, pass explicitly in tests.
- */
-export async function unwrapSensitive(value: string, groupKey?: string | null): Promise<string> {
-  if (/^[pe]:\d+:/.test(value)) {
-    return decodeValue<string>(value, groupKey);
-  }
-  return value;
 }
 
 /**

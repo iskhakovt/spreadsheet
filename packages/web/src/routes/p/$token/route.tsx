@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../../../components/Card.js";
 import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
+import { getGroupCodec } from "../../../lib/codec.js";
 import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../../../lib/journal-query.js";
 import { sortMembersViewerFirst } from "../../../lib/member-display.js";
@@ -12,6 +13,7 @@ import {
   type AuthedGroupStatus,
   PersonAppContext,
   type PersonAppContextValue,
+  usePersonApp,
 } from "../../../lib/person-app-context.js";
 import { useSelfJournal } from "../../../lib/self-journal.js";
 import { adoptSession } from "../../../lib/session.js";
@@ -19,6 +21,7 @@ import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
 import { useMarkComplete } from "../../../lib/use-mark-complete.js";
+import { useResealLegacyProfile } from "../../../lib/use-reseal-legacy-profile.js";
 import { useTokenSwitchCleanup } from "../../../lib/use-token-switch-cleanup.js";
 import { GroupSetup } from "../../../screens/GroupSetup.js";
 
@@ -58,6 +61,10 @@ function PersonAppLayout() {
   useTokenSwitchCleanup(token);
 
   const { status, refresh: refreshStatus } = useLiveStatus();
+  // Every seal/open in the app goes through this codec, built from the
+  // group's own `encrypted` flag. It's inert until used, so building it
+  // here is safe even when the key is missing (handled below).
+  const codec = getGroupCodec(status?.group.encrypted ?? false);
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
@@ -68,15 +75,15 @@ function PersonAppLayout() {
   // renders without waiting for the HTTP fetch + decryption on the critical path.
   useEffect(() => {
     if (allComplete && !queryClient.getQueryData(JOURNAL_QUERY_KEY)) {
-      prefetchJournal(queryClient, trpcClient).catch((err) => console.error("Journal prefetch failed:", err));
+      prefetchJournal(queryClient, trpcClient, codec).catch((err) => console.error("Journal prefetch failed:", err));
     }
-  }, [allComplete, queryClient, trpcClient]);
+  }, [allComplete, queryClient, trpcClient, codec]);
 
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
   const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
-  const markComplete = useMarkComplete(token);
+  const markComplete = useMarkComplete(token, codec);
 
   const sortedMembers = useMemo(
     () => sortMembersViewerFirst(status?.members ?? [], status?.person?.id ?? ""),
@@ -130,6 +137,7 @@ function PersonAppLayout() {
   const ctx: PersonAppContextValue = {
     token,
     authedStatus: status as AuthedGroupStatus,
+    codec,
     sortedMembers,
     questionsData: questionsData as { questions: QuestionData[]; categories: CategoryData[] },
     markComplete,
@@ -180,6 +188,8 @@ function PersonAppLayout() {
  * in the parent).
  */
 function AuthedShell({ children }: Readonly<{ children: React.ReactNode }>) {
-  useSelfJournal();
+  const { codec } = usePersonApp();
+  useSelfJournal(codec);
+  useResealLegacyProfile();
   return <>{children}</>;
 }

@@ -245,7 +245,7 @@ URL-based routing via wouter (nested under `/p/:token`):
 1. Generated in Landing → put in URL fragment `#key=base64url`
 2. Read by `getGroupKeyFromUrl()` on first access → cached in `sessionStorage`
 3. `sessionStorage` survives page reloads but not new tabs (each tab gets key from URL)
-4. `wrapSensitive(value)` / `unwrapSensitive(value)` handle encrypt/decrypt transparently
+4. `getGroupCodec(group.encrypted)` seals and opens every sensitive value with it (see `design/sync.md` § Sealed values)
 5. wouter's `pushState` drops the hash fragment — sessionStorage cache handles this
 
 ## ND-Friendly Considerations

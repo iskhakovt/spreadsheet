@@ -1,8 +1,17 @@
-import { plainOp, plainProgress } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  fakeEncrypted,
+  type OperationPayload,
+  type Progress,
+  plainOp,
+  plainProgress,
+  plainSealed,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
-import { groups, persons } from "../db/schema.js";
+import { groups, journalEntries, persons } from "../db/schema.js";
 import { decodeStoken } from "../stoken.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { SyncStore } from "./sync.js";
@@ -33,8 +42,8 @@ async function createTestPerson(encrypted = false) {
     .insert(persons)
     .values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: encrypted ? fakeEncrypted("alice") : plainSealed("Alice"),
+      anatomy: encrypted ? fakeEncrypted("afab") : plainSealed<Anatomy>("afab"),
       token: `t-${Math.random()}`,
       isAdmin: true,
       isCompleted: false,
@@ -209,7 +218,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ["e:1:encryptedpayload"],
+        operations: [fakeEncrypted<OperationPayload>("encryptedpayload")],
         progress: undefined,
       },
       false,
@@ -223,12 +232,75 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: [plainOp("a:mutual", { rating: "yes", note: null }), "e:1:encryptedpayload"],
+        operations: [
+          plainOp("a:mutual", { rating: "yes", note: null }),
+          fakeEncrypted<OperationPayload>("encryptedpayload"),
+        ],
         progress: undefined,
       },
       false,
     );
     expect(result).toEqual({ error: "encryption_mismatch" });
+  });
+
+  describe("progress mode check", () => {
+    async function journalCount(personId: string) {
+      return (await db.select().from(journalEntries).where(eq(journalEntries.personId, personId))).length;
+    }
+
+    async function storedProgress(personId: string) {
+      const [row] = await db.select({ progress: persons.progress }).from(persons).where(eq(persons.id, personId));
+      return row.progress;
+    }
+
+    it("stores e: progress in an encrypted group", async () => {
+      const { personId } = await createTestPerson(true);
+      const progress = fakeEncrypted<Progress>("progress-1-of-10");
+      const result = await store.push(
+        personId,
+        { stoken: null, operations: [fakeEncrypted<OperationPayload>("op")], progress },
+        true,
+      );
+      expect(result).toMatchObject({ pushRejected: false });
+      expect(await storedProgress(personId)).toBe(progress);
+    });
+
+    it.each([
+      ["p: progress in an encrypted group", true, plainProgress({ answered: 1, total: 10 })],
+      ["e: progress in a plaintext group", false, fakeEncrypted<Progress>("progress-1-of-10")],
+      ["raw progress in a plaintext group", false, '{"answered":1,"total":10}' as Sealed<Progress>],
+    ])("rejects %s and writes neither progress nor ops", async (_label, encrypted, progress) => {
+      const { personId } = await createTestPerson(encrypted);
+      const op = encrypted ? fakeEncrypted<OperationPayload>("op") : plainOp("a:mutual", { rating: "yes", note: null });
+      const result = await store.push(personId, { stoken: null, operations: [op], progress }, encrypted);
+      expect(result).toEqual({ error: "encryption_mismatch" });
+      expect(await storedProgress(personId)).toBeNull();
+      expect(await journalCount(personId)).toBe(0);
+    });
+
+    it("rejects a mismatched op without writing the (matching) progress", async () => {
+      const { personId } = await createTestPerson(false);
+      const result = await store.push(
+        personId,
+        {
+          stoken: null,
+          operations: [fakeEncrypted<OperationPayload>("op")],
+          progress: plainProgress({ answered: 1, total: 10 }),
+        },
+        false,
+      );
+      expect(result).toEqual({ error: "encryption_mismatch" });
+      expect(await storedProgress(personId)).toBeNull();
+      expect(await journalCount(personId)).toBe(0);
+    });
+
+    it("accepts a progress-only push with matching mode", async () => {
+      const { personId } = await createTestPerson(false);
+      const progress = plainProgress({ answered: 0, total: 10 });
+      const result = await store.push(personId, { stoken: null, operations: [], progress }, false);
+      expect(result).toMatchObject({ pushRejected: false });
+      expect(await storedProgress(personId)).toBe(progress);
+    });
   });
 
   it("accepts encrypted ops on encrypted group", async () => {
@@ -237,7 +309,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ["e:1:encryptedpayload"],
+        operations: [fakeEncrypted<OperationPayload>("encryptedpayload")],
         progress: undefined,
       },
       true,
@@ -272,8 +344,8 @@ describe("SyncStore.journalSince", () => {
       .insert(persons)
       .values({
         groupId: group.id,
-        name: "Alice",
-        anatomy: "afab",
+        name: plainSealed("Alice"),
+        anatomy: plainSealed<Anatomy>("afab"),
         token: `a-${Math.random()}`,
         isAdmin: true,
         isCompleted: true,
@@ -283,8 +355,8 @@ describe("SyncStore.journalSince", () => {
       .insert(persons)
       .values({
         groupId: group.id,
-        name: "Bob",
-        anatomy: "amab",
+        name: plainSealed("Bob"),
+        anatomy: plainSealed<Anatomy>("amab"),
         token: `b-${Math.random()}`,
         isAdmin: false,
         isCompleted: true,
@@ -405,16 +477,16 @@ describe("SyncStore.journalSince", () => {
       .returning();
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: plainSealed("Alice"),
+      anatomy: plainSealed<Anatomy>("afab"),
       token: `a-${Math.random()}`,
       isAdmin: true,
       isCompleted: true,
     });
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Bob",
-      anatomy: "amab",
+      name: plainSealed("Bob"),
+      anatomy: plainSealed<Anatomy>("amab"),
       token: `b-${Math.random()}`,
       isAdmin: false,
       isCompleted: false,
@@ -431,8 +503,8 @@ describe("SyncStore.journalSince", () => {
       .returning();
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: plainSealed("Alice"),
+      anatomy: plainSealed<Anatomy>("afab"),
       token: `a-${Math.random()}`,
       isAdmin: true,
       isCompleted: false,

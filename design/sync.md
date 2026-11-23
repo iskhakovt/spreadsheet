@@ -101,7 +101,7 @@ The random IV also acts as a salt — encrypting the same value (e.g. `"amab"`) 
 
 GCM is a stream mode: ciphertext is exactly as long as its plaintext, so an unpadded op tells the server how long its JSON was. That is enough to read answers. The five ratings serialize to five different lengths (`no` = 2, `yes` = 3, `maybe` = 5, `fantasy` = 7, `if-partner-wants` = 16), set and clear differ, and the server can guess the question from answer order. Names and progress leak their length the same way.
 
-So before encrypting, the client pads the UTF-8 JSON with trailing spaces to a size bucket: **256 bytes, then the next power of two** (`padJson` in `packages/web/src/lib/crypto.ts`, applied to every value `encodeValue` encrypts).
+So before encrypting, the client pads the UTF-8 JSON with trailing spaces to a size bucket: **256 bytes, then the next power of two** (`padJson` in `packages/web/src/lib/crypto.ts`, applied to every value the group codec seals in an encrypted group).
 
 - 256 bytes covers every note-less op (the longest today, `watching-partner-masturbate:receive` + `if-partner-wants`, is 94 bytes), notes up to about 160 bytes, names, anatomy and progress. Within that bucket, rating, question, set/clear and note presence are all hidden.
 - Above 256 bytes, the length reveals the power-of-two bucket of the **whole serialized value**, not the note's exact length. The rating and key are part of that value, so a note sitting just under a boundary can be pushed over it by a longer rating (`if-partner-wants` vs `no` is 14 bytes). The server learns that the value crossed a boundary, which only narrows the rating if it already knows the note's length to within those few bytes. Very long names (over about 250 bytes) leave the first bucket too.
@@ -141,14 +141,24 @@ p:1:{"key":"oral-give:give","data":{"rating":"yes","note":null}}
 e:1:dGhpcyBpcyBlbmNyeXB0ZWQ...
 ```
 
-The client parses by locating the first two colons — the payload after the second colon is preserved verbatim (it may itself contain `:`). Old format versions remain supported — a `p:1:` entry still works after `p:2:` is introduced.
-
-The server stores and returns the full prefixed string as-is. It may optionally validate that the prefix matches the group's `encrypted` flag.
+The client parses by locating the first two colons — the payload after the second colon is preserved verbatim (it may itself contain `:`). A future `p:2:` would need the reader updated first: today's codec rejects versions it doesn't know rather than guessing.
 
 | Mode | `group.encrypted` | Prefix | Key management |
 |-|-|-|-|
 | Plaintext | false | `p:1:` | None |
 | Encrypted | true | `e:1:` | Group key in URL fragment `#key=...` |
+
+### Sealed values
+
+Every sensitive field (name, anatomy, progress, journal ops) is a **sealed value** in this format, in both modes. No call site decides whether to encrypt; the group's config does, and both ends enforce it.
+
+- **Type.** `Sealed<T>` in `@spreadsheet/shared` (`sealed.ts`) is a branded string carrying its payload type. Sensitive tRPC inputs use the `sealed<T>()` schema, built with `z.custom` so the client's input type is `Sealed<T>`: passing a raw string is a compile error. (`.brand()` wouldn't do it: it brands outputs only.) Outputs use `sealedOutput<T>()`, which only checks for a string, so one bad row can't fail a whole response.
+- **Writes.** The client's `GroupCodec` (`packages/web/src/lib/codec.ts`) is the only producer of `Sealed<T>`. Its mode comes from `group.encrypted`; the key comes from the link. The two must agree: an encrypted group without a key throws `MissingKeyError`, and a plaintext group with a key throws `UnexpectedKeyError` instead of following the server into a downgrade. Neither falls back to plaintext. Encrypted values are padded before encryption ([Length padding](#length-padding)).
+- **Server check.** `setupAdmin`, `addPerson`, `setProfile` and `sync.push` (ops and progress) reject a value whose mode doesn't match `group.encrypted` (`encryption_mismatch` → BAD_REQUEST), before writing anything. The server can't read values, but it can refuse plaintext in an encrypted group.
+- **Reads.** `codec.open` rejects a value in the other mode, an unknown format version, ciphertext that doesn't open under the group key (GCM authenticates it), and a payload that fails the field's Zod schema. In an encrypted group this matters most: a `p:` value could have been written by anyone with database access, so accepting one would let the server forge answers or names.
+- **Rejected values are dropped one field at a time** (`openOrDrop`), never failing the whole screen, or any member could blank everyone's view with one bad write. Another member's name shows as "Unknown"; anatomy and progress become null; a journal entry is skipped. Your own name that doesn't open becomes empty, which routes you to `/setup` to enter it again.
+- **Legacy plaintext of your own.** Before sealed values, an older client could write your name and anatomy as plaintext into an encrypted group. Your client accepts those once (`openOwn`) for your own fields only, seals them with the group key and writes them back (`useResealLegacyProfile`). The worst a server can do with this is show you a name it planted on your own profile.
+- **Migration 0006** rewrote legacy raw `persons.name` / `persons.anatomy` (plaintext groups stored them unprefixed) to `p:1:<json>`, so strict reads have only sealed values to deal with.
 
 ### Encrypted mode URL
 
@@ -164,14 +174,14 @@ https://example.com/p/abc123#key=base64urlEncodedGroupKey
 | Field | Plaintext mode | Encrypted mode |
 |-|-|-|
 | `person.token` | Plaintext | Plaintext (server needs for auth) |
-| `person.name` | Plaintext | Encrypted with group key |
-| `person.anatomy` | Plaintext | Encrypted with group key |
+| `person.name` | `p:1:"Alice"` | `e:1:...` (encrypted with group key) |
+| `person.anatomy` | `p:1:"afab"` | `e:1:...` (encrypted with group key) |
 | `person.is_admin` | Plaintext | Plaintext (server needs for authorization) |
 | `person.is_completed` | Plaintext | Plaintext (server needs to gate compare endpoint) |
 | `person.progress` | `p:1:{"answered":47,"total":120}` | `e:1:...` (encrypted with group key) |
 | `journal_entries.operation` | `p:1:{...}` | `e:1:...` (encrypted with group key) |
 
-All opaque fields use the same `p:1:` / `e:1:` prefixed format.
+All sensitive fields are sealed values in the same `p:1:` / `e:1:` format ([Sealed values](#sealed-values)).
 
 ### Progress tracking
 
@@ -194,7 +204,7 @@ This ensures:
 
 - Person tokens, admin flags, completion status
 - How many journal entries each person has (it stores them), when they synced
-- Each value's padded size bucket (see [Length padding](#length-padding)): in practice, whether an answer carries a long note and roughly how long. Values from pre-padding clients show their exact length.
+- Each value's padded size bucket (see [Length padding](#length-padding)). Up to 256 B that's one bucket for everything; above it, the power-of-two bucket of the whole serialized value, in practice a long note or a name over ~250 B. A value just under a boundary can cross it because of its rating or key. Values from pre-padding clients show their exact length.
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
 
 ## Sync Protocol

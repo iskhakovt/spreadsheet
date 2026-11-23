@@ -1,0 +1,180 @@
+import {
+  decodeOpaque,
+  encodeOpaque,
+  FORMAT_VERSION,
+  isSealedFormat,
+  type PayloadSchema,
+  PREFIX_PLAINTEXT,
+  type Sealed,
+  sealedModeMatches,
+} from "@spreadsheet/shared";
+import { decryptJson, encryptJson, getGroupKeyFromUrl, importGroupKey, MissingKeyError } from "./crypto.js";
+import { NonRetriableError } from "./errors.js";
+
+/**
+ * Thrown when this tab holds a group key but the group isn't encrypted. No
+ * real link produces that, so it means the server and the link disagree,
+ * and following the server would quietly downgrade writes to plaintext.
+ */
+export class UnexpectedKeyError extends NonRetriableError {
+  readonly code = "UNEXPECTED_GROUP_KEY" as const;
+  constructor() {
+    super("This link carries an encryption key, but the group isn't encrypted");
+    this.name = "UnexpectedKeyError";
+  }
+}
+
+/**
+ * Why a sealed value was rejected on read:
+ *  - `format`  — no `p:1:` / `e:1:` prefix, or an unknown version.
+ *  - `mode`    — sealed in the other mode from the group's config
+ *                (`p:` in an encrypted group, `e:` in a plaintext one).
+ *  - `decrypt` — the ciphertext doesn't open with this group's key.
+ *  - `payload` — not JSON, or JSON that fails the field's schema.
+ */
+export type SealedRejection = "format" | "mode" | "decrypt" | "payload";
+
+export class SealedValueError extends Error {
+  constructor(readonly reason: SealedRejection) {
+    super(`Sealed value rejected: ${reason}`);
+    this.name = "SealedValueError";
+  }
+}
+
+/**
+ * The one place a sensitive value is sealed or opened. The mode comes from
+ * the group's `encrypted` flag, never from the call site.
+ *
+ * Writes: `seal` produces `p:1:<json>` for plaintext groups and padded
+ * `e:1:<ciphertext>` for encrypted ones. It's the only producer of `Sealed<T>`,
+ * which every sensitive tRPC input requires.
+ *
+ * Reads: `open` rejects any value that doesn't match the group's config.
+ * That matters in encrypted groups: GCM authenticates ciphertext, but a
+ * `p:` value could have been written by anyone with database access, so
+ * accepting one would let the server forge answers or names.
+ */
+export interface GroupCodec {
+  readonly encrypted: boolean;
+  seal<T>(value: T): Promise<Sealed<T>>;
+  /** Open and validate; throws {@link SealedValueError} on a rejected value. */
+  open<T>(value: string, schema: PayloadSchema<T>): Promise<T>;
+  /** Like `open`, but a rejected value is dropped (logged, returns null). Key errors still throw. */
+  openOrDrop<T>(value: string, schema: PayloadSchema<T>): Promise<T | null>;
+  /**
+   * For the caller's OWN profile fields only. Like `openOrDrop`, but in an
+   * encrypted group a `p:` value is accepted too and reported with
+   * `needsReseal`, so the client can seal it and write it back. Those are
+   * plaintext values an older client leaked. Accepting your own once costs
+   * little: the worst a server can do is show you a name it planted.
+   */
+  openOwn<T>(value: string, schema: PayloadSchema<T>): Promise<{ value: T; needsReseal: boolean } | null>;
+}
+
+class Codec implements GroupCodec {
+  readonly encrypted: boolean;
+  /** Set when the codec can't be used at all; thrown from every seal/open. */
+  readonly #unusable: Error | null;
+  readonly #key: Promise<CryptoKey> | null;
+
+  constructor(encrypted: boolean, groupKey: string | null) {
+    this.encrypted = encrypted;
+    if (encrypted && !groupKey) this.#unusable = new MissingKeyError();
+    else if (!encrypted && groupKey) this.#unusable = new UnexpectedKeyError();
+    else this.#unusable = null;
+    this.#key = encrypted && groupKey ? importGroupKey(groupKey) : null;
+    // A rejected import surfaces from the first seal/open, not as an unhandled rejection.
+    this.#key?.catch(() => {});
+  }
+
+  async seal<T>(value: T): Promise<Sealed<T>> {
+    if (this.#unusable) throw this.#unusable;
+    const json = JSON.stringify(value);
+    if (!this.#key) return encodeOpaque(false, json) as Sealed<T>;
+    return encodeOpaque(true, await encryptJson(json, await this.#key)) as Sealed<T>;
+  }
+
+  async open<T>(value: string, schema: PayloadSchema<T>): Promise<T> {
+    if (this.#unusable) throw this.#unusable;
+    if (!isSealedFormat(value) || decodeOpaque(value).version !== FORMAT_VERSION) {
+      throw new SealedValueError("format");
+    }
+    if (!sealedModeMatches(value, this.encrypted)) throw new SealedValueError("mode");
+    return this.#parse(await this.#plaintextJson(value), schema);
+  }
+
+  async openOrDrop<T>(value: string, schema: PayloadSchema<T>): Promise<T | null> {
+    try {
+      return await this.open(value, schema);
+    } catch (err) {
+      if (!(err instanceof SealedValueError)) throw err;
+      console.error(`Dropping sealed value (${err.reason}):`, value.slice(0, 16));
+      return null;
+    }
+  }
+
+  async openOwn<T>(value: string, schema: PayloadSchema<T>): Promise<{ value: T; needsReseal: boolean } | null> {
+    if (this.#unusable) throw this.#unusable;
+    const legacyPlaintext =
+      this.encrypted &&
+      isSealedFormat(value) &&
+      decodeOpaque(value).mode === PREFIX_PLAINTEXT &&
+      decodeOpaque(value).version === FORMAT_VERSION;
+    if (!legacyPlaintext) {
+      const opened = await this.openOrDrop(value, schema);
+      return opened === null ? null : { value: opened, needsReseal: false };
+    }
+    try {
+      return { value: this.#parse(decodeOpaque(value).payload, schema), needsReseal: true };
+    } catch (err) {
+      if (!(err instanceof SealedValueError)) throw err;
+      console.error(`Dropping sealed value (${err.reason}):`, value.slice(0, 16));
+      return null;
+    }
+  }
+
+  async #plaintextJson(value: string): Promise<string> {
+    const { payload } = decodeOpaque(value);
+    if (!this.#key) return payload;
+    try {
+      return await decryptJson(payload, await this.#key);
+    } catch {
+      throw new SealedValueError("decrypt");
+    }
+  }
+
+  #parse<T>(json: string, schema: PayloadSchema<T>): T {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      throw new SealedValueError("payload");
+    }
+    const result = schema.safeParse(parsed);
+    if (!result.success) throw new SealedValueError("payload");
+    return result.data;
+  }
+}
+
+/** Build a codec for an explicit mode and key. Tests and {@link getGroupCodec} use this. */
+export function createGroupCodec(encrypted: boolean, groupKey: string | null): GroupCodec {
+  return new Codec(encrypted, groupKey);
+}
+
+let cached: { encrypted: boolean; groupKey: string | null; codec: GroupCodec } | null = null;
+
+/**
+ * The codec for the current tab's group. `encrypted` is the group's flag
+ * from the server; the key comes from the link (URL fragment, cached per
+ * session in sessionStorage). Both must agree, or the codec refuses to work.
+ *
+ * Never throws itself, so it's safe to call during render: a missing or
+ * unexpected key throws from the first seal/open instead.
+ */
+export function getGroupCodec(encrypted: boolean): GroupCodec {
+  const groupKey = getGroupKeyFromUrl();
+  if (cached?.encrypted !== encrypted || cached.groupKey !== groupKey) {
+    cached = { encrypted, groupKey, codec: createGroupCodec(encrypted, groupKey) };
+  }
+  return cached.codec;
+}

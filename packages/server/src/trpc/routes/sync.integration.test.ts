@@ -1,4 +1,4 @@
-import { plainOp, plainProgress } from "@spreadsheet/shared";
+import { fakeEncrypted, plainOp, plainProgress, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -25,9 +25,9 @@ async function createGroupWithMembers() {
   const { adminToken } = await caller.groups.create(defaultCreate());
   const { partnerTokens } = await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: plainSealed("Alice"),
     anatomy: null,
-    partners: [{ name: "Bob", anatomy: null }],
+    partners: [{ name: plainSealed("Bob"), anatomy: null }],
   });
   const bobToken = partnerTokens[0];
 
@@ -206,8 +206,8 @@ describe("full sync flow (real Postgres)", () => {
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
     await caller.groups.setupAdmin({
       adminToken,
-      name: "e:1:encryptedAlice",
-      anatomy: "e:1:encryptedAfab",
+      name: fakeEncrypted("encryptedAlice"),
+      anatomy: fakeEncrypted("encryptedAfab"),
       partners: [],
     });
 
@@ -221,11 +221,14 @@ describe("full sync flow (real Postgres)", () => {
 
     const result = await encCaller.sync.push({
       stoken: null,
-      operations: ["e:1:someEncryptedBlob"],
-      progress: "e:1:encryptedProgress",
+      operations: [fakeEncrypted("someEncryptedBlob")],
+      progress: fakeEncrypted("encryptedProgress"),
     });
 
     expect(result.pushRejected).toBe(false);
     expect(result.entries[0]).toBe("e:1:someEncryptedBlob");
+
+    const after = await createCaller(tokenCtx(db, adminToken)).groups.status();
+    expect(after!.members[0].progress).toBe("e:1:encryptedProgress");
   });
 });
