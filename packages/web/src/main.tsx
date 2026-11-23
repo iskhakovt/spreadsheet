@@ -2,7 +2,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { NotFound } from "./components/not-found.js";
-import { isKeySwitch } from "./lib/crypto.js";
+import { isKeyArrival, isKeySwitch } from "./lib/crypto.js";
 import { makeQueryClient } from "./lib/query-client.js";
 import { routeTree } from "./routeTree.gen.js";
 import "@fontsource-variable/lexend";
@@ -26,11 +26,12 @@ declare module "@tanstack/react-router" {
 }
 
 // One page = one key. A fragment-only change (e.g. pasting the same
-// person's link with a different #key=) is a same-document navigation that
-// may not re-render the router, so catch it here too: reload into it, and
-// the fresh page verifies the new key from scratch.
+// person's link with a different #key=, or with a key on a page that loaded
+// without one) is a same-document navigation that may not re-render the
+// router, so catch it here: reload into it, and the fresh page verifies the
+// key from scratch.
 window.addEventListener("hashchange", () => {
-  if (isKeySwitch()) window.location.reload();
+  if (isKeySwitch() || isKeyArrival()) window.location.reload();
 });
 
 const rootEl = document.getElementById("root");

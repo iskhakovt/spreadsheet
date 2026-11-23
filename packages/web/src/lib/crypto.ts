@@ -147,6 +147,18 @@ function keyFromHash(): string | null {
 }
 
 /**
+ * True when a `#key=` arrives on a person page that loaded without one
+ * (e.g. the same link pasted again with its fragment). Nothing on the page
+ * used a key yet, so the right move is the same as a switch: reload into
+ * it, so the page starts over with the key instead of staying on the
+ * missing-key screen.
+ */
+export function isKeyArrival(): boolean {
+  if (typeof window === "undefined" || cachedGroupKey !== null) return false;
+  return window.location.pathname.startsWith("/p/") && keyFromHash() !== null;
+}
+
+/**
  * True when the URL fragment carries a different key than the one this
  * page already uses for the current person: the key counterpart of
  * `isPersonSwitch`. The caller reloads (a fresh page adopts the fragment's

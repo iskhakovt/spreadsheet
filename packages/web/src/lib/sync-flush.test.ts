@@ -2,7 +2,7 @@ import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createGroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
-import { addPendingOp, getAnswers, getPendingOps, setPendingOps } from "./storage.js";
+import { addPendingOp, getAnswers, getPendingOps, getStoken, setPendingOps } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 const codec = createGroupCodec(false, null);
@@ -315,5 +315,7 @@ describe("flushPendingOps (rejected push under an unproven key)", () => {
     await expect(flushPendingOps(push, async () => undefined, tabCodec)).rejects.toBeInstanceOf(WrongKeyError);
     expect(push).toHaveBeenCalledTimes(1);
     expect(getPendingOps()).toEqual([mine]);
+    // Not acknowledged: the next flush mustn't append on top of these entries.
+    expect(getStoken()).toBeNull();
   });
 });

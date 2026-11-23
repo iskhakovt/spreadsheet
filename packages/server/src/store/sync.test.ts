@@ -100,6 +100,37 @@ describe("SyncStore.push", () => {
     }
   });
 
+  it("leaves progress untouched on a rejected (stale-stoken) push", async () => {
+    // The client finds out it's stale (and maybe holding a wrong key) from
+    // the entries this rejection returns; the rejected push must not have
+    // changed server state first.
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [plainOp("a:mutual", { rating: "yes", note: null })],
+        progress: plainProgress({ answered: 1, total: 9 }),
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+    await store.push(
+      personId,
+      { stoken: first.stoken, operations: [plainOp("b:mutual", { rating: "no", note: null })], progress: undefined },
+      encrypted,
+    );
+    const stale = await store.push(
+      personId,
+      { stoken: first.stoken, operations: [], progress: plainProgress({ answered: 99, total: 99 }) },
+      encrypted,
+    );
+    if (!("pushRejected" in stale)) throw new Error("unexpected error");
+    expect(stale.pushRejected).toBe(true);
+    const [row] = await db.select({ progress: persons.progress }).from(persons).where(eq(persons.id, personId));
+    expect(row.progress).toBe(plainProgress({ answered: 1, total: 9 }));
+  });
+
   it("rejects push with stale stoken", async () => {
     const { personId, encrypted } = await createTestPerson();
     const first = await store.push(

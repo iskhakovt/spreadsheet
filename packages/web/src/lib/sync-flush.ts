@@ -50,9 +50,9 @@ export async function flushPendingOps(
 
   const progress = await getProgress();
   const result = await push({ stoken: getStoken(), operations: ops, progress });
-  setStoken(result.stoken);
 
   if (!result.pushRejected) {
+    setStoken(result.stoken);
     drainSent(sentCount);
     return;
   }
@@ -75,6 +75,10 @@ export async function flushPendingOps(
   // it opens, stop (WrongKeyError) rather than merge them away and append
   // ops sealed under the wrong key.
   await assertKeyOpens(codec, result.entries, OperationPayload);
+  // Only now: saving the stoken first would acknowledge entries that may
+  // have just refuted this tab's key, and the next flush would append on
+  // top of them.
+  setStoken(result.stoken);
   const merged = await mergeAfterRejection(getAnswers(), ops, result.entries, codec);
   setAnswers(merged);
   const retryProgress = await getProgress();
@@ -83,11 +87,14 @@ export async function flushPendingOps(
     operations: ops,
     progress: retryProgress,
   });
-  setStoken(retry.stoken);
   if (!retry.pushRejected) {
+    setStoken(retry.stoken);
     drainSent(sentCount);
     return;
   }
+  // Same for a second rejection's entries.
+  await assertKeyOpens(codec, retry.entries, OperationPayload);
+  setStoken(retry.stoken);
   console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
 }
 

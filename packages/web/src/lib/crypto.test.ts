@@ -81,9 +81,9 @@ describe("getGroupKeyFromUrl scope isolation", () => {
   }
 
   async function loadKeyModules() {
-    const { getGroupKeyFromUrl, isKeySwitch } = await import("./crypto.js");
+    const { getGroupKeyFromUrl, isKeyArrival, isKeySwitch } = await import("./crypto.js");
     const { adoptSession } = await import("./session.js");
-    return { getGroupKeyFromUrl, isKeySwitch, adoptSession };
+    return { getGroupKeyFromUrl, isKeyArrival, isKeySwitch, adoptSession };
   }
 
   it("caches the URL hash key under the current scope", async () => {
@@ -133,6 +133,21 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     locationStub.hash = "";
     expect(isKeySwitch()).toBe(false);
     expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+  });
+
+  it("treats a key arriving on a person page that loaded without one as a reason to reload", async () => {
+    const { getGroupKeyFromUrl, isKeyArrival, adoptSession } = await loadKeyModules();
+    locationStub.pathname = "/p/TOKEN_A";
+    locationStub.hash = "";
+    adoptSession("TOKEN_A");
+    expect(getGroupKeyFromUrl()).toBeNull(); // the missing-key screen
+
+    locationStub.hash = "#key=LATE_KEY";
+    expect(isKeyArrival()).toBe(true);
+
+    // Not on non-person pages, and not once the page has a key (that's isKeySwitch).
+    locationStub.pathname = "/";
+    expect(isKeyArrival()).toBe(false);
   });
 
   it("adopts the fragment's key on a fresh page, even with another key cached for the tab", async () => {

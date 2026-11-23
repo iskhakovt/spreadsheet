@@ -85,10 +85,6 @@ export class SyncStore {
     }
 
     return this.#tx(async (tx) => {
-      if (input.progress !== undefined) {
-        await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
-      }
-
       const [head] = await tx
         .select({ id: journalEntries.id })
         .from(journalEntries)
@@ -116,6 +112,13 @@ export class SyncStore {
           pushRejected: true as const,
           stokenInvalid,
         };
+      }
+
+      // Progress only on an accepted push: a rejected one leaves server state
+      // untouched (its client may not even hold the right key; it finds out
+      // from the entries this rejection returns).
+      if (input.progress !== undefined) {
+        await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
       }
 
       // The ops this call is about to commit — captured so the route can
