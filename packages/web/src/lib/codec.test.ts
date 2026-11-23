@@ -1,6 +1,13 @@
 import { Anatomy, OperationPayload, PersonName, Progress, plainSealed, Rating } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGroupCodec, getGroupCodec, SealedValueError, UnexpectedKeyError } from "./codec.js";
+import {
+  assertKeyOpens,
+  createGroupCodec,
+  getGroupCodec,
+  SealedValueError,
+  UnexpectedKeyError,
+  WrongKeyError,
+} from "./codec.js";
 import { generateGroupKey, MissingKeyError } from "./crypto.js";
 
 const op = (key: string, data: OperationPayload["data"]): OperationPayload => ({ key, data });
@@ -128,6 +135,32 @@ describe("logging", () => {
     expect(logged).toContain("mode");
     expect(logged).not.toContain("Alice");
     vi.restoreAllMocks();
+  });
+});
+
+describe("assertKeyOpens", () => {
+  it("passes when any ciphertext opens, even one that then fails its schema", async () => {
+    const codec = createGroupCodec(true, await generateGroupKey());
+    const other = createGroupCodec(true, await generateGroupKey());
+    await expect(assertKeyOpens(codec, [await other.seal("x"), await codec.seal("Alice")], PersonName)).resolves.toBe(
+      undefined,
+    );
+    await expect(assertKeyOpens(codec, [await codec.seal("")], PersonName)).resolves.toBe(undefined);
+  });
+
+  it("throws WrongKeyError when there is ciphertext and none of it opens", async () => {
+    const codec = createGroupCodec(true, await generateGroupKey());
+    const other = createGroupCodec(true, await generateGroupKey());
+    await expect(
+      assertKeyOpens(codec, [await other.seal("a"), await other.seal("b")], PersonName),
+    ).rejects.toBeInstanceOf(WrongKeyError);
+  });
+
+  it("has nothing to prove without ciphertext, or in a plaintext group", async () => {
+    const codec = createGroupCodec(true, await generateGroupKey());
+    await expect(assertKeyOpens(codec, [], PersonName)).resolves.toBe(undefined);
+    await expect(assertKeyOpens(codec, [plainSealed("Alice")], PersonName)).resolves.toBe(undefined);
+    await expect(assertKeyOpens(createGroupCodec(false, null), ["e:1:abc"], PersonName)).resolves.toBe(undefined);
   });
 });
 

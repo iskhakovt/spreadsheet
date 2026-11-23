@@ -39,7 +39,8 @@ async function replayJournalDeletable(entries: { operation: string }[], codec: G
     const payload = await codec.openOrDrop(entry.operation, OperationPayload);
     if (payload === null) continue;
     if (!isSafeOperationKey(payload.key)) {
-      console.error("Skipping journal entry with unsafe key:", payload.key);
+      // Not the key itself: it's decrypted content and can be anything.
+      console.error("Skipping journal entry with a non-canonical key");
       continue;
     }
     state.set(payload.key, payload.data === null ? DELETED : payload.data);

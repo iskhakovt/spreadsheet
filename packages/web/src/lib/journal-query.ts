@@ -1,8 +1,15 @@
-import { Anatomy, type Answer, type GroupJournalResponse, type JournalEntryId, PersonName } from "@spreadsheet/shared";
+import {
+  Anatomy,
+  type Answer,
+  type GroupJournalResponse,
+  type JournalEntryId,
+  OperationPayload,
+  PersonName,
+} from "@spreadsheet/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
-import type { GroupCodec } from "./codec.js";
+import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { replayJournal } from "./journal.js";
 import { type JournalEntry, mergeJournal } from "./merge-journal.js";
 import { UI } from "./strings.js";
@@ -97,6 +104,11 @@ export const JOURNAL_QUERY_KEY = ["sync", "journal", "derived"] as const;
 export function makeJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<CachedJournal> => {
     const raw = await trpcClient.sync.journal.query(undefined, { signal });
+    await assertKeyOpens(
+      codec,
+      raw.entries.map((e) => e.operation),
+      OperationPayload,
+    );
     const members = await replayMembers(raw.members, raw.entries, codec);
     return { members, entries: raw.entries, cursor: raw.cursor };
   };

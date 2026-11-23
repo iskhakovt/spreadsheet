@@ -172,6 +172,32 @@ class Codec implements GroupCodec {
   }
 }
 
+/**
+ * Throw {@link WrongKeyError} if `values` hold ciphertext and none of it
+ * opens under the codec's key. A value that decrypts but fails `schema`
+ * still proves the key (GCM authenticated it). No-op in plaintext groups or
+ * when there's no ciphertext to test.
+ *
+ * Call it before persisting anything derived from a replay (e.g. a cursor):
+ * under a wrong key every entry is dropped, and advancing the cursor past
+ * them would hide them from the right key later.
+ */
+export async function assertKeyOpens<T>(
+  codec: GroupCodec,
+  values: readonly string[],
+  schema: PayloadSchema<T>,
+): Promise<void> {
+  if (!codec.encrypted) return;
+  let sawCiphertext = false;
+  for (const value of values) {
+    if (!sealedModeMatches(value, true)) continue;
+    sawCiphertext = true;
+    const result = await codec.tryOpen(value, schema);
+    if (result.ok || result.reason === "payload") return;
+  }
+  if (sawCiphertext) throw new WrongKeyError();
+}
+
 /** Build a codec for an explicit mode and key. Tests and {@link getGroupCodec} use this. */
 export function createGroupCodec(encrypted: boolean, groupKey: string | null): GroupCodec {
   return new Codec(encrypted, groupKey);

@@ -1,10 +1,10 @@
-import type { Answer, JournalEntryId } from "@spreadsheet/shared";
+import { type Answer, type JournalEntryId, OperationPayload } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
-import type { GroupCodec } from "./codec.js";
+import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { getScope } from "./session.js";
 import {
@@ -113,6 +113,9 @@ export async function applySelfJournalDelta(
 ): Promise<Record<string, Answer>> {
   if (newEntries.length === 0) return prev;
   const serverEntryOps = newEntries.map((e) => e.operation);
+  // Both callers persist the cursor right after this; under a wrong key
+  // that would skip entries the right key can read. Fail closed instead.
+  await assertKeyOpens(codec, serverEntryOps, OperationPayload);
   return mergeAfterRejection(prev, getPendingOps(), serverEntryOps, codec);
 }
 

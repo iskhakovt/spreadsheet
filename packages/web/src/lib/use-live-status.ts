@@ -73,12 +73,19 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
       enabled: !!personId,
       onData: async (raw) => {
         if (!raw) return;
+        // Each event is a snapshot of one person's status. After a same-tab
+        // token switch the previous person's stream can keep delivering until
+        // it's torn down, so only accept an event about the person whose
+        // status the slot already holds, checked again after decrypting.
+        const target = statusKey;
+        const belongs = () => statusEventBelongs(queryClient.getQueryData<LiveGroupStatus | null>(target), raw);
+        if (!belongs()) return;
         const mySeq = ++seqRef.current;
         try {
           const decrypted = await decryptStatus(raw);
           // If a newer push landed while we were decrypting, drop this one.
-          if (mySeq !== seqRef.current) return;
-          queryClient.setQueryData<LiveGroupStatus | null>(statusKey, decrypted);
+          if (mySeq !== seqRef.current || !belongs()) return;
+          queryClient.setQueryData<LiveGroupStatus | null>(target, decrypted);
         } catch (err) {
           console.error("Failed to decrypt status update:", err);
         }
@@ -94,4 +101,16 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
   }
 
   return { status, refresh };
+}
+
+/**
+ * Whether a `groups.onStatus` event may update a cache slot: only an event
+ * about the same person the slot already holds. An empty slot takes nothing
+ * (its own fetch is on the way), so a previous session's stream can't fill it.
+ */
+export function statusEventBelongs(
+  cached: LiveGroupStatus | null | undefined,
+  event: { person: { id: string } | null },
+): boolean {
+  return !!event.person && cached?.person?.id === event.person.id;
 }

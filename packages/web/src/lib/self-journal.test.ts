@@ -9,7 +9,8 @@ interface WrapperProps {
 }
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGroupCodec } from "./codec.js";
+import { createGroupCodec, WrongKeyError } from "./codec.js";
+import { generateGroupKey } from "./crypto.js";
 import { applySelfJournalDelta, makeSelfJournalQueryFn, SELF_JOURNAL_QUERY_KEY, useAnswers } from "./self-journal.js";
 import { adoptSession, getScope } from "./session.js";
 import {
@@ -410,5 +411,33 @@ describe("makeSelfJournalQueryFn (token switch)", () => {
     // Side effects must NOT have written to the new session's scope.
     expect(localStorage.getItem(`${getScope()}answers`)).toBe(null);
     expect(localStorage.getItem(`${getScope()}selfJournalCursor`)).toBe(null);
+  });
+});
+
+describe("makeSelfJournalQueryFn (wrong key)", () => {
+  it("fails closed without advancing the cursor when none of the entries open", async () => {
+    // Advancing past entries a wrong key couldn't read would hide them
+    // from the right key on this device later.
+    adoptSession("token-wrong-key-" + Math.random().toString(36).slice(2));
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const mine = createGroupCodec(true, await generateGroupKey());
+    const entries = [
+      {
+        id: "AAAAAAAAAAAAAAAAAAAAAA",
+        personId: "p1",
+        operation: await theirs.seal({ key: "kissing:mutual", data: { rating: "yes", note: null } }),
+      },
+    ];
+    const fakeTrpc = {
+      sync: {
+        selfJournal: { query: vi.fn(async () => ({ entries, cursor: "BBBBBBBBBBBBBBBBBBBBBB", stoken: null })) },
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: minimal trpc client surface for this test
+    } as any;
+
+    await expect(
+      makeSelfJournalQueryFn(fakeTrpc, mine)({ signal: new AbortController().signal }),
+    ).rejects.toBeInstanceOf(WrongKeyError);
+    expect(getSelfJournalCursor()).toBe(null);
   });
 });

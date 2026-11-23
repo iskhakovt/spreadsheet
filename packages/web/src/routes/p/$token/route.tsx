@@ -4,7 +4,12 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../../../components/Card.js";
-import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
+import {
+  handleError,
+  KeyMismatchScreen,
+  MissingKeyScreen,
+  ScreenErrorFallback,
+} from "../../../components/ErrorFallback.js";
 import { getGroupCodec } from "../../../lib/codec.js";
 import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../../../lib/journal-query.js";
@@ -109,6 +114,12 @@ function PersonAppLayout() {
 
   if (status.group.encrypted && !getGroupKeyFromUrl()) {
     return <MissingKeyScreen />;
+  }
+
+  // A key on a plaintext group's link: the codec would refuse every seal
+  // anyway, so say so up front instead of after someone fills in setup.
+  if (!status.group.encrypted && getGroupKeyFromUrl()) {
+    return <KeyMismatchScreen />;
   }
 
   if (!status.person) {
