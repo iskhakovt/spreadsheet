@@ -63,15 +63,19 @@ describe("useSaveProfile", () => {
     });
     const { result } = renderHook(() => useSaveProfile(), { wrapper });
 
-    let first!: Promise<void>;
+    // Both clicks land in the same synchronous step, before any re-render,
+    // so only a synchronous guard can stop the second.
+    let saves!: Promise<void>[];
     act(() => {
-      first = result.current.save({ name: "Alice", anatomy: "afab" });
+      saves = [
+        result.current.save({ name: "Alice", anatomy: "afab" }),
+        result.current.save({ name: "Alice", anatomy: "amab" }),
+      ];
     });
-    await act(() => result.current.save({ name: "Alice", anatomy: "amab" }));
     expect(result.current.saving).toBe(true);
 
     release();
-    await act(() => first);
+    await act(() => Promise.all(saves));
     expect(setProfileFn).toHaveBeenCalledTimes(1);
     expect(setProfileFn.mock.calls[0][0].anatomy).toBe("e:1:wrapped(afab)");
     expect(result.current.saving).toBe(false);
