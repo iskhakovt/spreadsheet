@@ -25,6 +25,21 @@ export class UnexpectedKeyError extends NonRetriableError {
 }
 
 /**
+ * Thrown when an encrypted group's values exist but none of them open with
+ * this tab's key: the link carries the wrong key (or everything was
+ * tampered with). Failing closed matters: dropping the fields instead would
+ * route the person to re-enter them, sealed under the wrong key, which
+ * would overwrite data the right key can still read.
+ */
+export class WrongKeyError extends NonRetriableError {
+  readonly code = "WRONG_GROUP_KEY" as const;
+  constructor() {
+    super("The encryption key in this link doesn't match this group");
+    this.name = "WrongKeyError";
+  }
+}
+
+/**
  * Why a sealed value was rejected on read:
  *  - `format`  — no `p:1:` / `e:1:` prefix, or an unknown version.
  *  - `mode`    — sealed in the other mode from the group's config
@@ -54,21 +69,24 @@ export class SealedValueError extends Error {
  * `p:` value could have been written by anyone with database access, so
  * accepting one would let the server forge answers or names.
  */
+export type OpenResult<T> = { ok: true; value: T } | { ok: false; reason: SealedRejection };
+
 export interface GroupCodec {
   readonly encrypted: boolean;
   seal<T>(value: T): Promise<Sealed<T>>;
   /** Open and validate; throws {@link SealedValueError} on a rejected value. */
   open<T>(value: string, schema: PayloadSchema<T>): Promise<T>;
-  /** Like `open`, but a rejected value is dropped (logged, returns null). Key errors still throw. */
+  /** Like `open`, but a rejected value is dropped (reason logged, never the value). Key errors still throw. */
   openOrDrop<T>(value: string, schema: PayloadSchema<T>): Promise<T | null>;
+  /** Like `open`, but returns the rejection instead of throwing it. Key errors still throw. */
+  tryOpen<T>(value: string, schema: PayloadSchema<T>): Promise<OpenResult<T>>;
   /**
-   * For the caller's OWN profile fields only. Like `openOrDrop`, but in an
-   * encrypted group a `p:` value is accepted too and reported with
-   * `needsReseal`, so the client can seal it and write it back. Those are
-   * plaintext values an older client leaked. Accepting your own once costs
-   * little: the worst a server can do is show you a name it planted.
+   * Read a `p:` value in an ENCRYPTED group as plaintext, for the caller's
+   * own profile fields only: those are values an older client leaked, and
+   * the caller confirms and re-seals them. Never use it for other members'
+   * values. Returns null for anything that isn't a valid `p:1:` payload.
    */
-  openOwn<T>(value: string, schema: PayloadSchema<T>): Promise<{ value: T; needsReseal: boolean } | null>;
+  openLegacyPlaintext<T>(value: string, schema: PayloadSchema<T>): T | null;
 }
 
 class Codec implements GroupCodec {
@@ -104,31 +122,29 @@ class Codec implements GroupCodec {
   }
 
   async openOrDrop<T>(value: string, schema: PayloadSchema<T>): Promise<T | null> {
+    const result = await this.tryOpen(value, schema);
+    if (result.ok) return result.value;
+    // The reason only: a rejected `p:` value's prefix is plaintext.
+    console.error(`Dropping sealed value (${result.reason})`);
+    return null;
+  }
+
+  async tryOpen<T>(value: string, schema: PayloadSchema<T>): Promise<OpenResult<T>> {
     try {
-      return await this.open(value, schema);
+      return { ok: true, value: await this.open(value, schema) };
     } catch (err) {
       if (!(err instanceof SealedValueError)) throw err;
-      console.error(`Dropping sealed value (${err.reason}):`, value.slice(0, 16));
-      return null;
+      return { ok: false, reason: err.reason };
     }
   }
 
-  async openOwn<T>(value: string, schema: PayloadSchema<T>): Promise<{ value: T; needsReseal: boolean } | null> {
-    if (this.#unusable) throw this.#unusable;
-    const legacyPlaintext =
-      this.encrypted &&
-      isSealedFormat(value) &&
-      decodeOpaque(value).mode === PREFIX_PLAINTEXT &&
-      decodeOpaque(value).version === FORMAT_VERSION;
-    if (!legacyPlaintext) {
-      const opened = await this.openOrDrop(value, schema);
-      return opened === null ? null : { value: opened, needsReseal: false };
-    }
+  openLegacyPlaintext<T>(value: string, schema: PayloadSchema<T>): T | null {
+    if (!this.encrypted || !isSealedFormat(value)) return null;
+    const { mode, version, payload } = decodeOpaque(value);
+    if (mode !== PREFIX_PLAINTEXT || version !== FORMAT_VERSION) return null;
     try {
-      return { value: this.#parse(decodeOpaque(value).payload, schema), needsReseal: true };
-    } catch (err) {
-      if (!(err instanceof SealedValueError)) throw err;
-      console.error(`Dropping sealed value (${err.reason}):`, value.slice(0, 16));
+      return this.#parse(payload, schema);
+    } catch {
       return null;
     }
   }

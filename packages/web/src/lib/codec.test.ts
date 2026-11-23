@@ -92,26 +92,41 @@ describe("open: rejects anything that doesn't match the group's config", () => {
   });
 });
 
-describe("openOwn: one-time acceptance of your own legacy plaintext", () => {
-  it("accepts a p: value in an encrypted group and flags it for re-sealing", async () => {
+describe("tryOpen", () => {
+  it("returns the value, or the rejection reason without throwing", async () => {
     const codec = createGroupCodec(true, await generateGroupKey());
-    expect(await codec.openOwn(plainSealed("Alice"), PersonName)).toEqual({ value: "Alice", needsReseal: true });
+    expect(await codec.tryOpen(await codec.seal("Alice"), PersonName)).toEqual({ ok: true, value: "Alice" });
+    expect(await codec.tryOpen(plainSealed("Alice"), PersonName)).toEqual({ ok: false, reason: "mode" });
   });
 
-  it("opens a properly sealed value without the flag", async () => {
+  it("still throws key errors", async () => {
+    await expect(createGroupCodec(true, null).tryOpen("e:1:abc", PersonName)).rejects.toBeInstanceOf(MissingKeyError);
+  });
+});
+
+describe("openLegacyPlaintext: your own leaked plaintext, read once to re-seal", () => {
+  it("reads a p:1: value in an encrypted group", async () => {
     const codec = createGroupCodec(true, await generateGroupKey());
-    expect(await codec.openOwn(await codec.seal("Alice"), PersonName)).toEqual({ value: "Alice", needsReseal: false });
-    const plain = createGroupCodec(false, null);
-    expect(await plain.openOwn(plainSealed("Alice"), PersonName)).toEqual({ value: "Alice", needsReseal: false });
+    expect(codec.openLegacyPlaintext(plainSealed("Alice"), PersonName)).toBe("Alice");
   });
 
-  it("still drops anything else: wrong key, bad payload, e: in a plaintext group", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("returns null for anything else: ciphertext, bad payloads, plaintext groups", async () => {
     const codec = createGroupCodec(true, await generateGroupKey());
-    const other = createGroupCodec(true, await generateGroupKey());
-    expect(await codec.openOwn(await other.seal("Alice"), PersonName)).toBeNull();
-    expect(await codec.openOwn(plainSealed("penis"), Anatomy)).toBeNull();
-    expect(await createGroupCodec(false, null).openOwn(await codec.seal("Alice"), PersonName)).toBeNull();
+    expect(codec.openLegacyPlaintext(await codec.seal("Alice"), PersonName)).toBeNull();
+    expect(codec.openLegacyPlaintext(plainSealed("penis"), Anatomy)).toBeNull();
+    expect(codec.openLegacyPlaintext('p:2:"Alice"', PersonName)).toBeNull();
+    expect(createGroupCodec(false, null).openLegacyPlaintext(plainSealed("Alice"), PersonName)).toBeNull();
+  });
+});
+
+describe("logging", () => {
+  it("logs why a value was dropped, never the value itself", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const codec = createGroupCodec(true, await generateGroupKey());
+    await codec.openOrDrop(plainSealed("Alice Secretname"), PersonName);
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).toContain("mode");
+    expect(logged).not.toContain("Alice");
     vi.restoreAllMocks();
   });
 });

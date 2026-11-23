@@ -2,8 +2,9 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { save, appState } = vi.hoisted(() => ({
+const { save, appState, location } = vi.hoisted(() => ({
   save: vi.fn(),
+  location: { pathname: "/p/tok/questions" },
   appState: {
     current: {
       profileNeedsReseal: undefined as true | undefined,
@@ -16,12 +17,14 @@ vi.mock("./person-app-context.js", () => ({
   usePersonApp: () => ({ authedStatus: appState.current, codec: {} }),
 }));
 vi.mock("./use-save-profile.js", () => ({ useSaveProfile: () => ({ save, saving: false }) }));
+vi.mock("@tanstack/react-router", () => ({ useLocation: () => location }));
 
 const { useResealLegacyProfile } = await import("./use-reseal-legacy-profile.js");
 
 beforeEach(() => {
   save.mockReset().mockResolvedValue(undefined);
   appState.current = { profileNeedsReseal: undefined, person: { name: "Alice", anatomy: "afab" } };
+  location.pathname = "/p/tok/questions";
 });
 
 describe("useResealLegacyProfile", () => {
@@ -42,6 +45,17 @@ describe("useResealLegacyProfile", () => {
     rerender();
     rerender();
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays out of /setup and /anatomy, which save the profile themselves", () => {
+    // A background write there could land after the person's own save and
+    // put the old values back.
+    appState.current.profileNeedsReseal = true;
+    for (const pathname of ["/p/tok/setup", "/p/tok/anatomy"]) {
+      location.pathname = pathname;
+      renderHook(() => useResealLegacyProfile());
+    }
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("leaves an empty name to /setup instead of saving it", () => {

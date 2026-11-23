@@ -15,6 +15,7 @@ import {
   type PersonAppContextValue,
   usePersonApp,
 } from "../../../lib/person-app-context.js";
+import { resolveRoute, shouldRedirectTo } from "../../../lib/resolve-route.js";
 import { useSelfJournal } from "../../../lib/self-journal.js";
 import { adoptSession } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
@@ -24,18 +25,6 @@ import { useMarkComplete } from "../../../lib/use-mark-complete.js";
 import { useResealLegacyProfile } from "../../../lib/use-reseal-legacy-profile.js";
 import { useTokenSwitchCleanup } from "../../../lib/use-token-switch-cleanup.js";
 import { GroupSetup } from "../../../screens/GroupSetup.js";
-
-function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
-  if (!person.name) return "/setup";
-  if (allComplete) return "/results";
-  if (person.isCompleted) return "/waiting";
-  if (person.isAdmin && !group.isAdminReady) return "/group";
-  if (!group.isAdminReady && !person.isAdmin) return "/pending";
-  if (group.questionMode === "filtered" && group.isAdminReady && person.anatomy === null) return "/anatomy";
-  if (!group.isReady) return "/pending";
-  if (!getHasSeenIntro()) return "/intro";
-  return "/questions";
-}
 
 export const Route = createFileRoute("/p/$token")({
   // adoptSession before any tRPC call so the session hash is in place. The
@@ -91,14 +80,14 @@ function PersonAppLayout() {
   );
 
   // Guard: compute whether the current child route matches what the status
-  // dictates. freeRoutes are exempt — users reach them intentionally and
-  // marked-complete users edit answers via /questions without unmarking.
+  // dictates. Free routes are exempt — users reach them intentionally and
+  // marked-complete users edit answers via /questions without unmarking —
+  // except when a profile field needs recovering (/setup, /anatomy).
   const defaultRoute = status?.person
-    ? resolveRoute(status.person as Person, status.group as GroupData, allComplete)
+    ? resolveRoute(status.person as Person, status.group as GroupData, allComplete, getHasSeenIntro())
     : null;
-  const freeRoutes = ["/group", "/summary", "/review", "/questions"];
   const routeSuffix = location.pathname.replace(`/p/${token}`, "") || "/";
-  const shouldRedirect = !!defaultRoute && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
+  const shouldRedirect = shouldRedirectTo(routeSuffix, defaultRoute);
 
   // Real-time guard via useLayoutEffect so an SSE-triggered status change
   // (e.g. everyone completes → /results) redirects before paint.

@@ -139,6 +139,7 @@ On SIGTERM, the server fires `close()` on the metrics and main HTTP listeners. O
 ## Notes
 
 - **Migrations are not run on server start.** Run `setup` (or `migrate`) explicitly before `serve`. This prevents race conditions with multiple replicas.
+- **Migration 0006 (sealed profile fields) runs while the old container still serves** in the flow above. A raw name or anatomy written by the old server in that window stays raw, and new clients drop it on read: the owner is routed to `/setup` / `/anatomy` to enter it again, and other members see "Unknown" until then. To avoid even that, stop the old container before `setup`. Browsers still running the previous build get `BAD_REQUEST` on profile writes until their service worker picks up the new one (on the next load).
 - **Seed is idempotent.** `ON CONFLICT DO UPDATE` — safe to run on every deploy to pick up new/updated questions.
 - **STOKEN_SECRET must be stable.** Changing it invalidates all active sync tokens and journal cursors. Clients recover automatically: cursors fall back to a full journal replay, and sync re-handshakes on the next answer.
 - **Distroless image** — no shell, no package manager. Debug with `docker logs`, not `docker exec`.

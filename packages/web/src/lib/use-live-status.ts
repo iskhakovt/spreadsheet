@@ -2,6 +2,7 @@ import { type QueryKey, useQueryClient, useSuspenseQuery } from "@tanstack/react
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useRef } from "react";
 import { decryptStatus, type LiveGroupStatus } from "./decrypt-status.js";
+import { getScope } from "./session.js";
 import { useTRPC, useTRPCClient } from "./trpc.js";
 
 /**
@@ -41,8 +42,13 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
   // wire shape tRPC's query key is tagged with. So the key is widened to a
   // plain QueryKey and the slot is typed by the queryFn instead: reading it
   // through a tRPC-typed key would claim the values are still sealed.
+  //
+  // The key also carries the session scope, so a same-tab token switch gets
+  // its own slot: the previous person's status is never rendered (or acted
+  // on, e.g. by the legacy re-seal) under the next person's session. Prefix
+  // invalidation through `trpc.groups.status.pathKey()` still matches it.
   const trpcClient = useTRPCClient();
-  const statusKey: QueryKey = trpc.groups.status.queryKey();
+  const statusKey: QueryKey = [...trpc.groups.status.queryKey(), { scope: getScope() }];
   const { data: status } = useSuspenseQuery({
     queryKey: statusKey,
     queryFn: async ({ signal }): Promise<LiveGroupStatus | null> => {

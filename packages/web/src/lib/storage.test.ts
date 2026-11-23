@@ -85,8 +85,13 @@ describe("usePendingOps", () => {
 
   it("updates after setPendingOps replaces the whole list", () => {
     const { result } = renderHook(() => usePendingOps());
-    act(() => setPendingOps(["a", "b", "c"]));
-    expect(result.current).toEqual(["a", "b", "c"]);
+    const ops = [
+      fakeEncrypted<OperationPayload>("a"),
+      fakeEncrypted<OperationPayload>("b"),
+      fakeEncrypted<OperationPayload>("c"),
+    ];
+    act(() => setPendingOps(ops));
+    expect(result.current).toEqual(ops);
   });
 });
 

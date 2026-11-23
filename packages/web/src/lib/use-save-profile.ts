@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useErrorBoundary } from "react-error-boundary";
 import type { GroupCodec } from "./codec.js";
+import { getScope } from "./session.js";
 import { useTRPC } from "./trpc.js";
 
 export interface ProfileInput {
@@ -39,11 +40,17 @@ export function useSaveProfile(codec: GroupCodec) {
     if (inFlight.current) return;
     inFlight.current = true;
     setSaving(true);
+    // Requests carry whatever session the tab is on when they go out. If a
+    // same-tab token switch lands while we're sealing, this profile belongs
+    // to the previous person: drop it rather than write it to the next one.
+    const scope = getScope();
     try {
-      await mutation.mutateAsync({
+      const sealed = {
         name: await codec.seal(profile.name),
         anatomy: profile.anatomy === null ? null : await codec.seal<Anatomy>(profile.anatomy),
-      });
+      };
+      if (getScope() !== scope) return;
+      await mutation.mutateAsync(sealed);
     } catch (err) {
       showBoundary(err);
     } finally {

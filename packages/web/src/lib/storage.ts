@@ -165,16 +165,17 @@ export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): Sealed<Op
 );
 
 /**
- * The outbox. Typed `Sealed` because only the group codec's output goes in
- * (`addPendingOpForKey` requires it); ops queued by older clients share the
- * format. This is the one cast at the persistence boundary, and the server
- * re-checks format and mode on push.
+ * The outbox. Typed `Sealed` because only the group codec's output goes in:
+ * every writer (`addPendingOp`, `addPendingOpForKey`, `setPendingOps`)
+ * requires it, and ops queued by older clients share the format. Reading it
+ * back (here and in `usePendingOps`) brands unchecked JSON; that's the
+ * persistence boundary, and the server re-checks format and mode on push.
  */
 export function getPendingOps(): Sealed<OperationPayload>[] {
   return getJson<Sealed<OperationPayload>[]>("pendingOps", []);
 }
 
-export function setPendingOps(ops: string[]): void {
+export function setPendingOps(ops: readonly Sealed<OperationPayload>[]): void {
   setJson("pendingOps", ops);
   notifyChanged("pendingOps");
   // External replacement: any positions we tracked are now meaningless.

@@ -1,6 +1,6 @@
 import { type GroupStatusRow, plainSealed } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGroupCodec, type GroupCodec } from "./codec.js";
+import { createGroupCodec, type GroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey, MissingKeyError } from "./crypto.js";
 import { decryptStatus } from "./decrypt-status.js";
 import { UI } from "./strings.js";
@@ -84,20 +84,64 @@ describe("decryptStatus", () => {
     expect(opened.members.find((m) => m.id === "bob")?.name).toBe(UI.unreadableName);
   });
 
-  it("accepts your own legacy plaintext in an encrypted group and flags it for re-sealing", async () => {
-    const raw = status(true, { id: "me", name: plainSealed("Alice"), anatomy: plainSealed("afab") }, []);
+  it("accepts your own legacy plaintext in an encrypted group and flags it for re-sealing once the key is verified", async () => {
+    // Bob's ciphertext opens, which proves this tab holds the right key.
+    const raw = status(true, { id: "me", name: plainSealed("Alice"), anatomy: plainSealed("afab") }, [
+      { id: "bob", name: await encrypted.seal("Bob"), anatomy: null },
+    ]);
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.person).toMatchObject({ name: "Alice", anatomy: "afab" });
     expect(opened.members[0]).toMatchObject({ name: "Alice", anatomy: "afab" });
     expect(opened.profileNeedsReseal).toBe(true);
   });
 
-  it("empties your own name when it doesn't open at all, so /setup asks for it again", async () => {
-    const other = createGroupCodec(true, await generateGroupKey());
-    const raw = status(true, { id: "me", name: await other.seal("Alice"), anatomy: null }, []);
+  it("shows your legacy plaintext but doesn't re-seal it while nothing verifies the key", async () => {
+    const raw = status(true, { id: "me", name: plainSealed("Alice"), anatomy: null }, []);
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.person?.name).toBe("Alice");
+    expect(opened.profileNeedsReseal).toBeUndefined();
+  });
+
+  it("never re-seals another member's legacy plaintext", async () => {
+    const raw = status(true, { id: "me", name: await encrypted.seal("Alice"), anatomy: null }, [
+      { id: "bob", name: plainSealed("Bob"), anatomy: null },
+    ]);
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.members.find((m) => m.id === "bob")?.name).toBe(UI.unreadableName);
+    expect(opened.profileNeedsReseal).toBeUndefined();
+  });
+
+  it("throws WrongKeyError when none of the group's ciphertext opens, instead of dropping it", async () => {
+    // Dropping would route you to /setup and re-seal your name under the
+    // wrong key, overwriting what the right key can still read.
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(
+      true,
+      { id: "me", name: await theirs.seal("Alice"), anatomy: await theirs.seal("afab") },
+      [{ id: "bob", name: await theirs.seal("Bob"), anatomy: null }],
+      await theirs.seal({ answered: 1, total: 2 }),
+    );
+    await expect(decryptStatus(raw, encrypted)).rejects.toBeInstanceOf(WrongKeyError);
+  });
+
+  it("empties your own name when it doesn't open but the key is verified, so /setup asks for it again", async () => {
+    // e.g. a tampered row: Bob's name proves the key, so only yours is bad.
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(true, { id: "me", name: await theirs.seal("Alice"), anatomy: null }, [
+      { id: "bob", name: await encrypted.seal("Bob"), anatomy: null },
+    ]);
     const opened = await decryptStatus(raw, encrypted);
     expect(opened.person?.name).toBe("");
-    expect(opened.profileNeedsReseal).toBeUndefined();
+    expect(opened.members.find((m) => m.id === "bob")?.name).toBe("Bob");
+  });
+
+  it("counts a value that decrypts but fails its schema as proof of the right key", async () => {
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(true, { id: "me", name: await theirs.seal("Alice"), anatomy: null }, [
+      { id: "bob", name: await encrypted.seal(""), anatomy: null },
+    ]);
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.person?.name).toBe("");
   });
 
   it("returns a pre-setup status (no person, no members) without needing the key", async () => {

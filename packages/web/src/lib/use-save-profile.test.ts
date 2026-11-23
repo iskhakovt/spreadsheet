@@ -6,6 +6,7 @@ import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createGroupCodec, type GroupCodec } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
+import { adoptSession } from "./session.js";
 
 const { setProfileFn, showBoundary } = vi.hoisted(() => ({
   setProfileFn: vi.fn(),
@@ -33,7 +34,8 @@ const codec: GroupCodec = {
   seal,
   open: vi.fn(),
   openOrDrop: vi.fn(),
-  openOwn: vi.fn(),
+  tryOpen: vi.fn(),
+  openLegacyPlaintext: vi.fn(),
 };
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -102,6 +104,32 @@ describe("useSaveProfile", () => {
     await act(() => Promise.all(saves));
     expect(setProfileFn).toHaveBeenCalledTimes(1);
     expect(setProfileFn.mock.calls[0][0].anatomy).toBe("e:1:sealed(afab)");
+    expect(result.current.saving).toBe(false);
+  });
+
+  it("drops the save if the tab switches to another person's link while sealing", async () => {
+    // The request would go out with the new session, writing this profile
+    // to the wrong person.
+    adoptSession("token-a");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    seal.mockImplementation(async (v: string) => {
+      await gate;
+      return fakeEncrypted(`sealed(${v})`);
+    });
+    const { result } = renderHook(() => useSaveProfile(codec), { wrapper });
+
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.save({ name: "Alice", anatomy: "afab" });
+    });
+    adoptSession("token-b");
+    release();
+    await act(() => pending);
+
+    expect(setProfileFn).not.toHaveBeenCalled();
     expect(result.current.saving).toBe(false);
   });
 
