@@ -371,7 +371,7 @@ describe("groups.setProfile", () => {
 });
 
 describe("groups.status", () => {
-  it("returns stored sealed fields unchanged, including an unsealed legacy value", async () => {
+  it("returns stored sealed fields unchanged, including a legacy raw value", async () => {
     // The output schema only checks for strings: the client opens each field
     // and drops what doesn't open, so one bad row can't fail the response.
     const status = {

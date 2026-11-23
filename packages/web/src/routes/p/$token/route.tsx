@@ -88,9 +88,8 @@ function PersonAppLayout() {
   useTokenSwitchCleanup(token);
 
   const { status, refresh: refreshStatus } = useLiveStatus();
-  // Every seal/open in the app goes through this codec, built from the
-  // group's own `encrypted` flag. It's inert until used, so building it
-  // here is safe even when the key is missing (handled below).
+  // The group codec, from the group's own `encrypted` flag. Inert until
+  // used, so building it before the key checks below is safe.
   const codec = getGroupCodec(status?.group.encrypted ?? false);
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();

@@ -1,10 +1,11 @@
--- Seal legacy raw profile fields. Old clients stored persons.name and
--- persons.anatomy raw ("Alice", "afab") in plaintext groups; every write path
--- now requires the sealed `p:N:` / `e:N:` form. Rewrite each raw value to
--- `p:1:<json>`, the form a plaintext group's codec produces. In encrypted
--- groups a raw value is plaintext leaked by an old client bug: sealing it as
--- p:1: makes new clients reject it on read, and the owner's client re-seals it
--- encrypted. progress and journal operations were always sealed.
+-- Seal legacy raw profile fields. Legacy rows in plaintext groups hold
+-- persons.name and persons.anatomy raw ("Alice", "afab"), while every write
+-- path requires the sealed `p:N:` / `e:N:` form. Rewrite each raw value to
+-- `p:1:<json>`, the form a plaintext group's codec produces. In an encrypted
+-- group a raw value is plaintext an older client leaked: as `p:1:`, other
+-- members' clients drop it on read and its owner's client re-seals it under
+-- the group key (design/sync.md § Sealed values). Progress and journal
+-- operations are already sealed in every row.
 --
 -- Postgres' to_json escapes text the way JSON.stringify does, so the payload
 -- round-trips through JSON.parse. Sealed values match the pattern and are

@@ -58,9 +58,9 @@ describe("replayJournal", () => {
   });
 
   it("backfills note: null for legacy envelopes that predate the field", async () => {
-    // Pre-PR-89 journal entries serialize `{ rating, timing }` with no
-    // `note` key. New code consumes `Answer` as `{ rating, timing, note }`,
-    // so replay must normalize undefined → null to keep the schema honest.
+    // Older journal entries serialize `{ rating, timing }` with no `note`
+    // key. `Answer` has `note: string | null`, so replay must normalize
+    // undefined → null to keep the schema honest.
     const legacyPayload = `p:1:${JSON.stringify({
       key: "blindfold:mutual",
       data: { rating: "yes" },
@@ -116,7 +116,7 @@ describe("replayJournal", () => {
   it("skips plaintext entries in an encrypted group (forged without the key)", async () => {
     // GCM authenticates ciphertext, but a `p:` op needs no key: the server,
     // or anyone with database access, could append one to forge an answer.
-    // Neither the overwrite of a real answer nor a new key may land.
+    // Neither the overwrite of a real answer nor a new answer may land.
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const codec = await encryptedCodec();
     const entries = [

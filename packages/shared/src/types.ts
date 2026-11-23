@@ -61,8 +61,8 @@ export const ANATOMY_LABEL_PRESETS: Record<AnatomyLabels, Record<Anatomy, string
  * Answer payload schema. Used both for serialization (canonical write
  * shape) and deserialization (lenient read of legacy data).
  *
- *  - `note` defaults to `null` when missing, so pre-PR-89 entries that
- *    only carried `{ rating, timing }` parse cleanly.
+ *  - `note` defaults to `null` when missing, so older entries that carry
+ *    only `{ rating, timing }` parse cleanly.
  *  - The legacy `timing: "now" | "later" | null` field gets stripped on
  *    read via Zod's default object-strip behavior; write paths use
  *    `Answer.parse()` to guarantee no stray keys ever ship.
@@ -170,13 +170,14 @@ export interface CategoryData {
  * Domain schemas for the `groups.status` procedure output — the single
  * source of truth for Person / Member / Group / GroupStatus shapes.
  *
- * `name`, `anatomy` and `progress` are sealed (`p:1:…` / `e:1:…`). Each name
- * comes in three flavours:
+ * `name`, `anatomy` and `progress` are sealed (`p:1:…` / `e:1:…`), so each
+ * type comes in flavours:
  *  - `SealedX` — what the client receives (z.output): sealed fields typed `Sealed<T>`.
- *  - `XRow` — what server code returns before `.output()` validation (z.input): plain strings.
  *  - `X` — what the UI works with after the client's codec opened every
  *    field (`Opened<SealedX>`). It's deliberately not assignable back to a
  *    sealed input.
+ *  - `GroupStatusRow` — what the server returns before `.output()`
+ *    validation (z.input): sealed fields as plain strings.
  */
 export const personSchema = z.object({
   id: z.string(),

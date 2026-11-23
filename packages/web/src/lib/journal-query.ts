@@ -33,10 +33,9 @@ export interface CachedJournal {
 /**
  * Decrypt + replay raw server members + entries into MemberAnswers[].
  *
- * Used by the initial fetch path — takes sealed name/anatomy strings and
- * returns the opened MemberAnswers shape with `answers` built by replaying
- * the journal per person. A field that doesn't open is dropped, the same
- * rule as `decryptStatus`: unreadable name, null anatomy, skipped entry.
+ * Used by the initial fetch path — opens sealed name/anatomy and replays
+ * the journal per person. A value that doesn't open is dropped, as in
+ * `decryptStatus`: unreadable name, null anatomy, skipped entry.
  */
 export async function replayMembers(
   members: GroupJournalResponse["members"],

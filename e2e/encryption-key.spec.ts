@@ -40,9 +40,9 @@ test.describe("encryption key that doesn't fit the group", () => {
   test("a wrong key shows the mismatch screen and changes nothing", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { encrypted: true });
 
-    // None of the group's ciphertext opens under this key. Dropping the
-    // fields instead would send Bob to /setup to re-enter his name under
-    // the wrong key, overwriting what the real key can read.
+    // None of Bob's own ciphertext opens under this key. Dropping his fields
+    // instead would send him to /setup to re-enter his name under the wrong
+    // key, overwriting what the real key can read.
     await bob.goto(partnerLink.replace(/#key=.*$/, `#key=${otherKey()}`));
     await expect(bob.getByText("This link's key doesn't match")).toBeVisible({ timeout: NAV_TIMEOUT });
 

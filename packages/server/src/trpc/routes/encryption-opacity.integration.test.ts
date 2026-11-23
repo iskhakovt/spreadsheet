@@ -24,19 +24,20 @@ beforeEach(async () => {
  * Locks in the wire-contract for encrypted groups: every PII field that
  * crosses the API boundary stays opaque end-to-end. The server never
  * decrypts, never logs cleartext alongside ciphertext, and never silently
- * downgrades to plaintext. This test would fail if a future change
+ * downgrades to plaintext. These tests would fail if a future change
  * introduced any code path that:
  *
  *   - extracted payload from `e:1:` strings before persisting
  *   - mirrored plaintext into a non-PII column or audit log
- *   - accepted plaintext PII in an encrypted-group's API call without
- *     also storing the opaque form
+ *   - accepted a `p:` value in an encrypted group's API call instead of
+ *     rejecting it (`encryption_mismatch`)
  *
- * The test passes only opaque ciphertext-shaped values through the API,
- * then reads `persons.name`, `persons.anatomy`, and
+ * The first test passes only opaque ciphertext-shaped values through the
+ * API, then reads `persons.name`, `persons.anatomy`, and
  * `journal_entries.operation` directly from Postgres and asserts every
  * row matches `^e:1:` AND none of the plaintext markers we encoded
- * appear anywhere.
+ * appear anywhere. The second sends `p:` values and asserts each write is
+ * rejected and none is persisted.
  */
 describe("encrypted-group journal opacity (real Postgres)", () => {
   // Synthetic ciphertext stand-ins. Real clients use AES-GCM via WebCrypto;
@@ -54,8 +55,8 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
   const PLAINTEXT_MARKERS = ["alice", "bob", "amab", "afab", "supersecret-note-payload"];
 
   it("persons + journal_entries store only opaque e:1: strings, no plaintext leaks", async () => {
-    // Encrypted group, all PII pre-wrapped (mimics what the web client
-    // produces via wrapSensitive + encodeValue).
+    // Encrypted group, all PII already sealed (stands in for what the web
+    // client's group codec produces).
     const caller = createCaller(anonCtx(db));
     const { adminToken } = await caller.groups.create({
       encrypted: true,
@@ -105,7 +106,7 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
     }
   });
 
-  it("rejects p: values on every write path and persists none of them", async () => {
+  it("rejects p: values from setupAdmin, setProfile and sync.push and persists none of them", async () => {
     const caller = createCaller(anonCtx(db));
     const { adminToken } = await caller.groups.create({
       encrypted: true,

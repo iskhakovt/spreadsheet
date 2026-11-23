@@ -575,10 +575,9 @@ describe("SyncStore.journalSinceForPerson", () => {
   });
 
   it("stoken is always derivable from cursor — no snapshot skew", async () => {
-    // Regression: stoken used to come from a separate `SELECT max(id)`
-    // query, which under READ COMMITTED could see a row newer than
-    // what the entries query returned. Now stoken is derived from
-    // cursor in the same statement, so the two are always consistent.
+    // The stoken comes from the same statement as the entries: a separate
+    // `SELECT max(id)` could, under READ COMMITTED, see a row newer than
+    // what the entries query returned.
     const { personId, encrypted } = await createTestPerson();
     await store.push(
       personId,

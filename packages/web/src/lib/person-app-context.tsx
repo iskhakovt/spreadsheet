@@ -11,7 +11,7 @@ export type AuthedGroupStatus = Omit<LiveGroupStatus, "person"> & { person: Pers
 export interface PersonAppContextValue {
   token: string;
   authedStatus: AuthedGroupStatus;
-  /** Seals and opens this group's sensitive values. The only way to produce a `Sealed<T>` for a tRPC input. */
+  /** The group codec: seals and opens this group's sensitive values. */
   codec: GroupCodec;
   sortedMembers: GroupStatus["members"];
   questionsData: { questions: QuestionData[]; categories: CategoryData[] };

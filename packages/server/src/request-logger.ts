@@ -4,7 +4,7 @@ import type { Logger } from "pino";
 import type { HonoLoggerEnv } from "./logger.js";
 import { httpRequestDuration } from "./metrics.js";
 
-// Tokens appear in URL paths via the wouter `/p/:token` client route — the SPA
+// Tokens appear in URL paths via the `/p/$token` client route — the SPA
 // fallback serves these on the server, so the raw path would otherwise leak
 // the auth token to logs. Both per-person tokens and pre-setup admin tokens
 // share this same URL shape.

@@ -102,11 +102,8 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
 
     // Navigate to an unencrypted group B in the same tab — no hash,
-    // and the new token must not see group A's key. This is the
-    // regression test for the `e:1:` leak we observed in prod:
-    // before the scoping fix, `getGroupKeyFromUrl` for TOKEN_B
-    // would return GROUP_A_KEY from the module-level + sessionStorage
-    // cache, and TOKEN_B's answers would be encrypted with A's key.
+    // and the new token must not see group A's key from the module-level
+    // or sessionStorage cache.
     locationStub.hash = "";
     adoptSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBeNull();

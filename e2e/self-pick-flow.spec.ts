@@ -111,7 +111,7 @@ test.describe("filtered mode — self-pick anatomy flow", () => {
       await bob.getByRole("button", { name: "I'm done", exact: true }).click();
 
       // Both complete → Bob sees results. In the encrypted run this also
-      // proves Alice's re-wrapped name still decrypts for her partner.
+      // proves the name /anatomy re-sealed for Alice still opens for her partner.
       await expect(bob.getByText("Your matches")).toBeVisible();
       await expect(bob.getByText("You & Alice")).toBeVisible();
     });

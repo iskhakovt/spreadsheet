@@ -24,9 +24,10 @@ import { useTRPC, useTRPCClient } from "./trpc.js";
  *   the auth'd procedure would reject anyway, so we leave the EventSource
  *   un-opened.
  *
- * Error handling: decryption failures throw out of the queryFn, which
- * Suspense-query surfaces to the nearest ErrorBoundary. No separate
- * "error" state tracked in the hook.
+ * Error handling: a field that doesn't open is dropped (see `decryptStatus`).
+ * Key errors (`MissingKeyError`, `UnexpectedKeyError`) throw out of the
+ * queryFn, which Suspense-query surfaces to the nearest ErrorBoundary. No
+ * separate "error" state tracked in the hook.
  */
 export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () => Promise<void> } {
   // React Compiler reports a false-positive "Cannot access refs during render"
@@ -38,15 +39,13 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // The cache holds the OPENED status (see decryptStatus), not the sealed
-  // wire shape tRPC's query key is tagged with. So the key is widened to a
-  // plain QueryKey and the slot is typed by the queryFn instead: reading it
-  // through a tRPC-typed key would claim the values are still sealed.
+  // The cache holds the opened status, not the sealed wire shape tRPC's
+  // query key is typed with, so the key is a plain QueryKey and the queryFn
+  // types the slot.
   //
-  // The key also carries the session scope, so a same-tab token switch gets
-  // its own slot: the previous person's status is never rendered (or acted
-  // on, e.g. by the legacy re-seal) under the next person's session. Prefix
-  // invalidation through `trpc.groups.status.pathKey()` still matches it.
+  // The key carries the session scope, so a same-tab token switch never
+  // renders (or re-seals) the previous person's status under the next
+  // person's session. `trpc.groups.status.pathKey()` still prefix-matches it.
   const trpcClient = useTRPCClient();
   const statusKey: QueryKey = [...trpc.groups.status.queryKey(), { scope: getScope() }];
   const { data: status } = useSuspenseQuery({
@@ -73,10 +72,9 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
       enabled: !!personId,
       onData: async (raw) => {
         if (!raw) return;
-        // Each event is a snapshot of one person's status. After a same-tab
-        // token switch the previous person's stream can keep delivering until
-        // it's torn down, so only accept an event about the person whose
-        // status the slot already holds, checked again after decrypting.
+        // After a same-tab token switch the previous person's stream can keep
+        // delivering until it's torn down, so accept only events about the
+        // person the slot holds (checked again after decrypting).
         const target = statusKey;
         const belongs = () => statusEventBelongs(queryClient.getQueryData<LiveGroupStatus | null>(target), raw);
         if (!belongs()) return;

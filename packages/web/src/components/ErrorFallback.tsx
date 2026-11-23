@@ -14,9 +14,9 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
- * Shown when the link's key doesn't fit the group: it opens none of the
- * group's encrypted values (wrong key), or the group isn't encrypted at all
- * (a key that shouldn't be there). Nothing is written in either case.
+ * The key-mismatch screen: the link's key opens none of your own ciphertext
+ * (wrong key), or the group isn't encrypted at all (a key that shouldn't be
+ * there). Nothing is written in either case.
  */
 export function KeyMismatchScreen() {
   return (

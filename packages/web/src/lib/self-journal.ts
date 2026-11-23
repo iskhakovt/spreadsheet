@@ -51,10 +51,9 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  */
 export function makeSelfJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<SelfJournalCache> => {
-    // While nothing has proven the key (status had none of your ciphertext),
-    // fetch your whole journal instead of the delta: the entries behind a
-    // saved cursor may be the only data of yours that can prove or refute
-    // it, and an empty delta would let a wrong key through unchecked.
+    // While nothing has proven the key, fetch your whole journal rather than
+    // the delta: entries behind the saved cursor may be the only data of
+    // yours that can prove or refute it.
     const keyUnproven = codec.encrypted && !codec.keyProven;
     const cursor = keyUnproven ? null : getSelfJournalCursor();
     const result = await trpcClient.sync.selfJournal.query({ sinceId: cursor ?? undefined }, { signal });
@@ -113,14 +112,14 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
-  // Rows, not JournalEntry: subscription payloads arrive unvalidated.
+  // Plain strings, not the shared `JournalEntry`: subscription payloads arrive unvalidated.
   newEntries: readonly { operation: string }[],
   codec: GroupCodec,
 ): Promise<Record<string, Answer>> {
   if (newEntries.length === 0) return prev;
   const serverEntryOps = newEntries.map((e) => e.operation);
-  // Both callers persist the cursor right after this; under a wrong key
-  // that would skip entries the right key can read. Fail closed instead.
+  // Both callers persist the cursor right after this, which under a wrong
+  // key would skip entries the right key can read. Fail closed instead.
   await assertKeyOpens(codec, serverEntryOps, OperationPayload);
   return mergeAfterRejection(prev, getPendingOps(), serverEntryOps, codec);
 }
@@ -178,10 +177,9 @@ export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
   // only orders multiple onData callbacks against each other.
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
 
-  // A wrong key on a live delta stops the stream from being applied: a later
-  // delta that does open must not move the cursor past the rejected one
-  // (which the next load would then skip). The error surfaces on the next
-  // render, so the screen's boundary shows the key-mismatch screen.
+  // A live delta that fails the key check stops the stream, so a later delta
+  // can't move the cursor past it. The error is rethrown on the next render
+  // and the boundary shows the key-mismatch screen.
   const stoppedRef = useRef(false);
   const [streamError, setStreamError] = useState<WrongKeyError | null>(null);
 

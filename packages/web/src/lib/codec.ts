@@ -25,11 +25,10 @@ export class UnexpectedKeyError extends NonRetriableError {
 }
 
 /**
- * Thrown when an encrypted group's values exist but none of them open with
- * this tab's key: the link carries the wrong key (or everything was
- * tampered with). Failing closed matters: dropping the fields instead would
- * route the person to re-enter them, sealed under the wrong key, which
- * would overwrite data the right key can still read.
+ * Thrown when the caller's own ciphertext exists but none of it opens with
+ * this tab's key: the link carries the wrong key. Dropping the fields
+ * instead would have the person re-enter them under that key, overwriting
+ * what the right key can read (see design/sync.md § Sealed values).
  */
 export class WrongKeyError extends NonRetriableError {
   readonly code = "WRONG_GROUP_KEY" as const;
@@ -56,32 +55,21 @@ export class SealedValueError extends Error {
   }
 }
 
-/**
- * The one place a sensitive value is sealed or opened. The mode comes from
- * the group's `encrypted` flag, never from the call site.
- *
- * Writes: `seal` produces `p:1:<json>` for plaintext groups and padded
- * `e:1:<ciphertext>` for encrypted ones. It's the only producer of `Sealed<T>`,
- * which every sensitive tRPC input requires.
- *
- * Reads: `open` rejects any value that doesn't match the group's config.
- * That matters in encrypted groups: GCM authenticates ciphertext, but a
- * `p:` value could have been written by anyone with database access, so
- * accepting one would let the server forge answers or names.
- */
 export type OpenResult<T> = { ok: true; value: T } | { ok: false; reason: SealedRejection };
 
+/**
+ * The group codec: the one place a sensitive value is sealed or opened. The
+ * mode comes from the group's `encrypted` flag, never from the call site.
+ * `seal` is the only producer of `Sealed<T>`; `open` rejects any value that
+ * doesn't match the group's config (see design/sync.md § Sealed values).
+ */
 export interface GroupCodec {
   readonly encrypted: boolean;
   /**
-   * True once the caller's OWN server-side ciphertext (their profile fields,
-   * progress or journal entries) has decrypted under this key, even if its
-   * payload then failed its schema (GCM authenticated it). Monotonic for the
-   * codec's lifetime.
-   *
-   * Set only through {@link markKeyProven}, never by a decrypt by itself:
-   * another member's value, or one from the local outbox, opening proves only
-   * that the key matches whoever wrote it, which could be the same wrong key.
+   * True once the caller's own server-side ciphertext (profile, progress or
+   * journal) has decrypted under this key, even if its payload then failed
+   * the schema. Never cleared. Set only via {@link markKeyProven}: another
+   * member's value or the local outbox opening proves nothing.
    */
   readonly keyProven: boolean;
   /** Record that the caller's own server-side ciphertext opened under this key. */
@@ -94,10 +82,9 @@ export interface GroupCodec {
   /** Like `open`, but returns the rejection instead of throwing it. Key errors still throw. */
   tryOpen<T>(value: string, schema: PayloadSchema<T>): Promise<OpenResult<T>>;
   /**
-   * Read a `p:` value in an ENCRYPTED group as plaintext, for the caller's
-   * own profile fields only: those are values an older client leaked, and
-   * the caller confirms and re-seals them. Never use it for other members'
-   * values. Returns null for anything that isn't a valid `p:1:` payload.
+   * Read a `p:` value in an encrypted group, for the caller's own profile
+   * fields only (legacy plaintext an older client wrote; `useResealLegacyProfile`
+   * re-seals it). Never for other members' values. Null unless a valid `p:1:` payload.
    */
   openLegacyPlaintext<T>(value: string, schema: PayloadSchema<T>): T | null;
 }
@@ -195,20 +182,14 @@ class Codec implements GroupCodec {
 }
 
 /**
- * Prove the key on the caller's OWN server-side ciphertext (e.g. their
- * journal entries), or throw {@link WrongKeyError}: if `ownValues` hold
- * ciphertext and none of it opens, this tab carries the wrong key. A value
- * that decrypts but fails `schema` still proves it (GCM authenticated it),
- * and marks the codec proven. No-op in plaintext groups, without ciphertext
- * to test, or once the key is already proven (so one corrupt entry can't
- * pass for a wrong key).
- *
- * Only pass the caller's own server-side data: another member's value or
- * the local outbox opening proves nothing about the group's key.
+ * Prove the key on the caller's own server-side ciphertext and mark the codec
+ * proven, or throw {@link WrongKeyError} if `ownValues` hold ciphertext and
+ * none of it decrypts (a value that decrypts but fails `schema` still counts).
+ * No-op in plaintext groups, without ciphertext, or once the key is proven, so
+ * one corrupt entry can't pass for a wrong key.
  *
  * Call it before persisting anything derived from a replay (e.g. a cursor):
- * under a wrong key every entry is dropped, and advancing the cursor past
- * them would hide them from the right key later.
+ * moving past entries a wrong key dropped would hide them from the right key.
  */
 export async function assertKeyOpens<T>(
   codec: GroupCodec,

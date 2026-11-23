@@ -34,8 +34,7 @@ type DeletableState = Map<string, Answer | typeof DELETED>;
 async function replayJournalDeletable(entries: { operation: string }[], codec: GroupCodec): Promise<DeletableState> {
   const state: DeletableState = new Map();
   for (const entry of entries) {
-    // Rejected entries (wrong mode for the group, tampered, malformed, or a
-    // payload that fails the schema) are dropped and logged by the codec.
+    // A rejected entry (wrong mode, tampered, malformed) is logged and dropped.
     const payload = await codec.openOrDrop(entry.operation, OperationPayload);
     if (payload === null) continue;
     if (!isSafeOperationKey(payload.key)) {
@@ -53,9 +52,9 @@ async function replayJournalDeletable(entries: { operation: string }[], codec: G
  * Last operation for each key wins. Null data = delete.
  *
  * Each payload runs through the `OperationPayload` schema, whose `Answer`
- * defaults missing `note` to null (legacy pre-PR-89 entries) and strips
- * the legacy `timing` key (pre-timing-removal entries). A rejected entry
- * is skipped rather than tanking the whole replay.
+ * defaults a missing `note` to null and strips the `timing` key, so older
+ * entries still parse. A rejected entry is skipped rather than tanking the
+ * whole replay.
  *
  * Returns a plain object — deleted keys are absent. For the merge path
  * that needs to see deletions explicitly, use `replayJournalDeletable`.

@@ -16,44 +16,33 @@ import { UI } from "./strings.js";
 export type LiveGroupStatus = GroupStatus & {
   /**
    * The caller's own name or anatomy is legacy plaintext in an encrypted
-   * group (written by an older client). Set whether or not the key is
-   * proven yet: proof may come later, from the journal. The layout seals and
-   * writes it back once `codec.keyProven`.
+   * group. Set whether or not the key is proven yet; `useResealLegacyProfile`
+   * re-seals it once `codec.keyProven`.
    */
   profileHasLegacyPlaintext?: true;
   /**
    * The caller's own ciphertext is in the status, but none of it opened and
-   * nothing else has proven the key yet. Not decided here: the journal may
-   * still prove it. `assertKeyNotRefuted` decides once hydration has run.
+   * nothing has proven the key yet. The journal may still prove it, so
+   * `assertKeyNotRefuted` decides after hydration.
    */
   ownCiphertextUnproven?: true;
 };
 
 /**
  * Open the sealed fields (name, anatomy, progress) of a status response.
+ * A rejected field is dropped, not the whole status, so one bad write can't
+ * blank everyone's screen: another member's name becomes `UI.unreadableName`,
+ * your own name "" (routes you to /setup), and anatomy / progress null.
  *
- * Each field opens on its own, and one that's rejected (see `GroupCodec.open`)
- * is dropped rather than failing the whole status. Otherwise any member could
- * blank everyone's screen with one bad write:
- *  - another member's name → `UI.unreadableName`; anatomy / progress → null.
- *  - your own name → "" (routes you to /setup to enter it again); anatomy → null.
- *
- * Fail closed on your OWN ciphertext only (name, anatomy, progress): if it
- * exists and none of it opens, flag `ownCiphertextUnproven`; once journal
- * hydration has had its chance to prove the key, `assertKeyNotRefuted`
- * throws {@link WrongKeyError} if nothing did. Dropping instead would send you to re-enter
- * your fields, sealed under that wrong key, overwriting what the right key
- * can read. Other members' ciphertext that doesn't open is only dropped:
- * you can't overwrite their data, and someone who wrote under a wrong key
- * mustn't be able to lock everyone else out.
- *
- * Your own legacy plaintext in an encrypted group is read as-is and flagged
- * (`profileHasLegacyPlaintext`); re-sealing it waits until the key is proven.
+ * If your own ciphertext is present and none of it opens, the status is
+ * flagged `ownCiphertextUnproven`, and `assertKeyNotRefuted` throws
+ * {@link WrongKeyError} unless your journal proves the key first. Other
+ * members' ciphertext is only dropped. Your own legacy plaintext is read and
+ * flagged (`profileHasLegacyPlaintext`). See design/sync.md § Sealed values.
  */
 export async function decryptStatus(
   // The row type (plain strings) rather than SealedGroupStatus: subscription
-  // payloads skip output validation, so they arrive typed as rows. Opening
-  // works on any string, and a sealed status is assignable to it.
+  // payloads skip output validation, so they arrive typed as rows.
   raw: GroupStatusRow,
   codec: GroupCodec = getGroupCodec(raw.group.encrypted),
 ): Promise<LiveGroupStatus> {
@@ -139,12 +128,11 @@ export async function decryptStatus(
 }
 
 /**
- * The one place a wrong key is decided for the status: your own ciphertext
- * is in it, none of it opened, and nothing of yours (status or journal) has
- * proven the key since. Called after journal hydration, so the journal gets
- * its chance first, and on every later render, so a refetched or live status
- * is covered too. Throws {@link WrongKeyError}; the boundary shows the
- * key-mismatch screen before any screen can write.
+ * Throws {@link WrongKeyError} when the status flagged your own ciphertext
+ * as unopened and nothing of yours has proven the key since. The layout's
+ * `AuthedShell` calls it after journal hydration (so the journal can prove
+ * the key first) and on every render, so the key-mismatch screen shows
+ * before any screen can write.
  */
 export function assertKeyNotRefuted(status: Pick<LiveGroupStatus, "ownCiphertextUnproven">, codec: GroupCodec): void {
   if (status.ownCiphertextUnproven && !codec.keyProven) throw new WrongKeyError();

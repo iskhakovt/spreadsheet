@@ -1,7 +1,7 @@
 import { NonRetriableError } from "./errors.js";
 import { getScope } from "./session.js";
 
-/** Thrown when encrypted data is encountered but no group key is available. */
+/** Thrown by the group codec when the group is encrypted but this tab has no group key. */
 export class MissingKeyError extends NonRetriableError {
   readonly code = "MISSING_GROUP_KEY" as const;
   constructor() {
@@ -99,16 +99,13 @@ export async function decryptJson(encoded: string, key: CryptoKey): Promise<stri
  * Returns null if no key in fragment (plaintext mode).
  *
  * The key is persisted to sessionStorage because:
- * - wouter's pushState drops the hash fragment during client-side navigation
+ * - client-side navigation drops the hash fragment
  * - A full page reload clears in-memory state
  * sessionStorage survives reloads but not new tabs (each tab needs its own key from the URL).
  */
-// Module-level cache keyed by the session scope. Scoping is what prevents
-// the "earlier encrypted group's key leaks into a later unrelated group"
-// bug — without it, navigating from `/p/TOKEN_A#key=...` to a later
-// `/p/TOKEN_B` in the same tab would return TOKEN_A's key for TOKEN_B,
-// and TOKEN_B's unencrypted data would silently be wrapped with TOKEN_A's
-// key (observed as `e:1:` payloads on a `group.encrypted = false` row).
+// Module-level cache keyed by the session scope, so an earlier group's key
+// never leaks into a later one: navigating from `/p/TOKEN_A#key=...` to
+// `/p/TOKEN_B` in the same tab must not hand TOKEN_A's key to TOKEN_B.
 let cachedGroupKey: string | null = null;
 let cachedScope: string | null = null;
 
@@ -127,9 +124,7 @@ export function getGroupKeyFromUrl(): string | null {
 
   const key = keyFromHash();
   // One page = one key: once this page uses a key for this person, a
-  // different one in the fragment doesn't replace it in place. Everything
-  // the page opened, verified and cached is tied to the first key;
-  // `isKeySwitch` tells the layout to reload into the new one instead.
+  // different `#key=` doesn't replace it; callers of `isKeySwitch` reload instead.
   if (key && cachedGroupKey === null) {
     cachedGroupKey = key;
     sessionStorage.setItem(`${scope}groupKey`, key);
@@ -148,10 +143,8 @@ function keyFromHash(): string | null {
 
 /**
  * True when a `#key=` arrives on a person page that loaded without one
- * (e.g. the same link pasted again with its fragment). Nothing on the page
- * used a key yet, so the right move is the same as a switch: reload into
- * it, so the page starts over with the key instead of staying on the
- * missing-key screen.
+ * (e.g. the link pasted again with its fragment). Handled like a switch: the
+ * page reloads with the key instead of staying on the missing-key screen.
  */
 export function isKeyArrival(): boolean {
   if (typeof window === "undefined" || cachedGroupKey !== null) return false;
@@ -159,11 +152,11 @@ export function isKeyArrival(): boolean {
 }
 
 /**
- * True when the URL fragment carries a different key than the one this
- * page already uses for the current person: the key counterpart of
- * `isPersonSwitch`. The caller reloads (a fresh page adopts the fragment's
- * key and verifies it from scratch) rather than switching keys in place,
- * where cached, already-verified state would be sealed under the new key.
+ * True when the URL fragment carries a different key than the one this page
+ * already uses for the current person: the key counterpart of `isPersonSwitch`.
+ * The caller reloads so the fresh page verifies the new key from scratch.
+ * Switching in place would seal new writes under the new key while serving
+ * state verified under the old one.
  */
 export function isKeySwitch(): boolean {
   if (typeof window === "undefined" || cachedScope !== getScope() || cachedGroupKey === null) return false;

@@ -17,7 +17,7 @@ async function runMigration(db: Database) {
   for (const statement of statements) await db.execute(sql.raw(statement));
 }
 
-/** Raw (pre-sealing) names, chosen to exercise JSON escaping. */
+/** Legacy raw names, chosen to exercise JSON escaping. */
 const RAW_NAMES = [
   "Alice",
   `O'Brien "Bobby"`,
@@ -87,8 +87,8 @@ beforeAll(async () => {
   const [plain] = await db.insert(groups).values({ encrypted: false, isReady: true, questionMode: "all" }).returning();
   const [enc] = await db.insert(groups).values({ encrypted: true, isReady: true, questionMode: "all" }).returning();
 
-  // Every raw name × raw/null anatomy, in both group modes: an encrypted group
-  // with raw values is the old client bug the migration also covers.
+  // Every raw name × raw/null anatomy, in both group modes: raw values in an
+  // encrypted group are plaintext an older client leaked, sealed the same way.
   for (const group of [plain, enc]) {
     for (const [i, name] of RAW_NAMES.entries()) {
       await insertPerson(group.id, name, i % 5 === 4 ? null : RAW_ANATOMIES[i % RAW_ANATOMIES.length]);

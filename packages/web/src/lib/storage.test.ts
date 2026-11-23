@@ -29,7 +29,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-// Note: `useAnswers` lives in lib/self-journal.ts now (it reads from the
+// Note: `useAnswers` lives in lib/self-journal.ts (it reads from the
 // TanStack cache slot, not localStorage). Read-side tests for it are in
 // lib/self-journal.test.ts. The localStorage-write side (`setAnswer` /
 // `setAnswers` / `getAnswers`) is exercised by the cross-tab + optimistic

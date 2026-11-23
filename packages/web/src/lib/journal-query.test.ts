@@ -90,11 +90,10 @@ describe("applyJournalDelta", () => {
   });
 
   it("keeps every entry when deliveries overlap with the async rebuild", async () => {
-    // Regression: the handler used to snapshot the cache, await the
-    // rebuild, then write. A second delivery arriving mid-rebuild
-    // snapshotted a cache without the first delivery's entries, the first
-    // write was discarded as stale, and those entries were lost for good
-    // (the server cursor had already moved past them).
+    // Snapshotting the cache, awaiting the rebuild, then writing would let a
+    // second delivery arriving mid-rebuild snapshot a cache without the
+    // first delivery's entries; the first write would be discarded as stale
+    // and those entries lost for good (the server cursor has moved past them).
     const queryClient = new QueryClient();
     seed(queryClient, [entry("e1", "alice", "a:mutual", no)]);
     const apply = (entries: JournalEntry[]) => applyJournalDelta(queryClient, entries, codec);

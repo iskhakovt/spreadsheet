@@ -25,11 +25,9 @@ declare module "@tanstack/react-router" {
   }
 }
 
-// One page = one key. A fragment-only change (e.g. pasting the same
-// person's link with a different #key=, or with a key on a page that loaded
-// without one) is a same-document navigation that may not re-render the
-// router, so catch it here: reload into it, and the fresh page verifies the
-// key from scratch.
+// One page = one key. A fragment-only change (a different #key=, or a key on
+// a page that loaded without one) may not re-render the router, so catch it
+// here and reload; the fresh page verifies the key from scratch.
 window.addEventListener("hashchange", () => {
   if (isKeySwitch() || isKeyArrival()) window.location.reload();
 });

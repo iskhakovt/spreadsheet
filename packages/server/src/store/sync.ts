@@ -114,9 +114,9 @@ export class SyncStore {
         };
       }
 
-      // Progress only on an accepted push: a rejected one leaves server state
-      // untouched (its client may not even hold the right key; it finds out
-      // from the entries this rejection returns).
+      // Progress is written only on an accepted push, so a rejected one changes
+      // nothing: its client may hold the wrong key, which it learns from the
+      // entries the rejection returns (design/sync.md § Sealed values).
       if (input.progress !== undefined) {
         await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
       }

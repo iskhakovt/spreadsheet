@@ -147,7 +147,7 @@ export function setAnswer(key: string, answer: Answer | null): void {
 //
 // The queue is `string[]` of opaque ops on disk — never persist anything
 // else under this key. To dedup debounced same-key writes (typing a
-// 50-char note used to enqueue ~6 redundant ops) we maintain an
+// 50-char note would otherwise enqueue ~6 redundant ops) we maintain an
 // in-memory key→position index alongside the queue. The index is NOT
 // persisted: `p:1:` ops can be rebuilt from the cleartext payload on
 // first access, and `e:1:` ops can't be decrypted synchronously —
@@ -165,11 +165,10 @@ export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): Sealed<Op
 );
 
 /**
- * The outbox. Typed `Sealed` because only the group codec's output goes in:
- * every writer (`addPendingOp`, `addPendingOpForKey`, `setPendingOps`)
- * requires it, and ops queued by older clients share the format. Reading it
- * back (here and in `usePendingOps`) brands unchecked JSON; that's the
- * persistence boundary, and the server re-checks format and mode on push.
+ * The outbox. Typed `Sealed` because every writer requires the group codec's
+ * output, and ops queued by older clients share the format. Reading it back
+ * brands unchecked JSON: that's the persistence boundary, and the server
+ * re-checks format and mode on push.
  */
 export function getPendingOps(): Sealed<OperationPayload>[] {
   return getJson<Sealed<OperationPayload>[]>("pendingOps", []);

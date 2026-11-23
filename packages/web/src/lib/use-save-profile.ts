@@ -16,9 +16,8 @@ export interface ProfileInput {
  * fields with the group's codec first. Pass plaintext; `setProfile`'s input
  * type only accepts sealed values, so nothing else compiles.
  *
- * `saving` covers the whole operation, sealing included. The mutation alone
- * only goes pending once sealing has finished, which left a window where a
- * second click submitted again. A failure (seal or request) goes to the
+ * `saving` covers sealing too, not just the mutation, so a second click
+ * while sealing can't submit again. A failure (seal or request) goes to the
  * screen's error boundary, which offers a retry.
  */
 export function useSaveProfile(codec: GroupCodec) {

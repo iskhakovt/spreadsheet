@@ -24,9 +24,9 @@ export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
-  // A push that reveals a wrong key (see flushPendingOps) goes to the
-  // screen's boundary on the next render, which shows the key-mismatch
-  // screen instead of letting the person keep answering under that key.
+  // A push that reveals a wrong key (see flushPendingOps) is rethrown on the
+  // next render, so the boundary shows the key-mismatch screen instead of
+  // letting the person keep answering under that key.
   const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
 
   const handleSync = useCallback(async (): Promise<void> => {

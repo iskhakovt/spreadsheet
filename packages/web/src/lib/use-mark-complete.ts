@@ -31,7 +31,7 @@ export function useMarkComplete(token: string, codec: GroupCodec): () => Promise
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
-  // A flush that reveals a wrong key surfaces on the next render (the
+  // A flush that reveals a wrong key is rethrown on the next render (the
   // boundary shows the key-mismatch screen) instead of marking complete.
   const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
 

@@ -204,7 +204,7 @@ Centered card (max-width 480px) for all screens except Comparison. Comparison us
 
 ## Routing
 
-URL-based routing via wouter (nested under `/p/:token`):
+URL-based routing via TanStack Router (file-based, nested under `/p/:token`):
 
 ```
 /p/:token           → catch-all, redirects via resolveRoute()
@@ -246,7 +246,7 @@ URL-based routing via wouter (nested under `/p/:token`):
 2. Read by `getGroupKeyFromUrl()` on first access → cached in `sessionStorage`
 3. `sessionStorage` survives page reloads but not new tabs (each tab gets key from URL)
 4. `getGroupCodec(group.encrypted)` seals and opens every sensitive value with it (see `design/sync.md` § Sealed values)
-5. wouter's `pushState` drops the hash fragment — sessionStorage cache handles this
+5. Client-side navigation drops the hash fragment; the sessionStorage cache covers it
 
 ## ND-Friendly Considerations
 

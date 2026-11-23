@@ -111,11 +111,9 @@ describe("applySelfJournalDelta", () => {
   });
 
   it("server-side null delete propagates to merged via the delta path", async () => {
-    // Regression for the bootstrap-vs-delta divergence: previously the
-    // merge iterated server-state Object keys and a deleted key was
-    // simply absent, so the server's deletion didn't reach `merged`.
-    // Now the underlying replay yields a sentinel for deletes and the
-    // merge applies them, matching the bootstrap (full-replay) path.
+    // The replay yields a sentinel for deletes and the merge applies them,
+    // matching the bootstrap (full-replay) path. A deleted key that is
+    // merely absent from the server state would never reach `merged`.
     const prev = { "a:mutual": yes };
     clearPendingOps();
     const entries = [{ id: "e1", personId: "p", operation: plainOp("a:mutual", null) }];
@@ -281,10 +279,9 @@ describe("useAnswers", () => {
   });
 
   it("handles cross-tab writes after an in-tab session switch", () => {
-    // Regression for the closure-captured-scope bug: the listener used
-    // to bind `fullKey` once at effect-mount, so after `adoptSession` to
-    // a new person the cross-tab event for the new scope was dropped.
-    // Now the handler resolves scope per event and stays correct.
+    // The handler resolves the scope per event: a `fullKey` bound once at
+    // effect-mount would drop the new scope's cross-tab events after
+    // `adoptSession` to a new person.
     const { result, cleanup } = renderUseAnswersWithMirror({});
 
     // In-tab session switch — same scenario as a user navigating between
