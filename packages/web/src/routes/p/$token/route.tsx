@@ -14,7 +14,7 @@ import {
   type PersonAppContextValue,
 } from "../../../lib/person-app-context.js";
 import { useSelfJournal } from "../../../lib/self-journal.js";
-import { adoptSession } from "../../../lib/session.js";
+import { adoptSession, isPersonSwitch } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
@@ -39,11 +39,39 @@ export const Route = createFileRoute("/p/$token")({
   // Zustand vanilla store works outside React so this is safe in a loader.
   // The server's /p/:token route has already set the httpOnly cookie on
   // this navigation; this just records which session this tab is on.
+  //
+  // One page = one person: a different person's link in this page reloads
+  // instead of switching in place (see `isPersonSwitch`).
   loader: ({ params }) => {
+    if (isPersonSwitch(params.token)) {
+      reloadForPersonSwitch();
+      return;
+    }
     adoptSession(params.token);
   },
-  component: PersonAppLayout,
+  component: PersonAppGate,
 });
+
+/**
+ * Reload into the URL the router has already committed (/p/<other token>,
+ * with its #key= fragment). A primitive on purpose: the router's own
+ * `reloadDocument` navigation sets `location.href` to that same URL, which,
+ * with a fragment, is a fragment-only navigation and doesn't reload.
+ */
+function reloadForPersonSwitch(): void {
+  window.location.reload();
+}
+
+/** Renders nothing for a different person's link while the page reloads into it. */
+function PersonAppGate() {
+  const { token } = Route.useParams();
+  const switching = isPersonSwitch(token);
+  // The loader normally reloads first; this covers a render that beats it.
+  useEffect(() => {
+    if (switching) reloadForPersonSwitch();
+  }, [switching]);
+  return switching ? null : <PersonAppLayout />;
+}
 
 function PersonAppLayout() {
   const { token } = Route.useParams();
@@ -51,8 +79,8 @@ function PersonAppLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // adoptSession again in the component for the token-change case so the
-  // session hash is current before any tRPC hook fires on this render.
+  // Idempotent here (the loader adopted this token), but keeps the session
+  // in place before any tRPC hook fires even if the loader hasn't run.
   adoptSession(token);
 
   useTokenSwitchCleanup(token);
@@ -139,6 +167,9 @@ function PersonAppLayout() {
     setStartKey,
   };
 
+  // Backstop only: with one page = one person (`PersonAppGate`), a token
+  // change reloads the page before this layout renders for it.
+  //
   // `key={token}` on the inner subtree forces React to unmount and remount
   // the entire authed app when the URL token changes within the same tab.
   // This is the only reliable way to tear down active SSE subscriptions

@@ -7,6 +7,10 @@ import { SELF_JOURNAL_QUERY_KEY } from "./self-journal.js";
  * Drops cache state scoped to the previous person when the URL token changes
  * within the same tab.
  *
+ * Backstop only: with one page = one person (`isPersonSwitch` and the
+ * `/p/$token` layout's gate), a token change reloads the page, so this
+ * shouldn't fire. It stays as defence in depth for that invariant.
+ *
  * HTTP query caches are reset by key prefix: `groups`, `sync`, and `questions`
  * all use shared keys (no token in their input shape), so navigating between
  * two `/p/$token` URLs in the same tab would otherwise hand back the previous
