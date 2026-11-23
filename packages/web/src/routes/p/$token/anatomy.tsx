@@ -1,13 +1,11 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AnatomyPicker } from "../../../components/AnatomyPicker.js";
 import { Button } from "../../../components/Button.js";
 import { Card } from "../../../components/Card.js";
-import { wrapSensitive } from "../../../lib/crypto.js";
 import { usePersonApp } from "../../../lib/person-app-context.js";
-import { useTRPC } from "../../../lib/trpc.js";
+import { useSaveProfile } from "../../../lib/use-save-profile.js";
 
 export const Route = createFileRoute("/p/$token/anatomy")({
   component: AnatomyRoute,
@@ -15,13 +13,7 @@ export const Route = createFileRoute("/p/$token/anatomy")({
 
 function AnatomyRoute() {
   const { authedStatus } = usePersonApp();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const setProfileMutation = useMutation(
-    trpc.groups.setProfile.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
-    }),
-  );
+  const { save, saving } = useSaveProfile();
 
   const anatomyLabelKey = (authedStatus.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
   const labels = ANATOMY_LABEL_PRESETS[anatomyLabelKey];
@@ -35,16 +27,13 @@ function AnatomyRoute() {
         <AnatomyPicker selected={selected} onSelect={setSelected} labels={labels} />
         <Button
           fullWidth
-          disabled={!selected || setProfileMutation.isPending}
-          onClick={async () => {
-            if (!selected || setProfileMutation.isPending) return;
-            // `authedStatus` holds the decrypted status, so both fields are
-            // plaintext here and must be re-wrapped before they reach the
-            // server. Sending the name as-is would overwrite its ciphertext.
-            setProfileMutation.mutate({
-              name: await wrapSensitive(authedStatus.person.name),
-              anatomy: await wrapSensitive(selected),
-            });
+          disabled={!selected || saving}
+          onClick={() => {
+            if (!selected) return;
+            // `authedStatus` holds the decrypted status, so the name is
+            // plaintext here. useSaveProfile re-wraps it; sending it as-is
+            // would overwrite its ciphertext with plaintext.
+            void save({ name: authedStatus.person.name, anatomy: selected });
           }}
         >
           Continue

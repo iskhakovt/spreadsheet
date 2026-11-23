@@ -1,13 +1,11 @@
 import { ANATOMY_LABEL_PRESETS, type Anatomy, type AnatomyLabels } from "@spreadsheet/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AnatomyPicker } from "../../../components/AnatomyPicker.js";
 import { Button } from "../../../components/Button.js";
 import { Card } from "../../../components/Card.js";
-import { wrapSensitive } from "../../../lib/crypto.js";
 import { usePersonApp } from "../../../lib/person-app-context.js";
-import { useTRPC } from "../../../lib/trpc.js";
+import { useSaveProfile } from "../../../lib/use-save-profile.js";
 
 export const Route = createFileRoute("/p/$token/setup")({
   component: SetupRoute,
@@ -15,13 +13,7 @@ export const Route = createFileRoute("/p/$token/setup")({
 
 function SetupRoute() {
   const { authedStatus } = usePersonApp();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const setProfileMutation = useMutation(
-    trpc.groups.setProfile.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.groups.status.pathKey() }),
-    }),
-  );
+  const { save, saving } = useSaveProfile();
 
   const showAnatomy = authedStatus.group.questionMode === "filtered" && authedStatus.group.anatomyPicker === "self";
   const anatomyLabelKey = (authedStatus.group.anatomyLabels ?? "anatomical") as AnatomyLabels;
@@ -29,7 +21,7 @@ function SetupRoute() {
   const [name, setName] = useState("");
   const [anatomy, setAnatomy] = useState<Anatomy | "">("");
   const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && (!showAnatomy || anatomy) && !setProfileMutation.isPending;
+  const canSubmit = trimmedName.length > 0 && (!showAnatomy || anatomy) && !saving;
 
   return (
     <Card>
@@ -65,12 +57,9 @@ function SetupRoute() {
         <Button
           fullWidth
           disabled={!canSubmit}
-          onClick={async () => {
+          onClick={() => {
             if (!canSubmit) return;
-            setProfileMutation.mutate({
-              name: await wrapSensitive(trimmedName),
-              anatomy: anatomy ? await wrapSensitive(anatomy) : null,
-            });
+            void save({ name: trimmedName, anatomy: anatomy || null });
           }}
         >
           Continue
