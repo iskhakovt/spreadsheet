@@ -42,7 +42,10 @@ export const Route = createFileRoute("/p/$token")({
   //
   // One page = one person: a different person's link in this page reloads
   // instead of switching in place (see `isPersonSwitch`).
-  loader: ({ params }) => {
+  loader: ({ params, preload }) => {
+    // A preload (e.g. a future intent-preloading link) runs this loader
+    // while the page is still on its current URL: no adopting, no reloading.
+    if (preload) return;
     if (isPersonSwitch(params.token)) {
       reloadForPersonSwitch();
       return;

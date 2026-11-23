@@ -28,6 +28,11 @@ test.describe("one page = one person", () => {
       });
 
       const bob = new URL(partnerLink);
+      // A real document request for Bob's link: that's what sets his session
+      // cookie server-side. (The #key= fragment never goes on the wire.)
+      const documentRequest = alice.waitForRequest(
+        (req) => req.isNavigationRequest() && req.url() === bob.origin + bob.pathname,
+      );
       const reloaded = alice.waitForEvent("load");
       // On a timer so this evaluate returns before the page goes away.
       await alice.evaluate((target) => {
@@ -36,15 +41,19 @@ test.describe("one page = one person", () => {
           window.dispatchEvent(new PopStateEvent("popstate"));
         });
       }, bob.pathname + bob.hash);
+      await documentRequest;
       await reloaded;
 
-      // A fresh page, on Bob's link (with its #key= fragment when encrypted),
-      // showing Bob's first screen rather than Alice's state or "Link not found".
+      // A fresh page on Bob's link, showing Bob's first screen rather than
+      // Alice's state or "Link not found". Bob's layout then moves on to
+      // /intro (dropping the fragment), so match the path prefix. In the
+      // encrypted run, the intro rendering at all proves the key came through:
+      // without it Bob's status can't be opened.
       expect(
         await alice.evaluate(() => (window as unknown as { onePageMarker?: boolean }).onePageMarker ?? null),
       ).toBeNull();
-      await expect(alice).toHaveURL(partnerLink);
       await expect(alice.getByText("Here's how it works")).toBeVisible({ timeout: NAV_TIMEOUT });
+      expect(new URL(alice.url()).pathname.startsWith(bob.pathname)).toBe(true);
     });
   }
 });

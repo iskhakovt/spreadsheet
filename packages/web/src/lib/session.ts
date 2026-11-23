@@ -39,13 +39,14 @@ export const sessionStore = createStore<Session>()(() => ({
 }));
 
 /**
- * The person this page (document) belongs to: set by the first
- * `adoptSession` in the document and never changed after. Module memory on
+ * The person this page (document) belongs to: the token of the first
+ * `adoptSession` in the document, never changed after. Module memory on
  * purpose: a reload starts a new document, so the next page can belong to
  * someone else. The persisted hash above can't serve here, because it can't
- * tell a reload from a switch.
+ * tell a reload from a switch. The full token rather than its hash, so two
+ * tokens can't pass for one; it's already in the URL, and never persisted.
  */
-let pagePersonHash: string | null = null;
+let pagePersonToken: string | null = null;
 
 /**
  * One page = one person. True when `token` belongs to someone other than
@@ -59,7 +60,7 @@ let pagePersonHash: string | null = null;
  * sets the new person's session cookie (the server's `/p/:token` response).
  */
 export function isPersonSwitch(token: string): boolean {
-  return pagePersonHash !== null && pagePersonHash !== fnv1a(token);
+  return pagePersonToken !== null && pagePersonToken !== token;
 }
 
 /**
@@ -76,7 +77,7 @@ export function isPersonSwitch(token: string): boolean {
  */
 export function adoptSession(token: string) {
   const hash = fnv1a(token);
-  pagePersonHash ??= hash;
+  pagePersonToken ??= token;
   if (sessionStore.getState().hash === hash) return;
   try {
     safeSessionStorage()?.setItem(STORAGE_KEY, hash);
