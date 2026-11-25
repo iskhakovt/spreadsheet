@@ -4,35 +4,33 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "../../../components/Card.js";
-import { handleError, MissingKeyScreen, ScreenErrorFallback } from "../../../components/ErrorFallback.js";
-import { getGroupKeyFromUrl } from "../../../lib/crypto.js";
+import {
+  handleError,
+  KeyMismatchScreen,
+  MissingKeyScreen,
+  ScreenErrorFallback,
+} from "../../../components/ErrorFallback.js";
+import { getGroupCodec } from "../../../lib/codec.js";
+import { getGroupKeyFromUrl, isKeySwitch } from "../../../lib/crypto.js";
+import { assertKeyNotRefuted } from "../../../lib/decrypt-status.js";
 import { JOURNAL_QUERY_KEY, prefetchJournal } from "../../../lib/journal-query.js";
 import { sortMembersViewerFirst } from "../../../lib/member-display.js";
 import {
   type AuthedGroupStatus,
   PersonAppContext,
   type PersonAppContextValue,
+  usePersonApp,
 } from "../../../lib/person-app-context.js";
+import { resolveRoute, shouldRedirectTo } from "../../../lib/resolve-route.js";
 import { useSelfJournal } from "../../../lib/self-journal.js";
 import { adoptSession, isPersonSwitch } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
 import { useMarkComplete } from "../../../lib/use-mark-complete.js";
+import { useResealLegacyProfile } from "../../../lib/use-reseal-legacy-profile.js";
 import { useTokenSwitchCleanup } from "../../../lib/use-token-switch-cleanup.js";
 import { GroupSetup } from "../../../screens/GroupSetup.js";
-
-function resolveRoute(person: Person, group: GroupData, allComplete: boolean): string {
-  if (!person.name) return "/setup";
-  if (allComplete) return "/results";
-  if (person.isCompleted) return "/waiting";
-  if (person.isAdmin && !group.isAdminReady) return "/group";
-  if (!group.isAdminReady && !person.isAdmin) return "/pending";
-  if (group.questionMode === "filtered" && group.isAdminReady && person.anatomy === null) return "/anatomy";
-  if (!group.isReady) return "/pending";
-  if (!getHasSeenIntro()) return "/intro";
-  return "/questions";
-}
 
 export const Route = createFileRoute("/p/$token")({
   // adoptSession before any tRPC call so the session hash is in place. The
@@ -68,7 +66,8 @@ function reloadForPersonSwitch(): void {
 /** Renders nothing for a different person's link while the page reloads into it. */
 function PersonAppGate() {
   const { token } = Route.useParams();
-  const switching = isPersonSwitch(token);
+  // Also one page = one key: a different #key= for the same person reloads too.
+  const switching = isPersonSwitch(token) || isKeySwitch();
   // The loader normally reloads first; this covers a render that beats it.
   useEffect(() => {
     if (switching) reloadForPersonSwitch();
@@ -89,6 +88,9 @@ function PersonAppLayout() {
   useTokenSwitchCleanup(token);
 
   const { status, refresh: refreshStatus } = useLiveStatus();
+  // The group codec, from the group's own `encrypted` flag. Inert until
+  // used, so building it before the key checks below is safe.
+  const codec = getGroupCodec(status?.group.encrypted ?? false);
   const trpcProxy = useTRPC();
   const trpcClient = useTRPCClient();
   const { data: questionsData } = useSuspenseQuery(trpcProxy.questions.list.queryOptions());
@@ -99,15 +101,15 @@ function PersonAppLayout() {
   // renders without waiting for the HTTP fetch + decryption on the critical path.
   useEffect(() => {
     if (allComplete && !queryClient.getQueryData(JOURNAL_QUERY_KEY)) {
-      prefetchJournal(queryClient, trpcClient).catch((err) => console.error("Journal prefetch failed:", err));
+      prefetchJournal(queryClient, trpcClient, codec).catch((err) => console.error("Journal prefetch failed:", err));
     }
-  }, [allComplete, queryClient, trpcClient]);
+  }, [allComplete, queryClient, trpcClient, codec]);
 
   const [startKey, setStartKey] = useState<string | undefined>(undefined);
 
   const invalidateStatus = () => queryClient.invalidateQueries({ queryKey: trpcProxy.groups.status.pathKey() });
   const markReadyMutation = useMutation(trpcProxy.groups.markReady.mutationOptions({ onSuccess: invalidateStatus }));
-  const markComplete = useMarkComplete(token);
+  const markComplete = useMarkComplete(token, codec);
 
   const sortedMembers = useMemo(
     () => sortMembersViewerFirst(status?.members ?? [], status?.person?.id ?? ""),
@@ -115,14 +117,14 @@ function PersonAppLayout() {
   );
 
   // Guard: compute whether the current child route matches what the status
-  // dictates. freeRoutes are exempt — users reach them intentionally and
-  // marked-complete users edit answers via /questions without unmarking.
+  // dictates. Free routes are exempt — users reach them intentionally and
+  // marked-complete users edit answers via /questions without unmarking —
+  // except when a profile field needs recovering (/setup, /anatomy).
   const defaultRoute = status?.person
-    ? resolveRoute(status.person as Person, status.group as GroupData, allComplete)
+    ? resolveRoute(status.person as Person, status.group as GroupData, allComplete, getHasSeenIntro())
     : null;
-  const freeRoutes = ["/group", "/summary", "/review", "/questions"];
   const routeSuffix = location.pathname.replace(`/p/${token}`, "") || "/";
-  const shouldRedirect = !!defaultRoute && routeSuffix !== defaultRoute && !freeRoutes.includes(routeSuffix);
+  const shouldRedirect = shouldRedirectTo(routeSuffix, defaultRoute);
 
   // Real-time guard via useLayoutEffect so an SSE-triggered status change
   // (e.g. everyone completes → /results) redirects before paint.
@@ -146,6 +148,12 @@ function PersonAppLayout() {
     return <MissingKeyScreen />;
   }
 
+  // A key on a plaintext group's link: the codec would refuse every seal
+  // anyway, so say so up front instead of after someone fills in setup.
+  if (!status.group.encrypted && getGroupKeyFromUrl()) {
+    return <KeyMismatchScreen />;
+  }
+
   if (!status.person) {
     return (
       <ErrorBoundary FallbackComponent={ScreenErrorFallback} onError={handleError} resetKeys={[location.pathname]}>
@@ -161,6 +169,7 @@ function PersonAppLayout() {
   const ctx: PersonAppContextValue = {
     token,
     authedStatus: status as AuthedGroupStatus,
+    codec,
     sortedMembers,
     questionsData: questionsData as { questions: QuestionData[]; categories: CategoryData[] },
     markComplete,
@@ -214,6 +223,11 @@ function PersonAppLayout() {
  * in the parent).
  */
 function AuthedShell({ children }: Readonly<{ children: React.ReactNode }>) {
-  useSelfJournal();
+  const { codec, authedStatus } = usePersonApp();
+  useSelfJournal(codec);
+  // After hydration (useSelfJournal suspends until it's done), so your
+  // journal can prove the key before a status-only doubt locks you out.
+  assertKeyNotRefuted(authedStatus, codec);
+  useResealLegacyProfile();
   return <>{children}</>;
 }

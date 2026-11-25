@@ -1,8 +1,17 @@
-import { plainOp, plainProgress } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  fakeEncrypted,
+  type OperationPayload,
+  type Progress,
+  plainOp,
+  plainProgress,
+  plainSealed,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
-import { groups, persons } from "../db/schema.js";
+import { groups, journalEntries, persons } from "../db/schema.js";
 import { decodeStoken } from "../stoken.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { SyncStore } from "./sync.js";
@@ -33,8 +42,8 @@ async function createTestPerson(encrypted = false) {
     .insert(persons)
     .values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: encrypted ? fakeEncrypted("alice") : plainSealed("Alice"),
+      anatomy: encrypted ? fakeEncrypted("afab") : plainSealed<Anatomy>("afab"),
       token: `t-${Math.random()}`,
       isAdmin: true,
       isCompleted: false,
@@ -89,6 +98,37 @@ describe("SyncStore.push", () => {
       expect(second.pushRejected).toBe(false);
       expect(second.entries).toHaveLength(1);
     }
+  });
+
+  it("leaves progress untouched on a rejected (stale-stoken) push", async () => {
+    // The client finds out it's stale (and maybe holding a wrong key) from
+    // the entries this rejection returns; the rejected push must not have
+    // changed server state first.
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [plainOp("a:mutual", { rating: "yes", note: null })],
+        progress: plainProgress({ answered: 1, total: 9 }),
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+    await store.push(
+      personId,
+      { stoken: first.stoken, operations: [plainOp("b:mutual", { rating: "no", note: null })], progress: undefined },
+      encrypted,
+    );
+    const stale = await store.push(
+      personId,
+      { stoken: first.stoken, operations: [], progress: plainProgress({ answered: 99, total: 99 }) },
+      encrypted,
+    );
+    if (!("pushRejected" in stale)) throw new Error("unexpected error");
+    expect(stale.pushRejected).toBe(true);
+    const [row] = await db.select({ progress: persons.progress }).from(persons).where(eq(persons.id, personId));
+    expect(row.progress).toBe(plainProgress({ answered: 1, total: 9 }));
   });
 
   it("rejects push with stale stoken", async () => {
@@ -209,7 +249,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ["e:1:encryptedpayload"],
+        operations: [fakeEncrypted<OperationPayload>("encryptedpayload")],
         progress: undefined,
       },
       false,
@@ -223,12 +263,75 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: [plainOp("a:mutual", { rating: "yes", note: null }), "e:1:encryptedpayload"],
+        operations: [
+          plainOp("a:mutual", { rating: "yes", note: null }),
+          fakeEncrypted<OperationPayload>("encryptedpayload"),
+        ],
         progress: undefined,
       },
       false,
     );
     expect(result).toEqual({ error: "encryption_mismatch" });
+  });
+
+  describe("progress mode check", () => {
+    async function journalCount(personId: string) {
+      return (await db.select().from(journalEntries).where(eq(journalEntries.personId, personId))).length;
+    }
+
+    async function storedProgress(personId: string) {
+      const [row] = await db.select({ progress: persons.progress }).from(persons).where(eq(persons.id, personId));
+      return row.progress;
+    }
+
+    it("stores e: progress in an encrypted group", async () => {
+      const { personId } = await createTestPerson(true);
+      const progress = fakeEncrypted<Progress>("progress-1-of-10");
+      const result = await store.push(
+        personId,
+        { stoken: null, operations: [fakeEncrypted<OperationPayload>("op")], progress },
+        true,
+      );
+      expect(result).toMatchObject({ pushRejected: false });
+      expect(await storedProgress(personId)).toBe(progress);
+    });
+
+    it.each([
+      ["p: progress in an encrypted group", true, plainProgress({ answered: 1, total: 10 })],
+      ["e: progress in a plaintext group", false, fakeEncrypted<Progress>("progress-1-of-10")],
+      ["raw progress in a plaintext group", false, '{"answered":1,"total":10}' as Sealed<Progress>],
+    ])("rejects %s and writes neither progress nor ops", async (_label, encrypted, progress) => {
+      const { personId } = await createTestPerson(encrypted);
+      const op = encrypted ? fakeEncrypted<OperationPayload>("op") : plainOp("a:mutual", { rating: "yes", note: null });
+      const result = await store.push(personId, { stoken: null, operations: [op], progress }, encrypted);
+      expect(result).toEqual({ error: "encryption_mismatch" });
+      expect(await storedProgress(personId)).toBeNull();
+      expect(await journalCount(personId)).toBe(0);
+    });
+
+    it("rejects a mismatched op without writing the (matching) progress", async () => {
+      const { personId } = await createTestPerson(false);
+      const result = await store.push(
+        personId,
+        {
+          stoken: null,
+          operations: [fakeEncrypted<OperationPayload>("op")],
+          progress: plainProgress({ answered: 1, total: 10 }),
+        },
+        false,
+      );
+      expect(result).toEqual({ error: "encryption_mismatch" });
+      expect(await storedProgress(personId)).toBeNull();
+      expect(await journalCount(personId)).toBe(0);
+    });
+
+    it("accepts a progress-only push with matching mode", async () => {
+      const { personId } = await createTestPerson(false);
+      const progress = plainProgress({ answered: 0, total: 10 });
+      const result = await store.push(personId, { stoken: null, operations: [], progress }, false);
+      expect(result).toMatchObject({ pushRejected: false });
+      expect(await storedProgress(personId)).toBe(progress);
+    });
   });
 
   it("accepts encrypted ops on encrypted group", async () => {
@@ -237,7 +340,7 @@ describe("SyncStore.push", () => {
       personId,
       {
         stoken: null,
-        operations: ["e:1:encryptedpayload"],
+        operations: [fakeEncrypted<OperationPayload>("encryptedpayload")],
         progress: undefined,
       },
       true,
@@ -272,8 +375,8 @@ describe("SyncStore.journalSince", () => {
       .insert(persons)
       .values({
         groupId: group.id,
-        name: "Alice",
-        anatomy: "afab",
+        name: plainSealed("Alice"),
+        anatomy: plainSealed<Anatomy>("afab"),
         token: `a-${Math.random()}`,
         isAdmin: true,
         isCompleted: true,
@@ -283,8 +386,8 @@ describe("SyncStore.journalSince", () => {
       .insert(persons)
       .values({
         groupId: group.id,
-        name: "Bob",
-        anatomy: "amab",
+        name: plainSealed("Bob"),
+        anatomy: plainSealed<Anatomy>("amab"),
         token: `b-${Math.random()}`,
         isAdmin: false,
         isCompleted: true,
@@ -405,16 +508,16 @@ describe("SyncStore.journalSince", () => {
       .returning();
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: plainSealed("Alice"),
+      anatomy: plainSealed<Anatomy>("afab"),
       token: `a-${Math.random()}`,
       isAdmin: true,
       isCompleted: true,
     });
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Bob",
-      anatomy: "amab",
+      name: plainSealed("Bob"),
+      anatomy: plainSealed<Anatomy>("amab"),
       token: `b-${Math.random()}`,
       isAdmin: false,
       isCompleted: false,
@@ -431,8 +534,8 @@ describe("SyncStore.journalSince", () => {
       .returning();
     await db.insert(persons).values({
       groupId: group.id,
-      name: "Alice",
-      anatomy: "afab",
+      name: plainSealed("Alice"),
+      anatomy: plainSealed<Anatomy>("afab"),
       token: `a-${Math.random()}`,
       isAdmin: true,
       isCompleted: false,
@@ -472,10 +575,9 @@ describe("SyncStore.journalSinceForPerson", () => {
   });
 
   it("stoken is always derivable from cursor — no snapshot skew", async () => {
-    // Regression: stoken used to come from a separate `SELECT max(id)`
-    // query, which under READ COMMITTED could see a row newer than
-    // what the entries query returned. Now stoken is derived from
-    // cursor in the same statement, so the two are always consistent.
+    // The stoken comes from the same statement as the entries: a separate
+    // `SELECT max(id)` could, under READ COMMITTED, see a row newer than
+    // what the entries query returned.
     const { personId, encrypted } = await createTestPerson();
     await store.push(
       personId,

@@ -1,10 +1,13 @@
 /** @vitest-environment happy-dom */
+import { type Answer, Progress, plainOp } from "@spreadsheet/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createGroupCodec } from "./codec.js";
+import { generateGroupKey } from "./crypto.js";
 import { adoptSession } from "./session.js";
-import { addPendingOp, setPendingOps } from "./storage.js";
+import { addPendingOp, setAnswer, setPendingOps } from "./storage.js";
 
 const { pushFn } = vi.hoisted(() => ({ pushFn: vi.fn() }));
 
@@ -18,12 +21,6 @@ vi.mock("./trpc.js", () => ({
   }),
 }));
 
-// Stub `encodeValue` so tests don't depend on the real crypto/progress
-// encoding — we only care that flushPendingOps is invoked.
-vi.mock("./crypto.js", () => ({
-  encodeValue: async (value: unknown) => `encoded:${JSON.stringify(value)}`,
-}));
-
 // Import AFTER the mocks are registered.
 const { useSyncQueue } = await import("./use-sync-queue.js");
 
@@ -33,6 +30,11 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const token = "test-token-" + Math.random().toString(36).slice(2);
+// Module-level so the hook's useCallback deps stay stable across renders.
+const codec = createGroupCodec(false, null);
+const yes: Answer = { rating: "yes", note: null };
+const op1 = plainOp("q1:mutual", yes);
+const op2 = plainOp("q2:mutual", yes);
 
 beforeEach(() => {
   adoptSession(token);
@@ -48,8 +50,8 @@ afterEach(() => {
 
 describe("useSyncQueue — scheduling", () => {
   it("fires handleSync after 3s when scheduleSync is called with a positive count", async () => {
-    setPendingOps(["op1"]);
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    setPendingOps([op1]);
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -68,7 +70,7 @@ describe("useSyncQueue — scheduling", () => {
   });
 
   it("shows the sync indicator after 5s", async () => {
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -87,8 +89,8 @@ describe("useSyncQueue — scheduling", () => {
   });
 
   it("resets the 3s debounce each time scheduleSync is called", async () => {
-    setPendingOps(["op1"]);
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    setPendingOps([op1]);
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -116,7 +118,7 @@ describe("useSyncQueue — scheduling", () => {
   });
 
   it("clears the timers and hides the indicator when pendingCount is 0", async () => {
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -142,8 +144,8 @@ describe("useSyncQueue — scheduling", () => {
     // The "Sync now" indicator path: while a scheduled push is debouncing,
     // tapping the manual flush should push exactly once — not push manually
     // AND then push again when the debounce timer fires.
-    setPendingOps(["op1"]);
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    setPendingOps([op1]);
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -165,8 +167,8 @@ describe("useSyncQueue — scheduling", () => {
   });
 
   it("clears pending timers on unmount", async () => {
-    setPendingOps(["op1"]);
-    const { result, unmount } = renderHook(() => useSyncQueue(10), { wrapper });
+    setPendingOps([op1]);
+    const { result, unmount } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     act(() => {
       result.current.scheduleSync(1);
@@ -182,7 +184,7 @@ describe("useSyncQueue — scheduling", () => {
 
 describe("useSyncQueue — handleSync re-entrancy", () => {
   it("bails out if handleSync is already in flight", async () => {
-    setPendingOps(["op1"]);
+    setPendingOps([op1]);
 
     // Hold the first push open with a deferred resolver so we can fire a
     // second handleSync while it's still pending.
@@ -194,7 +196,7 @@ describe("useSyncQueue — handleSync re-entrancy", () => {
         }),
     );
 
-    const { result } = renderHook(() => useSyncQueue(10), { wrapper });
+    const { result } = renderHook(() => useSyncQueue(10, codec), { wrapper });
 
     let first!: Promise<void>;
     act(() => {
@@ -214,10 +216,27 @@ describe("useSyncQueue — handleSync re-entrancy", () => {
     });
 
     // A subsequent call after completion should proceed normally.
-    addPendingOp("op2");
+    addPendingOp(op2);
     await act(async () => {
       await result.current.handleSync();
     });
     expect(pushFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useSyncQueue — progress", () => {
+  it("seals the progress it pushes with the group's codec", async () => {
+    const encrypted = createGroupCodec(true, await generateGroupKey());
+    setAnswer("q1:mutual", yes);
+    setPendingOps([await encrypted.seal({ key: "q1:mutual", data: yes })]);
+    const { result } = renderHook(() => useSyncQueue(10, encrypted), { wrapper });
+
+    await act(async () => {
+      await result.current.handleSync();
+    });
+
+    expect(pushFn).toHaveBeenCalledTimes(1);
+    const { progress } = pushFn.mock.calls[0][0];
+    expect(await encrypted.open(progress, Progress)).toEqual({ answered: 1, total: 10 });
   });
 });

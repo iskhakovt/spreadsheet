@@ -14,6 +14,7 @@ import {
 } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
+import { getGroupCodec } from "../lib/codec.js";
 import { applyJournalDelta, JOURNAL_QUERY_KEY, type MemberAnswers, makeJournalQueryFn } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { useScrollReset } from "../lib/route-reset.js";
@@ -267,9 +268,10 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     [questionsData.questions],
   );
 
+  const codec = getGroupCodec(encrypted);
   const { data: journal } = useSuspenseQuery({
     queryKey: JOURNAL_QUERY_KEY,
-    queryFn: makeJournalQueryFn(trpcClient),
+    queryFn: makeJournalQueryFn(trpcClient, codec),
   });
 
   const [initialLastEventId] = useState<string | undefined>(() => {
@@ -282,7 +284,7 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
       { lastEventId: initialLastEventId },
       {
         onData: (msg) => {
-          applyJournalDelta(queryClient, msg.data.entries).catch((err) => {
+          applyJournalDelta(queryClient, msg.data.entries, codec).catch((err) => {
             console.error("Failed to merge journal update:", err);
           });
         },

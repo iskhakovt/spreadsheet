@@ -1,4 +1,12 @@
-import { decodeOpaque, GroupJournalResponse, type JournalEntry, SelfJournalResponse } from "@spreadsheet/shared";
+import {
+  GroupJournalResponse,
+  type JournalEntryRow,
+  type OperationPayload,
+  type Progress,
+  SelfJournalResponse,
+  sealed,
+  sealedOutput,
+} from "@spreadsheet/shared";
 import { TRPCError, tracked } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -13,6 +21,7 @@ import {
 } from "../../events.js";
 import { markCompleteCounter, syncPushCounter, trackSseConnection } from "../../metrics.js";
 import { decodeJournalId, encodeJournalCursor, toWireEntries } from "../../opaque-id.js";
+import { encryptionMismatchError } from "../errors.js";
 import { authedProcedure, broadcastingProcedure, router } from "../init.js";
 
 /**
@@ -20,7 +29,7 @@ import { authedProcedure, broadcastingProcedure, router } from "../init.js";
  * tracked event carries one or more newly-committed journal entries.
  */
 export interface JournalChangeMessage {
-  entries: JournalEntry[];
+  entries: JournalEntryRow[];
 }
 
 /**
@@ -75,27 +84,24 @@ export const syncRouter = router({
     .input(
       z.object({
         stoken: z.string().nullable(),
-        operations: z.array(z.string()),
-        progress: z.string().optional(),
+        // Format only (malformed → BAD_REQUEST); the store checks the mode.
+        operations: z.array(sealed<OperationPayload>()),
+        progress: sealed<Progress>().optional(),
+      }),
+    )
+    // Types the returned entries as sealed ops for the client's codec; the
+    // internal committedEntries / stokenInvalid are dropped below.
+    .output(
+      z.object({
+        stoken: z.string().nullable(),
+        entries: z.array(sealedOutput<OperationPayload>()),
+        pushRejected: z.boolean(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      for (const op of input.operations) {
-        try {
-          decodeOpaque(op);
-        } catch {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid operation format" });
-        }
-      }
-
       const result = await ctx.sync.push(ctx.person.id, input, ctx.group.encrypted);
 
-      if ("error" in result) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Operation encryption does not match group setting",
-        });
-      }
+      if ("error" in result) throw encryptionMismatchError();
 
       // Emit journal update after a successful, non-rejected commit. Rejected
       // pushes changed nothing server-side, so there's nothing to propagate;

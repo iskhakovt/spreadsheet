@@ -1,3 +1,4 @@
+import { type Anatomy, fakeEncrypted, plainSealed, type Sealed } from "@spreadsheet/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
@@ -47,7 +48,14 @@ function mockCtx(
   } as unknown as TrpcContext;
 }
 
-const adminPerson = { id: "p1", groupId: "g1", name: "Alice", anatomy: null, isAdmin: true, isCompleted: false };
+const adminPerson = {
+  id: "p1",
+  groupId: "g1",
+  name: plainSealed("Alice"),
+  anatomy: null,
+  isAdmin: true,
+  isCompleted: false,
+};
 const readyGroup = {
   id: "g1",
   encrypted: false,
@@ -57,6 +65,21 @@ const readyGroup = {
   anatomyPicker: null,
 };
 const unreadyGroup = { ...readyGroup, isReady: false };
+const encryptedReadyGroup = { ...readyGroup, encrypted: true };
+const encryptedUnreadyGroup = { ...unreadyGroup, encrypted: true };
+
+const A = plainSealed("A");
+const B = plainSealed("B");
+const bob = plainSealed("Bob");
+const amab = plainSealed<Anatomy>("amab");
+
+/** A raw string typed as sealed, to get past the compiler and test the runtime schema. */
+function unsealed<T>(value: string): Sealed<T> {
+  return value as Sealed<T>;
+}
+
+const sealedFormatError = { code: "BAD_REQUEST", message: expect.stringContaining("Expected a sealed value") };
+const mismatchError = { code: "BAD_REQUEST", message: "Value encryption does not match group setting" };
 
 describe("groups.create", () => {
   it("calls store.create and returns result", async () => {
@@ -103,7 +126,7 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "not_found" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] })).rejects.toThrow(
       "Invalid admin token",
     );
   });
@@ -113,7 +136,7 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "already_setup" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] })).rejects.toThrow(
       "already set up",
     );
   });
@@ -123,7 +146,7 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "anatomy_required" }) },
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })).rejects.toThrow(
+    await expect(caller.groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] })).rejects.toThrow(
       "Anatomy required",
     );
   });
@@ -135,9 +158,9 @@ describe("groups.setupAdmin", () => {
     const caller = createCaller(ctx);
     const result = await caller.groups.setupAdmin({
       adminToken: "x",
-      name: "A",
+      name: A,
       anatomy: null,
-      partners: [{ name: "B", anatomy: null }],
+      partners: [{ name: B, anatomy: null }],
     });
     expect(result.partnerTokens).toEqual(["t1"]);
   });
@@ -148,10 +171,51 @@ describe("groups.setupAdmin", () => {
       groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "not_found" }) },
     });
     await createCaller(ctx)
-      .groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] })
+      .groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] })
       .catch(() => {});
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+
+  it("maps store encryption_mismatch error to BAD_REQUEST", async () => {
+    const ctx = mockCtx({
+      groups: { setupAdmin: vi.fn().mockResolvedValue({ error: "encryption_mismatch" }) },
+    });
+    await expect(
+      createCaller(ctx).groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] }),
+    ).rejects.toMatchObject(mismatchError);
+  });
+
+  it.each([
+    ["admin name", { name: unsealed<string>("Alice") }, {}],
+    ["admin anatomy", { anatomy: unsealed<Anatomy>("afab") }, {}],
+    ["partner name", {}, { name: unsealed<string>("Bob") }],
+    ["partner anatomy", {}, { anatomy: unsealed<Anatomy>("amab") }],
+  ])("rejects a raw %s before calling the store", async (_label, admin, partner) => {
+    const setupAdmin = vi.fn();
+    const ctx = mockCtx({ groups: { setupAdmin } });
+    await expect(
+      createCaller(ctx).groups.setupAdmin({
+        adminToken: "x",
+        name: A,
+        anatomy: null,
+        ...admin,
+        partners: [{ name: B, anatomy: null, ...partner }],
+      }),
+    ).rejects.toMatchObject(sealedFormatError);
+    expect(setupAdmin).not.toHaveBeenCalled();
+  });
+
+  it("passes sealed values through to the store unchanged", async () => {
+    const setupAdmin = vi.fn().mockResolvedValue({ partnerTokens: ["t1"] });
+    const ctx = mockCtx({ groups: { setupAdmin } });
+    const input = {
+      name: fakeEncrypted<string>("alice"),
+      anatomy: fakeEncrypted<Anatomy>("afab"),
+      partners: [{ name: fakeEncrypted<string>("bob"), anatomy: null }],
+    };
+    await createCaller(ctx).groups.setupAdmin({ adminToken: "x", ...input });
+    expect(setupAdmin).toHaveBeenCalledWith("x", input);
   });
 
   it("increments setup counter on success", async () => {
@@ -159,7 +223,7 @@ describe("groups.setupAdmin", () => {
     const ctx = mockCtx({
       groups: { setupAdmin: vi.fn().mockResolvedValue({ partnerTokens: ["t1"] }) },
     });
-    await createCaller(ctx).groups.setupAdmin({ adminToken: "x", name: "A", anatomy: null, partners: [] });
+    await createCaller(ctx).groups.setupAdmin({ adminToken: "x", name: A, anatomy: null, partners: [] });
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
   });
@@ -169,18 +233,47 @@ describe("groups.addPerson", () => {
   it("rejects if group is ready", async () => {
     const ctx = mockCtx({ person: adminPerson, group: readyGroup });
     const caller = createCaller(ctx);
-    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow(
-      "marked ready",
-    );
+    await expect(caller.groups.addPerson({ name: bob, anatomy: null, isAdmin: false })).rejects.toThrow("marked ready");
   });
 
   it("calls store when group is not ready", async () => {
     const addPerson = vi.fn().mockResolvedValue({ personId: "p2", token: "t2" });
     const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });
     const caller = createCaller(ctx);
-    const result = await caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false });
+    const result = await caller.groups.addPerson({ name: bob, anatomy: null, isAdmin: false });
     expect(result.token).toBe("t2");
-    expect(addPerson).toHaveBeenCalledWith("g1", { name: "Bob", anatomy: null, isAdmin: false });
+    expect(addPerson).toHaveBeenCalledWith("g1", { name: bob, anatomy: null, isAdmin: false }, false);
+  });
+
+  it("passes the group's encrypted flag to the store", async () => {
+    const addPerson = vi.fn().mockResolvedValue({ personId: "p2", token: "t2" });
+    const ctx = mockCtx({ person: adminPerson, group: encryptedUnreadyGroup, groups: { addPerson } });
+    const name = fakeEncrypted<string>("bob");
+    await createCaller(ctx).groups.addPerson({ name, anatomy: null, isAdmin: false });
+    expect(addPerson).toHaveBeenCalledWith("g1", { name, anatomy: null, isAdmin: false }, true);
+  });
+
+  it("maps store encryption_mismatch error to BAD_REQUEST without broadcasting", async () => {
+    const addPerson = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: encryptedUnreadyGroup, groups: { addPerson } });
+    await expect(
+      createCaller(ctx).groups.addPerson({ name: bob, anatomy: null, isAdmin: false }),
+    ).rejects.toMatchObject(mismatchError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["name", { name: unsealed<string>("Bob"), anatomy: null }],
+    ["anatomy", { name: bob, anatomy: unsealed<Anatomy>("amab") }],
+  ])("rejects a raw %s before calling the store", async (_label, profile) => {
+    const addPerson = vi.fn();
+    const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });
+    await expect(createCaller(ctx).groups.addPerson({ ...profile, isAdmin: false })).rejects.toMatchObject(
+      sealedFormatError,
+    );
+    expect(addPerson).not.toHaveBeenCalled();
   });
 
   it("requires admin (rejects non-admin)", async () => {
@@ -189,7 +282,7 @@ describe("groups.addPerson", () => {
       group: unreadyGroup,
     });
     const caller = createCaller(ctx);
-    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow(
+    await expect(caller.groups.addPerson({ name: bob, anatomy: null, isAdmin: false })).rejects.toThrow(
       "Admin access required",
     );
   });
@@ -236,17 +329,61 @@ describe("groups.removePerson", () => {
 describe("groups.setProfile", () => {
   it("requires auth (rejects anon)", async () => {
     const caller = createCaller(mockCtx({}));
-    await expect(caller.groups.setProfile({ name: "Bob", anatomy: null })).rejects.toThrow(
+    await expect(caller.groups.setProfile({ name: bob, anatomy: null })).rejects.toThrow(
       "Invalid or missing person token",
     );
   });
 
   it("calls store when authenticated", async () => {
-    const setProfile = vi.fn().mockResolvedValue(undefined);
+    const setProfile = vi.fn().mockResolvedValue({ ok: true });
     const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
     const caller = createCaller(ctx);
-    await caller.groups.setProfile({ name: "Bob", anatomy: "amab" });
-    expect(setProfile).toHaveBeenCalledWith("p1", { name: "Bob", anatomy: "amab" });
+    await expect(caller.groups.setProfile({ name: bob, anatomy: amab })).resolves.toEqual({ ok: true });
+    expect(setProfile).toHaveBeenCalledWith("p1", { name: bob, anatomy: amab }, false);
+  });
+
+  it("passes the group's encrypted flag to the store", async () => {
+    const setProfile = vi.fn().mockResolvedValue({ ok: true });
+    const ctx = mockCtx({ person: adminPerson, group: encryptedReadyGroup, groups: { setProfile } });
+    const profile = { name: fakeEncrypted<string>("bob"), anatomy: fakeEncrypted<Anatomy>("amab") };
+    await createCaller(ctx).groups.setProfile(profile);
+    expect(setProfile).toHaveBeenCalledWith("p1", profile, true);
+  });
+
+  it("maps store encryption_mismatch error to BAD_REQUEST", async () => {
+    const setProfile = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
+    const ctx = mockCtx({ person: adminPerson, group: encryptedReadyGroup, groups: { setProfile } });
+    await expect(createCaller(ctx).groups.setProfile({ name: bob, anatomy: null })).rejects.toMatchObject(
+      mismatchError,
+    );
+  });
+
+  it.each([
+    ["name", { name: unsealed<string>("Bob"), anatomy: null }],
+    ["anatomy", { name: bob, anatomy: unsealed<Anatomy>("amab") }],
+    ["empty name", { name: unsealed<string>(""), anatomy: null }],
+  ])("rejects a raw %s before calling the store", async (_label, profile) => {
+    const setProfile = vi.fn();
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
+    await expect(createCaller(ctx).groups.setProfile(profile)).rejects.toMatchObject(sealedFormatError);
+    expect(setProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe("groups.status", () => {
+  it("returns stored sealed fields unchanged, including a legacy raw value", async () => {
+    // The output schema only checks for strings: the client opens each field
+    // and drops what doesn't open, so one bad row can't fail the response.
+    const status = {
+      person: { id: "p1", name: "e:1:bmFtZQ", anatomy: null, isAdmin: true, isCompleted: false },
+      group: { ...readyGroup, encrypted: true, isAdminReady: true },
+      members: [
+        { id: "p1", name: "e:1:bmFtZQ", anatomy: "e:1:YW5h", isAdmin: true, isCompleted: false, progress: null },
+        { id: "p2", name: "Legacy raw", anatomy: 'p:1:"afab"', isAdmin: false, isCompleted: false, progress: "p:1:{}" },
+      ],
+    };
+    const ctx = { ...mockCtx({ groups: { getStatus: vi.fn().mockResolvedValue(status) } }), personToken: "tok" };
+    await expect(createCaller(ctx).groups.status()).resolves.toEqual(status);
   });
 });
 
@@ -268,12 +405,12 @@ describe("groups.markReady", () => {
 
 describe("broadcasting middleware", () => {
   it("emits group event after successful setProfile", async () => {
-    const setProfile = vi.fn().mockResolvedValue(undefined);
+    const setProfile = vi.fn().mockResolvedValue({ ok: true });
     const handler = vi.fn();
     groupEvents.on("group:g1", handler);
     const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
     const caller = createCaller(ctx);
-    await caller.groups.setProfile({ name: "B", anatomy: null });
+    await caller.groups.setProfile({ name: B, anatomy: null });
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -283,7 +420,7 @@ describe("broadcasting middleware", () => {
     groupEvents.on("group:g1", handler);
     const ctx = mockCtx({ person: adminPerson, group: unreadyGroup, groups: { addPerson } });
     const caller = createCaller(ctx);
-    await caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false });
+    await caller.groups.addPerson({ name: bob, anatomy: null, isAdmin: false });
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
@@ -313,7 +450,16 @@ describe("broadcasting middleware", () => {
     groupEvents.on("group:g1", handler);
     const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
     const caller = createCaller(ctx);
-    await expect(caller.groups.setProfile({ name: "B", anatomy: null })).rejects.toThrow("db down");
+    await expect(caller.groups.setProfile({ name: B, anatomy: null })).rejects.toThrow("db down");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does NOT emit when setProfile is rejected for encryption mismatch", async () => {
+    const setProfile = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
+    const handler = vi.fn();
+    groupEvents.on("group:g1", handler);
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { setProfile } });
+    await expect(createCaller(ctx).groups.setProfile({ name: B, anatomy: null })).rejects.toThrow();
     expect(handler).not.toHaveBeenCalled();
   });
 
@@ -323,7 +469,7 @@ describe("broadcasting middleware", () => {
     groupEvents.on("group:g1", handler);
     const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { addPerson } });
     const caller = createCaller(ctx);
-    await expect(caller.groups.addPerson({ name: "Bob", anatomy: null, isAdmin: false })).rejects.toThrow();
+    await expect(caller.groups.addPerson({ name: bob, anatomy: null, isAdmin: false })).rejects.toThrow();
     expect(addPerson).not.toHaveBeenCalled();
     expect(handler).not.toHaveBeenCalled();
   });

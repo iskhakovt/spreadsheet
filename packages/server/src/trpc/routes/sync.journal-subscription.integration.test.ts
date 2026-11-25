@@ -1,4 +1,4 @@
-import { plainOp } from "@spreadsheet/shared";
+import { fakeEncrypted, type OperationPayload, plainOp, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -59,9 +59,9 @@ async function setupCompletedPair() {
   const { adminToken } = await caller.groups.create(defaultCreate());
   const { partnerTokens } = await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: plainSealed("Alice"),
     anatomy: null,
-    partners: [{ name: "Bob", anatomy: null }],
+    partners: [{ name: plainSealed("Bob"), anatomy: null }],
   });
   const bobToken = partnerTokens[0];
 
@@ -302,9 +302,9 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const { adminToken } = await caller.groups.create(defaultCreate());
     await caller.groups.setupAdmin({
       adminToken,
-      name: "Alice",
+      name: plainSealed("Alice"),
       anatomy: null,
-      partners: [{ name: "Bob", anatomy: null }],
+      partners: [{ name: plainSealed("Bob"), anatomy: null }],
     });
 
     const aliceStatus = await createCaller(tokenCtx(db, adminToken)).groups.status();
@@ -354,7 +354,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const { adminToken } = await caller.groups.create(defaultCreate({ encrypted: true }));
     await caller.groups.setupAdmin({
       adminToken,
-      name: "e:1:encryptedAlice",
+      name: fakeEncrypted("encryptedAlice"),
       anatomy: null,
       partners: [],
     });
@@ -363,7 +363,7 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     const ctx = authedCtx(db, status!, adminToken);
     const aliceCaller = createCaller(ctx);
 
-    const opaqueBlob = "e:1:someEncryptedJournalBlob";
+    const opaqueBlob = fakeEncrypted<OperationPayload>("someEncryptedJournalBlob");
     await aliceCaller.sync.push({
       stoken: null,
       operations: [opaqueBlob],

@@ -1,9 +1,10 @@
-import type { Answer, JournalEntry, JournalEntryId } from "@spreadsheet/shared";
+import { type Answer, type JournalEntryId, OperationPayload } from "@spreadsheet/shared";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import { useSubscription } from "@trpc/tanstack-react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
+import { assertKeyOpens, type GroupCodec, WrongKeyError } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
 import { getScope } from "./session.js";
 import {
@@ -39,7 +40,8 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  * one) can run the same hydration step.
  *
  * Steps:
- *   1. Fetch the per-person delta since the persisted cursor.
+ *   1. Fetch the per-person delta since the persisted cursor (or, while
+ *      the key is unproven, the whole journal: see below).
  *   2. Decrypt + replay each entry into a partial state map.
  *   3. Merge with the previous answers map plus the local outbox: server
  *      values win for keys without a pending edit, the outbox wins for
@@ -47,9 +49,13 @@ export const SELF_JOURNAL_QUERY_KEY = ["sync", "self-journal"] as const;
  *   4. Persist the new answers + cursor as a write-through, and prime the
  *      stoken so the next `sync.push` doesn't have to re-handshake.
  */
-export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
+export function makeSelfJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<SelfJournalCache> => {
-    const cursor = getSelfJournalCursor();
+    // While nothing has proven the key, fetch your whole journal rather than
+    // the delta: entries behind the saved cursor may be the only data of
+    // yours that can prove or refute it.
+    const keyUnproven = codec.encrypted && !codec.keyProven;
+    const cursor = keyUnproven ? null : getSelfJournalCursor();
     const result = await trpcClient.sync.selfJournal.query({ sinceId: cursor ?? undefined }, { signal });
     // Short-circuit before the (potentially slow) decrypt/replay so we
     // don't burn CPU on data we're about to discard. The post-decode
@@ -59,7 +65,7 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
       throw new DOMException("aborted", "AbortError");
     }
 
-    const merged = await applySelfJournalDelta(getAnswers(), result.entries);
+    const merged = await applySelfJournalDelta(getAnswers(), result.entries, codec);
 
     // Re-check abort BEFORE writing scoped storage. The user may have
     // navigated to a different /p/$token in the meantime; useTokenSwitchCleanup
@@ -106,11 +112,16 @@ export function makeSelfJournalQueryFn(trpcClient: TrpcClient) {
  */
 export async function applySelfJournalDelta(
   prev: Record<string, Answer>,
-  newEntries: JournalEntry[],
+  // Plain strings, not the shared `JournalEntry`: subscription payloads arrive unvalidated.
+  newEntries: readonly { operation: string }[],
+  codec: GroupCodec,
 ): Promise<Record<string, Answer>> {
   if (newEntries.length === 0) return prev;
   const serverEntryOps = newEntries.map((e) => e.operation);
-  return mergeAfterRejection(prev, getPendingOps(), serverEntryOps);
+  // Both callers persist the cursor right after this, which under a wrong
+  // key would skip entries the right key can read. Fail closed instead.
+  await assertKeyOpens(codec, serverEntryOps, OperationPayload);
+  return mergeAfterRejection(prev, getPendingOps(), serverEntryOps, codec);
 }
 
 /**
@@ -125,7 +136,7 @@ export async function applySelfJournalDelta(
  * The hook returns the cache slot. Play screens read it via `useAnswers`
  * (also exported from this file), which is a thin reader of the same slot.
  */
-export function useSelfJournal(): SelfJournalCache {
+export function useSelfJournal(codec: GroupCodec): SelfJournalCache {
   // React Compiler can't prove `seqRef.current` is only touched in async
   // callbacks; mirror the directive used in Comparison/useLiveStatus.
   "use no memo";
@@ -136,7 +147,7 @@ export function useSelfJournal(): SelfJournalCache {
 
   const { data } = useSuspenseQuery({
     queryKey: SELF_JOURNAL_QUERY_KEY,
-    queryFn: makeSelfJournalQueryFn(trpcClient),
+    queryFn: makeSelfJournalQueryFn(trpcClient, codec),
   });
 
   // Capture the initial lastEventId once on mount with `useState`'s lazy
@@ -166,6 +177,12 @@ export function useSelfJournal(): SelfJournalCache {
   // only orders multiple onData callbacks against each other.
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
 
+  // A live delta that fails the key check stops the stream, so a later delta
+  // can't move the cursor past it. The error is rethrown on the next render
+  // and the boundary shows the key-mismatch screen.
+  const stoppedRef = useRef(false);
+  const [streamError, setStreamError] = useState<WrongKeyError | null>(null);
+
   useSubscription(
     trpc.sync.onSelfJournalChange.subscriptionOptions(
       { lastEventId: initialLastEventId },
@@ -173,13 +190,14 @@ export function useSelfJournal(): SelfJournalCache {
         onData: (msg) => {
           chainRef.current = chainRef.current
             .then(async () => {
+              if (stoppedRef.current) return;
               const entries = msg.data.entries;
               if (entries.length === 0) return;
               // Use getAnswers() (localStorage), not the cache slot — the
               // slot can lag behind a synchronous setAnswer that happened
               // between the last slot write and this SSE update.
               // localStorage is the up-to-date local truth.
-              const merged = await applySelfJournalDelta(getAnswers(), entries);
+              const merged = await applySelfJournalDelta(getAnswers(), entries, codec);
               const newCursor = entries[entries.length - 1].id;
               queryClient.setQueryData<SelfJournalCache>(SELF_JOURNAL_QUERY_KEY, {
                 answers: merged,
@@ -189,6 +207,11 @@ export function useSelfJournal(): SelfJournalCache {
               setSelfJournalCursor(newCursor);
             })
             .catch((err) => {
+              if (err instanceof WrongKeyError) {
+                stoppedRef.current = true;
+                setStreamError(err);
+                return;
+              }
               console.error("Failed to apply self-journal update:", err);
             });
         },
@@ -232,6 +255,7 @@ export function useSelfJournal(): SelfJournalCache {
     };
   }, [queryClient]);
 
+  if (streamError) throw streamError;
   return data;
 }
 

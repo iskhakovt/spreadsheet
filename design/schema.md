@@ -24,8 +24,8 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 |-|-|-|
 | id | UUID | PK |
 | group_id | UUID | FK → groups |
-| name | text | Display name (plaintext) or opaque string (encrypted mode). Server never interprets. |
-| anatomy | text | Nullable. `"amab"`, `"afab"`, `"both"`, or `"none"` (plaintext) or opaque (encrypted). Null until picked in self-pick mode. |
+| name | text | Display name as a sealed value: `p:1:<json>` (plaintext groups) or `e:1:<ciphertext>` (encrypted). Server checks the mode, never reads it. |
+| anatomy | text | Nullable. Sealed `"amab"`, `"afab"`, `"both"`, or `"none"` (`p:1:` or `e:1:` by group mode). Null until picked in self-pick mode. |
 | token | text | Unique, URL-safe. Used in `/p/{token}`. Admin's token = the group's `admin_token` (reused by `setupAdmin`). |
 | is_admin | boolean | Always plaintext — server needs for authorization. |
 | is_completed | boolean | Set when person taps "I'm done". Boolean, not timestamp — avoids leaking *when*. |

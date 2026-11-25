@@ -182,9 +182,8 @@ export function QuestionCard({
   // Await commit before advance — letting the storage event propagate and
   // useAnswers update before setIndex schedules the next render. Without
   // the await, gating-based visibility on the *next* question would
-  // briefly read stale answers (the original saveAnswer had a microtask
-  // yield via `await encodeValue(...)` between setAnswer and setIndex,
-  // which we preserve here).
+  // briefly read stale answers (commitAnswer's `await codec.seal(...)`
+  // after setAnswer is the microtask yield this preserves).
   // Advance when there's no note section, or when the user typed before
   // rating (their workflow is done — `noteDirty` is computed above).
   // Otherwise stay so they can type; for keyboard commits, move focus into

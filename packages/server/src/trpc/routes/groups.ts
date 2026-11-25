@@ -1,9 +1,17 @@
 import { on } from "node:events";
-import { AnatomyLabels, AnatomyPicker, groupStatusSchema, QuestionMode } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  AnatomyLabels,
+  AnatomyPicker,
+  groupStatusSchema,
+  QuestionMode,
+  sealed,
+} from "@spreadsheet/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { groupEventName, groupEvents } from "../../events.js";
 import { groupsCreatedCounter, groupsSetupCompletedCounter, trackSseConnection } from "../../metrics.js";
+import { encryptionMismatchError } from "../errors.js";
 import {
   authedProcedure,
   broadcastingAdminProcedure,
@@ -11,6 +19,15 @@ import {
   publicProcedure,
   router,
 } from "../init.js";
+
+/**
+ * A person's sealed profile fields. The schema checks the `p:N:` / `e:N:`
+ * format; the store checks the mode against the group's `encrypted` flag.
+ */
+const sealedProfile = z.object({
+  name: sealed<string>(),
+  anatomy: sealed<Anatomy>().nullable(),
+});
 
 export const groupsRouter = router({
   create: publicProcedure
@@ -33,16 +50,9 @@ export const groupsRouter = router({
 
   setupAdmin: publicProcedure
     .input(
-      z.object({
+      sealedProfile.extend({
         adminToken: z.string(),
-        name: z.string().min(1),
-        anatomy: z.string().nullable(),
-        partners: z.array(
-          z.object({
-            name: z.string().min(1),
-            anatomy: z.string().nullable(),
-          }),
-        ),
+        partners: z.array(sealedProfile),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -60,6 +70,8 @@ export const groupsRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "Group already set up" });
           case "anatomy_required":
             throw new TRPCError({ code: "BAD_REQUEST", message: "Anatomy required in admin-pick mode" });
+          case "encryption_mismatch":
+            throw encryptionMismatchError();
         }
       }
 
@@ -68,31 +80,21 @@ export const groupsRouter = router({
     }),
 
   addPerson: broadcastingAdminProcedure
-    .input(
-      z.object({
-        name: z.string().min(1),
-        anatomy: z.string().nullable(),
-        isAdmin: z.boolean(),
-      }),
-    )
+    .input(sealedProfile.extend({ isAdmin: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.group.isReady) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Can't add people after group is marked ready" });
       }
-      return ctx.groups.addPerson(ctx.group.id, input);
+      const result = await ctx.groups.addPerson(ctx.group.id, input, ctx.group.encrypted);
+      if ("error" in result) throw encryptionMismatchError();
+      return result;
     }),
 
-  setProfile: broadcastingProcedure
-    .input(
-      z.object({
-        name: z.string().min(1),
-        anatomy: z.string().nullable(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.groups.setProfile(ctx.person.id, input);
-      return { ok: true };
-    }),
+  setProfile: broadcastingProcedure.input(sealedProfile).mutation(async ({ ctx, input }) => {
+    const result = await ctx.groups.setProfile(ctx.person.id, input, ctx.group.encrypted);
+    if ("error" in result) throw encryptionMismatchError();
+    return { ok: true };
+  }),
 
   removePerson: broadcastingAdminProcedure
     .input(z.object({ personId: z.string().uuid() }))

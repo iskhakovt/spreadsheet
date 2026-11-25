@@ -55,3 +55,31 @@ test.describe("one page = one person", () => {
     });
   }
 });
+
+test.describe("one page = one key", () => {
+  test("a different #key= for the same person reloads and checks the new key from scratch", async ({ alice }) => {
+    await createGroupAndSetup(alice, { encrypted: true });
+    await expect(alice).toHaveURL(/\/p\/.+/);
+    await alice.evaluate(() => {
+      (window as unknown as { onePageMarker?: boolean }).onePageMarker = true;
+    });
+
+    // A fragment-only change is a same-document navigation. Switching keys in
+    // place would seal new writes under it while serving state verified under
+    // the old one; instead the page reloads and verifies the new key.
+    const otherKey = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+    const reloaded = alice.waitForEvent("load");
+    await alice.evaluate((key) => {
+      setTimeout(() => {
+        window.location.hash = `key=${key}`;
+      });
+    }, otherKey);
+    await reloaded;
+
+    expect(
+      await alice.evaluate(() => (window as unknown as { onePageMarker?: boolean }).onePageMarker ?? null),
+    ).toBeNull();
+    // Alice's own data doesn't open under the new key: fail closed.
+    await expect(alice.getByText("This link's key doesn't match")).toBeVisible({ timeout: NAV_TIMEOUT });
+  });
+});

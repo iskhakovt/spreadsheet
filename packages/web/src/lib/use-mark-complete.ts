@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
+import { type GroupCodec, WrongKeyError } from "./codec.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
 
@@ -19,7 +20,7 @@ import { useTRPC } from "./trpc.js";
  * roll your own mark-complete flow: the whole point is that every
  * mark-complete goes through the same flush.
  */
-export function useMarkComplete(token: string): () => Promise<void> {
+export function useMarkComplete(token: string, codec: GroupCodec): () => Promise<void> {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -30,20 +31,32 @@ export function useMarkComplete(token: string): () => Promise<void> {
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
-  return useCallback(async () => {
+  // A flush that reveals a wrong key is rethrown on the next render (the
+  // boundary shows the key-mismatch screen) instead of marking complete.
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
+
+  const markComplete = useCallback(async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
       await flushPendingOps(
         (input) => pushMutation.mutateAsync(input),
         async () => undefined,
+        codec,
       );
       await markCompleteMutation.mutateAsync();
       void navigate({ to: "/p/$token/waiting", params: { token } });
       inFlightRef.current = false;
     } catch (err) {
       inFlightRef.current = false;
+      if (err instanceof WrongKeyError) {
+        setKeyError(err);
+        return;
+      }
       throw err;
     }
-  }, [pushMutation, markCompleteMutation, navigate, token]);
+  }, [pushMutation, markCompleteMutation, navigate, token, codec]);
+
+  if (keyError) throw keyError;
+  return markComplete;
 }

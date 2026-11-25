@@ -1,3 +1,4 @@
+import { fakeEncrypted, plainSealed, type Sealed } from "@spreadsheet/shared";
 import type { Database } from "../db/index.js";
 import { groups, persons } from "../db/schema.js";
 import { silentLogger } from "../logger.js";
@@ -46,6 +47,14 @@ export function authedCtx(
   } as TrpcContext;
 }
 
+/**
+ * Seal a test value in the mode the group requires: `p:1:<json>` when
+ * plaintext, an `e:1:` stand-in labelled with the value when encrypted.
+ */
+export function sealFor<T>(encrypted: boolean, value: T): Sealed<T> {
+  return encrypted ? fakeEncrypted<T>(Buffer.from(JSON.stringify(value)).toString("base64url")) : plainSealed(value);
+}
+
 export function defaultCreate(overrides: Record<string, unknown> = {}) {
   return {
     encrypted: false,
@@ -59,10 +68,11 @@ export function defaultCreate(overrides: Record<string, unknown> = {}) {
 /** Create group + admin person via API (setupAdmin), group IS ready */
 export async function createAndSetup(db: Database, overrides: Record<string, unknown> = {}) {
   const caller = createCaller(anonCtx(db));
-  const { adminToken } = await caller.groups.create(defaultCreate(overrides));
+  const input = defaultCreate(overrides);
+  const { adminToken } = await caller.groups.create(input);
   await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: sealFor(input.encrypted, "Alice"),
     anatomy: null,
     partners: [],
   });
@@ -93,7 +103,7 @@ export async function createGroupDirect(db: Database, overrides: Record<string, 
     .insert(persons)
     .values({
       groupId: group.id,
-      name: "Alice",
+      name: sealFor(group.encrypted, "Alice"),
       anatomy: null,
       token,
       isAdmin: true,

@@ -48,11 +48,13 @@ docker run -d --name spreadsheet \
 ```bash
 IMAGE=ghcr.io/iskhakovt/spreadsheet:<version>
 
+# Stop the old server first, so no write lands between a data migration and the new server
+docker stop spreadsheet && docker rm spreadsheet
+
 # Migrate + seed (safe to re-run — idempotent)
 docker run --rm -e DATABASE_URL=... "$IMAGE" setup
 
-# Restart with new image
-docker stop spreadsheet && docker rm spreadsheet
+# Start the new image
 docker run -d --name spreadsheet \
   -e DATABASE_URL=... \
   -e STOKEN_SECRET=... \
@@ -139,6 +141,7 @@ On SIGTERM, the server fires `close()` on the metrics and main HTTP listeners. O
 ## Notes
 
 - **Migrations are not run on server start.** Run `setup` (or `migrate`) explicitly before `serve`. This prevents race conditions with multiple replicas.
+- **Stop the old container before `setup`.** A write the old server makes after a data migration isn't migrated: for 0006 (sealed profile fields) that's a raw name or anatomy, which clients drop on read, so the owner has to re-enter it on `/setup` / `/anatomy`. Browsers on an older build can get `BAD_REQUEST` on writes the server has since tightened, until their service worker updates on the next load.
 - **Seed is idempotent.** `ON CONFLICT DO UPDATE` — safe to run on every deploy to pick up new/updated questions.
 - **STOKEN_SECRET must be stable.** Changing it invalidates all active sync tokens and journal cursors. Clients recover automatically: cursors fall back to a full journal replay, and sync re-handshakes on the next answer.
 - **Distroless image** — no shell, no package manager. Debug with `docker logs`, not `docker exec`.

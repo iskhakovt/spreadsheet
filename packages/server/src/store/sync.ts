@@ -1,8 +1,9 @@
-import { decodeOpaque, PREFIX_ENCRYPTED, PREFIX_PLAINTEXT } from "@spreadsheet/shared";
+import type { OperationPayload, Progress, Sealed } from "@spreadsheet/shared";
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
 import { decodeStoken, encodeStoken } from "../stoken.js";
+import { sealedInGroupMode } from "./sealed-mode.js";
 
 /**
  * Read entries for a single person, optionally filtered by `sinceId`. Used
@@ -60,9 +61,13 @@ export class SyncStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
+  /**
+   * Rejects the whole push with `encryption_mismatch`, before touching the
+   * DB, if any op or the progress wasn't sealed in the group's mode.
+   */
   async push(
     personId: string,
-    input: { stoken: string | null; operations: string[]; progress?: string },
+    input: { stoken: string | null; operations: Sealed<OperationPayload>[]; progress?: Sealed<Progress> },
     groupEncrypted: boolean,
   ): Promise<
     | { error: "encryption_mismatch" }
@@ -75,18 +80,14 @@ export class SyncStore {
         stokenInvalid: boolean;
       }
   > {
-    const expectedMode = groupEncrypted ? PREFIX_ENCRYPTED : PREFIX_PLAINTEXT;
-    for (const op of input.operations) {
-      const { mode } = decodeOpaque(op);
-      if (mode !== expectedMode) {
-        return { error: "encryption_mismatch" };
-      }
+    if (!sealedInGroupMode([...input.operations, input.progress], groupEncrypted)) {
+      return { error: "encryption_mismatch" };
     }
 
     return this.#tx(async (tx) => {
-      if (input.progress !== undefined) {
-        await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
-      }
+      // The head check below is a compare-and-swap: lock the person's row
+      // first, so two concurrent pushes can't both pass it.
+      await tx.select({ id: persons.id }).from(persons).where(eq(persons.id, personId)).for("update");
 
       const [head] = await tx
         .select({ id: journalEntries.id })
@@ -115,6 +116,13 @@ export class SyncStore {
           pushRejected: true as const,
           stokenInvalid,
         };
+      }
+
+      // Progress is written only on an accepted push, so a rejected one changes
+      // nothing: its client may hold the wrong key, which it learns from the
+      // entries the rejection returns (design/sync.md § Sealed values).
+      if (input.progress !== undefined) {
+        await tx.update(persons).set({ progress: input.progress }).where(eq(persons.id, personId));
       }
 
       // The ops this call is about to commit — captured so the route can

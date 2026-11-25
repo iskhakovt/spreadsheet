@@ -7,7 +7,8 @@ function entry(n: number, personId = "p1", operation = `op${n}`): JournalEntry {
   return { id: `e${n}`, personId, operation };
 }
 
-function state(entries: JournalEntry[], members: JournalState["members"] = []): JournalState {
+// The merge never looks inside members, so tests pick whatever shape is handy.
+function state<M>(entries: JournalEntry[], members: M[] = []): JournalState<M> {
   return {
     members,
     entries,

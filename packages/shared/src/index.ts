@@ -1,6 +1,15 @@
 export { decodeOpaque, encodeOpaque, FORMAT_VERSION, PREFIX_ENCRYPTED, PREFIX_PLAINTEXT } from "./crypto.js";
 export { fnv1a } from "./hash.js";
-export { plainOp, plainProgress } from "./test-helpers.js";
+export {
+  isSealedFormat,
+  type Opened,
+  type PayloadSchema,
+  type Sealed,
+  sealed,
+  sealedModeMatches,
+  sealedOutput,
+} from "./sealed.js";
+export { fakeEncrypted, plainOp, plainProgress, plainSealed } from "./test-helpers.js";
 export {
   ANATOMY_LABEL_PRESETS,
   Anatomy,
@@ -12,20 +21,27 @@ export {
   type Group,
   GroupJournalResponse,
   type GroupStatus,
+  type GroupStatusRow,
   groupSchema,
   groupStatusSchema,
   JournalEntry,
   JournalEntryId,
+  type JournalEntryRow,
   MAX_TIER,
   type Member,
   memberSchema,
-  type OperationPayload,
+  OperationPayload,
   type Person,
+  PersonName,
+  Progress,
   personSchema,
   type QuestionData,
   QuestionMode,
   Rating,
   Role,
+  type SealedGroupStatus,
+  type SealedMember,
+  type SealedPerson,
   SelfJournalResponse,
   Target,
   type Tier,

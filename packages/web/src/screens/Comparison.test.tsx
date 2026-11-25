@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import type { Answer, QuestionData } from "@spreadsheet/shared";
+import type { Anatomy, Answer, QuestionData } from "@spreadsheet/shared";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -55,7 +55,7 @@ const categoryOrder = ["cat"];
 const questionOrder = { "cat-position": 0, kissing: 1 };
 
 // Every member has answered both questions — the orphaned-answer scenario.
-function member(id: string, name: string, anatomy: string): MemberAnswers {
+function member(id: string, name: string, anatomy: Anatomy): MemberAnswers {
   return { id, name, anatomy, answers: { "cat-position:mutual": yes, "kissing:mutual": yes } };
 }
 

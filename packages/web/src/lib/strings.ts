@@ -1,5 +1,7 @@
 // All UI text in one place — ready for i18n later.
 export const UI = {
+  /** Shown in place of another member's name when its sealed value doesn't open (wrong mode, tampered, or malformed). */
+  unreadableName: "Unknown",
   appName: "Spreadsheet",
   tagline: "Discover what you're into",
   landing: {

@@ -1,11 +1,18 @@
 import { randomBytes } from "node:crypto";
-import type { AnatomyLabels, AnatomyPicker, GroupStatus } from "@spreadsheet/shared";
+import type { Anatomy, AnatomyLabels, AnatomyPicker, GroupStatusRow, Sealed } from "@spreadsheet/shared";
 import { and, count, eq } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
+import { sealedInGroupMode } from "./sealed-mode.js";
 
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
+}
+
+/** A person's sealed profile fields, as the client's group codec produced them. */
+export interface SealedProfile {
+  name: Sealed<string>;
+  anatomy: Sealed<Anatomy> | null;
 }
 
 export class GroupStore {
@@ -39,14 +46,7 @@ export class GroupStore {
     });
   }
 
-  async setupAdmin(
-    adminToken: string,
-    input: {
-      name: string;
-      anatomy: string | null;
-      partners: { name: string; anatomy: string | null }[];
-    },
-  ) {
+  async setupAdmin(adminToken: string, input: SealedProfile & { partners: SealedProfile[] }) {
     return this.#tx(async (tx) => {
       const group = await tx
         .select()
@@ -57,6 +57,9 @@ export class GroupStore {
 
       if (!group) return { error: "not_found" as const };
       if (group.isReady) return { error: "already_setup" as const };
+
+      const sealedValues = [input, ...input.partners].flatMap((p) => [p.name, p.anatomy]);
+      if (!sealedInGroupMode(sealedValues, group.encrypted)) return { error: "encryption_mismatch" as const };
 
       if (group.questionMode === "filtered" && group.anatomyPicker === "admin") {
         if (!input.anatomy) return { error: "anatomy_required" as const };
@@ -94,7 +97,14 @@ export class GroupStore {
     });
   }
 
-  async addPerson(groupId: string, input: { name: string; anatomy: string | null; isAdmin: boolean }) {
+  /**
+   * `groupEncrypted` is the caller's group's `encrypted` flag (already in the
+   * request context), so the mode check needs no extra query.
+   */
+  async addPerson(groupId: string, input: SealedProfile & { isAdmin: boolean }, groupEncrypted: boolean) {
+    if (!sealedInGroupMode([input.name, input.anatomy], groupEncrypted)) {
+      return { error: "encryption_mismatch" as const };
+    }
     return this.#tx(async (tx) => {
       const token = generateToken();
       const [person] = await tx
@@ -136,10 +146,19 @@ export class GroupStore {
     });
   }
 
-  async setProfile(personId: string, input: { name: string; anatomy: string | null }) {
+  /** `groupEncrypted` is the person's group's `encrypted` flag, as in {@link addPerson}. */
+  async setProfile(
+    personId: string,
+    input: SealedProfile,
+    groupEncrypted: boolean,
+  ): Promise<{ error: "encryption_mismatch" } | { ok: true }> {
+    if (!sealedInGroupMode([input.name, input.anatomy], groupEncrypted)) {
+      return { error: "encryption_mismatch" };
+    }
     await this.#tx(async (tx) => {
       await tx.update(persons).set({ name: input.name, anatomy: input.anatomy }).where(eq(persons.id, personId));
     });
+    return { ok: true };
   }
 
   async markReady(groupId: string) {
@@ -170,7 +189,11 @@ export class GroupStore {
     });
   }
 
-  async getStatus(token: string): Promise<GroupStatus | null> {
+  /**
+   * Sealed fields (`name`, `anatomy`, `progress`) are returned exactly as
+   * stored; the client's codec opens them.
+   */
+  async getStatus(token: string): Promise<GroupStatusRow | null> {
     return this.#tx(async (tx) => {
       const person = await tx
         .select()
