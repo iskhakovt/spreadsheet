@@ -188,24 +188,43 @@ describe("flushPendingOps", () => {
   });
 
   test("keeps an edit to a key in the batch, made while the push was in flight, queued", async () => {
-    // Dedup moves the edit to the end in place of the sent op; it must stay
-    // queued so the next push sends it.
+    // Dedup appends it instead of replacing the sent op, so it stays queued
+    // and the queue grows, which reschedules autosync.
     const edit = plainOp("q1:mutual", { rating: "no", note: null });
     const accepted = { stoken: "s1", pushRejected: false, entries: [] };
     const rejected = { stoken: "s1", pushRejected: true, entries: [] };
-    for (const [first, ...rest] of [[accepted], [rejected, accepted], [rejected, rejected]]) {
+    for (const [responses, after] of [
+      [[accepted], [edit]],
+      [[rejected, accepted], [edit]],
+      [
+        [rejected, rejected],
+        [op1, op2, edit],
+      ],
+    ] as const) {
       setPendingOps([]);
       addPendingOpForKey(op1, "q1:mutual");
       addPendingOpForKey(op2, "q2:mutual");
+      const [first, ...rest] = responses;
       const push = vi.fn().mockImplementationOnce(async () => {
         addPendingOpForKey(edit, "q1:mutual");
+        expect(getPendingOps()).toEqual([op1, op2, edit]);
         return first;
       });
       for (const response of rest) push.mockResolvedValueOnce(response);
 
       await flushPendingOps(push, async () => undefined, codec);
-      expect(getPendingOps()).toContain(edit);
+      expect(getPendingOps()).toEqual(after);
     }
+  });
+
+  test("releases the held ops when the push fails", async () => {
+    addPendingOpForKey(op1, "q1:mutual");
+    await expect(
+      flushPendingOps(vi.fn().mockRejectedValue(new Error("network")), async () => undefined, codec),
+    ).rejects.toThrow("network");
+    const edit = plainOp("q1:mutual", { rating: "no", note: null });
+    addPendingOpForKey(edit, "q1:mutual");
+    expect(getPendingOps()).toEqual([edit]);
   });
 
   test("on conflict, keeps an edit made while the push was in flight", async () => {
