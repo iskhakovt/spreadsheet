@@ -26,7 +26,13 @@ const MIN_ENVELOPE_BYTES = 12 + 16 + 1;
 function isKeyCheckEnvelope(value: string): boolean {
   if (!value.startsWith(KEY_CHECK_PREFIX)) return false;
   const payload = value.slice(KEY_CHECK_PREFIX.length);
-  return /^[A-Za-z0-9_-]+$/.test(payload) && Buffer.from(payload, "base64url").length >= MIN_ENVELOPE_BYTES;
+  // A length of 1 mod 4 isn't base64: Node's decoder drops the extra
+  // character, but the browser's rejects it.
+  return (
+    /^[A-Za-z0-9_-]+$/.test(payload) &&
+    payload.length % 4 !== 1 &&
+    Buffer.from(payload, "base64url").length >= MIN_ENVELOPE_BYTES
+  );
 }
 
 function generateToken(): string {

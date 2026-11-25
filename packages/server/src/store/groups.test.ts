@@ -99,6 +99,7 @@ describe("GroupStore.create", () => {
       { encrypted: true, keyCheck: "e:1:" as Sealed<KeyCheck> },
       { encrypted: true, keyCheck: `${fakeKeyCheck}!` as Sealed<KeyCheck> },
       { encrypted: true, keyCheck: fakeEncrypted<KeyCheck>("c2hvcnQ") },
+      { encrypted: true, keyCheck: `${fakeKeyCheck}AAA` as Sealed<KeyCheck> }, // payload length 1 mod 4
       { encrypted: false, keyCheck },
     ]) {
       expect(await store.create({ ...base, ...input })).toEqual({ error: "encryption_mismatch" });
