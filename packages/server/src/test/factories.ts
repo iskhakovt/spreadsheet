@@ -1,4 +1,4 @@
-import { fakeEncrypted, plainSealed, type Sealed } from "@spreadsheet/shared";
+import { fakeEncrypted, KEY_CHECK, plainSealed, type Sealed } from "@spreadsheet/shared";
 import type { Database } from "../db/index.js";
 import { groups, persons } from "../db/schema.js";
 import { silentLogger } from "../logger.js";
@@ -56,11 +56,13 @@ export function sealFor<T>(encrypted: boolean, value: T): Sealed<T> {
 }
 
 export function defaultCreate(overrides: Record<string, unknown> = {}) {
+  const encrypted = overrides.encrypted === true;
   return {
-    encrypted: false,
+    encrypted,
     questionMode: "all" as const,
     anatomyLabels: null,
     anatomyPicker: null,
+    keyCheck: encrypted ? sealFor(true, KEY_CHECK) : null,
     ...overrides,
   };
 }

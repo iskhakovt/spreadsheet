@@ -63,6 +63,7 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
+      keyCheck: opaque("keycheck"),
     });
     await caller.groups.setupAdmin({
       adminToken,
@@ -113,6 +114,7 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
       questionMode: "all",
       anatomyLabels: null,
       anatomyPicker: null,
+      keyCheck: opaque("keycheck"),
     });
     const mismatch = { code: "BAD_REQUEST", message: "Value encryption does not match group setting" };
 

@@ -2,6 +2,7 @@ import {
   Anatomy,
   type GroupStatus,
   type GroupStatusRow,
+  KeyCheck,
   type Member,
   type PayloadSchema,
   type Person,
@@ -26,6 +27,12 @@ export type LiveGroupStatus = GroupStatus & {
    * `assertKeyNotRefuted` decides after hydration.
    */
   ownCiphertextUnproven?: true;
+  /**
+   * An encrypted group without a key check, and strong evidence for this
+   * tab's key: your own ciphertext and another member's opened, and none
+   * failed to decrypt. `useFillKeyCheck` (admins only) fills the check in.
+   */
+  keyCheckFillable?: true;
 };
 
 /**
@@ -34,8 +41,10 @@ export type LiveGroupStatus = GroupStatus & {
  * blank everyone's screen: another member's name becomes `UI.unreadableName`,
  * your own name "" (routes you to /setup), and anatomy / progress null.
  *
- * If your own ciphertext is present and none of it opens, the status is
- * flagged `ownCiphertextUnproven`, and `assertKeyNotRefuted` throws
+ * The group's key check, when it has one, proves the key or throws
+ * {@link WrongKeyError} before any field is opened. Without one, if your own
+ * ciphertext is present and none of it opens, the status is flagged
+ * `ownCiphertextUnproven`, and `assertKeyNotRefuted` throws
  * {@link WrongKeyError} unless your journal proves the key first. Other
  * members' ciphertext is only dropped. Your own legacy plaintext is read and
  * flagged (`profileHasLegacyPlaintext`). See design/sync.md § Sealed values.
@@ -46,17 +55,25 @@ export async function decryptStatus(
   raw: GroupStatusRow,
   codec: GroupCodec = getGroupCodec(raw.group.encrypted),
 ): Promise<LiveGroupStatus> {
+  const { keyCheck, ...group } = raw.group;
+  if (codec.encrypted && keyCheck !== null) await verifyKeyCheck(keyCheck, codec);
+
   const selfId = raw.person?.id ?? null;
   let ownCiphertext = false;
   let ownCiphertextOpened = false;
+  let otherCiphertextOpened = false;
+  let ciphertextFailed = false;
   let ownLegacyPlaintext = false;
 
   async function attempt<T>(value: string, schema: PayloadSchema<T>, own: boolean): Promise<OpenResult<T>> {
     const result = await codec.tryOpen(value, schema);
-    if (own && codec.encrypted && sealedModeMatches(value, true)) {
-      ownCiphertext = true;
+    if (codec.encrypted && sealedModeMatches(value, true)) {
       // Decrypted, even if the payload then failed its schema: GCM authenticated it.
-      if (result.ok || result.reason === "payload") ownCiphertextOpened = true;
+      const decrypted = result.ok || result.reason === "payload";
+      if (own) ownCiphertext = true;
+      if (decrypted && own) ownCiphertextOpened = true;
+      if (decrypted && !own) otherCiphertextOpened = true;
+      if (!decrypted) ciphertextFailed = true;
     }
     return result;
   }
@@ -117,14 +134,31 @@ export async function decryptStatus(
   // opening shows only that this key matches whoever wrote it.
   if (ownCiphertextOpened) codec.markKeyProven();
   const unproven = ownCiphertext && !codec.keyProven;
+  // Two people's data agreeing on the key, not just yours: a key check under
+  // a wrong key would lock every member out.
+  const fillable =
+    codec.encrypted && keyCheck === null && ownCiphertextOpened && otherCiphertextOpened && !ciphertextFailed;
 
   return {
     ...raw,
+    group,
     person,
     members,
     ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}),
     ...(unproven ? { ownCiphertextUnproven: true as const } : {}),
+    ...(fillable ? { keyCheckFillable: true as const } : {}),
   };
+}
+
+/**
+ * Decides the key for everyone, including someone with no data of their own
+ * yet. A key check that isn't ciphertext proves nothing, so it's ignored.
+ */
+async function verifyKeyCheck(keyCheck: string, codec: GroupCodec): Promise<void> {
+  const result = await codec.tryOpen(keyCheck, KeyCheck);
+  if (result.ok || result.reason === "payload") codec.markKeyProven();
+  else if (result.reason === "decrypt") throw new WrongKeyError();
+  else console.error(`Ignoring the group's key check (${result.reason})`);
 }
 
 /**

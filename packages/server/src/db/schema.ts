@@ -23,6 +23,9 @@ export const groups = pgTable("groups", {
   id: uuid().defaultRandom().primaryKey(),
   adminToken: text().unique(),
   encrypted: boolean().notNull(),
+  // Sealed KEY_CHECK under the group key (encrypted groups). Null in plaintext
+  // groups and in encrypted ones created before it existed, until filled.
+  keyCheck: text(),
   isReady: boolean().notNull(),
   questionMode: questionModeEnum().notNull(),
   // Legacy: the now/later timing flow was removed. Column kept with a

@@ -1,4 +1,11 @@
-import { type Anatomy, fakeEncrypted, plainProgress, plainSealed, type Sealed } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  fakeEncrypted,
+  type KeyCheck,
+  plainProgress,
+  plainSealed,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
@@ -29,8 +36,24 @@ const alice = plainSealed("Alice");
 const bob = plainSealed("Bob");
 const afab = plainSealed<Anatomy>("afab");
 
-function createGroup(encrypted = false) {
-  return store.create({ encrypted, questionMode: "all", anatomyLabels: null, anatomyPicker: null });
+const keyCheck = fakeEncrypted<KeyCheck>("keycheck");
+
+async function createGroup(
+  encrypted = false,
+  overrides: Partial<
+    Pick<Parameters<GroupStore["create"]>[0], "questionMode" | "anatomyLabels" | "anatomyPicker">
+  > = {},
+) {
+  const result = await store.create({
+    encrypted,
+    questionMode: "all",
+    anatomyLabels: null,
+    anatomyPicker: null,
+    keyCheck: encrypted ? keyCheck : null,
+    ...overrides,
+  });
+  if ("error" in result) throw new Error(`create failed: ${result.error}`);
+  return result;
 }
 
 /** Set up a group (admin only) in the given mode, with the admin's name sealed to match. */
@@ -55,6 +78,48 @@ describe("GroupStore.create", () => {
     const result = await createGroup();
     expect(result.groupId).toBeDefined();
     expect(result.adminToken.length).toBeGreaterThan(10);
+  });
+
+  it("stores an encrypted group's key check and returns it with the status, before and after setup", async () => {
+    const { adminToken } = await createGroup(true);
+    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
+    await store.setupAdmin(adminToken, { name: fakeEncrypted("alice"), anatomy: null, partners: [] });
+    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
+  });
+
+  it("requires an e: key check for an encrypted group and none for a plaintext one", async () => {
+    const base = { questionMode: "all" as const, anatomyLabels: null, anatomyPicker: null };
+    for (const input of [
+      { encrypted: true, keyCheck: null },
+      { encrypted: true, keyCheck: plainSealed<KeyCheck>("group-key-check:1") },
+      { encrypted: false, keyCheck },
+    ]) {
+      expect(await store.create({ ...base, ...input })).toEqual({ error: "encryption_mismatch" });
+    }
+    expect(await db.select().from(groups)).toHaveLength(0);
+  });
+});
+
+describe("GroupStore.fillKeyCheck", () => {
+  it("fills in an encrypted group's missing key check, and never replaces one", async () => {
+    const { groupId, adminToken } = await createGroup(true);
+    await db.update(groups).set({ keyCheck: null });
+
+    expect(await store.fillKeyCheck(groupId, keyCheck, true)).toEqual({ filled: true });
+    const other = fakeEncrypted<KeyCheck>("other");
+    expect(await store.fillKeyCheck(groupId, other, true)).toEqual({ filled: false });
+    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
+  });
+
+  it("rejects a key check for a plaintext group or in p: mode", async () => {
+    const plain = await createGroup(false);
+    expect(await store.fillKeyCheck(plain.groupId, keyCheck, false)).toEqual({ error: "encryption_mismatch" });
+    const enc = await createGroup(true);
+    await db.update(groups).set({ keyCheck: null });
+    expect(await store.fillKeyCheck(enc.groupId, plainSealed<KeyCheck>("group-key-check:1"), true)).toEqual({
+      error: "encryption_mismatch",
+    });
+    expect((await db.select({ keyCheck: groups.keyCheck }).from(groups)).map((g) => g.keyCheck)).toEqual([null, null]);
   });
 });
 
@@ -91,8 +156,7 @@ describe("GroupStore.setupAdmin", () => {
   });
 
   it("validates anatomy in admin-pick filtered mode", async () => {
-    const { adminToken } = await store.create({
-      encrypted: false,
+    const { adminToken } = await createGroup(false, {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
@@ -269,8 +333,7 @@ describe("GroupStore.getStatus", () => {
   });
 
   it("computes isReady from anatomy in filtered mode", async () => {
-    const { adminToken } = await store.create({
-      encrypted: false,
+    const { adminToken } = await createGroup(false, {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "self",

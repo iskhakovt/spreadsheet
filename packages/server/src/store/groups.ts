@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import type { Anatomy, AnatomyLabels, AnatomyPicker, GroupStatusRow, Sealed } from "@spreadsheet/shared";
-import { and, count, eq } from "drizzle-orm";
+import type { Anatomy, AnatomyLabels, AnatomyPicker, GroupStatusRow, KeyCheck, Sealed } from "@spreadsheet/shared";
+import { and, count, eq, isNull } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
 import { sealedInGroupMode } from "./sealed-mode.js";
@@ -23,12 +23,17 @@ export class GroupStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
+  /** An encrypted group needs an `e:` key check; a plaintext one none. */
   async create(input: {
     encrypted: boolean;
     questionMode: "all" | "filtered";
     anatomyLabels: string | null;
     anatomyPicker: string | null;
+    keyCheck: Sealed<KeyCheck> | null;
   }) {
+    if ((input.keyCheck !== null) !== input.encrypted || !sealedInGroupMode([input.keyCheck], input.encrypted)) {
+      return { error: "encryption_mismatch" as const };
+    }
     return this.#tx(async (tx) => {
       const adminToken = generateToken();
       const [group] = await tx
@@ -36,6 +41,7 @@ export class GroupStore {
         .values({
           adminToken,
           encrypted: input.encrypted,
+          keyCheck: input.keyCheck,
           isReady: false,
           questionMode: input.questionMode,
           anatomyLabels: input.anatomyLabels,
@@ -43,6 +49,22 @@ export class GroupStore {
         })
         .returning();
       return { groupId: group.id, adminToken };
+    });
+  }
+
+  /**
+   * Set an encrypted group's key check if it has none yet (groups created
+   * before it existed). Never replaces one: the first fill wins.
+   */
+  async fillKeyCheck(groupId: string, keyCheck: Sealed<KeyCheck>, groupEncrypted: boolean) {
+    if (!groupEncrypted || !sealedInGroupMode([keyCheck], true)) return { error: "encryption_mismatch" as const };
+    return this.#tx(async (tx) => {
+      const filled = await tx
+        .update(groups)
+        .set({ keyCheck })
+        .where(and(eq(groups.id, groupId), isNull(groups.keyCheck)))
+        .returning({ id: groups.id });
+      return { filled: filled.length > 0 };
     });
   }
 
@@ -218,6 +240,7 @@ export class GroupStore {
           group: {
             id: group.id,
             encrypted: group.encrypted,
+            keyCheck: group.keyCheck,
             isReady: false,
             isAdminReady: false,
             questionMode: group.questionMode,
@@ -268,6 +291,7 @@ export class GroupStore {
         group: {
           id: group.id,
           encrypted: group.encrypted,
+          keyCheck: group.keyCheck,
           isReady: groupReady,
           isAdminReady: group.isReady,
           questionMode: group.questionMode,

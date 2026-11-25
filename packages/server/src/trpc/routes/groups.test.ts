@@ -1,4 +1,4 @@
-import { type Anatomy, fakeEncrypted, plainSealed, type Sealed } from "@spreadsheet/shared";
+import { type Anatomy, fakeEncrypted, type KeyCheck, plainSealed, type Sealed } from "@spreadsheet/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupEvents } from "../../events.js";
 import { silentLogger } from "../../logger.js";
@@ -31,6 +31,7 @@ function mockCtx(
       addPerson: vi.fn(),
       removePerson: vi.fn(),
       setProfile: vi.fn(),
+      fillKeyCheck: vi.fn(),
       markReady: vi.fn(),
       getPersonByToken: vi.fn(),
       getGroupById: vi.fn(),
@@ -59,6 +60,7 @@ const adminPerson = {
 const readyGroup = {
   id: "g1",
   encrypted: false,
+  keyCheck: null,
   isReady: true,
   questionMode: "all",
   anatomyLabels: null,
@@ -92,8 +94,38 @@ describe("groups.create", () => {
       questionMode: "all",
       anatomyLabels: null,
       anatomyPicker: null,
+      keyCheck: null,
     });
     expect(result).toEqual({ groupId: "g1", adminToken: "tok" });
+  });
+
+  it("maps a key check that doesn't match the mode to BAD_REQUEST", async () => {
+    const ctx = mockCtx({ groups: { create: vi.fn().mockResolvedValue({ error: "encryption_mismatch" }) } });
+    const err = await createCaller(ctx)
+      .groups.create({
+        encrypted: true,
+        questionMode: "all",
+        anatomyLabels: null,
+        anatomyPicker: null,
+        keyCheck: plainSealed<KeyCheck>("group-key-check:1"),
+      })
+      .catch((e) => e);
+    expect(err).toMatchObject(mismatchError);
+  });
+
+  it("rejects a key check that isn't a sealed value", async () => {
+    const create = vi.fn();
+    const err = await createCaller(mockCtx({ groups: { create } }))
+      .groups.create({
+        encrypted: true,
+        questionMode: "all",
+        anatomyLabels: null,
+        anatomyPicker: null,
+        keyCheck: "raw" as Sealed<KeyCheck>,
+      })
+      .catch((e) => e);
+    expect(err).toMatchObject(sealedFormatError);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects invalid questionMode", async () => {
@@ -105,6 +137,7 @@ describe("groups.create", () => {
         questionMode: "bogus" as any,
         anatomyLabels: null,
         anatomyPicker: null,
+        keyCheck: null,
       }),
     ).rejects.toThrow();
   });
@@ -113,7 +146,7 @@ describe("groups.create", () => {
     vi.stubEnv("REQUIRE_ENCRYPTION", "true");
     const caller = createCaller(mockCtx({}));
     const err = await caller.groups
-      .create({ encrypted: false, questionMode: "all", anatomyLabels: null, anatomyPicker: null })
+      .create({ encrypted: false, questionMode: "all", anatomyLabels: null, anatomyPicker: null, keyCheck: null })
       .catch((e) => e);
     expect(err.message).toBe("Encryption is required");
     expect(err.code).toBe("BAD_REQUEST");
@@ -326,6 +359,34 @@ describe("groups.removePerson", () => {
   });
 });
 
+describe("groups.fillKeyCheck", () => {
+  const keyCheck = fakeEncrypted<KeyCheck>("keycheck");
+
+  it("passes the caller's group and its encrypted flag to the store", async () => {
+    const fillKeyCheck = vi.fn().mockResolvedValue({ filled: true });
+    const ctx = mockCtx({ person: adminPerson, group: encryptedReadyGroup, groups: { fillKeyCheck } });
+    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).resolves.toEqual({ filled: true });
+    expect(fillKeyCheck).toHaveBeenCalledWith("g1", keyCheck, true);
+  });
+
+  it("is admin-only: a key check under a wrong key would lock every member out", async () => {
+    const fillKeyCheck = vi.fn();
+    const ctx = mockCtx({
+      person: { ...adminPerson, isAdmin: false },
+      group: encryptedReadyGroup,
+      groups: { fillKeyCheck },
+    });
+    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(fillKeyCheck).not.toHaveBeenCalled();
+  });
+
+  it("maps store encryption_mismatch error to BAD_REQUEST", async () => {
+    const fillKeyCheck = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
+    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { fillKeyCheck } });
+    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).rejects.toMatchObject(mismatchError);
+  });
+});
+
 describe("groups.setProfile", () => {
   it("requires auth (rejects anon)", async () => {
     const caller = createCaller(mockCtx({}));
@@ -376,7 +437,7 @@ describe("groups.status", () => {
     // and drops what doesn't open, so one bad row can't fail the response.
     const status = {
       person: { id: "p1", name: "e:1:bmFtZQ", anatomy: null, isAdmin: true, isCompleted: false },
-      group: { ...readyGroup, encrypted: true, isAdminReady: true },
+      group: { ...readyGroup, encrypted: true, keyCheck: "e:1:Y2hlY2s", isAdminReady: true },
       members: [
         { id: "p1", name: "e:1:bmFtZQ", anatomy: "e:1:YW5h", isAdmin: true, isCompleted: false, progress: null },
         { id: "p2", name: "Legacy raw", anatomy: 'p:1:"afab"', isAdmin: false, isCompleted: false, progress: "p:1:{}" },

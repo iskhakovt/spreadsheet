@@ -1,6 +1,7 @@
 import { type QueryKey, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useSubscription } from "@trpc/tanstack-react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { WrongKeyError } from "./codec.js";
 import { decryptStatus, type LiveGroupStatus } from "./decrypt-status.js";
 import { getScope } from "./session.js";
 import { useTRPC, useTRPCClient } from "./trpc.js";
@@ -25,9 +26,10 @@ import { useTRPC, useTRPCClient } from "./trpc.js";
  *   un-opened.
  *
  * Error handling: a field that doesn't open is dropped (see `decryptStatus`).
- * Key errors (`MissingKeyError`, `UnexpectedKeyError`) throw out of the
- * queryFn, which Suspense-query surfaces to the nearest ErrorBoundary. No
- * separate "error" state tracked in the hook.
+ * Key errors (`MissingKeyError`, `UnexpectedKeyError`, `WrongKeyError` from
+ * the group's key check) throw out of the queryFn, which Suspense-query
+ * surfaces to the nearest ErrorBoundary. A live update whose key check
+ * refutes the key is rethrown on the next render, the same way.
  */
 export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () => Promise<void> } {
   // React Compiler reports a false-positive "Cannot access refs during render"
@@ -66,6 +68,7 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
   // If two pushes arrive in quick succession and their decryptions
   // interleave, we always want the latest to win.
   const seqRef = useRef(0);
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
 
   useSubscription(
     trpc.groups.onStatus.subscriptionOptions(undefined, {
@@ -85,7 +88,9 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
           if (mySeq !== seqRef.current || !belongs()) return;
           queryClient.setQueryData<LiveGroupStatus | null>(target, decrypted);
         } catch (err) {
-          console.error("Failed to decrypt status update:", err);
+          // e.g. a key check filled in since load, under another key.
+          if (err instanceof WrongKeyError) setKeyError(err);
+          else console.error("Failed to decrypt status update:", err);
         }
       },
       onError: (err) => {
@@ -98,6 +103,7 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
     await queryClient.invalidateQueries({ queryKey: statusKey });
   }
 
+  if (keyError) throw keyError;
   return { status, refresh };
 }
 
