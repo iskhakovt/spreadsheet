@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
+import { fakeKeyCheck } from "../test/factories.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { GroupStore } from "./groups.js";
 
@@ -36,7 +37,7 @@ const alice = plainSealed("Alice");
 const bob = plainSealed("Bob");
 const afab = plainSealed<Anatomy>("afab");
 
-const keyCheck = fakeEncrypted<KeyCheck>("keycheck");
+const keyCheck = fakeKeyCheck;
 
 async function createGroup(
   encrypted = false,
@@ -93,7 +94,11 @@ describe("GroupStore.create", () => {
       { encrypted: true, keyCheck: null },
       { encrypted: true, keyCheck: plainSealed<KeyCheck>("group-key-check:1") },
       // A version clients can't open would prove nothing.
-      { encrypted: true, keyCheck: "e:2:Y2hlY2s" as Sealed<KeyCheck> },
+      { encrypted: true, keyCheck: fakeKeyCheck.replace("e:1:", "e:2:") as Sealed<KeyCheck> },
+      // Nothing that could ever open: empty, not base64url, shorter than an AES-GCM envelope.
+      { encrypted: true, keyCheck: "e:1:" as Sealed<KeyCheck> },
+      { encrypted: true, keyCheck: `${fakeKeyCheck}!` as Sealed<KeyCheck> },
+      { encrypted: true, keyCheck: fakeEncrypted<KeyCheck>("c2hvcnQ") },
       { encrypted: false, keyCheck },
     ]) {
       expect(await store.create({ ...base, ...input })).toEqual({ error: "encryption_mismatch" });

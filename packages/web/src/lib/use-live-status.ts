@@ -88,9 +88,10 @@ export function useLiveStatus(): { status: LiveGroupStatus | null; refresh: () =
           if (mySeq !== seqRef.current || !belongs()) return;
           queryClient.setQueryData<LiveGroupStatus | null>(target, decrypted);
         } catch (err) {
-          // A key check that refutes this tab's key (e.g. one replaced in the database).
-          if (err instanceof WrongKeyError) setKeyError(err);
-          else console.error("Failed to decrypt status update:", err);
+          // A key check that refutes this tab's key (e.g. one replaced in the
+          // database). Same guards as a success: a newer event decides instead.
+          if (!(err instanceof WrongKeyError)) console.error("Failed to decrypt status update:", err);
+          else if (mySeq === seqRef.current && belongs()) setKeyError(err);
         }
       },
       onError: (err) => {

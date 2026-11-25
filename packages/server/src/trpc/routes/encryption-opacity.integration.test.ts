@@ -5,7 +5,7 @@ import { createDatabase, type Database } from "../../db/index.js";
 import { journalEntries, persons } from "../../db/schema.js";
 import { seed } from "../../db/seed.js";
 import { QuestionStore } from "../../store/questions.js";
-import { anonCtx, authedCtx, createCaller, tokenCtx } from "../../test/factories.js";
+import { anonCtx, authedCtx, createCaller, fakeKeyCheck, tokenCtx } from "../../test/factories.js";
 
 let db: Database;
 
@@ -63,7 +63,7 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
-      keyCheck: opaque("keycheck"),
+      keyCheck: fakeKeyCheck,
     });
     await caller.groups.setupAdmin({
       adminToken,
@@ -114,7 +114,7 @@ describe("encrypted-group journal opacity (real Postgres)", () => {
       questionMode: "all",
       anatomyLabels: null,
       anatomyPicker: null,
-      keyCheck: opaque("keycheck"),
+      keyCheck: fakeKeyCheck,
     });
     const mismatch = { code: "BAD_REQUEST", message: "Value encryption does not match group setting" };
 

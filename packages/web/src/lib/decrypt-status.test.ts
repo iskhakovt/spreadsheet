@@ -240,7 +240,7 @@ describe("decryptStatus", () => {
 });
 
 describe("decryptStatus with the group's key check", () => {
-  it("proves the key before anything else, even with no data of your own", async () => {
+  it("proves the key, even with no data of your own", async () => {
     const opened = await decryptStatus(status(true, null, [], null, await checkUnder(encrypted)), encrypted);
     expect(encrypted.keyProven).toBe(true);
     // Consumed: the opened status doesn't carry it.
