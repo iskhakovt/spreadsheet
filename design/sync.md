@@ -332,11 +332,13 @@ On each answer tap:
   3. Reset the 3s debounce timer
 
 When the debounce fires (or user taps sync manually):
+  (Flushes take turns per tab; each snapshots the queue when its turn starts.)
   1. useMutation calls sync.push { stoken, operations: pendingQueue }
   2. If success:
      - Apply returned entries to local state (replay)
      - Remove the sent ops from the queue: the prefix the push held, which
-       dedup doesn't touch meanwhile (a same-key edit appends instead)
+       dedup doesn't touch meanwhile (a same-key edit appends instead). If
+       another tab rewrote the queue meanwhile, it's kept as is.
      - Store new stoken
   3. If pushRejected:
      - Apply returned entries to local state, against the current queue
