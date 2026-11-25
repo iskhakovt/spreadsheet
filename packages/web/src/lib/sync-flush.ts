@@ -61,11 +61,11 @@ export async function flushPendingOps(
     return;
   }
 
-  // Merge reconciles the local answer cache with what the server has.
-  // The retry re-sends the same `ops` array (not re-read from storage)
-  // because ops are append-only journal entries — they don't change
-  // after a merge, only the local answers map does. The fresh stoken
-  // tells the server "I've seen your latest state, apply these."
+  // Merge reconciles the local answer cache with what the server has,
+  // against the current outbox: an edit made while the push was in flight
+  // must win over the history the rejection returns. The retry re-sends
+  // the same `ops` array, since `drainSent` clears exactly that prefix.
+  // The fresh stoken tells the server "I've seen your latest state, apply these."
   //
   // `mergeAfterRejection` is the same merge that runs on the bootstrap
   // path (`useSelfJournal`) and the SSE echo path (`onSelfJournalChange`).
@@ -81,7 +81,7 @@ export async function flushPendingOps(
   // Saved only after the check: acknowledging entries that refute the key
   // would let the next flush append on top of them.
   setStoken(result.stoken);
-  const merged = await mergeAfterRejection(getAnswers(), ops, result.entries, codec);
+  const merged = await mergeAfterRejection(getAnswers(), getPendingOps(), result.entries, codec);
   setAnswers(merged);
   const retryProgress = await getProgress();
   const retry = await push({

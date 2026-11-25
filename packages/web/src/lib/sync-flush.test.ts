@@ -2,7 +2,7 @@ import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createGroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
-import { addPendingOp, getAnswers, getPendingOps, getStoken, setPendingOps, setStoken } from "./storage.js";
+import { addPendingOp, getAnswers, getPendingOps, getStoken, setAnswer, setPendingOps, setStoken } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 const codec = createGroupCodec(false, null);
@@ -176,6 +176,28 @@ describe("flushPendingOps", () => {
     expect(push).toHaveBeenCalledTimes(2);
     expect(push.mock.calls[1][0]).toMatchObject({ stoken: "s1", operations: [localOp] });
     expect(getPendingOps()).toEqual([]);
+  });
+
+  test("on conflict, keeps an edit made while the push was in flight", async () => {
+    // The rejection can carry history for a key edited after the batch was
+    // taken; that edit is in the outbox and must win over the history.
+    const maybe: Answer = { rating: "maybe", note: null };
+    const edit = plainOp("q2:mutual", maybe);
+    setPendingOps([op1]);
+    const push = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        setAnswer("q2:mutual", maybe);
+        addPendingOp(edit);
+        return { stoken: "s1", pushRejected: true, entries: [plainOp("q2:mutual", yes)] };
+      })
+      .mockResolvedValueOnce({ stoken: "s2", pushRejected: false, entries: [] });
+
+    await flushPendingOps(push, async () => undefined, codec);
+
+    expect(getAnswers()["q2:mutual"]).toEqual(maybe);
+    expect(push.mock.calls[1][0]).toMatchObject({ operations: [op1] });
+    expect(getPendingOps()).toEqual([edit]);
   });
 });
 

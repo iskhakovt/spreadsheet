@@ -259,17 +259,21 @@ describe("concurrent pushes (real Postgres)", () => {
     await locked;
 
     const push = alice.caller.sync.push({ stoken: base.stoken, operations: [plainOp("c:mutual", yes)] });
-    // The same stoken passes the head check unless the push waits for the lock.
-    await expect
-      .poll(async () => {
-        const rows = await db.execute(
-          sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
-        );
-        return rows.length;
-      })
-      .toBeGreaterThan(0);
-    release();
-    await inFlight;
+    try {
+      // The same stoken passes the head check unless the push waits for the lock.
+      await expect
+        .poll(async () => {
+          const rows = await db.execute(
+            sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+          );
+          return rows.length;
+        })
+        .toBeGreaterThan(0);
+    } finally {
+      // Never leave the transaction open: it would block the next test's TRUNCATE.
+      release();
+      await Promise.allSettled([inFlight, push]);
+    }
 
     const result = await push;
     expect(result.pushRejected).toBe(true);

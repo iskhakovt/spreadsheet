@@ -34,12 +34,16 @@ const RAW_NAMES = [
   "e:mail",
   "p:1",
   "P:1:caps",
+  // Sealed-looking under a version the codec doesn't read: the old reader
+  // showed these, so they're kept as the literal text.
+  "p:2:future-version",
+  'p:12:"x"',
 ];
 
 const RAW_ANATOMIES = ["afab", "amab", "both", "none"];
 
-/** Values that are already sealed (any mode or version) and must not change. */
-const SEALED_NAMES = ['p:1:"Carol"', "e:1:Y2Fyb2w", "p:2:future-version", 'p:12:"x"'];
+/** Values already sealed in the format the codec reads, which must not change. */
+const SEALED_NAMES = ['p:1:"Carol"', "e:1:Y2Fyb2w"];
 const SEALED_ANATOMIES = ['p:1:"afab"', "e:1:YW1hYg"];
 
 let db: Database;
@@ -73,7 +77,7 @@ async function allRows(): Promise<Row[]> {
 }
 
 function isSealed(value: string) {
-  return /^[pe]:[0-9]+:/.test(value);
+  return /^[pe]:1:/.test(value);
 }
 
 function expectSealedFrom(after: string, original: string) {
