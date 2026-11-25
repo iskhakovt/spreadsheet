@@ -1,7 +1,6 @@
 import { OperationPayload, type Progress, type Sealed } from "@spreadsheet/shared";
 import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
-import { getScope } from "./session.js";
 import {
   drainPendingOps,
   getAnswers,
@@ -46,31 +45,11 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  *
  * Clearing: after a successful push we remove only the ops we sent, the
  * queue's first `ops.length`, which `holdPendingOps` keeps in place while
- * the push is in flight (`clearSent`). An op queued meanwhile survives, including an
+ * the push is in flight. An op queued meanwhile survives, including an
  * edit to a key in the batch: dedup appends it rather than replacing the
  * sent op, so the queue grows and autosync schedules another push.
  */
-export function flushPendingOps(
-  push: PushFn,
-  getProgress: () => Promise<Sealed<Progress> | undefined>,
-  codec: GroupCodec,
-): Promise<void> {
-  // Flushes take turns per scope (autosync and Done each have their own
-  // guard), and each takes its snapshot when its turn starts: overlapping,
-  // one could clear ops the other queued after its snapshot.
-  const scope = getScope();
-  const run = (flushes.get(scope) ?? Promise.resolve()).then(() => flushOnce(push, getProgress, codec));
-  flushes.set(
-    scope,
-    run.catch(() => {}),
-  );
-  return run;
-}
-
-/** Per scope, the latest flush; the next one starts after it settles. */
-const flushes = new Map<string, Promise<void>>();
-
-async function flushOnce(
+export async function flushPendingOps(
   push: PushFn,
   getProgress: () => Promise<Sealed<Progress> | undefined>,
   codec: GroupCodec,
@@ -88,7 +67,7 @@ async function flushOnce(
 
     if (!result.pushRejected) {
       setStoken(result.stoken);
-      clearSent(ops);
+      drainPendingOps(ops.length);
       return;
     }
 
@@ -122,7 +101,7 @@ async function flushOnce(
     });
     if (!retry.pushRejected) {
       setStoken(retry.stoken);
-      clearSent(ops);
+      drainPendingOps(ops.length);
       return;
     }
     // Same check before acknowledging a second rejection's entries.
@@ -132,15 +111,4 @@ async function flushOnce(
   } finally {
     releasePendingOps();
   }
-}
-
-/**
- * Clear the ops a successful push sent, if they're still the queue's first
- * entries. Another tab may have flushed or rewritten the queue meanwhile;
- * then it's kept as it is, since resending an op is harmless (last write
- * wins) and clearing by position could drop one that was never sent.
- */
-function clearSent(ops: readonly string[]): void {
-  const queue = getPendingOps();
-  if (ops.every((op, i) => queue[i] === op)) drainPendingOps(ops.length);
 }

@@ -212,7 +212,7 @@ export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): v
   const prior = index.get(key);
   // An op a push is sending stays put (the edit appends instead), so the
   // push can clear exactly what it sent.
-  const held = heldPendingOps.get(fullKey) ?? 0;
+  const held = heldPendingOps.get(fullKey)?.count ?? 0;
   if (prior && prior.position >= held && prior.position < ops.length && ops[prior.position] === prior.op) {
     next = [...ops.slice(0, prior.position), ...ops.slice(prior.position + 1)];
     for (const entry of index.values()) {
@@ -233,15 +233,19 @@ export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): v
  * Hold the first `count` queued ops while a push sends them: dedup won't
  * splice them out, so a same-key edit made meanwhile is appended (and stays
  * queued) instead of replacing an op the push then clears. Release with
- * {@link releasePendingOps}, on every outcome. Flushes take turns
- * (`flushPendingOps`), so there's one hold per scope at a time.
+ * {@link releasePendingOps}, on every outcome.
  */
 export function holdPendingOps(count: number): void {
-  heldPendingOps.set(getScope() + "pendingOps", count);
+  const fullKey = getScope() + "pendingOps";
+  const held = heldPendingOps.get(fullKey);
+  heldPendingOps.set(fullKey, { count: Math.max(held?.count ?? 0, count), holders: (held?.holders ?? 0) + 1 });
 }
 
 export function releasePendingOps(): void {
-  heldPendingOps.delete(getScope() + "pendingOps");
+  const fullKey = getScope() + "pendingOps";
+  const held = heldPendingOps.get(fullKey);
+  if (!held || held.holders <= 1) heldPendingOps.delete(fullKey);
+  else held.holders--;
 }
 
 /**
@@ -262,7 +266,7 @@ export function drainPendingOps(count: number): void {
     }
   }
   const held = heldPendingOps.get(fullKey);
-  if (held !== undefined) heldPendingOps.set(fullKey, Math.max(0, held - count));
+  if (held) held.count = Math.max(0, held.count - count);
   setJson("pendingOps", drained);
   notifyChanged("pendingOps");
 }
@@ -278,8 +282,8 @@ interface DedupEntry {
   op: string;
 }
 const dedupIndexes = new Map<string, Map<string, DedupEntry>>();
-/** Per scope: how many leading ops the in-flight push is sending. */
-const heldPendingOps = new Map<string, number>();
+/** Per scope: how many leading ops in-flight pushes are sending, and how many pushes. */
+const heldPendingOps = new Map<string, { count: number; holders: number }>();
 
 function ensureDedupIndex(fullKey: string, ops: readonly string[]): Map<string, DedupEntry> {
   const existing = dedupIndexes.get(fullKey);

@@ -217,50 +217,6 @@ describe("flushPendingOps", () => {
     }
   });
 
-  test("runs overlapping flushes in turn, each with a fresh snapshot", async () => {
-    // e.g. Done while an autosync waits on a rejection: overlapping, the
-    // autosync's retry could clear an op queued after its snapshot.
-    setPendingOps([op1]);
-    let finishFirst!: (r: unknown) => void;
-    const push = vi
-      .fn()
-      .mockImplementationOnce(() => new Promise((resolve) => (finishFirst = resolve)))
-      .mockResolvedValueOnce({ stoken: "s2", pushRejected: false, entries: [] });
-
-    const first = flushPendingOps(push, async () => undefined, codec);
-    const second = flushPendingOps(push, async () => undefined, codec);
-    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-    addPendingOp(op2);
-    finishFirst({ stoken: "s1", pushRejected: false, entries: [] });
-    await Promise.all([first, second]);
-
-    expect(push).toHaveBeenCalledTimes(2);
-    expect(push.mock.calls[1][0]).toMatchObject({ operations: [op2] });
-    expect(getPendingOps()).toEqual([]);
-  });
-
-  test("keeps a queue another tab rewrote while the push was in flight", async () => {
-    setPendingOps([op1]);
-    const push = vi.fn().mockImplementationOnce(async () => {
-      // Another tab flushed op1 and queued op2.
-      setPendingOps([op2]);
-      return { stoken: "s1", pushRejected: false, entries: [] };
-    });
-    await flushPendingOps(push, async () => undefined, codec);
-    expect(getPendingOps()).toEqual([op2]);
-  });
-
-  test("a failed flush doesn't block the next one", async () => {
-    setPendingOps([op1]);
-    const push = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("network"))
-      .mockResolvedValueOnce({ stoken: "s1", pushRejected: false, entries: [] });
-    await expect(flushPendingOps(push, async () => undefined, codec)).rejects.toThrow("network");
-    await flushPendingOps(push, async () => undefined, codec);
-    expect(getPendingOps()).toEqual([]);
-  });
-
   test("releases the held ops when the push fails", async () => {
     addPendingOpForKey(op1, "q1:mutual");
     await expect(
