@@ -92,34 +92,13 @@ describe("GroupStore.create", () => {
     for (const input of [
       { encrypted: true, keyCheck: null },
       { encrypted: true, keyCheck: plainSealed<KeyCheck>("group-key-check:1") },
+      // A version clients can't open would prove nothing.
+      { encrypted: true, keyCheck: "e:2:Y2hlY2s" as Sealed<KeyCheck> },
       { encrypted: false, keyCheck },
     ]) {
       expect(await store.create({ ...base, ...input })).toEqual({ error: "encryption_mismatch" });
     }
     expect(await db.select().from(groups)).toHaveLength(0);
-  });
-});
-
-describe("GroupStore.fillKeyCheck", () => {
-  it("fills in an encrypted group's missing key check, and never replaces one", async () => {
-    const { groupId, adminToken } = await createGroup(true);
-    await db.update(groups).set({ keyCheck: null });
-
-    expect(await store.fillKeyCheck(groupId, keyCheck, true)).toEqual({ filled: true });
-    const other = fakeEncrypted<KeyCheck>("other");
-    expect(await store.fillKeyCheck(groupId, other, true)).toEqual({ filled: false });
-    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
-  });
-
-  it("rejects a key check for a plaintext group or in p: mode", async () => {
-    const plain = await createGroup(false);
-    expect(await store.fillKeyCheck(plain.groupId, keyCheck, false)).toEqual({ error: "encryption_mismatch" });
-    const enc = await createGroup(true);
-    await db.update(groups).set({ keyCheck: null });
-    expect(await store.fillKeyCheck(enc.groupId, plainSealed<KeyCheck>("group-key-check:1"), true)).toEqual({
-      error: "encryption_mismatch",
-    });
-    expect((await db.select({ keyCheck: groups.keyCheck }).from(groups)).map((g) => g.keyCheck)).toEqual([null, null]);
   });
 });
 

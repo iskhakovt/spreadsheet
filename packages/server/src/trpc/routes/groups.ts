@@ -14,7 +14,6 @@ import { groupEventName, groupEvents } from "../../events.js";
 import { groupsCreatedCounter, groupsSetupCompletedCounter, trackSseConnection } from "../../metrics.js";
 import { encryptionMismatchError } from "../errors.js";
 import {
-  adminProcedure,
   authedProcedure,
   broadcastingAdminProcedure,
   broadcastingProcedure,
@@ -39,29 +38,20 @@ export const groupsRouter = router({
         questionMode: QuestionMode,
         anatomyLabels: AnatomyLabels.nullable(),
         anatomyPicker: AnatomyPicker.nullable(),
-        keyCheck: sealed<KeyCheck>().nullable(),
+        // Optional so cached clients from before the check can still create
+        // plaintext groups; an encrypted group without one is rejected.
+        keyCheck: sealed<KeyCheck>().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       if (process.env.REQUIRE_ENCRYPTION !== "false" && !input.encrypted) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Encryption is required" });
       }
-      const result = await ctx.groups.create(input);
+      const result = await ctx.groups.create({ ...input, keyCheck: input.keyCheck ?? null });
       if ("error" in result) throw encryptionMismatchError();
       groupsCreatedCounter.inc();
       return result;
     }),
-
-  /**
-   * Give an older encrypted group its key check. Admins only, since a key
-   * check under the wrong key would lock every member out; the client sends
-   * one only once its key is proven (design/sync.md § Key verification).
-   */
-  fillKeyCheck: adminProcedure.input(z.object({ keyCheck: sealed<KeyCheck>() })).mutation(async ({ ctx, input }) => {
-    const result = await ctx.groups.fillKeyCheck(ctx.group.id, input.keyCheck, ctx.group.encrypted);
-    if ("error" in result) throw encryptionMismatchError();
-    return result;
-  }),
 
   setupAdmin: publicProcedure
     .input(

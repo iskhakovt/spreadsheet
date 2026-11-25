@@ -11,7 +11,7 @@ All entity tables use UUIDv4 primary keys (`gen_random_uuid()`) and `created_at 
 | id | UUID | PK |
 | admin_token | text | Unique, nullable. Set at creation, cleared after `setupAdmin`. Used as the admin's entry URL before setup. |
 | encrypted | boolean | Whether answers are E2E encrypted. Set at creation, immutable. |
-| key_check | text | Nullable. Encrypted groups: `KEY_CHECK` sealed under the group key (`e:1:`), so every link proves or refutes its key on load. Null in plaintext groups, and in older encrypted ones until an admin's client fills it in. Never replaced. |
+| key_check | text | Nullable. Encrypted groups: `KEY_CHECK` sealed under the group key (`e:1:`), so every link proves or refutes its key on load. Null in plaintext groups and in encrypted ones created before it existed. Set at creation, immutable. |
 | is_ready | boolean | Admin has finished setup (added members, marked ready). |
 | question_mode | enum ("all", "filtered") | Whether questions are filtered by anatomy. |
 | show_timing | boolean | Legacy. The now/later sub-question feature was removed; column kept (default `false`) so existing rows preserve their historical values for rollback safety. Never read. |

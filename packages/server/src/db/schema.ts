@@ -24,7 +24,7 @@ export const groups = pgTable("groups", {
   adminToken: text().unique(),
   encrypted: boolean().notNull(),
   // Sealed KEY_CHECK under the group key (encrypted groups). Null in plaintext
-  // groups and in encrypted ones created before it existed, until filled.
+  // groups and in encrypted ones created before it existed.
   keyCheck: text(),
   isReady: boolean().notNull(),
   questionMode: questionModeEnum().notNull(),

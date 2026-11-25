@@ -220,7 +220,7 @@ export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
 export const groupSchema = z.object({
   id: z.string(),
   encrypted: z.boolean(),
-  /** Encrypted groups: `KEY_CHECK` sealed under the group key. Null in plaintext groups and older encrypted ones. */
+  /** Encrypted groups: `KEY_CHECK` sealed under the group key. Null in plaintext groups and encrypted ones created before it. */
   keyCheck: sealedOutput<KeyCheck>().nullable(),
   isReady: z.boolean(),
   isAdminReady: z.boolean(),

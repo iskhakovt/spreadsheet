@@ -27,12 +27,6 @@ export type LiveGroupStatus = GroupStatus & {
    * `assertKeyNotRefuted` decides after hydration.
    */
   ownCiphertextUnproven?: true;
-  /**
-   * An encrypted group without a key check, and strong evidence for this
-   * tab's key: your own ciphertext and another member's opened, and none
-   * failed to decrypt. `useFillKeyCheck` (admins only) fills the check in.
-   */
-  keyCheckFillable?: true;
 };
 
 /**
@@ -61,19 +55,14 @@ export async function decryptStatus(
   const selfId = raw.person?.id ?? null;
   let ownCiphertext = false;
   let ownCiphertextOpened = false;
-  let otherCiphertextOpened = false;
-  let ciphertextFailed = false;
   let ownLegacyPlaintext = false;
 
   async function attempt<T>(value: string, schema: PayloadSchema<T>, own: boolean): Promise<OpenResult<T>> {
     const result = await codec.tryOpen(value, schema);
-    if (codec.encrypted && sealedModeMatches(value, true)) {
+    if (own && codec.encrypted && sealedModeMatches(value, true)) {
+      ownCiphertext = true;
       // Decrypted, even if the payload then failed its schema: GCM authenticated it.
-      const decrypted = result.ok || result.reason === "payload";
-      if (own) ownCiphertext = true;
-      if (decrypted && own) ownCiphertextOpened = true;
-      if (decrypted && !own) otherCiphertextOpened = true;
-      if (!decrypted) ciphertextFailed = true;
+      if (result.ok || result.reason === "payload") ownCiphertextOpened = true;
     }
     return result;
   }
@@ -134,10 +123,6 @@ export async function decryptStatus(
   // opening shows only that this key matches whoever wrote it.
   if (ownCiphertextOpened) codec.markKeyProven();
   const unproven = ownCiphertext && !codec.keyProven;
-  // Two people's data agreeing on the key, not just yours: a key check under
-  // a wrong key would lock every member out.
-  const fillable =
-    codec.encrypted && keyCheck === null && ownCiphertextOpened && otherCiphertextOpened && !ciphertextFailed;
 
   return {
     ...raw,
@@ -146,7 +131,6 @@ export async function decryptStatus(
     members,
     ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}),
     ...(unproven ? { ownCiphertextUnproven: true as const } : {}),
-    ...(fillable ? { keyCheckFillable: true as const } : {}),
   };
 }
 

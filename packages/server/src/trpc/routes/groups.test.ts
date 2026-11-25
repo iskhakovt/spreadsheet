@@ -31,7 +31,6 @@ function mockCtx(
       addPerson: vi.fn(),
       removePerson: vi.fn(),
       setProfile: vi.fn(),
-      fillKeyCheck: vi.fn(),
       markReady: vi.fn(),
       getPersonByToken: vi.fn(),
       getGroupById: vi.fn(),
@@ -111,6 +110,17 @@ describe("groups.create", () => {
       })
       .catch((e) => e);
     expect(err).toMatchObject(mismatchError);
+  });
+
+  it("treats a missing key check as null, so cached clients can still create plaintext groups", async () => {
+    const create = vi.fn().mockResolvedValue({ groupId: "g1", adminToken: "tok" });
+    await createCaller(mockCtx({ groups: { create } })).groups.create({
+      encrypted: false,
+      questionMode: "all",
+      anatomyLabels: null,
+      anatomyPicker: null,
+    });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ keyCheck: null }));
   });
 
   it("rejects a key check that isn't a sealed value", async () => {
@@ -356,34 +366,6 @@ describe("groups.removePerson", () => {
     await expect(caller.groups.removePerson({ personId: "a0000000-0000-4000-8000-000000000002" })).rejects.toThrow(
       "submitted answers",
     );
-  });
-});
-
-describe("groups.fillKeyCheck", () => {
-  const keyCheck = fakeEncrypted<KeyCheck>("keycheck");
-
-  it("passes the caller's group and its encrypted flag to the store", async () => {
-    const fillKeyCheck = vi.fn().mockResolvedValue({ filled: true });
-    const ctx = mockCtx({ person: adminPerson, group: encryptedReadyGroup, groups: { fillKeyCheck } });
-    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).resolves.toEqual({ filled: true });
-    expect(fillKeyCheck).toHaveBeenCalledWith("g1", keyCheck, true);
-  });
-
-  it("is admin-only: a key check under a wrong key would lock every member out", async () => {
-    const fillKeyCheck = vi.fn();
-    const ctx = mockCtx({
-      person: { ...adminPerson, isAdmin: false },
-      group: encryptedReadyGroup,
-      groups: { fillKeyCheck },
-    });
-    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(fillKeyCheck).not.toHaveBeenCalled();
-  });
-
-  it("maps store encryption_mismatch error to BAD_REQUEST", async () => {
-    const fillKeyCheck = vi.fn().mockResolvedValue({ error: "encryption_mismatch" });
-    const ctx = mockCtx({ person: adminPerson, group: readyGroup, groups: { fillKeyCheck } });
-    await expect(createCaller(ctx).groups.fillKeyCheck({ keyCheck })).rejects.toMatchObject(mismatchError);
   });
 });
 

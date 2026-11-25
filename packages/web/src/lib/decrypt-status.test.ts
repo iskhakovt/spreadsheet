@@ -287,44 +287,6 @@ describe("decryptStatus with the group's key check", () => {
   });
 });
 
-describe("keyCheckFillable", () => {
-  async function profile(id: string, codec: GroupCodec) {
-    return { id, name: await codec.seal(id), anatomy: null };
-  }
-
-  it("is set when your own and another member's ciphertext open and none fails", async () => {
-    const raw = status(true, await profile("me", encrypted), [await profile("bob", encrypted)]);
-    expect((await decryptStatus(raw, encrypted)).keyCheckFillable).toBe(true);
-  });
-
-  it("isn't set on your own data alone: a wrong key you wrote under would lock everyone out", async () => {
-    const raw = status(true, await profile("me", encrypted), [{ id: "bob", name: plainSealed("Bob"), anatomy: null }]);
-    expect((await decryptStatus(raw, encrypted)).keyCheckFillable).toBeUndefined();
-  });
-
-  it("isn't set when any ciphertext fails to decrypt", async () => {
-    const theirs = createGroupCodec(true, await generateGroupKey());
-    const raw = status(true, await profile("me", encrypted), [
-      await profile("bob", encrypted),
-      await profile("carol", theirs),
-    ]);
-    expect((await decryptStatus(raw, encrypted)).keyCheckFillable).toBeUndefined();
-  });
-
-  it("isn't set when the group already has a check, or isn't encrypted", async () => {
-    const withCheck = status(
-      true,
-      await profile("me", encrypted),
-      [await profile("bob", encrypted)],
-      null,
-      await checkUnder(encrypted),
-    );
-    expect((await decryptStatus(withCheck, encrypted)).keyCheckFillable).toBeUndefined();
-    const plainRaw = status(false, await profile("me", plain), [await profile("bob", plain)]);
-    expect((await decryptStatus(plainRaw, plain)).keyCheckFillable).toBeUndefined();
-  });
-});
-
 function checkUnder(codec: GroupCodec) {
   return codec.seal<KeyCheck>(KEY_CHECK);
 }

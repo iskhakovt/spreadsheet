@@ -26,7 +26,6 @@ import { useSelfJournal } from "../../../lib/self-journal.js";
 import { adoptSession, isPersonSwitch } from "../../../lib/session.js";
 import { getHasSeenIntro } from "../../../lib/storage.js";
 import { useTRPC, useTRPCClient } from "../../../lib/trpc.js";
-import { useFillKeyCheck } from "../../../lib/use-fill-key-check.js";
 import { useLiveStatus } from "../../../lib/use-live-status.js";
 import { useMarkComplete } from "../../../lib/use-mark-complete.js";
 import { useResealLegacyProfile } from "../../../lib/use-reseal-legacy-profile.js";
@@ -230,6 +229,5 @@ function AuthedShell({ children }: Readonly<{ children: React.ReactNode }>) {
   // journal can prove the key before a status-only doubt locks you out.
   assertKeyNotRefuted(authedStatus, codec);
   useResealLegacyProfile();
-  useFillKeyCheck();
   return <>{children}</>;
 }
