@@ -85,6 +85,10 @@ export class SyncStore {
     }
 
     return this.#tx(async (tx) => {
+      // The head check below is a compare-and-swap: lock the person's row
+      // first, so two concurrent pushes can't both pass it.
+      await tx.select({ id: persons.id }).from(persons).where(eq(persons.id, personId)).for("update");
+
       const [head] = await tx
         .select({ id: journalEntries.id })
         .from(journalEntries)

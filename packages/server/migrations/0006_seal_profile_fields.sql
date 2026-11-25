@@ -8,8 +8,9 @@
 -- operations are already sealed in every row.
 --
 -- Postgres' to_json escapes text the way JSON.stringify does, so the payload
--- round-trips through JSON.parse. Sealed values match the pattern and are
--- skipped, which makes a second run a no-op.
-UPDATE "persons" SET "name" = 'p:1:' || to_json("name")::text WHERE "name" !~ '^[pe]:[0-9]+:';
+-- round-trips through JSON.parse. Only `p:1:` / `e:1:` values (the format the
+-- codec reads) are skipped, which makes a second run a no-op. A raw name that
+-- merely looks sealed under another version (`p:12:"x"`) is rewritten too.
+UPDATE "persons" SET "name" = 'p:1:' || to_json("name")::text WHERE "name" !~ '^[pe]:1:';
 --> statement-breakpoint
-UPDATE "persons" SET "anatomy" = 'p:1:' || to_json("anatomy")::text WHERE "anatomy" IS NOT NULL AND "anatomy" !~ '^[pe]:[0-9]+:';
+UPDATE "persons" SET "anatomy" = 'p:1:' || to_json("anatomy")::text WHERE "anatomy" IS NOT NULL AND "anatomy" !~ '^[pe]:1:';

@@ -2,7 +2,16 @@ import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createGroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
-import { addPendingOp, getAnswers, getPendingOps, getStoken, setPendingOps } from "./storage.js";
+import {
+  addPendingOp,
+  addPendingOpForKey,
+  getAnswers,
+  getPendingOps,
+  getStoken,
+  setAnswer,
+  setPendingOps,
+  setStoken,
+} from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 const codec = createGroupCodec(false, null);
@@ -177,6 +186,49 @@ describe("flushPendingOps", () => {
     expect(push.mock.calls[1][0]).toMatchObject({ stoken: "s1", operations: [localOp] });
     expect(getPendingOps()).toEqual([]);
   });
+
+  test("keeps an edit to a key in the batch, made while the push was in flight, queued", async () => {
+    // Dedup moves the edit to the end in place of the sent op; it must stay
+    // queued so the next push sends it.
+    const edit = plainOp("q1:mutual", { rating: "no", note: null });
+    const accepted = { stoken: "s1", pushRejected: false, entries: [] };
+    const rejected = { stoken: "s1", pushRejected: true, entries: [] };
+    for (const [first, ...rest] of [[accepted], [rejected, accepted], [rejected, rejected]]) {
+      setPendingOps([]);
+      addPendingOpForKey(op1, "q1:mutual");
+      addPendingOpForKey(op2, "q2:mutual");
+      const push = vi.fn().mockImplementationOnce(async () => {
+        addPendingOpForKey(edit, "q1:mutual");
+        return first;
+      });
+      for (const response of rest) push.mockResolvedValueOnce(response);
+
+      await flushPendingOps(push, async () => undefined, codec);
+      expect(getPendingOps()).toContain(edit);
+    }
+  });
+
+  test("on conflict, keeps an edit made while the push was in flight", async () => {
+    // The rejection can carry history for a key edited after the batch was
+    // taken; that edit is in the outbox and must win over the history.
+    const maybe: Answer = { rating: "maybe", note: null };
+    const edit = plainOp("q2:mutual", maybe);
+    setPendingOps([op1]);
+    const push = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        setAnswer("q2:mutual", maybe);
+        addPendingOp(edit);
+        return { stoken: "s1", pushRejected: true, entries: [plainOp("q2:mutual", yes)] };
+      })
+      .mockResolvedValueOnce({ stoken: "s2", pushRejected: false, entries: [] });
+
+    await flushPendingOps(push, async () => undefined, codec);
+
+    expect(getAnswers()["q2:mutual"]).toEqual(maybe);
+    expect(push.mock.calls[1][0]).toMatchObject({ operations: [op1] });
+    expect(getPendingOps()).toEqual([edit]);
+  });
 });
 
 /**
@@ -317,5 +369,22 @@ describe("flushPendingOps (rejected push under an unproven key)", () => {
     expect(getPendingOps()).toEqual([mine]);
     // Not acknowledged: the next flush mustn't append on top of these entries.
     expect(getStoken()).toBeNull();
+  });
+
+  test("sends no stoken while the key is unproven, so existing entries come back to be checked", async () => {
+    // Another tab with the group's key saved a current stoken; reusing it
+    // would get this tab's push accepted without seeing those entries.
+    const codec = createGroupCodec(true, await generateGroupKey());
+    setStoken("from-another-tab");
+    setPendingOps([await codec.seal({ key: "kissing:mutual", data: { rating: "yes" as const, note: null } })]);
+    const push = vi.fn().mockResolvedValue({ stoken: "s1", pushRejected: false, entries: [] });
+
+    await flushPendingOps(push, async () => undefined, codec);
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ stoken: null }));
+
+    codec.markKeyProven();
+    setPendingOps([await codec.seal({ key: "oral:give", data: { rating: "no" as const, note: null } })]);
+    await flushPendingOps(push, async () => undefined, codec);
+    expect(push).toHaveBeenLastCalledWith(expect.objectContaining({ stoken: "s1" }));
   });
 });
