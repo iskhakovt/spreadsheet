@@ -210,7 +210,10 @@ export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): v
 
   let next: string[];
   const prior = index.get(key);
-  if (prior && prior.position < ops.length && ops[prior.position] === prior.op) {
+  // An op a push is sending stays put (the edit appends instead), so the
+  // push can clear exactly what it sent.
+  const held = heldPendingOps.get(fullKey)?.count ?? 0;
+  if (prior && prior.position >= held && prior.position < ops.length && ops[prior.position] === prior.op) {
     next = [...ops.slice(0, prior.position), ...ops.slice(prior.position + 1)];
     for (const entry of index.values()) {
       if (entry.position > prior.position) entry.position--;
@@ -227,34 +230,44 @@ export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): v
 }
 
 /**
- * Remove the ops a push sent, one queued copy of each, and keep the rest:
- * ops queued while it was in flight, including a same-key edit that dedup
- * moved to the end in place of a sent op (clearing a prefix by count would
- * drop that edit). Index positions shift in lockstep, so dedup keeps working
- * for the survivors.
+ * Hold the first `count` queued ops while a push sends them: dedup won't
+ * splice them out, so a same-key edit made meanwhile is appended (and stays
+ * queued) instead of replacing an op the push then clears. Release with
+ * {@link releasePendingOps}, on every outcome.
  */
-export function acknowledgePendingOps(sent: readonly string[]): void {
+export function holdPendingOps(count: number): void {
+  const fullKey = getScope() + "pendingOps";
+  const held = heldPendingOps.get(fullKey);
+  heldPendingOps.set(fullKey, { count: Math.max(held?.count ?? 0, count), holders: (held?.holders ?? 0) + 1 });
+}
+
+export function releasePendingOps(): void {
+  const fullKey = getScope() + "pendingOps";
+  const held = heldPendingOps.get(fullKey);
+  if (!held || held.holders <= 1) heldPendingOps.delete(fullKey);
+  else held.holders--;
+}
+
+/**
+ * Remove the first `count` entries from the queue (the ops a push sent,
+ * held by {@link holdPendingOps}) and shift index positions in lockstep,
+ * so the dedup index survives a successful push.
+ */
+export function drainPendingOps(count: number): void {
   const fullKey = getScope() + "pendingOps";
   const ops = getPendingOps();
-  const unmatched = new Map<string, number>();
-  for (const op of sent) unmatched.set(op, (unmatched.get(op) ?? 0) + 1);
-  const removed: number[] = [];
-  const kept = ops.filter((op, position) => {
-    const count = unmatched.get(op) ?? 0;
-    if (count === 0) return true;
-    unmatched.set(op, count - 1);
-    removed.push(position);
-    return false;
-  });
+  const drained = count >= ops.length ? [] : ops.slice(count);
 
   const index = dedupIndexes.get(fullKey);
   if (index) {
     for (const [k, entry] of [...index]) {
-      if (removed.includes(entry.position)) index.delete(k);
-      else entry.position -= removed.filter((p) => p < entry.position).length;
+      if (entry.position < count) index.delete(k);
+      else entry.position -= count;
     }
   }
-  setJson("pendingOps", kept);
+  const held = heldPendingOps.get(fullKey);
+  if (held) held.count = Math.max(0, held.count - count);
+  setJson("pendingOps", drained);
   notifyChanged("pendingOps");
 }
 
@@ -269,6 +282,8 @@ interface DedupEntry {
   op: string;
 }
 const dedupIndexes = new Map<string, Map<string, DedupEntry>>();
+/** Per scope: how many leading ops in-flight pushes are sending, and how many pushes. */
+const heldPendingOps = new Map<string, { count: number; holders: number }>();
 
 function ensureDedupIndex(fullKey: string, ops: readonly string[]): Map<string, DedupEntry> {
   const existing = dedupIndexes.get(fullKey);

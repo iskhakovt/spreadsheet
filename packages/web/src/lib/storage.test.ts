@@ -4,12 +4,14 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adoptSession } from "./session.js";
 import {
-  acknowledgePendingOps,
   addPendingOp,
   addPendingOpForKey,
   clearPendingOps,
+  drainPendingOps,
   getAnswers,
   getPendingOps,
+  holdPendingOps,
+  releasePendingOps,
   setAnswer,
   setAnswers,
   setPendingOps,
@@ -166,13 +168,13 @@ describe("addPendingOpForKey — dedup", () => {
   });
 });
 
-describe("acknowledgePendingOps — keeps the dedup index consistent", () => {
-  it("removes the sent ops and shifts index entries for survivors", () => {
+describe("drainPendingOps — keeps the dedup index consistent", () => {
+  it("removes drained ops and shifts index entries for survivors", () => {
     addPendingOpForKey(plain("oral:give", "a"), "oral:give"); // pos 0
     addPendingOpForKey(plain("kissing:mutual", "b"), "kissing:mutual"); // pos 1
     addPendingOpForKey(plain("anal:give", "c"), "anal:give"); // pos 2
 
-    acknowledgePendingOps([plain("oral:give", "a"), plain("kissing:mutual", "b")]);
+    drainPendingOps(2);
     expect(getPendingOps()).toEqual([plain("anal:give", "c")]);
 
     // Survivor's index entry should still be valid: a same-key write
@@ -181,22 +183,43 @@ describe("acknowledgePendingOps — keeps the dedup index consistent", () => {
     expect(getPendingOps()).toEqual([plain("anal:give", "cc")]);
   });
 
-  it("keeps a same-key edit queued while the push was in flight", () => {
-    // Dedup replaces the sent op with the edit at the end of the queue;
-    // clearing by count would drop the edit and leave the server stale.
-    const sent = [plain("oral:give", "a"), plain("kissing:mutual", "b")];
-    for (const op of sent) addPendingOpForKey(op, JSON.parse(op.slice(4)).key);
-    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
+  it("over-drain clears the queue entirely", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    drainPendingOps(5);
+    expect(getPendingOps()).toEqual([]);
+  });
+});
 
-    acknowledgePendingOps(sent);
-    expect(getPendingOps()).toEqual([plain("oral:give", "ab")]);
+describe("holdPendingOps — ops a push is sending stay put", () => {
+  afterEach(() => releasePendingOps());
+
+  it("appends a same-key edit instead of replacing a held op, then dedups the edit as usual", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    holdPendingOps(1);
+    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
     addPendingOpForKey(plain("oral:give", "abc"), "oral:give");
+    expect(getPendingOps()).toEqual([plain("oral:give", "a"), plain("oral:give", "abc")]);
+
+    // The push clears what it sent; the edit stays queued for the next one.
+    drainPendingOps(1);
+    releasePendingOps();
     expect(getPendingOps()).toEqual([plain("oral:give", "abc")]);
   });
 
-  it("removes one queued copy per sent op, and ignores sent ops no longer queued", () => {
-    setPendingOps([encrypted("x"), encrypted("x"), encrypted("y")]);
-    acknowledgePendingOps([encrypted("x"), encrypted("gone")]);
-    expect(getPendingOps()).toEqual([encrypted("x"), encrypted("y")]);
+  it("keeps an edit back to the sent value: it's a new write, not the sent one", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    holdPendingOps(1);
+    addPendingOpForKey(plain("oral:give", "b"), "oral:give");
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    drainPendingOps(1);
+    expect(getPendingOps()).toEqual([plain("oral:give", "a")]);
+  });
+
+  it("dedups held ops again once released", () => {
+    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
+    holdPendingOps(1);
+    releasePendingOps();
+    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
+    expect(getPendingOps()).toEqual([plain("oral:give", "ab")]);
   });
 });
