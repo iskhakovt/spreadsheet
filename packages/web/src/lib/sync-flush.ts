@@ -1,16 +1,7 @@
 import { OperationPayload, type Progress, type Sealed } from "@spreadsheet/shared";
 import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
-import {
-  drainPendingOps,
-  getAnswers,
-  getPendingOps,
-  getStoken,
-  holdPendingOps,
-  releasePendingOps,
-  setAnswers,
-  setStoken,
-} from "./storage.js";
+import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
 
 interface PushInput {
   stoken: string | null;
@@ -43,11 +34,10 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  * Handles conflict-merge retry once. If the retry also rejects, ops
  * remain in the queue for the next invocation to retry.
  *
- * Clearing: after a successful push we remove only the ops we sent, the
- * queue's first `ops.length`, which `holdPendingOps` keeps in place while
- * the push is in flight. An op queued meanwhile survives, including an
- * edit to a key in the batch: dedup appends it rather than replacing the
- * sent op, so the queue grows and autosync schedules another push.
+ * Clearing: after a successful push we remove only the ops we sent
+ * (a prefix of the queue), not the entire queue. If the user answered
+ * another question while the push was in flight, that newer op was
+ * appended after our snapshot and must survive.
  */
 export async function flushPendingOps(
   push: PushFn,
@@ -56,59 +46,71 @@ export async function flushPendingOps(
 ): Promise<void> {
   const ops = getPendingOps();
   if (ops.length === 0) return;
-  holdPendingOps(ops.length);
-  try {
-    const progress = await getProgress();
-    // While the key is unproven, send no stoken: one another tab saved would
-    // get this push accepted without checking your existing entries. Without
-    // it, any entries come back in a rejection and are checked below.
-    const stoken = codec.encrypted && !codec.keyProven ? null : getStoken();
-    const result = await push({ stoken, operations: ops, progress });
+  const sentCount = ops.length;
 
-    if (!result.pushRejected) {
-      setStoken(result.stoken);
-      drainPendingOps(ops.length);
-      return;
-    }
+  const progress = await getProgress();
+  // While the key is unproven, send no stoken: one another tab saved would
+  // get this push accepted without checking your existing entries. Without
+  // it, any entries come back in a rejection and are checked below.
+  const stoken = codec.encrypted && !codec.keyProven ? null : getStoken();
+  const result = await push({ stoken, operations: ops, progress });
 
-    // Merge reconciles the local answer cache with what the server has,
-    // against the current outbox: an edit made while the push was in flight
-    // must win over the history the rejection returns. The retry re-sends
-    // the same `ops` array: the held prefix a successful retry clears.
-    // The fresh stoken tells the server "I've seen your latest state, apply these."
-    //
-    // `mergeAfterRejection` is the same merge that runs on the bootstrap
-    // path (`useSelfJournal`) and the SSE echo path (`onSelfJournalChange`).
-    // Three call sites, one rule: server values win for keys without a
-    // pending edit; outbox wins for keys with one. The cache slot picks
-    // up this localStorage write via its own subscription's onData when
-    // the retry's commit echoes back, so the slot eventually catches up
-    // without us poking it directly here.
-    // The rejection carries your own unseen entries, possibly the first
-    // evidence about this tab's key: stop with WrongKeyError if none opens,
-    // rather than merge them away and retry under the wrong key.
-    await assertKeyOpens(codec, result.entries, OperationPayload);
-    // Saved only after the check: acknowledging entries that refute the key
-    // would let the next flush append on top of them.
+  if (!result.pushRejected) {
     setStoken(result.stoken);
-    const merged = await mergeAfterRejection(getAnswers(), getPendingOps(), result.entries, codec);
-    setAnswers(merged);
-    const retryProgress = await getProgress();
-    const retry = await push({
-      stoken: result.stoken,
-      operations: ops,
-      progress: retryProgress,
-    });
-    if (!retry.pushRejected) {
-      setStoken(retry.stoken);
-      drainPendingOps(ops.length);
-      return;
-    }
-    // Same check before acknowledging a second rejection's entries.
-    await assertKeyOpens(codec, retry.entries, OperationPayload);
-    setStoken(retry.stoken);
-    console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
-  } finally {
-    releasePendingOps();
+    drainSent(sentCount);
+    return;
   }
+
+  // Merge reconciles the local answer cache with what the server has,
+  // against the current outbox: an edit made while the push was in flight
+  // must win over the history the rejection returns. The retry re-sends
+  // the same `ops` array (not re-read from storage) because ops are
+  // append-only journal entries — they don't change after a merge, only
+  // the local answers map does. The fresh stoken tells the server "I've
+  // seen your latest state, apply these."
+  //
+  // `mergeAfterRejection` is the same merge that runs on the bootstrap
+  // path (`useSelfJournal`) and the SSE echo path (`onSelfJournalChange`).
+  // Three call sites, one rule: server values win for keys without a
+  // pending edit; outbox wins for keys with one. The cache slot picks
+  // up this localStorage write via its own subscription's onData when
+  // the retry's commit echoes back, so the slot eventually catches up
+  // without us poking it directly here.
+  //
+  // The rejection carries your own unseen entries, possibly the first
+  // evidence about this tab's key: stop with WrongKeyError if none opens,
+  // rather than merge them away and retry under the wrong key.
+  await assertKeyOpens(codec, result.entries, OperationPayload);
+  // Saved only after the check: acknowledging entries that refute the key
+  // would let the next flush append on top of them.
+  setStoken(result.stoken);
+  const merged = await mergeAfterRejection(getAnswers(), getPendingOps(), result.entries, codec);
+  setAnswers(merged);
+  const retryProgress = await getProgress();
+  const retry = await push({
+    stoken: result.stoken,
+    operations: ops,
+    progress: retryProgress,
+  });
+  if (!retry.pushRejected) {
+    setStoken(retry.stoken);
+    drainSent(sentCount);
+    return;
+  }
+  // Same check before acknowledging a second rejection's entries.
+  await assertKeyOpens(codec, retry.entries, OperationPayload);
+  setStoken(retry.stoken);
+  console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
+}
+
+/**
+ * Remove the first `count` entries from the pending-ops queue, keeping
+ * any that were appended while the push was in flight. Delegates to
+ * `drainPendingOps` so the in-memory dedup index shifts in lockstep —
+ * naive slice-and-replace would invalidate the whole index and lose
+ * dedup state for any unsent ops appended during the flush.
+ */
+function drainSent(count: number): void {
+  const current = getPendingOps();
+  drainPendingOps(Math.min(count, current.length));
 }

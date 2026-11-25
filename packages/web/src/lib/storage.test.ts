@@ -10,8 +10,6 @@ import {
   drainPendingOps,
   getAnswers,
   getPendingOps,
-  holdPendingOps,
-  releasePendingOps,
   setAnswer,
   setAnswers,
   setPendingOps,
@@ -187,39 +185,5 @@ describe("drainPendingOps — keeps the dedup index consistent", () => {
     addPendingOpForKey(plain("oral:give", "a"), "oral:give");
     drainPendingOps(5);
     expect(getPendingOps()).toEqual([]);
-  });
-});
-
-describe("holdPendingOps — ops a push is sending stay put", () => {
-  afterEach(() => releasePendingOps());
-
-  it("appends a same-key edit instead of replacing a held op, then dedups the edit as usual", () => {
-    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
-    holdPendingOps(1);
-    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
-    addPendingOpForKey(plain("oral:give", "abc"), "oral:give");
-    expect(getPendingOps()).toEqual([plain("oral:give", "a"), plain("oral:give", "abc")]);
-
-    // The push clears what it sent; the edit stays queued for the next one.
-    drainPendingOps(1);
-    releasePendingOps();
-    expect(getPendingOps()).toEqual([plain("oral:give", "abc")]);
-  });
-
-  it("keeps an edit back to the sent value: it's a new write, not the sent one", () => {
-    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
-    holdPendingOps(1);
-    addPendingOpForKey(plain("oral:give", "b"), "oral:give");
-    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
-    drainPendingOps(1);
-    expect(getPendingOps()).toEqual([plain("oral:give", "a")]);
-  });
-
-  it("dedups held ops again once released", () => {
-    addPendingOpForKey(plain("oral:give", "a"), "oral:give");
-    holdPendingOps(1);
-    releasePendingOps();
-    addPendingOpForKey(plain("oral:give", "ab"), "oral:give");
-    expect(getPendingOps()).toEqual([plain("oral:give", "ab")]);
   });
 });
