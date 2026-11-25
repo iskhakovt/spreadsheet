@@ -2,7 +2,7 @@ import { type Answer, plainOp, plainProgress } from "@spreadsheet/shared";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createGroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey } from "./crypto.js";
-import { addPendingOp, getAnswers, getPendingOps, getStoken, setPendingOps } from "./storage.js";
+import { addPendingOp, getAnswers, getPendingOps, getStoken, setPendingOps, setStoken } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 
 const codec = createGroupCodec(false, null);
@@ -317,5 +317,22 @@ describe("flushPendingOps (rejected push under an unproven key)", () => {
     expect(getPendingOps()).toEqual([mine]);
     // Not acknowledged: the next flush mustn't append on top of these entries.
     expect(getStoken()).toBeNull();
+  });
+
+  test("sends no stoken while the key is unproven, so existing entries come back to be checked", async () => {
+    // Another tab with the group's key saved a current stoken; reusing it
+    // would get this tab's push accepted without seeing those entries.
+    const codec = createGroupCodec(true, await generateGroupKey());
+    setStoken("from-another-tab");
+    setPendingOps([await codec.seal({ key: "kissing:mutual", data: { rating: "yes" as const, note: null } })]);
+    const push = vi.fn().mockResolvedValue({ stoken: "s1", pushRejected: false, entries: [] });
+
+    await flushPendingOps(push, async () => undefined, codec);
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ stoken: null }));
+
+    codec.markKeyProven();
+    setPendingOps([await codec.seal({ key: "oral:give", data: { rating: "no" as const, note: null } })]);
+    await flushPendingOps(push, async () => undefined, codec);
+    expect(push).toHaveBeenLastCalledWith(expect.objectContaining({ stoken: "s1" }));
   });
 });

@@ -165,7 +165,7 @@ A wrong key in a link must fail closed: dropping fields instead would send you t
 
 - **Only your own server-side ciphertext proves the key**: profile fields, progress, journal entries. One decrypting (even if its payload then fails the schema) marks the codec proven (`markKeyProven` / `keyProven`). Another member's value or the local outbox opening proves nothing; it only shows the key matches whoever wrote it.
 - **One decision point.** `decryptStatus` flags own ciphertext that didn't open (`ownCiphertextUnproven`); `assertKeyNotRefuted` throws `WrongKeyError` in the layout's `AuthedShell` after journal hydration and on every render, so your journal can prove the key first and refetched or live statuses are covered. The boundary shows the key-mismatch screen before any screen can write.
-- **Journal.** `assertKeyOpens` checks your own entries before the self-journal cursor is saved (skipped once proven, so one corrupt entry can't pass for a wrong key). While unproven, hydration fetches the whole journal, not the delta, since entries behind the cursor may be your only evidence. A live delta that fails stops the stream; a rejected `sync.push` checks the entries it returns before saving its stoken or merging. Each surfaces `WrongKeyError` to the error boundary.
+- **Journal.** `assertKeyOpens` checks your own entries before the self-journal cursor is saved (skipped once proven, so one corrupt entry can't pass for a wrong key). While unproven, hydration fetches the whole journal, not the delta, since entries behind the cursor may be your only evidence. A live delta that fails stops the stream; a rejected `sync.push` checks the entries it returns before saving its stoken or merging, and while unproven a push sends no stoken (another tab's would get it accepted unchecked), so existing entries always come back to be checked. Each surfaces `WrongKeyError` to the error boundary.
 - **Others can't lock you out.** Other members' ciphertext that doesn't open only drops their fields.
 - **One page = one person, one key.** A page keeps the person and key it started with: another person's link (`isPersonSwitch`), a different `#key=` (`isKeySwitch`), or a key arriving on a keyless page (`isKeyArrival`) reloads it, and the fresh page verifies from scratch. The session-scoped status cache and `useSaveProfile`'s session check are backstops.
 - **Residual edge.** Someone with no ciphertext of their own anywhere (legacy plaintext profile, no answers or progress) can't prove any key, so their first write under a wrong key becomes their own ciphertext, and their correct link then fails closed. The same gap lets answers queued under a wrong key reach the journal, unreadable, once the right link is opened, and a wrong-key error from a sync whose screen has unmounted shows only at the next sync. Closing these needs a durable per-group key verifier (a schema change).
@@ -259,9 +259,10 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 1. Receive (stoken, operations)
 2. Decrypt and verify stoken (reject if forged)
 3. Resolve stoken to internal id
-4. Check: is id == current head for this person?
-   YES → append operations, assign sequential ids, return new entries + signed stoken
-   NO  → reject push, return entries since client's id + signed stoken of current head
+4. Lock the person's row (FOR UPDATE), so concurrent pushes take turns
+5. Check: is id == current head for this person?
+   YES → append operations (and progress), assign sequential ids, return new entries + signed stoken
+   NO  → reject push, change nothing, return entries since client's id + signed stoken of current head
 ```
 
 The server is the **sequencer**. It assigns order. Clients never see or guess internal ids.

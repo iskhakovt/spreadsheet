@@ -2,6 +2,7 @@ import { fakeEncrypted, plainOp, plainProgress, plainSealed } from "@spreadsheet
 import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
+import { journalEntries } from "../../db/schema.js";
 import { seed } from "../../db/seed.js";
 import { QuestionStore } from "../../store/questions.js";
 import { anonCtx, authedCtx, createCaller, defaultCreate, tokenCtx } from "../../test/factories.js";
@@ -230,5 +231,48 @@ describe("full sync flow (real Postgres)", () => {
 
     const after = await createCaller(tokenCtx(db, adminToken)).groups.status();
     expect(after!.members[0].progress).toBe("e:1:encryptedProgress");
+  });
+});
+
+describe("concurrent pushes (real Postgres)", () => {
+  it("makes a push wait for one in flight for the same person, then rejects its stale stoken", async () => {
+    const { alice } = await createGroupWithMembers();
+    const aliceId = (await alice.caller.groups.status())!.person!.id;
+    const yes = { rating: "yes" as const, note: null };
+    const base = await alice.caller.sync.push({ stoken: null, operations: [plainOp("a:mutual", yes)] });
+
+    // Stands in for another push of Alice's: it holds her row lock and appends.
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let lockTaken!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      lockTaken = resolve;
+    });
+    const inFlight = db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM persons WHERE id = ${aliceId} FOR UPDATE`);
+      lockTaken();
+      await released;
+      await tx.insert(journalEntries).values({ personId: aliceId, operation: plainOp("b:mutual", yes) });
+    });
+    await locked;
+
+    const push = alice.caller.sync.push({ stoken: base.stoken, operations: [plainOp("c:mutual", yes)] });
+    // The same stoken passes the head check unless the push waits for the lock.
+    await expect
+      .poll(async () => {
+        const rows = await db.execute(
+          sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        return rows.length;
+      })
+      .toBeGreaterThan(0);
+    release();
+    await inFlight;
+
+    const result = await push;
+    expect(result.pushRejected).toBe(true);
+    expect(result.entries).toEqual([plainOp("b:mutual", yes)]);
   });
 });

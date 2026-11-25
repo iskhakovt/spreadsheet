@@ -49,7 +49,11 @@ export async function flushPendingOps(
   const sentCount = ops.length;
 
   const progress = await getProgress();
-  const result = await push({ stoken: getStoken(), operations: ops, progress });
+  // While the key is unproven, send no stoken: one another tab saved would
+  // get this push accepted without checking your existing entries. Without
+  // it, any entries come back in a rejection and are checked below.
+  const stoken = codec.encrypted && !codec.keyProven ? null : getStoken();
+  const result = await push({ stoken, operations: ops, progress });
 
   if (!result.pushRejected) {
     setStoken(result.stoken);
