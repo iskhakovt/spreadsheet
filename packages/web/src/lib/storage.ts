@@ -227,23 +227,34 @@ export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): v
 }
 
 /**
- * Remove the first `count` entries from the queue and shift index
- * positions in lockstep. Replaces the manual slice-and-setPendingOps in
- * the sync flush path so the dedup index survives a successful drain.
+ * Remove the ops a push sent, one queued copy of each, and keep the rest:
+ * ops queued while it was in flight, including a same-key edit that dedup
+ * moved to the end in place of a sent op (clearing a prefix by count would
+ * drop that edit). Index positions shift in lockstep, so dedup keeps working
+ * for the survivors.
  */
-export function drainPendingOps(count: number): void {
+export function acknowledgePendingOps(sent: readonly string[]): void {
   const fullKey = getScope() + "pendingOps";
   const ops = getPendingOps();
-  const drained = count >= ops.length ? [] : ops.slice(count);
+  const unmatched = new Map<string, number>();
+  for (const op of sent) unmatched.set(op, (unmatched.get(op) ?? 0) + 1);
+  const removed: number[] = [];
+  const kept = ops.filter((op, position) => {
+    const count = unmatched.get(op) ?? 0;
+    if (count === 0) return true;
+    unmatched.set(op, count - 1);
+    removed.push(position);
+    return false;
+  });
 
   const index = dedupIndexes.get(fullKey);
   if (index) {
     for (const [k, entry] of [...index]) {
-      if (entry.position < count) index.delete(k);
-      else entry.position -= count;
+      if (removed.includes(entry.position)) index.delete(k);
+      else entry.position -= removed.filter((p) => p < entry.position).length;
     }
   }
-  setJson("pendingOps", drained);
+  setJson("pendingOps", kept);
   notifyChanged("pendingOps");
 }
 

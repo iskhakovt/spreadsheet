@@ -1,7 +1,7 @@
 import { OperationPayload, type Progress, type Sealed } from "@spreadsheet/shared";
 import { assertKeyOpens, type GroupCodec } from "./codec.js";
 import { mergeAfterRejection } from "./journal.js";
-import { drainPendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
+import { acknowledgePendingOps, getAnswers, getPendingOps, getStoken, setAnswers, setStoken } from "./storage.js";
 
 interface PushInput {
   stoken: string | null;
@@ -34,10 +34,10 @@ type PushFn = (input: PushInput) => Promise<PushResult>;
  * Handles conflict-merge retry once. If the retry also rejects, ops
  * remain in the queue for the next invocation to retry.
  *
- * Clearing: after a successful push we remove only the ops we sent
- * (a prefix of the queue), not the entire queue. If the user answered
- * another question while the push was in flight, that newer op was
- * appended after our snapshot and must survive.
+ * Clearing: after a successful push we remove exactly the ops we sent
+ * (`acknowledgePendingOps`), not the entire queue or a prefix of it. An op
+ * queued while the push was in flight must survive, including an edit to
+ * a key in the batch, which dedup moves to the end of the queue.
  */
 export async function flushPendingOps(
   push: PushFn,
@@ -46,7 +46,6 @@ export async function flushPendingOps(
 ): Promise<void> {
   const ops = getPendingOps();
   if (ops.length === 0) return;
-  const sentCount = ops.length;
 
   const progress = await getProgress();
   // While the key is unproven, send no stoken: one another tab saved would
@@ -57,14 +56,14 @@ export async function flushPendingOps(
 
   if (!result.pushRejected) {
     setStoken(result.stoken);
-    drainSent(sentCount);
+    acknowledgePendingOps(ops);
     return;
   }
 
   // Merge reconciles the local answer cache with what the server has,
   // against the current outbox: an edit made while the push was in flight
   // must win over the history the rejection returns. The retry re-sends
-  // the same `ops` array, since `drainSent` clears exactly that prefix.
+  // the same `ops` array, which is what a successful retry acknowledges.
   // The fresh stoken tells the server "I've seen your latest state, apply these."
   //
   // `mergeAfterRejection` is the same merge that runs on the bootstrap
@@ -91,23 +90,11 @@ export async function flushPendingOps(
   });
   if (!retry.pushRejected) {
     setStoken(retry.stoken);
-    drainSent(sentCount);
+    acknowledgePendingOps(ops);
     return;
   }
   // Same check before acknowledging a second rejection's entries.
   await assertKeyOpens(codec, retry.entries, OperationPayload);
   setStoken(retry.stoken);
   console.error("Sync retry also rejected — leaving ops pending for next manual sync.");
-}
-
-/**
- * Remove the first `count` entries from the pending-ops queue, keeping
- * any that were appended while the push was in flight. Delegates to
- * `drainPendingOps` so the in-memory dedup index shifts in lockstep —
- * naive slice-and-replace would invalidate the whole index and lose
- * dedup state for any unsent ops appended during the flush.
- */
-function drainSent(count: number): void {
-  const current = getPendingOps();
-  drainPendingOps(Math.min(count, current.length));
 }

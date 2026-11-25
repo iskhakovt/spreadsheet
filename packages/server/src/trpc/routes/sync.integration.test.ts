@@ -256,10 +256,13 @@ describe("concurrent pushes (real Postgres)", () => {
       await released;
       await tx.insert(journalEntries).values({ personId: aliceId, operation: plainOp("b:mutual", yes) });
     });
-    await locked;
-
-    const push = alice.caller.sync.push({ stoken: base.stoken, operations: [plainOp("c:mutual", yes)] });
+    inFlight.catch(() => {}); // settled in `finally`; this only keeps it from going unhandled
+    let push: ReturnType<typeof alice.caller.sync.push> | undefined;
     try {
+      // Surfaces the transaction's own error if it fails before taking the lock.
+      await Promise.race([locked, inFlight]);
+      push = alice.caller.sync.push({ stoken: base.stoken, operations: [plainOp("c:mutual", yes)] });
+      push.catch(() => {});
       // The same stoken passes the head check unless the push waits for the lock.
       await expect
         .poll(async () => {
@@ -276,7 +279,7 @@ describe("concurrent pushes (real Postgres)", () => {
     }
 
     const result = await push;
-    expect(result.pushRejected).toBe(true);
-    expect(result.entries).toEqual([plainOp("b:mutual", yes)]);
+    expect(result?.pushRejected).toBe(true);
+    expect(result?.entries).toEqual([plainOp("b:mutual", yes)]);
   });
 });
