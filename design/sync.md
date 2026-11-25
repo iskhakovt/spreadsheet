@@ -335,8 +335,7 @@ When the debounce fires (or user taps sync manually):
   1. useMutation calls sync.push { stoken, operations: pendingQueue }
   2. If success:
      - Apply returned entries to local state (replay)
-     - Remove the sent ops from the queue: the prefix the push held, which
-       dedup doesn't touch meanwhile (a same-key edit appends instead)
+     - Clear pending queue
      - Store new stoken
   3. If pushRejected:
      - Apply returned entries to local state, against the current queue
