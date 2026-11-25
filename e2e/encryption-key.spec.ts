@@ -40,9 +40,9 @@ test.describe("encryption key that doesn't fit the group", () => {
   test("a wrong key shows the mismatch screen and changes nothing", async ({ alice, bob }) => {
     const { partnerLink } = await createGroupAndSetup(alice, { encrypted: true });
 
-    // None of Bob's own ciphertext opens under this key. Dropping his fields
-    // instead would send him to /setup to re-enter his name under the wrong
-    // key, overwriting what the real key can read.
+    // The group's key check doesn't open under this key. Dropping Bob's
+    // fields instead would send him to /setup to re-enter his name under the
+    // wrong key, overwriting what the real key can read.
     await bob.goto(partnerLink.replace(/#key=.*$/, `#key=${otherKey()}`));
     await expect(bob.getByText("This link's key doesn't match")).toBeVisible({ timeout: NAV_TIMEOUT });
 
@@ -50,6 +50,26 @@ test.describe("encryption key that doesn't fit the group", () => {
     await bob.goto(partnerLink);
     await bob.reload();
     await expect(bob.getByText("Here's how it works")).toBeVisible({ timeout: NAV_TIMEOUT });
+  });
+
+  test("a wrong key on the admin link before setup shows the mismatch screen", async ({ page }) => {
+    // Nobody has written anything yet, so only the group's key check can
+    // refute the key; setup would otherwise seal every name under it.
+    await page.goto("/");
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
+    await page.getByRole("radio", { name: "All questions", exact: true }).click();
+    await page.getByLabel("End-to-end encryption").check();
+    const create = page.waitForRequest((r) => r.url().includes("groups.create"));
+    await page.getByRole("button", { name: "Create group", exact: true }).click();
+    // The create request carries the key check, sealed.
+    expect(JSON.stringify((await create).postDataJSON())).toMatch(/"keyCheck":"e:1:/);
+    await expect(page.getByText("Set up your group")).toBeVisible({ timeout: NAV_TIMEOUT });
+
+    // A fresh tab, so the page adopts the link's key rather than keeping its own.
+    const wrong = await page.context().newPage();
+    await wrong.goto(page.url().replace(/#key=.*$/, `#key=${otherKey()}`));
+    await expect(wrong.getByText("This link's key doesn't match")).toBeVisible({ timeout: NAV_TIMEOUT });
+    await expect(wrong.getByText("Set up your group")).toHaveCount(0);
   });
 
   test("a key on a plaintext group's link shows the mismatch screen", async ({ alice, bob }) => {
