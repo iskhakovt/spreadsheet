@@ -52,13 +52,13 @@ flush():
   2. in one synchronous step:
        stoken = codec.encrypted && !codec.keyProven ? null : getStoken()
        adopt legacy pendingOps (see Migration)
-       batch  = the legacy block's ops in order, then every entry as (key, id, op)
+       batch  = the legacy block's ops in order as (id, op), then every entry as (key, id, op)
      if batch is empty: stop
   3. result = await sync.push({stoken, operations, progress})   -- aborted after 30 s
-  4. accepted: setStoken(result.stoken); remove the sent strings from the legacy block;
+  4. accepted: setStoken(result.stoken); remove the sent ops from the legacy block, by id;
                delete each sent entry only if its id is still the id that was sent
   5. rejected: await assertKeyOpens(codec, result.entries, OperationPayload)   -- WrongKeyError: stop, nothing saved
-               delete entries whose id appears in result.opIds
+               delete entries and legacy-block ops whose id appears in result.opIds
                setStoken(result.stoken)
                decode result.entries, then merge and setAnswers (see below)
                run steps 1 to 4 once more with a fresh snapshot; if rejected again, repeat
@@ -80,14 +80,16 @@ Remaining window: read-compare-delete isn't atomic across tabs. It can drop an e
 
 ```
 markComplete():
+  disable the questionnaire, so no new edit can start until Done ends
   wait for seals in progress, then adopt legacy pendingOps
   targets = the keys with an entry at tap time, plus the legacy block
-  flush(); if a target key still has an entry or the legacy block isn't empty: flush() once more
+  flush(); if a target key still has an entry or a seal in progress, or the legacy block
+  isn't empty: wait for those seals and flush() once more
   still not clear, or a flush failed or timed out: "couldn't sync" state, don't mark complete
-  sync.markComplete
+  final check and sync.markComplete, with edits still disabled
 ```
 
-Done doesn't wait for autosync; it pushes on its own, bounded by the 30 s timeout per request. Seals come first because `commitAnswer` writes the optimistic answer before its seal resolves, so without the wait Done could see an empty outbox and mark complete before the entry exists. Targets are keys, not ids: an entry replaced by a newer edit still holds its key, so Done has to deliver the replacement too. Done must not go on early, because `sync.markComplete` doesn't look at the outbox and navigating away from `/questions` tears down the autosync timer (`useSyncQueue` cleanup).
+Done doesn't wait for autosync; it pushes on its own, bounded by the 30 s timeout per request. Seals come first because `commitAnswer` writes the optimistic answer before its seal resolves, so without the wait Done could see an empty outbox and mark complete before the entry exists. Edits are blocked because otherwise a target edited while Done's push is held is cleared by that push before the replacement's seal finishes; Done would see an empty target and mark complete, and the replacement would enqueue after autosync is gone. Targets are keys, not ids: an entry replaced by a newer edit still holds its key, so Done has to deliver the replacement too. Done must not go on early, because `sync.markComplete` doesn't look at the outbox and navigating away from `/questions` tears down the autosync timer (`useSyncQueue` cleanup).
 
 The failure state reads "Couldn't sync — your answers are saved on this device. Tap to retry", and Done retries by itself on the browser's `online` event. Today a failed Done gives no feedback (`useMarkComplete` rethrows and the `onClick` in `Question.tsx` doesn't catch it), so someone who closes the tab is never marked complete and their last answers stay only on that device.
 
@@ -96,7 +98,7 @@ The failure state reads "Couldn't sync — your answers are saved on this device
 An API and schema change, which `CLAUDE.md` asks to discuss first. The owner has approved the direction.
 
 - **Schema.** `journal_entries.op_id text NULL`, with a unique index on `(person_id, op_id) WHERE op_id IS NOT NULL`. Existing rows stay null.
-- **`sync.push` input.** Each operation is `{ id, op }` or a bare sealed string (older bundles and the legacy block), stored with a null `op_id`.
+- **`sync.push` input.** Each operation is `{ id, op }` or a bare sealed string (older bundles), stored with a null `op_id`.
 - **Insert.** `ON CONFLICT (person_id, op_id) WHERE op_id IS NOT NULL DO NOTHING`, so the partial index is inferred. The head check and the locks are unchanged.
 - **Duplicates.** `RETURNING` yields only the rows actually inserted. Only those are emitted on the two buses, and the new head is the last of them or, if there are none, the prior head: a duplicate-only push at the current head is accepted, returns the same stoken and emits nothing. (`SyncStore.push` today indexes the last returned row whenever the input is non-empty, which would throw.)
 - **Output.** `op_id` is carried through the store projections, `opaque-id.ts:toWireEntries` and the output schemas, so entries from `sync.selfJournal`, `sync.journal` and both subscriptions gain `opId` (nullable). The push response keeps `entries` as strings, because older bundles read it that way, and adds `opIds`, aligned by position, with `null` for rows without an id.
@@ -109,12 +111,12 @@ This makes a resend after a lost response harmless by construction, for `p:1:` a
 Legacy `pendingOps` strings move, as one ordered block, into a single entry:
 
 ```
-s{hash}:outbox:legacy  →  {"v":1,"ops":["p:1:…","e:1:…"]}
+s{hash}:outbox:legacy  →  {"v":1,"ops":[{"id":"<opId>","op":"p:1:…"},{"id":"<opId>","op":"e:1:…"}]}
 ```
 
-- **Adopt** before each flush, before Done captures its targets, and on load: append to the block, in order, every `pendingOps` string it doesn't already hold, then remove the `pendingOps` key. A second adoption appends; identical strings aren't added twice. Adoption is one synchronous step with no await (the strings are copied verbatim), from reading `pendingOps` and the block to removing `pendingOps`.
-- **Send first.** The block's ops go at the front of the push, as bare strings in their original order, ahead of the per-answer entries. An older legacy op therefore never lands after a newer keyed edit in the same push, and two legacy ops for one key keep their order. No key is parsed out of legacy ops.
-- **Clear** on an accepted push by removing the strings that were sent. After a lost response the block is resent, as today.
+- **Adopt** before each flush, before Done captures its targets, and on load: append to the block, in order, every `pendingOps` string it doesn't already hold, each with a fresh random op id, then remove the `pendingOps` key. A second adoption appends; identical strings aren't added twice. Adoption is one synchronous step with no await (the strings are copied verbatim), from reading `pendingOps` and the block to removing `pendingOps`.
+- **Send first.** The block's ops go at the front of the push in their original order, ahead of the per-answer entries: as bare strings in release 1, as `{ id, op }` once the server accepts ids (release 2). An older legacy op therefore never lands after a newer keyed edit in the same push, and two legacy ops for one key keep their order. No key is parsed out of legacy ops.
+- **Clear** on an accepted push by removing the ops that were sent. From release 2 they are also acknowledged from the journal by id, like keyed entries; otherwise a lost response could clear a keyed op and leave an older legacy op for the same answer to be sent alone. In release 1 a lost response resends the block, as on `main`.
 - **Flush on load, after the key checks.** A load that finds `outbox:legacy` non-empty, freshly adopted or left by an earlier load, flushes without waiting for an edit, so the block never sits in a tab with no autosync. That flush runs only once the layout's key checks have passed (`routes/p/$token/route.tsx`, `assertKeyNotRefuted` after journal hydration): in a group without a key check, a null-stoken push into an empty journal is accepted and returns nothing to verify.
 
 **Mixed versions.** The service worker doesn't reload open tabs (`vite.config.ts`: `registerType: "autoUpdate"`, no reload hook), so an old tab can keep writing `pendingOps` while new tabs run. A new tab adopts those ops on its next load or flush and pushes them. To the old tab that is another tab flushing the queue, which it already lives with on `main` (race 3). What the mixed window adds is listed under [Known corner cases](#known-corner-cases). The server accepts both input shapes. The legacy reader stays for about six months, logging each adoption so its use can be seen falling to zero, and is then deleted.
@@ -182,7 +184,7 @@ Revisit if the client grows into a real local-first data layer, or once it reach
 | unit | Edit a key while its push is held, then acknowledge: the edit stays queued and autosync re-arms | race 1, scheduler |
 | unit | Hold a push past the debounce deadline of a later edit: the edit is pushed once the first settles | stranded autosync |
 | unit | Two edits to one key whose seals complete in reverse order: the newer op is queued | late seal |
-| unit | An encrypted note seal held across a merge and the Done tap: the optimistic answer survives the merge; Done waits, then delivers it before marking complete | sealing edit |
+| unit | An encrypted note seal held across a merge and the Done tap: the optimistic answer survives the merge; Done waits, then delivers it before marking complete. No edit can start while Done runs | sealing edit |
 | unit | Autosync and Done flush at once: each clears only what it sent, Done succeeds | race 2 |
 | unit | Done with a target replaced mid-flush delivers the replacement; two rejections, a failure or a timeout end in the retry state without `sync.markComplete`; legacy ops are adopted before targets are taken | Done |
 | unit | A second tab overwrites and flushes during a held push: the late acknowledgement deletes nothing it didn't send | race 3 |
@@ -192,6 +194,7 @@ Revisit if the client grows into a real local-first data layer, or once it reach
 | unit | Stoken and batch are read after progress resolves | stoken timing |
 | unit | Legacy `string[]` is adopted in order and sent ahead of keyed entries; a second adoption appends without duplicates or drops; an old-code port keeps writing `pendingOps` alongside | migration |
 | unit | Wrong key fragment, refuting profile, empty journal, legacy ops queued: no push before the key-mismatch screen. A reload with only `outbox:legacy` populated flushes it | eager flush |
+| integration | A legacy op and a keyed op for one answer commit and the response is lost: both are acknowledged by id and neither is resent | lost response |
 | integration | Stale-head push of an already-committed op id: rejected, `entries` and `opIds` aligned, nothing inserted | lost response |
 | integration | Duplicate-only push at the current head: accepted, same stoken, nothing emitted | lost response |
 | integration | Mixed duplicate, new and bare-string ops: only the new rows are inserted and emitted, bare strings get a null `op_id` | idempotency |
