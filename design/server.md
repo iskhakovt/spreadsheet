@@ -3,7 +3,9 @@
 ```
 packages/server/src/
   main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Docker entrypoint.
-  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
+  index.ts    ← Prod serve entry: opens the DB, builds stores + the SPA shell, calls createApp + serve.
+  app.ts      ← createApp(...): the Hono app, shared by prod and dev.
+  dev/        ← Dev only. Vite loads entry.ts (Hono entry), state.ts (DB + stores) and shell.ts (SPA shell) to host Hono in-process; globals.d.ts types the shared dev globals.
   events.ts   ← Three EventEmitter instances: groupEvents, journalEvents, selfJournalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
   request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
@@ -83,16 +85,16 @@ Unexpected exceptions surface as 5xx responses, logged at `error` level by the r
 |-|-|
 | `serve` (default) | Start the HTTP server (`index.ts`) — handles queries, mutations, and SSE subscriptions through one fetch pipeline |
 | `migrate` | Apply pending database migrations |
-| `seed` | Sync question bank data — deletes categories / questions / dependencies that disappeared from `questions.yml`, then upserts current rows. Stale-removal runs in FK-safe order (deps → questions → categories), with the category delete deferred until after the question upsert so a kept question can move between categories without a transient FK violation. |
+| `seed` | Sync question bank data with `questions.yml`, in FK-safe order: delete dependencies and questions that disappeared, upsert current categories and questions, delete stale categories (after the question upsert, so a kept question can move between categories), then rewrite dependencies for current questions. |
 | `setup` | migrate + seed (convenience) |
 
 Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md). Migrations are not run on server start so multi-replica deploys don't race.
 
-`index.ts` (the serve path) is imported directly by `tsx watch` in dev, bypassing the CLI dispatcher — dev never touches migrate/seed.
+In dev, `pnpm dev` (`scripts/dev.ts`) starts Postgres, runs `main.ts setup`, then starts Vite, which hosts the Hono app in-process through `@hono/vite-dev-server` (`dev/entry.ts`, wired in `packages/web/vite.config.ts`). That path never loads `index.ts`. `pnpm dev:server` still runs `index.ts` alone under `tsx watch`. It needs `DATABASE_URL` and `STOKEN_SECRET` in the environment and a built web app: `index.ts` reads `index.html` from `STATIC_ROOT` (default `../web/dist`).
 
 ## Metrics
 
-`packages/server/src/metrics.ts` exports a single `@prometheus-io/client` `Registry` and all metric instances. A dedicated metrics-only Hono app serves `GET /metrics` on a separate port (default `9090`, configurable via `METRICS_PORT`), so it can be firewalled off from public traffic independently of the main app.
+`packages/server/src/metrics.ts` exports a single `@prometheus-io/client` `Registry` and all metric instances. The standalone server (`index.ts`) serves `GET /metrics` from a dedicated metrics-only Hono app on a separate port (default `9090`, configurable via `METRICS_PORT`), so it can be firewalled off from public traffic independently of the main app.
 
 ### Infrastructure metrics
 
@@ -113,11 +115,11 @@ Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md)
 
 ## Runtime config injection
 
-The frontend reads runtime values from `window.__ENV`, which is injected into the served `index.html` at serve time:
+The frontend reads runtime values from `window.__ENV`. `index.html` loads `/env-config.js` with a parser-blocking script tag, and the shared Hono app (`app.ts`) serves it with `Cache-Control: no-store`:
 
 ```ts
-const envScript = `<script>window.__ENV=${JSON.stringify(runtimeEnv)}</script>`;
-indexHtml = readFileSync(...).replace("</head>", `${envScript}</head>`);
+const envConfigJs = `window.__ENV=${JSON.stringify(envConfig)};`;
+app.get("/env-config.js", (c) => c.body(envConfigJs)); // + Content-Type, no-store
 ```
 
 This keeps the built static bundle free of environment-specific values and lets the same image target multiple environments without rebuilding.
