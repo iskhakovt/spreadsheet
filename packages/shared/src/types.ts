@@ -92,6 +92,15 @@ export const Progress = z.object({
 export type Progress = z.infer<typeof Progress>;
 
 /**
+ * The fixed value an encrypted group's key check seals. Its content doesn't
+ * matter: the check proves a key by opening under it (design/sync.md § Key
+ * verification).
+ */
+export const KEY_CHECK = "group-key-check:1" as const;
+export const KeyCheck = z.literal(KEY_CHECK);
+export type KeyCheck = z.infer<typeof KeyCheck>;
+
+/**
  * Opaque journal entry id as it appears on the wire. The server seals the
  * internal bigserial so clients can't read the global journal row count
  * from it. Clients must treat it as an opaque, equality-only token: no
@@ -211,13 +220,17 @@ export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
 export const groupSchema = z.object({
   id: z.string(),
   encrypted: z.boolean(),
+  /** Encrypted groups: `KEY_CHECK` sealed under the group key. Null in plaintext groups and encrypted ones created before it. */
+  keyCheck: sealedOutput<KeyCheck>().nullable(),
   isReady: z.boolean(),
   isAdminReady: z.boolean(),
   questionMode: QuestionMode,
   anatomyLabels: AnatomyLabels.nullable(),
   anatomyPicker: AnatomyPicker.nullable(),
 });
-export type Group = z.infer<typeof groupSchema>;
+export type SealedGroup = z.infer<typeof groupSchema>;
+/** The group as the UI sees it: opening the status consumes the key check. */
+export type Group = Omit<SealedGroup, "keyCheck">;
 
 export const groupStatusSchema = z.object({
   person: personSchema.nullable(),
@@ -226,4 +239,4 @@ export const groupStatusSchema = z.object({
 });
 export type SealedGroupStatus = z.infer<typeof groupStatusSchema>;
 export type GroupStatusRow = z.input<typeof groupStatusSchema>;
-export type GroupStatus = Opened<SealedGroupStatus>;
+export type GroupStatus = Opened<Omit<SealedGroupStatus, "group">> & { group: Group };

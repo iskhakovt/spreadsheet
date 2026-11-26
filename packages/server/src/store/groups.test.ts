@@ -1,8 +1,16 @@
-import { type Anatomy, fakeEncrypted, plainProgress, plainSealed, type Sealed } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  fakeEncrypted,
+  type KeyCheck,
+  plainProgress,
+  plainSealed,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
+import { fakeKeyCheck } from "../test/factories.js";
 import { createTestDatabase, truncateAll } from "../test/pglite.js";
 import { GroupStore } from "./groups.js";
 
@@ -29,8 +37,24 @@ const alice = plainSealed("Alice");
 const bob = plainSealed("Bob");
 const afab = plainSealed<Anatomy>("afab");
 
-function createGroup(encrypted = false) {
-  return store.create({ encrypted, questionMode: "all", anatomyLabels: null, anatomyPicker: null });
+const keyCheck = fakeKeyCheck;
+
+async function createGroup(
+  encrypted = false,
+  overrides: Partial<
+    Pick<Parameters<GroupStore["create"]>[0], "questionMode" | "anatomyLabels" | "anatomyPicker">
+  > = {},
+) {
+  const result = await store.create({
+    encrypted,
+    questionMode: "all",
+    anatomyLabels: null,
+    anatomyPicker: null,
+    keyCheck: encrypted ? keyCheck : null,
+    ...overrides,
+  });
+  if ("error" in result) throw new Error(`create failed: ${result.error}`);
+  return result;
 }
 
 /** Set up a group (admin only) in the given mode, with the admin's name sealed to match. */
@@ -55,6 +79,32 @@ describe("GroupStore.create", () => {
     const result = await createGroup();
     expect(result.groupId).toBeDefined();
     expect(result.adminToken.length).toBeGreaterThan(10);
+  });
+
+  it("stores an encrypted group's key check and returns it with the status, before and after setup", async () => {
+    const { adminToken } = await createGroup(true);
+    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
+    await store.setupAdmin(adminToken, { name: fakeEncrypted("alice"), anatomy: null, partners: [] });
+    expect((await store.getStatus(adminToken))!.group.keyCheck).toBe(keyCheck);
+  });
+
+  it("requires an e: key check for an encrypted group and none for a plaintext one", async () => {
+    const base = { questionMode: "all" as const, anatomyLabels: null, anatomyPicker: null };
+    for (const input of [
+      { encrypted: true, keyCheck: null },
+      { encrypted: true, keyCheck: plainSealed<KeyCheck>("group-key-check:1") },
+      // A version clients can't open would prove nothing.
+      { encrypted: true, keyCheck: fakeKeyCheck.replace("e:1:", "e:2:") as Sealed<KeyCheck> },
+      // Nothing that could ever open: empty, not base64url, shorter than an AES-GCM envelope.
+      { encrypted: true, keyCheck: "e:1:" as Sealed<KeyCheck> },
+      { encrypted: true, keyCheck: `${fakeKeyCheck}!` as Sealed<KeyCheck> },
+      { encrypted: true, keyCheck: fakeEncrypted<KeyCheck>("c2hvcnQ") },
+      { encrypted: true, keyCheck: `${fakeKeyCheck}AAA` as Sealed<KeyCheck> }, // payload length 1 mod 4
+      { encrypted: false, keyCheck },
+    ]) {
+      expect(await store.create({ ...base, ...input })).toEqual({ error: "encryption_mismatch" });
+    }
+    expect(await db.select().from(groups)).toHaveLength(0);
   });
 });
 
@@ -91,8 +141,7 @@ describe("GroupStore.setupAdmin", () => {
   });
 
   it("validates anatomy in admin-pick filtered mode", async () => {
-    const { adminToken } = await store.create({
-      encrypted: false,
+    const { adminToken } = await createGroup(false, {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "admin",
@@ -269,8 +318,7 @@ describe("GroupStore.getStatus", () => {
   });
 
   it("computes isReady from anatomy in filtered mode", async () => {
-    const { adminToken } = await store.create({
-      encrypted: false,
+    const { adminToken } = await createGroup(false, {
       questionMode: "filtered",
       anatomyLabels: "anatomical",
       anatomyPicker: "self",

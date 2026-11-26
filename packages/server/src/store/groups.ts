@@ -1,9 +1,39 @@
 import { randomBytes } from "node:crypto";
-import type { Anatomy, AnatomyLabels, AnatomyPicker, GroupStatusRow, Sealed } from "@spreadsheet/shared";
+import {
+  type Anatomy,
+  type AnatomyLabels,
+  type AnatomyPicker,
+  FORMAT_VERSION,
+  type GroupStatusRow,
+  type KeyCheck,
+  PREFIX_ENCRYPTED,
+  type Sealed,
+} from "@spreadsheet/shared";
 import { and, count, eq } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { groups, journalEntries, persons } from "../db/schema.js";
 import { sealedInGroupMode } from "./sealed-mode.js";
+
+const KEY_CHECK_PREFIX = `${PREFIX_ENCRYPTED}:${FORMAT_VERSION}:`;
+/** AES-GCM: a 12-byte IV and a 16-byte tag around at least one byte. */
+const MIN_ENVELOPE_BYTES = 12 + 16 + 1;
+
+/**
+ * An `e:1:` value whose payload is base64url of at least an AES-GCM
+ * envelope. The server can't open it, but it can refuse one that could
+ * never open, which would lock its own group out on the first load.
+ */
+function isKeyCheckEnvelope(value: string): boolean {
+  if (!value.startsWith(KEY_CHECK_PREFIX)) return false;
+  const payload = value.slice(KEY_CHECK_PREFIX.length);
+  // A length of 1 mod 4 isn't base64: Node's decoder drops the extra
+  // character, but the browser's rejects it.
+  return (
+    /^[A-Za-z0-9_-]+$/.test(payload) &&
+    payload.length % 4 !== 1 &&
+    Buffer.from(payload, "base64url").length >= MIN_ENVELOPE_BYTES
+  );
+}
 
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
@@ -23,12 +53,21 @@ export class GroupStore {
     this.#tx = (fn) => (db as any).transaction(fn);
   }
 
+  /**
+   * An encrypted group needs an `e:1:` key check (a version clients can
+   * open, or it would prove nothing) shaped like ciphertext; a plaintext
+   * one none.
+   */
   async create(input: {
     encrypted: boolean;
     questionMode: "all" | "filtered";
     anatomyLabels: string | null;
     anatomyPicker: string | null;
+    keyCheck: Sealed<KeyCheck> | null;
   }) {
+    const keyCheckOk =
+      input.keyCheck === null ? !input.encrypted : input.encrypted && isKeyCheckEnvelope(input.keyCheck);
+    if (!keyCheckOk) return { error: "encryption_mismatch" as const };
     return this.#tx(async (tx) => {
       const adminToken = generateToken();
       const [group] = await tx
@@ -36,6 +75,7 @@ export class GroupStore {
         .values({
           adminToken,
           encrypted: input.encrypted,
+          keyCheck: input.keyCheck,
           isReady: false,
           questionMode: input.questionMode,
           anatomyLabels: input.anatomyLabels,
@@ -218,6 +258,7 @@ export class GroupStore {
           group: {
             id: group.id,
             encrypted: group.encrypted,
+            keyCheck: group.keyCheck,
             isReady: false,
             isAdminReady: false,
             questionMode: group.questionMode,
@@ -268,6 +309,7 @@ export class GroupStore {
         group: {
           id: group.id,
           encrypted: group.encrypted,
+          keyCheck: group.keyCheck,
           isReady: groupReady,
           isAdminReady: group.isReady,
           questionMode: group.questionMode,

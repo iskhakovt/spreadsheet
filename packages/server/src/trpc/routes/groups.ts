@@ -4,6 +4,7 @@ import {
   AnatomyLabels,
   AnatomyPicker,
   groupStatusSchema,
+  type KeyCheck,
   QuestionMode,
   sealed,
 } from "@spreadsheet/shared";
@@ -37,13 +38,17 @@ export const groupsRouter = router({
         questionMode: QuestionMode,
         anatomyLabels: AnatomyLabels.nullable(),
         anatomyPicker: AnatomyPicker.nullable(),
+        // Optional so cached clients from before the check can still create
+        // plaintext groups; an encrypted group without one is rejected.
+        keyCheck: sealed<KeyCheck>().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       if (process.env.REQUIRE_ENCRYPTION !== "false" && !input.encrypted) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Encryption is required" });
       }
-      const result = await ctx.groups.create(input);
+      const result = await ctx.groups.create({ ...input, keyCheck: input.keyCheck ?? null });
+      if ("error" in result) throw encryptionMismatchError();
       groupsCreatedCounter.inc();
       return result;
     }),

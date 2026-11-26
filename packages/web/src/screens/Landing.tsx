@@ -1,5 +1,5 @@
-import type { AnatomyLabels, AnatomyPicker, QuestionMode } from "@spreadsheet/shared";
-import { ANATOMY_LABEL_PRESETS } from "@spreadsheet/shared";
+import type { AnatomyLabels, AnatomyPicker, KeyCheck, QuestionMode } from "@spreadsheet/shared";
+import { ANATOMY_LABEL_PRESETS, KEY_CHECK } from "@spreadsheet/shared";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
@@ -9,6 +9,7 @@ import { SourceLink } from "../components/source-link.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { TipJarLink } from "../components/tip-jar-link.js";
 import { cn } from "../lib/cn.js";
+import { createGroupCodec } from "../lib/codec.js";
 import { generateGroupKey } from "../lib/crypto.js";
 import { UI } from "../lib/strings.js";
 import { useTRPC } from "../lib/trpc.js";
@@ -128,11 +129,14 @@ function CreateGroup({ onCreated }: Readonly<{ onCreated: (token: string) => voi
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const groupKey = encrypted ? await generateGroupKey() : null;
+    // Lets every link to the group prove or refute its key on load.
+    const keyCheck = groupKey ? await createGroupCodec(true, groupKey).seal<KeyCheck>(KEY_CHECK) : null;
     const result = await createMutation.mutateAsync({
       encrypted,
       questionMode,
       anatomyLabels: isFiltered ? anatomyLabels : null,
       anatomyPicker: isFiltered ? anatomyPicker : null,
+      keyCheck,
     });
     if (groupKey) {
       onCreated(`${result.adminToken}#key=${groupKey}`);

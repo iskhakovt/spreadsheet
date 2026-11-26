@@ -1,4 +1,4 @@
-import { type GroupStatusRow, plainSealed } from "@spreadsheet/shared";
+import { type GroupStatusRow, KEY_CHECK, type KeyCheck, plainSealed } from "@spreadsheet/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGroupCodec, type GroupCodec, WrongKeyError } from "./codec.js";
 import { generateGroupKey, MissingKeyError } from "./crypto.js";
@@ -16,6 +16,7 @@ function status(
   self: Profile | null,
   others: Profile[],
   progress: string | null = null,
+  keyCheck: string | null = null,
 ): GroupStatusRow {
   const flags = { isAdmin: false, isCompleted: false };
   return {
@@ -23,6 +24,7 @@ function status(
     group: {
       id: "g1",
       encrypted,
+      keyCheck,
       isReady: true,
       isAdminReady: true,
       questionMode: "filtered",
@@ -236,3 +238,55 @@ describe("decryptStatus", () => {
     await expect(decryptStatus(raw, createGroupCodec(true, null))).rejects.toBeInstanceOf(MissingKeyError);
   });
 });
+
+describe("decryptStatus with the group's key check", () => {
+  it("proves the key, even with no data of your own", async () => {
+    const opened = await decryptStatus(status(true, null, [], null, await checkUnder(encrypted)), encrypted);
+    expect(encrypted.keyProven).toBe(true);
+    // Consumed: the opened status doesn't carry it.
+    expect(opened.group).not.toHaveProperty("keyCheck");
+  });
+
+  it("refutes a wrong key with no data of your own, e.g. an admin link before setup", async () => {
+    // Without the check nothing could, and setup would seal every name under the wrong key.
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(true, null, [], null, await checkUnder(theirs));
+    await expect(decryptStatus(raw, encrypted)).rejects.toBeInstanceOf(WrongKeyError);
+  });
+
+  it("counts a check that decrypts but holds another value as proof", async () => {
+    const raw = status(true, null, [], null, await encrypted.seal("something else"));
+    await decryptStatus(raw, encrypted);
+    expect(encrypted.keyProven).toBe(true);
+  });
+
+  it("ignores a check that isn't ciphertext: anyone with database access could write it", async () => {
+    const raw = status(true, null, [], null, plainSealed(KEY_CHECK));
+    await decryptStatus(raw, encrypted);
+    expect(encrypted.keyProven).toBe(false);
+    expect(console.error).toHaveBeenCalledWith("Ignoring the group's key check (mode)");
+  });
+
+  it("once it proves the key, your own field that doesn't open drops instead of deferring", async () => {
+    const theirs = createGroupCodec(true, await generateGroupKey());
+    const raw = status(
+      true,
+      { id: "me", name: await theirs.seal("Alice"), anatomy: null },
+      [],
+      null,
+      await checkUnder(encrypted),
+    );
+    const opened = await decryptStatus(raw, encrypted);
+    expect(opened.person?.name).toBe("");
+    expect(opened.ownCiphertextUnproven).toBeUndefined();
+  });
+
+  it("throws MissingKeyError when the key is missing", async () => {
+    const raw = status(true, null, [], null, await checkUnder(encrypted));
+    await expect(decryptStatus(raw, createGroupCodec(true, null))).rejects.toBeInstanceOf(MissingKeyError);
+  });
+});
+
+function checkUnder(codec: GroupCodec) {
+  return codec.seal<KeyCheck>(KEY_CHECK);
+}

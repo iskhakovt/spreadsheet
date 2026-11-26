@@ -2,6 +2,7 @@ import {
   Anatomy,
   type GroupStatus,
   type GroupStatusRow,
+  KeyCheck,
   type Member,
   type PayloadSchema,
   type Person,
@@ -34,8 +35,10 @@ export type LiveGroupStatus = GroupStatus & {
  * blank everyone's screen: another member's name becomes `UI.unreadableName`,
  * your own name "" (routes you to /setup), and anatomy / progress null.
  *
- * If your own ciphertext is present and none of it opens, the status is
- * flagged `ownCiphertextUnproven`, and `assertKeyNotRefuted` throws
+ * The group's key check, when it has one, proves the key or throws
+ * {@link WrongKeyError} before any field is opened. Without one, if your own
+ * ciphertext is present and none of it opens, the status is flagged
+ * `ownCiphertextUnproven`, and `assertKeyNotRefuted` throws
  * {@link WrongKeyError} unless your journal proves the key first. Other
  * members' ciphertext is only dropped. Your own legacy plaintext is read and
  * flagged (`profileHasLegacyPlaintext`). See design/sync.md § Sealed values.
@@ -46,6 +49,9 @@ export async function decryptStatus(
   raw: GroupStatusRow,
   codec: GroupCodec = getGroupCodec(raw.group.encrypted),
 ): Promise<LiveGroupStatus> {
+  const { keyCheck, ...group } = raw.group;
+  if (codec.encrypted && keyCheck !== null) await verifyKeyCheck(keyCheck, codec);
+
   const selfId = raw.person?.id ?? null;
   let ownCiphertext = false;
   let ownCiphertextOpened = false;
@@ -120,11 +126,23 @@ export async function decryptStatus(
 
   return {
     ...raw,
+    group,
     person,
     members,
     ...(ownLegacyPlaintext ? { profileHasLegacyPlaintext: true as const } : {}),
     ...(unproven ? { ownCiphertextUnproven: true as const } : {}),
   };
+}
+
+/**
+ * Decides the key for everyone, including someone with no data of their own
+ * yet. A key check that isn't ciphertext proves nothing, so it's ignored.
+ */
+async function verifyKeyCheck(keyCheck: string, codec: GroupCodec): Promise<void> {
+  const result = await codec.tryOpen(keyCheck, KeyCheck);
+  if (result.ok || result.reason === "payload") codec.markKeyProven();
+  else if (result.reason === "decrypt") throw new WrongKeyError();
+  else console.error(`Ignoring the group's key check (${result.reason})`);
 }
 
 /**
