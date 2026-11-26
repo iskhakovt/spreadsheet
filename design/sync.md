@@ -343,6 +343,8 @@ Principle: propagate live, never mutate status implicitly. Navigation to edit is
 
 Sync is driven by `useSyncQueue` (`lib/use-sync-queue.ts`), which wraps `useMutation(trpc.sync.push)` with a 3-second debounce after the last answer change and automatic conflict-merge retry on `pushRejected`.
 
+The pending queue has known races across overlapping flushes and tabs; the planned replacement is in [outbox.md](outbox.md).
+
 ```
 On each answer tap:
   1. Update local answer state (localStorage)
