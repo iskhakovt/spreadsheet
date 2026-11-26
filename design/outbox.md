@@ -137,6 +137,13 @@ Accepted, with no extra machinery:
 - **Adoption racing an old tab.** Adoption's read-then-remove of `pendingOps` isn't atomic against an old tab's write, so an op the old tab enqueues in that instant can be lost. And if a keyed edit has already committed when an older legacy op for the same question is adopted, the older value lands last. Both need an old and a new tab open on the same person, editing the same question at the same moment, and are no worse than what two old tabs do on `main`.
 - **A lost response at the switch to op ids.** Release 1 commits a bare string and loses the response; release 2 resends the op with an id the row never recorded. One duplicate append, as on `main`. The same applies if the client is rolled back to bare strings.
 
+## Interactions
+
+- **The per-group push lock (#248).** `SyncStore.push` locks the person's row (`FOR UPDATE`), then takes `pg_advisory_xact_lock(hashtextextended('journal-push:' || groupId, 0))`, so a group's journal ids commit in id order. The idempotent insert stays in that transaction, after both locks. An all-duplicate push still takes the locks and inserts nothing. Rows skipped by `ON CONFLICT` consume sequence values; the gaps are harmless because cursors compare with `id >`.
+- **The journal gate fixes in [../todo.md](../todo.md)** (`journalSince` in one REPEATABLE READ transaction; the live-batch gate recheck in `sync.onJournalChange`) touch the same read and emit paths as `opId`. They compose: `opId` is projection-only, and an all-duplicate push emits nothing, so there is no batch to gate. Whichever lands second merges.
+- **Rotating the person token** (todo, Later). localStorage is scoped by `fnv1a(token)`, so rotating a token on a device that already used it strands its `outbox:*` entries, stoken and `answers` snapshot under the old scope. Rotation has to move the scoped keys to the new scope before anything else runs, and has to work with the one-page-one-person reload (`session.ts:isPersonSwitch`). A genuine first land has nothing to move.
+- **Background Sync** (todo, Later). A service worker can send already-sealed ops but can't handle a rejection: `assertKeyOpens` and the merge need the group key, which lives only in each tab's sessionStorage (`crypto.ts`). It could wake a tab to flush, not flush by itself.
+
 ## Rejected alternatives
 
 | Approach | Why not |
