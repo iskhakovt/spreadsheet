@@ -60,7 +60,7 @@ flush():
   5. rejected: await assertKeyOpens(codec, result.entries, OperationPayload)   -- WrongKeyError: stop, nothing saved
                delete entries whose id appears in result.opIds
                setStoken(result.stoken)
-               await the self-journal catch-up (see below)
+               decode result.entries, then merge and setAnswers (see below)
                run steps 1 to 4 once more with a fresh snapshot; if rejected again, repeat
                the first three lines of step 5 and leave the rest queued
 ```
@@ -69,9 +69,8 @@ flush():
 - **Overlapping flushes are safe**, so autosync and Done keep separate guards and no shared flusher or lock is needed. When two pushes carry the same op, the server's head check rejects one (`SyncStore.push`), and its rejection lists the op id.
 - **The retry takes a fresh snapshot**, so it never sends an op that was replaced or acknowledged meanwhile.
 - **Stoken and batch are read together**, after progress is sealed. A push holding a replaced op then also holds a stoken from before the replacement existed, and is rejected if the replacement has committed.
-- **Key verification is unchanged** ([sync.md § Key verification](sync.md#key-verification)): a null stoken while the key is unproven, `assertKeyOpens` before anything is deleted or saved, the merge against the current outbox (now in the catch-up), progress only on an accepted push.
-- **One ordered path writes answers from the journal.** On `main` a rejection merges its own entries (`mergeAfterRejection` in `flushPendingOps`), apart from the chain that applies stream deltas (`self-journal.ts`, `chainRef`). If its decode finishes after the stream has applied a newer value for a key, it writes the older one over it, and the cursor is already past the newer entry. Here a rejection writes no answers itself: it asks the self-journal path to catch up with one `sync.selfJournal` delta from the cache's cursor, fetched and applied on that chain, and awaits it before retrying. The server filters by the cursor, so nothing at or below it is applied twice and the push response needs no entry ids. The layout exposes the catch-up through `PersonAppContext`.
-- **The merge reads local state when it writes.** On `main` the merge is handed `getAnswers()` and the queue before it decrypts, so an edit made during decryption is overwritten by the `setAnswers` that follows. Here the delta (and the legacy block's keys) are decoded first; then, in one synchronous step, the latest answers and the current entry keys are read, the delta is applied and the result written (`self-journal.ts:applySelfJournalDelta`).
+- **Key verification is unchanged** ([sync.md § Key verification](sync.md#key-verification)): a null stoken while the key is unproven, `assertKeyOpens` before anything is deleted or saved, the merge against the current outbox, progress only on an accepted push.
+- **The merge reads local state when it writes.** On `main`, `mergeAfterRejection` is handed `getAnswers()` and the queue before it decrypts, so an edit made during decryption is overwritten by the `setAnswers` that follows. Here the delta (and the legacy block's keys) are decoded first; then, in one synchronous step, the latest answers and the pending set are read, the delta is applied and the result written. The pending set is the keys with an entry, the legacy block's keys, and the keys with a seal in progress, because `commitAnswer` writes the optimistic answer before its seal resolves. The same holds for hydration and the live stream (`self-journal.ts:applySelfJournalDelta`).
 - **Journal acknowledgement** also runs where own entries arrive outside a push: hydration (`sync.selfJournal`) and the live stream (`sync.onSelfJournalChange`), after `assertKeyOpens` and before the merge. An entry whose id is in the journal is deleted.
 - **Autosync re-arms on the change counter**, not the count: an overwrite doesn't change the count. If the debounce fires while a push is in flight, `handleSync`'s guard returns without pushing; it records the skipped wakeup and reschedules when the guard clears, so an edit that push left in place isn't stranded.
 
@@ -126,7 +125,7 @@ s{hash}:outbox:legacy  →  {"v":1,"ops":["p:1:…","e:1:…"]}
 
 Two releases, roll-forward only:
 
-1. **The per-answer outbox.** Fixes races 1 to 4, the late seal, the stranded autosync, the merge timing and ordering, the frozen-batch retry and the stoken timing. It sends bare strings and has no journal acknowledgement yet, so a lost response still resends as on `main`.
+1. **The per-answer outbox.** Fixes races 1 to 4, the late seal, the stranded autosync, the merge timing, the frozen-batch retry and the stoken timing. It sends bare strings and has no journal acknowledgement yet, so a lost response still resends as on `main`.
 2. **Server idempotency keys.** The server change deploys with the client that sends `{ id, op }` and acknowledges from the journal. Adds the lost-response safety.
 
 There is no drain-back release: its reader would stay live in cached tabs during the forward rollout and move new entries back into `pendingOps` mid-push. If release 1 misbehaves, it is fixed forward. Reverting the client would strand whatever is queued under `outbox:*`; that is the accepted cost.
@@ -138,6 +137,7 @@ Accepted, with no extra machinery:
 - **Adoption against an old tab's write.** Old code rewrites the whole `pendingOps` array from its own read, and adoption removes the whole key. If an old tab's enqueue lands between adoption's read and its remove, that op is deleted unsent, whichever question it is for. If the old tab read the array before the remove and writes after it, the adopted ops reappear and are adopted again: a duplicate send if they had already been cleared. Both need the two writes to interleave within one synchronous step.
 - **Two new tabs adopting at once.** Adoption has no await, so the only overlap is another process's write inside that step. One tab's block write can then replace the other's; they hold the same strings unless an old tab added one in between.
 - **One question edited in an old tab and a new tab before either syncs.** The legacy block is sent first, so the new tab's value lands last even when the old tab's edit was the later one. And an old-tab op written after a push's snapshot is adopted by a later push, after a keyed edit that the first push committed. `main` orders these correctly through its single array; this is specific to the mixed-version window.
+- **A rejection's merge against the live stream.** A rejection whose decode finishes after the stream has applied a newer value for the same key, with nothing pending for it, writes the older value locally. This is on `main` today and the outbox doesn't make it worse; the server is unaffected and the local view corrects on the next full replay. The fix is a single ordered reconciliation path for all journal deltas, recorded here as a follow-up, not part of this design.
 - **Seal ordering across tabs.** Tab A starts sealing an edit; tab B makes a newer edit to the same question, seals it and commits it; A's seal then finishes, passes its own tab's counter, and the older value can commit over B's. Needs the same question edited in two tabs within one seal's duration (milliseconds).
 - **A lost response at the switch to op ids.** Release 1 commits a bare string and loses the response; release 2 resends the op with an id the row never recorded. One duplicate append, as on `main`. The same applies if the client is rolled back to bare strings.
 
@@ -182,14 +182,13 @@ Revisit if the client grows into a real local-first data layer, or once it reach
 | unit | Edit a key while its push is held, then acknowledge: the edit stays queued and autosync re-arms | race 1, scheduler |
 | unit | Hold a push past the debounce deadline of a later edit: the edit is pushed once the first settles | stranded autosync |
 | unit | Two edits to one key whose seals complete in reverse order: the newer op is queued | late seal |
-| unit | An encrypted note seal held across the Done tap: Done waits, then delivers it before marking complete | sealing edit |
+| unit | An encrypted note seal held across a merge and the Done tap: the optimistic answer survives the merge; Done waits, then delivers it before marking complete | sealing edit |
 | unit | Autosync and Done flush at once: each clears only what it sent, Done succeeds | race 2 |
 | unit | Done with a target replaced mid-flush delivers the replacement; two rejections, a failure or a timeout end in the retry state without `sync.markComplete`; legacy ops are adopted before targets are taken | Done |
 | unit | A second tab overwrites and flushes during a held push: the late acknowledgement deletes nothing it didn't send | race 3 |
 | unit | Two tabs enqueue different keys at once: both entries exist | race 4 |
-| unit | Rejection order is `assertKeyOpens`, delete by op id, `setStoken`, catch-up, fresh-snapshot retry; existing key-verification cases in `sync-flush.test.ts` keep their assertions | frozen batch, key verification |
-| unit | An edit made while a hydration, catch-up or live delta is decrypting survives the merge | merge timing |
-| unit | A rejection's catch-up held while the stream applies a newer value for the key: the newer value stands | ordered path |
+| unit | Rejection order is `assertKeyOpens`, delete by op id, `setStoken`, merge, fresh-snapshot retry; existing key-verification cases in `sync-flush.test.ts` keep their assertions | frozen batch, key verification |
+| unit | An edit made while a rejection, hydration or live delta is decrypting survives the merge | merge timing |
 | unit | Stoken and batch are read after progress resolves | stoken timing |
 | unit | Legacy `string[]` is adopted in order and sent ahead of keyed entries; a second adoption appends without duplicates or drops; an old-code port keeps writing `pendingOps` alongside | migration |
 | unit | Wrong key fragment, refuting profile, empty journal, legacy ops queued: no push before the key-mismatch screen. A reload with only `outbox:legacy` populated flushes it | eager flush |
