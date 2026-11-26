@@ -20,6 +20,13 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
+// Checked here rather than on first use: without it every push and journal
+// read fails, but the server would still start and pass `/health`.
+if (!process.env.STOKEN_SECRET) {
+  logger.fatal("STOKEN_SECRET environment variable is required");
+  throw new Error("STOKEN_SECRET environment variable is required");
+}
+
 const { db, close: closeDb } = createDatabase(databaseUrl);
 const stores = {
   groups: new GroupStore(db),

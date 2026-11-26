@@ -15,7 +15,7 @@ docker pull ghcr.io/iskhakovt/spreadsheet:<version>
 | Variable | Required | Default | Description |
 |-|-|-|-|
 | `DATABASE_URL` | Yes | — | Postgres connection string |
-| `STOKEN_SECRET` | Yes | — | Secret for sync tokens and opaque journal cursors (32+ random chars) |
+| `STOKEN_SECRET` | Yes | — | Secret for sync tokens and opaque journal cursors (32+ random chars). `serve` refuses to start without it. |
 | `PORT` | No | `8080` | HTTP port |
 | `METRICS_PORT` | No | `9090` | Prometheus metrics port (bind to internal network only) |
 | `LOG_LEVEL` | No | `info` | Pino log level (`debug`, `info`, `warn`, `error`, `fatal`) |
