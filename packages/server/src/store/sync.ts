@@ -40,19 +40,6 @@ async function selectJournalForPerson(
   return { entries: rows, cursor };
 }
 
-/**
- * Decode the client's push cursor, or `null` if it's unreadable (rotated
- * `STOKEN_SECRET`, corrupted storage, tampering). `push` treats `null` as
- * maximally stale rather than an error — see the call site.
- */
-function decodeClientHead(stoken: string): number | null {
-  try {
-    return decodeStoken(stoken);
-  } catch {
-    return null;
-  }
-}
-
 export class SyncStore {
   #tx: <T>(fn: (tx: Transaction) => Promise<T>) => Promise<T>;
 
@@ -97,7 +84,7 @@ export class SyncStore {
         .limit(1);
 
       const currentHead = head?.id ?? 0;
-      const decodedHead = input.stoken ? decodeClientHead(input.stoken) : 0;
+      const decodedHead = input.stoken ? decodeStoken(input.stoken) : 0;
       const stokenInvalid = decodedHead === null;
       // An unreadable stoken is maximally stale, not an error: `-1` never
       // matches the head, so the push takes the rejection path, which

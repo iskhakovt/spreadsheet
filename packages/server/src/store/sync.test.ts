@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import {
   type Anatomy,
   fakeEncrypted,
@@ -211,6 +212,40 @@ describe("SyncStore.push", () => {
     if (!("pushRejected" in retry)) throw new Error("unexpected error");
     expect(retry.pushRejected).toBe(false);
     expect(retry.stokenInvalid).toBe(false);
+  });
+
+  it("rejects a legacy v1 stoken even when it names the current head", async () => {
+    const { personId, encrypted } = await createTestPerson();
+    const first = await store.push(
+      personId,
+      {
+        stoken: null,
+        operations: [plainOp("a:mutual", { rating: "yes", note: null })],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in first)) throw new Error("unexpected error");
+
+    // A correctly signed pre-opaque v1 token naming the real head still
+    // resyncs: only the sealed form is read.
+    const payload = `v1:${decodeStoken(first.stoken!)}`;
+    const mac = createHmac("sha256", "test-secret").update(payload).digest("base64url");
+    const legacy = Buffer.from(`${payload}:${mac}`).toString("base64url");
+
+    const rejected = await store.push(
+      personId,
+      {
+        stoken: legacy,
+        operations: [plainOp("b:mutual", { rating: "no", note: null })],
+        progress: undefined,
+      },
+      encrypted,
+    );
+    if (!("pushRejected" in rejected)) throw new Error("unexpected error");
+    expect(rejected.pushRejected).toBe(true);
+    expect(rejected.stokenInvalid).toBe(true);
+    expect(rejected.stoken).toBe(first.stoken);
   });
 
   it("updates progress", async () => {
