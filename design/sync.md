@@ -42,7 +42,7 @@ tag   = "journal1" (entry ids / read cursors) | "stoken02" (push cursor)
 | Tamper-proof | A modified or foreign token decrypts to a block whose 8-byte tag doesn't match (2^-64 forgery odds) |
 | Domain-separated | Different tags, so a read cursor can't be replayed as a stoken |
 
-Clients treat ids as equality-only tokens. Entry order comes from the server's response order, never from the id: each stream delivers entries in ascending internal id, and every delta only carries ids past that stream's cursor, so arrival order is id order. Known gap: the cursor filters assume id order equals commit order, which Postgres doesn't guarantee for concurrent pushes — an entry whose transaction commits after a higher id can be skipped by a live stream (tracked in `todo.md`).
+Clients treat ids as equality-only tokens. Entry order comes from the server's response order, never from the id: each stream delivers entries in ascending internal id, and every delta only carries ids past that stream's cursor, so arrival order is id order. The cursor filters (`id > cursor`) rely on ids committing in id order within a group. Postgres takes the id at INSERT and shows the row at COMMIT, so `push` serializes per group to guarantee it (see [Server logic](#server-logic)). That guarantee covers commit order, which backfills and resumes read. Live delivery follows it in practice but not by construction: each push emits right after its own COMMIT, in the same event-loop turn, while the group's next push still has several round trips to make before its COMMIT.
 
 Decoding is lenient everywhere, because the client can't recover from an error on a cursor it persisted:
 
@@ -278,7 +278,9 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 2. Decrypt and verify stoken (reject if forged)
 3. Resolve stoken to internal id
 4. Lock the person's row (FOR UPDATE), so concurrent pushes take turns
-5. Check: is id == current head for this person?
+5. Take the group's push lock (a transaction advisory lock), so the group's
+   journal ids commit in id order
+6. Check: is id == current head for this person?
    YES → append operations (and progress), assign sequential ids, return new entries + signed stoken
    NO  → reject push, change nothing, return entries since client's id + signed stoken of current head
 ```
