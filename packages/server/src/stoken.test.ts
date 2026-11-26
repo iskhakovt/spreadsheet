@@ -27,12 +27,24 @@ describe("stoken", () => {
     const stoken = encodeStoken(10);
     // Flip a character in the middle
     const tampered = stoken.slice(0, 5) + "X" + stoken.slice(6);
-    expect(() => decodeStoken(tampered)).toThrow();
+    expect(decodeStoken(tampered)).toBeNull();
   });
 
   it("rejects non-base64url input", async () => {
     const { decodeStoken } = await import("./stoken.js");
-    expect(() => decodeStoken("not-valid!!!")).toThrow();
+    expect(decodeStoken("not-valid!!!")).toBeNull();
+  });
+
+  it("rejects a stoken sealed under a different secret", async () => {
+    const { encodeStoken, decodeStoken } = await import("./stoken.js");
+    const stoken = encodeStoken(10);
+    const previous = process.env.STOKEN_SECRET;
+    process.env.STOKEN_SECRET = "rotated-secret";
+    try {
+      expect(decodeStoken(stoken)).toBeNull();
+    } finally {
+      process.env.STOKEN_SECRET = previous;
+    }
   });
 
   it("handles id 0", async () => {
@@ -55,17 +67,11 @@ describe("stoken", () => {
     expect(Buffer.from(stoken, "base64url").toString("latin1")).not.toContain("424242");
   });
 
-  it("still accepts legacy v1 stokens persisted by older clients", async () => {
+  it("rejects a legacy v1 stoken, even one signed with the current secret", async () => {
     const { decodeStoken } = await import("./stoken.js");
     const payload = "v1:17";
     const mac = createHmac("sha256", "test-secret-for-stoken").update(payload).digest("base64url");
     const legacy = Buffer.from(`${payload}:${mac}`).toString("base64url");
-    expect(decodeStoken(legacy)).toBe(17);
-  });
-
-  it("rejects a legacy v1 stoken with a bad signature", async () => {
-    const { decodeStoken } = await import("./stoken.js");
-    const legacy = Buffer.from("v1:17:not-the-mac").toString("base64url");
-    expect(() => decodeStoken(legacy)).toThrow();
+    expect(decodeStoken(legacy)).toBeNull();
   });
 });
