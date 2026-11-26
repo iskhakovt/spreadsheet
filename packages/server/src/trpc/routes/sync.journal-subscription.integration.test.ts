@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { fakeEncrypted, type OperationPayload, plainOp, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -134,21 +135,15 @@ function holdCommit(inner: Database) {
   return { db: held, reached, release };
 }
 
-/**
- * Resolves `true` once a backend in this database waits on an advisory lock,
- * or `false` after `timeoutMs` or on `signal`. Never hangs, so the caller's
- * `finally` always gets to release what it holds.
- */
-async function advisoryLockWaiter(signal: AbortSignal, timeoutMs: number): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (!signal.aborted && Date.now() < deadline) {
+/** Resolves once a backend in this database waits on an advisory lock; stops on `signal`. */
+async function advisoryLockWaiter(signal: AbortSignal): Promise<void> {
+  while (!signal.aborted) {
     const rows = await db.execute(
       sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND wait_event = 'advisory'`,
     );
-    if (rows.length > 0) return true;
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    if (rows.length > 0) return;
+    await sleep(20);
   }
-  return false;
 }
 
 function journalSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | null) {
@@ -361,19 +356,24 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
       alicePush.catch(() => {}); // settled in `finally`; this only keeps it from going unhandled
       let bobPush: Promise<unknown> | undefined;
       let bobFirst: string | undefined;
-      const stopPolling = new AbortController();
+      // Both races below also lose to a timer, so a stalled promise can't keep
+      // the `finally` from releasing Alice's transaction.
+      const giveUp = new AbortController();
+      const deadline = () => sleep(5000, "timed out", { signal: giveUp.signal }).catch(() => "timed out");
       try {
         // Surfaces the push's own error if it fails before it's held.
-        await Promise.race([held.reached, alicePush]);
+        const aliceState = await Promise.race([held.reached.then(() => "held"), alicePush, deadline()]);
+        if (aliceState !== "held") throw new Error("Alice's push never reached the hold");
         bobPush = bob.caller.sync.push({ stoken: bob.stoken, operations: [bobOp] });
         bobPush.catch(() => {});
         bobFirst = await Promise.race([
           bobPush.then(() => "committed"),
-          advisoryLockWaiter(stopPolling.signal, 5000).then((waiting) => (waiting ? "waiting" : "neither")),
+          advisoryLockWaiter(giveUp.signal).then(() => "waiting"),
+          deadline(),
         ]);
       } finally {
         // Never leave the transaction open: it would block the next test's TRUNCATE.
-        stopPolling.abort();
+        giveUp.abort();
         held.release();
         await Promise.allSettled([alicePush, bobPush]);
       }
