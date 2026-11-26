@@ -1,10 +1,11 @@
 import { fakeEncrypted, type OperationPayload, plainOp, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createDatabase, type Database } from "../../db/index.js";
+import { createDatabase, type Database, type Transaction } from "../../db/index.js";
 import { seed } from "../../db/seed.js";
 import { journalEventName, journalEvents } from "../../events.js";
 import { QuestionStore } from "../../store/questions.js";
+import { SyncStore } from "../../store/sync.js";
 import { anonCtx, authedCtx, createCaller, defaultCreate, tokenCtx } from "../../test/factories.js";
 
 let db: Database;
@@ -106,6 +107,42 @@ async function setupCompletedPair() {
       stoken: bobPush.stoken,
     },
   };
+}
+
+/**
+ * A `Database` whose transactions run every statement, then hold before
+ * COMMIT until `release()`. `reached` resolves once one is held.
+ */
+function holdCommit(inner: Database) {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let markReached!: () => void;
+  const reached = new Promise<void>((resolve) => {
+    markReached = resolve;
+  });
+  const held = {
+    transaction: <T>(fn: (tx: Transaction) => Promise<T>) =>
+      inner.transaction(async (tx) => {
+        const result = await fn(tx);
+        markReached();
+        await released;
+        return result;
+      }),
+  } as unknown as Database;
+  return { db: held, reached, release };
+}
+
+/** Resolves once some backend in this database waits on a lock; stops on `signal`. */
+async function lockWaiter(signal: AbortSignal): Promise<void> {
+  while (!signal.aborted) {
+    const rows = await db.execute(
+      sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+    );
+    if (rows.length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
 }
 
 function journalSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | null) {
@@ -295,6 +332,58 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     // the 2 initial entries + some other 3rd entry would slip by.
     const found = collected.find((e) => e.operation === racingOp);
     expect(found, `racing entry not delivered (collected ${collected.length} entries)`).toBeDefined();
+  });
+
+  it("delivers both members' concurrent pushes, even when the lower id would commit last", async () => {
+    // Postgres takes a journal id at INSERT but shows the row at COMMIT. If
+    // Bob's push (higher id) could commit while Alice's (lower id) is still
+    // open, the stream's cursor would pass Alice's id before her entry exists.
+    const { alice, bob } = await setupCompletedPair();
+    const sub = await openSubscription(journalSub(alice.ctx));
+    await sub.next(1000); // drain the backfill
+
+    const aliceOp = plainOp("oral:give", { rating: "no", note: null });
+    const bobOp = plainOp("oral:receive", { rating: "no", note: null });
+
+    // Alice's real push, held after its last statement: her entry has its id but isn't committed.
+    const held = holdCommit(db);
+    const alicePush = createCaller({ ...alice.ctx, sync: new SyncStore(held.db) }).sync.push({
+      stoken: alice.stoken,
+      operations: [aliceOp],
+    });
+    alicePush.catch(() => {}); // settled in `finally`; this only keeps it from going unhandled
+    let bobPush: Promise<unknown> | undefined;
+    let bobFirst: string | undefined;
+    const stopPolling = new AbortController();
+    try {
+      // Surfaces the push's own error if it fails before it's held.
+      await Promise.race([held.reached, alicePush]);
+      bobPush = bob.caller.sync.push({ stoken: bob.stoken, operations: [bobOp] });
+      bobPush.catch(() => {});
+      bobFirst = await Promise.race([
+        bobPush.then(() => "committed"),
+        lockWaiter(stopPolling.signal).then(() => "waiting"),
+      ]);
+    } finally {
+      // Never leave the transaction open: it would block the next test's TRUNCATE.
+      stopPolling.abort();
+      held.release();
+      await Promise.allSettled([alicePush, bobPush]);
+    }
+    await alicePush;
+    await bobPush;
+
+    const delivered: string[] = [];
+    while (delivered.length < 2) {
+      const next = await sub.next(1000);
+      if (!next) break;
+      delivered.push(...unwrap(next).entries.map((e) => e.operation));
+    }
+    sub.cancel();
+
+    expect(delivered).toEqual([aliceOp, bobOp]);
+    // Why: Bob's push waited for Alice's to commit instead of committing first.
+    expect(bobFirst).toBe("waiting");
   });
 
   it("throws PRECONDITION_FAILED when not all members are complete", async () => {

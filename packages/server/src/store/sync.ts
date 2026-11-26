@@ -1,5 +1,5 @@
 import type { OperationPayload, Progress, Sealed } from "@spreadsheet/shared";
-import { and, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database, Transaction } from "../db/index.js";
 import { journalEntries, persons } from "../db/schema.js";
 import { decodeStoken, encodeStoken } from "../stoken.js";
@@ -87,7 +87,22 @@ export class SyncStore {
     return this.#tx(async (tx) => {
       // The head check below is a compare-and-swap: lock the person's row
       // first, so two concurrent pushes can't both pass it.
-      await tx.select({ id: persons.id }).from(persons).where(eq(persons.id, personId)).for("update");
+      const [person] = await tx
+        .select({ groupId: persons.groupId })
+        .from(persons)
+        .where(eq(persons.id, personId))
+        .for("update");
+
+      // Then let one push per group run at a time, so journal ids commit in id
+      // order within a group. Postgres takes the id at INSERT but shows the row
+      // at COMMIT, so otherwise a higher id from another member could commit
+      // first, and every journal cursor (`id > cursor`) would skip the lower
+      // one for good. The row lock above already covers one person's pushes;
+      // the group stream needs all its members'. Lock order is always row,
+      // then group, and nothing else takes this lock, so it can't deadlock.
+      if (person) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`journal-push:${person.groupId}`}, 0))`);
+      }
 
       const [head] = await tx
         .select({ id: journalEntries.id })
