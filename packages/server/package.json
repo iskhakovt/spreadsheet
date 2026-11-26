@@ -12,13 +12,13 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.9",
+    "@hono/node-server": "^2.1.11",
     "@hono/trpc-server": "^0.4.2",
     "@prometheus-io/client": "^0.16.1",
     "@spreadsheet/shared": "workspace:*",
     "@trpc/server": "^11.29.5",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.19",
+    "hono": "^4.13.22",
     "node-html-parser": "^9.0.7",
     "pino": "^10.4.0",
     "postgres": "^3.4.9",

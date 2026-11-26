@@ -226,11 +226,11 @@ importers:
   packages/server:
     dependencies:
       '@hono/node-server':
-        specifier: ^2.1.9
-        version: 2.1.9(hono@4.13.19)
+        specifier: ^2.1.11
+        version: 2.1.11(hono@4.13.22)
       '@hono/trpc-server':
         specifier: ^0.4.2
-        version: 0.4.2(@trpc/server@11.29.5(@types/ws@8.18.2)(typescript@7.0.2))(hono@4.13.19)
+        version: 0.4.2(@trpc/server@11.29.5(@types/ws@8.18.2)(typescript@7.0.2))(hono@4.13.22)
       '@prometheus-io/client':
         specifier: ^0.16.1
         version: 0.16.1
@@ -244,8 +244,8 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4(@electric-sql/pglite@0.5.16)(@opentelemetry/api@1.10.0)(postgres@3.4.9)
       hono:
-        specifier: ^4.13.19
-        version: 4.13.19
+        specifier: ^4.13.22
+        version: 4.13.22
       node-html-parser:
         specifier: ^9.0.7
         version: 9.0.7
@@ -341,7 +341,7 @@ importers:
     devDependencies:
       '@hono/vite-dev-server':
         specifier: ~0.26.1
-        version: 0.26.1(hono@4.13.19)
+        version: 0.26.1(hono@4.13.22)
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -1249,8 +1249,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hono/node-server@2.1.9':
-    resolution: {integrity: sha512-Sk4NQd3GFY0WZWCzndwFMPwJhtD0y9qjsQ+pjID0/03nK9pxyBCUoUHCho8QYBLBVhi0ssL8UkNPHqbgSOFPIQ==}
+  '@hono/node-server@2.1.11':
+    resolution: {integrity: sha512-KzKz9vl4vvr1vgLHamj+g5uonbrj5NwAdO3yzOS6cd2HjALVeOgTgeZOyAzNxejbkfOOPIcvuf/Tg8l1pEFLog==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4 || ^5.0.0-0
@@ -3137,8 +3137,8 @@ packages:
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
 
-  hono@4.13.19:
-    resolution: {integrity: sha512-KmXvQAXwcAHV+muzbIwoJ23niEB5nMoDVr9WcRkU8mvjUECm/1+7v4Jgp7P7a+H6MLFrh+vXrGonGrGS+RQfkA==}
+  hono@4.13.22:
+    resolution: {integrity: sha512-wncKd5/40Pj8grx0RZ2fgNIicFEmVFwIHT5UFLTnphR8I6AQWFf9c2JoM6ZJ9g8y4pMzg3sNlCVNe0m2Yclg0Q==}
     engines: {node: '>=16.9.0'}
 
   husky@9.1.7:
@@ -5457,19 +5457,19 @@ snapshots:
       protobufjs: 7.6.6
       yargs: 17.7.3
 
-  '@hono/node-server@2.1.9(hono@4.13.19)':
+  '@hono/node-server@2.1.11(hono@4.13.22)':
     dependencies:
-      hono: 4.13.19
+      hono: 4.13.22
 
-  '@hono/trpc-server@0.4.2(@trpc/server@11.29.5(@types/ws@8.18.2)(typescript@7.0.2))(hono@4.13.19)':
+  '@hono/trpc-server@0.4.2(@trpc/server@11.29.5(@types/ws@8.18.2)(typescript@7.0.2))(hono@4.13.22)':
     dependencies:
       '@trpc/server': 11.29.5(@types/ws@8.18.2)(typescript@7.0.2)
-      hono: 4.13.19
+      hono: 4.13.22
 
-  '@hono/vite-dev-server@0.26.1(hono@4.13.19)':
+  '@hono/vite-dev-server@0.26.1(hono@4.13.22)':
     dependencies:
-      '@hono/node-server': 2.1.9(hono@4.13.19)
-      hono: 4.13.19
+      '@hono/node-server': 2.1.11(hono@4.13.22)
+      hono: 4.13.22
       minimatch: 11.0.9
 
   '@internationalized/number@3.6.9':
@@ -7120,7 +7120,7 @@ snapshots:
 
   help-me@5.0.0: {}
 
-  hono@4.13.19: {}
+  hono@4.13.22: {}
 
   husky@9.1.7: {}
 
