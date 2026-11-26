@@ -134,15 +134,21 @@ function holdCommit(inner: Database) {
   return { db: held, reached, release };
 }
 
-/** Resolves once some backend in this database waits on a lock; stops on `signal`. */
-async function lockWaiter(signal: AbortSignal): Promise<void> {
-  while (!signal.aborted) {
+/**
+ * Resolves `true` once a backend in this database waits on an advisory lock,
+ * or `false` after `timeoutMs` or on `signal`. Never hangs, so the caller's
+ * `finally` always gets to release what it holds.
+ */
+async function advisoryLockWaiter(signal: AbortSignal, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!signal.aborted && Date.now() < deadline) {
     const rows = await db.execute(
-      sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      sql`SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND wait_event = 'advisory'`,
     );
-    if (rows.length > 0) return;
+    if (rows.length > 0) return true;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
+  return false;
 }
 
 function journalSub(ctx: ReturnType<typeof authedCtx>, lastEventId?: string | null) {
@@ -340,50 +346,53 @@ describe("sync.onJournalChange subscription (real Postgres)", () => {
     // open, the stream's cursor would pass Alice's id before her entry exists.
     const { alice, bob } = await setupCompletedPair();
     const sub = await openSubscription(journalSub(alice.ctx));
-    await sub.next(1000); // drain the backfill
-
-    const aliceOp = plainOp("oral:give", { rating: "no", note: null });
-    const bobOp = plainOp("oral:receive", { rating: "no", note: null });
-
-    // Alice's real push, held after its last statement: her entry has its id but isn't committed.
-    const held = holdCommit(db);
-    const alicePush = createCaller({ ...alice.ctx, sync: new SyncStore(held.db) }).sync.push({
-      stoken: alice.stoken,
-      operations: [aliceOp],
-    });
-    alicePush.catch(() => {}); // settled in `finally`; this only keeps it from going unhandled
-    let bobPush: Promise<unknown> | undefined;
-    let bobFirst: string | undefined;
-    const stopPolling = new AbortController();
     try {
-      // Surfaces the push's own error if it fails before it's held.
-      await Promise.race([held.reached, alicePush]);
-      bobPush = bob.caller.sync.push({ stoken: bob.stoken, operations: [bobOp] });
-      bobPush.catch(() => {});
-      bobFirst = await Promise.race([
-        bobPush.then(() => "committed"),
-        lockWaiter(stopPolling.signal).then(() => "waiting"),
-      ]);
+      expect(await sub.next(1000), "backfill").toBeDefined();
+
+      const aliceOp = plainOp("oral:give", { rating: "no", note: null });
+      const bobOp = plainOp("oral:receive", { rating: "no", note: null });
+
+      // Alice's real push, held after its last statement: her entry has its id but isn't committed.
+      const held = holdCommit(db);
+      const alicePush = createCaller({ ...alice.ctx, sync: new SyncStore(held.db) }).sync.push({
+        stoken: alice.stoken,
+        operations: [aliceOp],
+      });
+      alicePush.catch(() => {}); // settled in `finally`; this only keeps it from going unhandled
+      let bobPush: Promise<unknown> | undefined;
+      let bobFirst: string | undefined;
+      const stopPolling = new AbortController();
+      try {
+        // Surfaces the push's own error if it fails before it's held.
+        await Promise.race([held.reached, alicePush]);
+        bobPush = bob.caller.sync.push({ stoken: bob.stoken, operations: [bobOp] });
+        bobPush.catch(() => {});
+        bobFirst = await Promise.race([
+          bobPush.then(() => "committed"),
+          advisoryLockWaiter(stopPolling.signal, 5000).then((waiting) => (waiting ? "waiting" : "neither")),
+        ]);
+      } finally {
+        // Never leave the transaction open: it would block the next test's TRUNCATE.
+        stopPolling.abort();
+        held.release();
+        await Promise.allSettled([alicePush, bobPush]);
+      }
+      await alicePush;
+      await bobPush;
+
+      const delivered: string[] = [];
+      while (delivered.length < 2) {
+        const next = await sub.next(1000);
+        if (!next) break;
+        delivered.push(...unwrap(next).entries.map((e) => e.operation));
+      }
+
+      expect(delivered).toEqual([aliceOp, bobOp]);
+      // Why: Bob's push waited on the group's push lock instead of committing first.
+      expect(bobFirst).toBe("waiting");
     } finally {
-      // Never leave the transaction open: it would block the next test's TRUNCATE.
-      stopPolling.abort();
-      held.release();
-      await Promise.allSettled([alicePush, bobPush]);
+      sub.cancel();
     }
-    await alicePush;
-    await bobPush;
-
-    const delivered: string[] = [];
-    while (delivered.length < 2) {
-      const next = await sub.next(1000);
-      if (!next) break;
-      delivered.push(...unwrap(next).entries.map((e) => e.operation));
-    }
-    sub.cancel();
-
-    expect(delivered).toEqual([aliceOp, bobOp]);
-    // Why: Bob's push waited for Alice's to commit instead of committing first.
-    expect(bobFirst).toBe("waiting");
   });
 
   it("throws PRECONDITION_FAILED when not all members are complete", async () => {
