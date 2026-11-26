@@ -5,7 +5,7 @@ packages/server/src/
   main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Docker entrypoint.
   index.ts    ← Prod serve entry: opens the DB, builds stores + the SPA shell, calls createApp + serve.
   app.ts      ← createApp(...): the Hono app, shared by prod and dev.
-  dev/        ← Dev only, loaded by Vite to host the Hono app in-process: entry.ts (Hono entry), state.ts (DB + stores), shell.ts (Vite-aware SPA shell), globals.d.ts.
+  dev/        ← Dev only. Vite loads entry.ts (Hono entry), state.ts (DB + stores) and shell.ts (SPA shell) to host Hono in-process; globals.d.ts types the shared dev globals.
   events.ts   ← Three EventEmitter instances: groupEvents, journalEvents, selfJournalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
   request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
