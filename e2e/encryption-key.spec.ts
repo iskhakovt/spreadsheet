@@ -47,9 +47,11 @@ test.describe("encryption key that doesn't fit the group", () => {
     await expect(bob.getByText("This link's key doesn't match")).toBeVisible({ timeout: NAV_TIMEOUT });
 
     // With the real key, Bob's profile is intact: he lands on the intro, not /setup.
-    await bob.goto(partnerLink);
-    await bob.reload();
-    await expect(bob.getByText("Here's how it works")).toBeVisible({ timeout: NAV_TIMEOUT });
+    // A fresh tab: on this one, a fragment-only change to the real key makes the
+    // app reload itself (one page = one key), which would race a reload here.
+    const real = await bob.context().newPage();
+    await real.goto(partnerLink);
+    await expect(real.getByText("Here's how it works")).toBeVisible({ timeout: NAV_TIMEOUT });
   });
 
   test("a wrong key on the admin link before setup shows the mismatch screen", async ({ page }) => {
