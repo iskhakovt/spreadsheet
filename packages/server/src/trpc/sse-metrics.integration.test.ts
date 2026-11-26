@@ -1,3 +1,4 @@
+import { plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../db/index.js";
@@ -57,9 +58,9 @@ async function makeAlice() {
   const { adminToken } = await caller.groups.create(defaultCreate());
   await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: plainSealed("Alice"),
     anatomy: null,
-    partners: [{ name: "Bob", anatomy: null }],
+    partners: [{ name: plainSealed("Bob"), anatomy: null }],
   });
   const status = await createCaller(tokenCtx(db, adminToken)).groups.status();
   return { token: adminToken, ctx: authedCtx(db, status!, adminToken) };

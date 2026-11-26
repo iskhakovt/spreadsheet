@@ -46,12 +46,12 @@ All visual tokens are defined as CSS custom properties in `packages/web/src/inde
 
 **Animations** declared globally:
 - `.animate-in` — 400ms fade + slide-up entrance on the spring curve
-- `.stagger` — sibling entrance with per-element `--stagger-index` driving a 120ms step delay
+- `.stagger` — sibling entrance cascade, 120ms per step via CSS `sibling-index()`
 - `.float-a` / `.float-b` — 20s/26s drift for decorative background blobs (different periods to avoid settling)
 - `.celebrate` — one-shot scale + accent-color ring pulse for mark-complete moments
 - `@media (prefers-reduced-motion: reduce)` disables all of these
 
-The `stagger` class uses an inline `--stagger-index` prop rather than CSS `sibling-index()` because Firefox doesn't ship it yet — tracked in [../todo.md](../todo.md).
+`.stagger` takes no inline style or index prop: the step is the element's sibling position. So a sequence's `.stagger` items are the leading children of one container, and items that share a beat share one `.stagger` wrapper (e.g. the category welcome screen's description + question count). An absent conditional item just closes the gap. Browsers without `sibling-index()` get the same cascade from `:nth-child()` fallback rules, which cover five positions; a longer sequence needs another rule.
 
 ## Screens
 
@@ -204,7 +204,7 @@ Centered card (max-width 480px) for all screens except Comparison. Comparison us
 
 ## Routing
 
-URL-based routing via wouter (nested under `/p/:token`):
+URL-based routing via TanStack Router (file-based, nested under `/p/:token`):
 
 ```
 /p/:token           → catch-all, redirects via resolveRoute()
@@ -245,8 +245,8 @@ URL-based routing via wouter (nested under `/p/:token`):
 1. Generated in Landing → put in URL fragment `#key=base64url`
 2. Read by `getGroupKeyFromUrl()` on first access → cached in `sessionStorage`
 3. `sessionStorage` survives page reloads but not new tabs (each tab gets key from URL)
-4. `wrapSensitive(value)` / `unwrapSensitive(value)` handle encrypt/decrypt transparently
-5. wouter's `pushState` drops the hash fragment — sessionStorage cache handles this
+4. `getGroupCodec(group.encrypted)` seals and opens every sensitive value with it (see `design/sync.md` § Sealed values)
+5. Client-side navigation drops the hash fragment; the sessionStorage cache covers it
 
 ## ND-Friendly Considerations
 

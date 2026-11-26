@@ -1,4 +1,4 @@
-import { Answer, JournalEntryId, MAX_TIER } from "@spreadsheet/shared";
+import { Answer, JournalEntryId, MAX_TIER, type OperationPayload, type Sealed } from "@spreadsheet/shared";
 import { useSyncExternalStore } from "react";
 import { getScope } from "./session.js";
 
@@ -147,7 +147,7 @@ export function setAnswer(key: string, answer: Answer | null): void {
 //
 // The queue is `string[]` of opaque ops on disk — never persist anything
 // else under this key. To dedup debounced same-key writes (typing a
-// 50-char note used to enqueue ~6 redundant ops) we maintain an
+// 50-char note would otherwise enqueue ~6 redundant ops) we maintain an
 // in-memory key→position index alongside the queue. The index is NOT
 // persisted: `p:1:` ops can be rebuilt from the cleartext payload on
 // first access, and `e:1:` ops can't be decrypted synchronously —
@@ -159,20 +159,29 @@ export function setAnswer(key: string, answer: Answer | null): void {
 // can't tell which question a ciphertext targets. The index is local-
 // only, never serialized into the queue or sent to the server.
 
-export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): string[] => (raw ? JSON.parse(raw) : []));
+// Same boundary as getPendingOps: the outbox only holds the codec's output.
+export const usePendingOps = makeLocalStorageHook("pendingOps", (raw): Sealed<OperationPayload>[] =>
+  raw ? JSON.parse(raw) : [],
+);
 
-export function getPendingOps(): string[] {
-  return getJson("pendingOps", []);
+/**
+ * The outbox. Typed `Sealed` because every writer requires the group codec's
+ * output, and ops queued by older clients share the format. Reading it back
+ * brands unchecked JSON: that's the persistence boundary, and the server
+ * re-checks format and mode on push.
+ */
+export function getPendingOps(): Sealed<OperationPayload>[] {
+  return getJson<Sealed<OperationPayload>[]>("pendingOps", []);
 }
 
-export function setPendingOps(ops: string[]): void {
+export function setPendingOps(ops: readonly Sealed<OperationPayload>[]): void {
   setJson("pendingOps", ops);
   notifyChanged("pendingOps");
   // External replacement: any positions we tracked are now meaningless.
   dedupIndexes.delete(getScope() + "pendingOps");
 }
 
-export function addPendingOp(op: string): void {
+export function addPendingOp(op: Sealed<OperationPayload>): void {
   const ops = getPendingOps();
   ops.push(op);
   setJson("pendingOps", ops);
@@ -194,7 +203,7 @@ export function addPendingOp(op: string): void {
  * matches what we tracked. If another tab drained or rewrote the queue
  * mid-session, we degrade to "no dedup" rather than splice the wrong op.
  */
-export function addPendingOpForKey(op: string, key: string): void {
+export function addPendingOpForKey(op: Sealed<OperationPayload>, key: string): void {
   const fullKey = getScope() + "pendingOps";
   const ops = getPendingOps();
   const index = ensureDedupIndex(fullKey, ops);

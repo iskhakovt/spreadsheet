@@ -14,6 +14,7 @@ import {
 } from "../lib/build-pair-matches.js";
 import type { MatchType } from "../lib/classify-match.js";
 import { cn } from "../lib/cn.js";
+import { getGroupCodec } from "../lib/codec.js";
 import { applyJournalDelta, JOURNAL_QUERY_KEY, type MemberAnswers, makeJournalQueryFn } from "../lib/journal-query.js";
 import { buildPairs, nextTabIndex, sortMembersViewerFirst, viewerDisplayName } from "../lib/member-display.js";
 import { useScrollReset } from "../lib/route-reset.js";
@@ -267,9 +268,10 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
     [questionsData.questions],
   );
 
+  const codec = getGroupCodec(encrypted);
   const { data: journal } = useSuspenseQuery({
     queryKey: JOURNAL_QUERY_KEY,
-    queryFn: makeJournalQueryFn(trpcClient),
+    queryFn: makeJournalQueryFn(trpcClient, codec),
   });
 
   const [initialLastEventId] = useState<string | undefined>(() => {
@@ -282,7 +284,7 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
       { lastEventId: initialLastEventId },
       {
         onData: (msg) => {
-          applyJournalDelta(queryClient, msg.data.entries).catch((err) => {
+          applyJournalDelta(queryClient, msg.data.entries, codec).catch((err) => {
             console.error("Failed to merge journal update:", err);
           });
         },
@@ -338,102 +340,97 @@ export function Comparison({ viewerId, encrypted, token, questionMode, onBack }:
       </div>
 
       <div className="max-w-2xl mx-auto space-y-10">
-        <header className="text-center space-y-3">
-          <p
-            className="stagger text-[11px] font-semibold uppercase tracking-[0.25em] text-accent/70"
-            style={{ "--stagger-index": 0 } as React.CSSProperties}
-          >
+        {/* Flat on purpose: .stagger steps by sibling position, so heading
+            lines, tabs and panel stay siblings. Hence no <header> wrapper and
+            per-item centering/margins. */}
+        <div>
+          <p className="stagger mb-3 text-center text-[11px] font-semibold uppercase tracking-[0.25em] text-accent/70">
             Everyone's done
           </p>
-          <h1
-            className="stagger text-[2.75rem] sm:text-[3.25rem] font-bold leading-[0.92] tracking-[-0.03em]"
-            style={{ "--stagger-index": 1 } as React.CSSProperties}
-          >
+          <h1 className="stagger mb-3 text-center text-[2.75rem] sm:text-[3.25rem] font-bold leading-[0.92] tracking-[-0.03em]">
             Your matches
           </h1>
-          <div
-            className="stagger inline-flex items-center gap-4 pt-1"
-            style={{ "--stagger-index": 2 } as React.CSSProperties}
-          >
-            <span className="h-px w-10 bg-gradient-to-r from-transparent to-accent/25" />
-            <p className="text-sm text-text-muted italic">
-              {memberAnswers.length > 2
-                ? `${memberAnswers.length} people, one shared space`
-                : "Two people, one shared space"}
-            </p>
-            <span className="h-px w-10 bg-gradient-to-l from-transparent to-accent/25" />
+          <div className="stagger mb-10 text-center">
+            <div className="inline-flex items-center gap-4 pt-1">
+              <span className="h-px w-10 bg-gradient-to-r from-transparent to-accent/25" />
+              <p className="text-sm text-text-muted italic">
+                {memberAnswers.length > 2
+                  ? `${memberAnswers.length} people, one shared space`
+                  : "Two people, one shared space"}
+              </p>
+              <span className="h-px w-10 bg-gradient-to-l from-transparent to-accent/25" />
+            </div>
           </div>
-        </header>
 
-        {showTabs && (
-          <div
-            ref={tabListRef}
-            className="stagger flex gap-2 justify-center flex-wrap"
-            style={{ "--stagger-index": 3 } as React.CSSProperties}
-            role="tablist"
-            aria-label="Pair results"
-            onKeyDown={handleTabKeyDown}
-          >
-            {pairs.map(({ a, b }) => {
-              const pk = pairKey(a, b);
-              const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
-              return (
-                <button
-                  key={pk}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive ?? false}
-                  aria-controls="pair-tabpanel"
-                  id={`tab-${pk}`}
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => setActivePairKey(pk)}
-                  className={cn(
-                    "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                    isActive
-                      ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md"
-                      : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface",
-                  )}
-                >
-                  {displayName(a)} & {displayName(b)}
-                </button>
-              );
-            })}
+          {showTabs && (
+            <div
+              ref={tabListRef}
+              className="stagger mb-10 flex gap-2 justify-center flex-wrap"
+              role="tablist"
+              aria-label="Pair results"
+              onKeyDown={handleTabKeyDown}
+            >
+              {pairs.map(({ a, b }) => {
+                const pk = pairKey(a, b);
+                const isActive = visiblePair && pairKey(visiblePair.a, visiblePair.b) === pk;
+                return (
+                  <button
+                    key={pk}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive ?? false}
+                    aria-controls="pair-tabpanel"
+                    id={`tab-${pk}`}
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => setActivePairKey(pk)}
+                    className={cn(
+                      "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-b from-accent to-accent-dark text-accent-fg shadow-accent-md"
+                        : "bg-surface/70 text-text-muted hover:text-text hover:bg-surface",
+                    )}
+                  >
+                    {displayName(a)} & {displayName(b)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="stagger">
+            {visiblePair &&
+              (() => {
+                const pair = (
+                  <PairComparison
+                    key={`${visiblePair.a.id}-${visiblePair.b.id}`}
+                    a={visiblePair.a}
+                    b={visiblePair.b}
+                    aDisplayName={displayName(visiblePair.a)}
+                    bDisplayName={displayName(visiblePair.b)}
+                    aIsViewer={visiblePair.a.id === viewerId}
+                    bIsViewer={visiblePair.b.id === viewerId}
+                    questions={questions}
+                    questionsById={questionsById}
+                    questionMode={questionMode}
+                    categories={categories}
+                    categoryOrder={categoryOrder}
+                    questionOrder={questionOrder}
+                    showHeading={!showTabs}
+                  />
+                );
+                return showTabs ? (
+                  <div
+                    role="tabpanel"
+                    id="pair-tabpanel"
+                    aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}
+                  >
+                    {pair}
+                  </div>
+                ) : (
+                  pair
+                );
+              })()}
           </div>
-        )}
-
-        <div className="stagger" style={{ "--stagger-index": 4 } as React.CSSProperties}>
-          {visiblePair &&
-            (() => {
-              const pair = (
-                <PairComparison
-                  key={`${visiblePair.a.id}-${visiblePair.b.id}`}
-                  a={visiblePair.a}
-                  b={visiblePair.b}
-                  aDisplayName={displayName(visiblePair.a)}
-                  bDisplayName={displayName(visiblePair.b)}
-                  aIsViewer={visiblePair.a.id === viewerId}
-                  bIsViewer={visiblePair.b.id === viewerId}
-                  questions={questions}
-                  questionsById={questionsById}
-                  questionMode={questionMode}
-                  categories={categories}
-                  categoryOrder={categoryOrder}
-                  questionOrder={questionOrder}
-                  showHeading={!showTabs}
-                />
-              );
-              return showTabs ? (
-                <div
-                  role="tabpanel"
-                  id="pair-tabpanel"
-                  aria-labelledby={`tab-${pairKey(visiblePair.a, visiblePair.b)}`}
-                >
-                  {pair}
-                </div>
-              ) : (
-                pair
-              );
-            })()}
         </div>
 
         {onBack && (

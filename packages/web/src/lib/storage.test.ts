@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import type { Answer } from "@spreadsheet/shared";
+import { type Answer, fakeEncrypted, type OperationPayload, plainOp, type Sealed } from "@spreadsheet/shared";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adoptSession } from "./session.js";
@@ -29,7 +29,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-// Note: `useAnswers` lives in lib/self-journal.ts now (it reads from the
+// Note: `useAnswers` lives in lib/self-journal.ts (it reads from the
 // TanStack cache slot, not localStorage). Read-side tests for it are in
 // lib/self-journal.test.ts. The localStorage-write side (`setAnswer` /
 // `setAnswers` / `getAnswers`) is exercised by the cross-tab + optimistic
@@ -62,18 +62,20 @@ describe("usePendingOps", () => {
   });
 
   it("updates after addPendingOp / clearPendingOps", () => {
+    const op1 = plainOp("q1:mutual", yes);
+    const op2 = plainOp("q2:mutual", yes);
     const { result } = renderHook(() => usePendingOps());
     expect(result.current).toEqual([]);
 
     act(() => {
-      addPendingOp("p:1:op1");
+      addPendingOp(op1);
     });
-    expect(result.current).toEqual(["p:1:op1"]);
+    expect(result.current).toEqual([op1]);
 
     act(() => {
-      addPendingOp("p:1:op2");
+      addPendingOp(op2);
     });
-    expect(result.current).toEqual(["p:1:op1", "p:1:op2"]);
+    expect(result.current).toEqual([op1, op2]);
 
     act(() => {
       clearPendingOps();
@@ -83,22 +85,26 @@ describe("usePendingOps", () => {
 
   it("updates after setPendingOps replaces the whole list", () => {
     const { result } = renderHook(() => usePendingOps());
-    act(() => setPendingOps(["a", "b", "c"]));
-    expect(result.current).toEqual(["a", "b", "c"]);
+    const ops = [
+      fakeEncrypted<OperationPayload>("a"),
+      fakeEncrypted<OperationPayload>("b"),
+      fakeEncrypted<OperationPayload>("c"),
+    ];
+    act(() => setPendingOps(ops));
+    expect(result.current).toEqual(ops);
   });
 });
 
-// Realistic op encoder used to test key-aware dedup. Mirrors the wire
-// shape produced by `encodeValue({ key, data: ... })` for plaintext
-// groups — a `p:1:` prefix followed by JSON containing `key`.
-function plain(key: string, note: string): string {
-  return `p:1:${JSON.stringify({ key, data: { rating: "yes", note } })}`;
+// Realistic op used to test key-aware dedup: what a plaintext group's
+// codec seals, a `p:1:` prefix followed by JSON containing `key`.
+function plain(key: string, note: string): Sealed<OperationPayload> {
+  return plainOp(key, { rating: "yes", note });
 }
-function encrypted(label: string): string {
+function encrypted(label: string): Sealed<OperationPayload> {
   // Stand-in for `e:1:` ciphertext. The label is opaque to the index —
   // it can't extract a key from this, only the producer can via
   // `addPendingOpForKey`.
-  return `e:1:${label}`;
+  return fakeEncrypted(label);
 }
 
 describe("addPendingOpForKey — dedup", () => {
@@ -138,25 +144,25 @@ describe("addPendingOpForKey — dedup", () => {
     // Another tab rewrites the queue entirely. Our index believes
     // "oral:give" is at position 0, but the actual op there is now
     // unrelated.
-    setPendingOps(["e:1:foreign-tab-op"]);
+    setPendingOps([encrypted("foreign-tab-op")]);
     // The next keyed enqueue must NOT splice position 0 (which is now
     // someone else's encrypted op). `setPendingOps` cleared the index, so
     // the rebuilt index seeds only from `p:1:` ops in the fresh queue —
     // there are none — and we append safely.
     addPendingOpForKey(plain("oral:give", "b"), "oral:give");
-    expect(getPendingOps()).toEqual(["e:1:foreign-tab-op", plain("oral:give", "b")]);
+    expect(getPendingOps()).toEqual([encrypted("foreign-tab-op"), plain("oral:give", "b")]);
   });
 
   it("addPendingOp without a key still appends and invalidates the index", () => {
     addPendingOpForKey(plain("oral:give", "a"), "oral:give");
     // A keyless append (legacy path or tests). Subsequent dedup must
     // notice that positions shifted and not splice the wrong op.
-    addPendingOp("p:1:other");
+    addPendingOp(encrypted("other"));
     addPendingOpForKey(plain("oral:give", "b"), "oral:give");
     // The first "oral:give" op was at index 0; after the keyless append
     // the index was dropped. Rebuild from the queue picks it back up —
     // the new same-key write replaces it correctly.
-    expect(getPendingOps()).toEqual(["p:1:other", plain("oral:give", "b")]);
+    expect(getPendingOps()).toEqual([encrypted("other"), plain("oral:give", "b")]);
   });
 });
 

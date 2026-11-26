@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  decodeValue,
-  encodeValue,
-  generateGroupKey,
-  MissingKeyError,
-  unwrapSensitive,
-  wrapSensitive,
-} from "./crypto.js";
+import { decryptJson, encryptJson, generateGroupKey, importGroupKey } from "./crypto.js";
 
 describe("generateGroupKey", () => {
   it("returns a non-empty base64url string", async () => {
@@ -23,103 +16,28 @@ describe("generateGroupKey", () => {
   });
 });
 
-describe("encodeValue / decodeValue", () => {
-  it("round-trips in plaintext mode (null key)", async () => {
-    const original = { rating: "yes" };
-    const encoded = await encodeValue(original, null);
-    const decoded = await decodeValue(encoded, null);
-    expect(decoded).toEqual(original);
+describe("encryptJson / decryptJson", () => {
+  // Low-level AES-GCM primitives; the codec builds sealed values on top.
+  it("round-trips, padding included", async () => {
+    const key = await importGroupKey(await generateGroupKey());
+    const json = JSON.stringify({ name: "Alice" });
+    const opened = await decryptJson(await encryptJson(json, key), key);
+    expect(opened.trimEnd()).toBe(json);
+    expect(JSON.parse(opened)).toEqual({ name: "Alice" });
   });
 
-  it("plaintext produces p:1: prefix", async () => {
-    const encoded = await encodeValue("hello", null);
-    expect(encoded).toMatch(/^p:1:/);
+  it("fails with the wrong key (GCM authenticates the ciphertext)", async () => {
+    const a = await importGroupKey(await generateGroupKey());
+    const b = await importGroupKey(await generateGroupKey());
+    await expect(decryptJson(await encryptJson('"x"', a), b)).rejects.toThrow();
   });
 
-  it("round-trips in encrypted mode", async () => {
-    const key = await generateGroupKey();
-    const original = { key: "oral-give:give", data: { rating: "yes" } };
-    const encoded = await encodeValue(original, key);
-    const decoded = await decodeValue(encoded, key);
-    expect(decoded).toEqual(original);
-  });
-
-  it("encrypted produces e:1: prefix", async () => {
-    const key = await generateGroupKey();
-    const encoded = await encodeValue("test", key);
-    expect(encoded).toMatch(/^e:1:/);
-  });
-
-  it("same value encrypts differently each time (random IV)", async () => {
-    const key = await generateGroupKey();
-    const a = await encodeValue("same-value", key);
-    const b = await encodeValue("same-value", key);
-    expect(a).not.toBe(b);
-    // But both decrypt to the same value
-    expect(await decodeValue(a, key)).toBe("same-value");
-    expect(await decodeValue(b, key)).toBe("same-value");
-  });
-
-  it("wrong key fails to decrypt", async () => {
-    const key1 = await generateGroupKey();
-    const key2 = await generateGroupKey();
-    const encoded = await encodeValue("secret", key1);
-    await expect(decodeValue(encoded, key2)).rejects.toThrow();
-  });
-
-  it("encrypted mode throws without key", async () => {
-    const key = await generateGroupKey();
-    const encoded = await encodeValue("test", key);
-    await expect(decodeValue(encoded, null)).rejects.toThrow(MissingKeyError);
-  });
-
-  it("handles complex objects", async () => {
-    const key = await generateGroupKey();
-    const obj = { key: "cunnilingus:give", data: { rating: "if-partner-wants" } };
-    const encoded = await encodeValue(obj, key);
-    const decoded = await decodeValue(encoded, key);
-    expect(decoded).toEqual(obj);
-  });
-
-  it("handles null data (delete operation)", async () => {
-    const key = await generateGroupKey();
-    const obj = { key: "oral-give:give", data: null };
-    const encoded = await encodeValue(obj, key);
-    const decoded = await decodeValue(encoded, key);
-    expect(decoded).toEqual(obj);
-  });
-});
-
-describe("wrapSensitive / unwrapSensitive", () => {
-  it("unwrap returns raw strings as-is", async () => {
-    expect(await unwrapSensitive("Alice")).toBe("Alice");
-    expect(await unwrapSensitive("")).toBe("");
-    expect(await unwrapSensitive("some random text")).toBe("some random text");
-  });
-
-  it("unwrap decodes plaintext opaque strings", async () => {
-    const encoded = await encodeValue("Alice", null);
-    expect(encoded).toMatch(/^p:1:/);
-    expect(await unwrapSensitive(encoded)).toBe("Alice");
-  });
-
-  it("unwrap decodes encrypted opaque strings", async () => {
-    const key = await generateGroupKey();
-    const encoded = await encodeValue("Alice", key);
-    expect(encoded).toMatch(/^e:1:/);
-    expect(await unwrapSensitive(encoded, key)).toBe("Alice");
-  });
-
-  it("unwrap throws on encrypted value without key", async () => {
-    const key = await generateGroupKey();
-    const encoded = await encodeValue("secret", key);
-    await expect(unwrapSensitive(encoded, null)).rejects.toThrow();
-  });
-
-  it("wrap returns raw string when no session key", async () => {
-    // No key in URL or sessionStorage → wrapSensitive returns raw
-    const result = await wrapSensitive("Alice");
-    expect(result).toBe("Alice");
+  it("encodes plaintext padded past 128 KiB without overflowing the argument limit", async () => {
+    // 70 KB pads to a 128 KiB bucket. Spreading that into a single
+    // String.fromCharCode call throws RangeError in V8.
+    const key = await importGroupKey(await generateGroupKey());
+    const json = JSON.stringify("x".repeat(70_000));
+    expect((await decryptJson(await encryptJson(json, key), key)).trimEnd()).toBe(json);
   });
 });
 
@@ -162,6 +80,12 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     return { getGroupKeyFromUrl, adoptSession };
   }
 
+  async function loadKeyModules() {
+    const { getGroupKeyFromUrl, isKeyArrival, isKeySwitch } = await import("./crypto.js");
+    const { adoptSession } = await import("./session.js");
+    return { getGroupKeyFromUrl, isKeyArrival, isKeySwitch, adoptSession };
+  }
+
   it("caches the URL hash key under the current scope", async () => {
     const { getGroupKeyFromUrl, adoptSession } = await loadModules();
     locationStub.hash = "#key=firstGroupKey";
@@ -178,11 +102,8 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
 
     // Navigate to an unencrypted group B in the same tab — no hash,
-    // and the new token must not see group A's key. This is the
-    // regression test for the `e:1:` leak we observed in prod:
-    // before the scoping fix, `getGroupKeyFromUrl` for TOKEN_B
-    // would return GROUP_A_KEY from the module-level + sessionStorage
-    // cache, and TOKEN_B's answers would be encrypted with A's key.
+    // and the new token must not see group A's key from the module-level
+    // or sessionStorage cache.
     locationStub.hash = "";
     adoptSession("TOKEN_B");
     expect(getGroupKeyFromUrl()).toBeNull();
@@ -191,6 +112,53 @@ describe("getGroupKeyFromUrl scope isolation", () => {
     // was stored scoped under A's hash in sessionStorage.
     adoptSession("TOKEN_A");
     expect(getGroupKeyFromUrl()).toBe("GROUP_A_KEY");
+  });
+
+  it("keeps the page's key when the fragment changes to another one (one page = one key)", async () => {
+    const { getGroupKeyFromUrl, isKeySwitch, adoptSession } = await loadKeyModules();
+    locationStub.hash = "#key=FIRST_KEY";
+    adoptSession("TOKEN_A");
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+    expect(isKeySwitch()).toBe(false);
+
+    // Same person, different #key=: not adopted in place; the layout reloads.
+    locationStub.hash = "#key=OTHER_KEY";
+    expect(isKeySwitch()).toBe(true);
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+
+    // No fragment (router navigations drop it) is not a switch.
+    locationStub.hash = "";
+    expect(isKeySwitch()).toBe(false);
+    expect(getGroupKeyFromUrl()).toBe("FIRST_KEY");
+  });
+
+  it("treats a key arriving on a person page that loaded without one as a reason to reload", async () => {
+    const { getGroupKeyFromUrl, isKeyArrival, adoptSession } = await loadKeyModules();
+    locationStub.pathname = "/p/TOKEN_A";
+    locationStub.hash = "";
+    adoptSession("TOKEN_A");
+    expect(getGroupKeyFromUrl()).toBeNull(); // the missing-key screen
+
+    locationStub.hash = "#key=LATE_KEY";
+    expect(isKeyArrival()).toBe(true);
+
+    // Not on non-person pages, and not once the page has a key (that's isKeySwitch).
+    locationStub.pathname = "/";
+    expect(isKeyArrival()).toBe(false);
+  });
+
+  it("adopts the fragment's key on a fresh page, even with another key cached for the tab", async () => {
+    const first = await loadKeyModules();
+    locationStub.hash = "#key=FIRST_KEY";
+    first.adoptSession("TOKEN_A");
+    expect(first.getGroupKeyFromUrl()).toBe("FIRST_KEY");
+
+    vi.resetModules();
+    const reloaded = await loadKeyModules();
+    locationStub.hash = "#key=OTHER_KEY";
+    reloaded.adoptSession("TOKEN_A");
+    expect(reloaded.isKeySwitch()).toBe(false);
+    expect(reloaded.getGroupKeyFromUrl()).toBe("OTHER_KEY");
   });
 
   it("keeps separate keys for two encrypted groups visited in the same tab", async () => {

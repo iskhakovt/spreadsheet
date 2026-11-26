@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type Opened, sealedOutput } from "./sealed.js";
 
 /** Highest valid tier number. Adding tier 5 means bumping this; the four
  *  tier labels in lib/strings.ts and the slider arrays follow from it. */
@@ -10,6 +11,9 @@ export type Rating = z.infer<typeof Rating>;
 
 export const Anatomy = z.enum(["amab", "afab", "both", "none"]);
 export type Anatomy = z.infer<typeof Anatomy>;
+
+/** A person's display name, the plaintext inside a sealed `name` field. */
+export const PersonName = z.string().min(1);
 
 export const Target = z.enum(["all", "amab", "afab"]);
 export type Target = z.infer<typeof Target>;
@@ -57,8 +61,8 @@ export const ANATOMY_LABEL_PRESETS: Record<AnatomyLabels, Record<Anatomy, string
  * Answer payload schema. Used both for serialization (canonical write
  * shape) and deserialization (lenient read of legacy data).
  *
- *  - `note` defaults to `null` when missing, so pre-PR-89 entries that
- *    only carried `{ rating, timing }` parse cleanly.
+ *  - `note` defaults to `null` when missing, so older entries that carry
+ *    only `{ rating, timing }` parse cleanly.
  *  - The legacy `timing: "now" | "later" | null` field gets stripped on
  *    read via Zod's default object-strip behavior; write paths use
  *    `Answer.parse()` to guarantee no stray keys ever ship.
@@ -69,10 +73,32 @@ export const Answer = z.object({
 });
 export type Answer = z.infer<typeof Answer>;
 
-export interface OperationPayload {
-  key: string; // "questionId:role"
-  data: Answer | null; // null = clear/unanswer
-}
+/**
+ * Journal operation payload, the plaintext inside a sealed op. `key` is
+ * `questionId:role`; `data: null` clears the answer. The client's journal
+ * replay checks `key` against the canonical shape separately.
+ */
+export const OperationPayload = z.object({
+  key: z.string(),
+  data: Answer.nullable(),
+});
+export type OperationPayload = z.infer<typeof OperationPayload>;
+
+/** Progress payload a client reports on each sync: unique questions rated of those in its selected categories. */
+export const Progress = z.object({
+  answered: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+export type Progress = z.infer<typeof Progress>;
+
+/**
+ * The fixed value an encrypted group's key check seals. Its content doesn't
+ * matter: the check proves a key by opening under it (design/sync.md § Key
+ * verification).
+ */
+export const KEY_CHECK = "group-key-check:1" as const;
+export const KeyCheck = z.literal(KEY_CHECK);
+export type KeyCheck = z.infer<typeof KeyCheck>;
 
 /**
  * Opaque journal entry id as it appears on the wire. The server seals the
@@ -87,9 +113,12 @@ export type JournalEntryId = z.infer<typeof JournalEntryId>;
 export const JournalEntry = z.object({
   id: JournalEntryId,
   personId: z.string(),
-  operation: z.string(),
+  operation: sealedOutput<OperationPayload>(),
 });
+/** Journal entry as the client receives it (operation still sealed). */
 export type JournalEntry = z.infer<typeof JournalEntry>;
+/** Journal entry as server code builds it from DB rows, before output validation. */
+export type JournalEntryRow = z.input<typeof JournalEntry>;
 
 /**
  * Wire shape returned by `sync.selfJournal` (and the backfill stage of
@@ -149,32 +178,36 @@ export interface CategoryData {
 /**
  * Domain schemas for the `groups.status` procedure output — the single
  * source of truth for Person / Member / Group / GroupStatus shapes.
- * Server validates its output against these; client imports the inferred
- * types directly instead of deep-indexing RouterOutputs.
  *
- * `name`, `anatomy`, `progress` are plain strings here even though the
- * wire format may be opaque-encoded (e:1:... / p:1:...) — decoding happens
- * on the client in `decrypt-status.ts`. The schema is deliberately
- * permissive on these fields so encrypted payloads round-trip unchanged.
+ * `name`, `anatomy` and `progress` are sealed (`p:1:…` / `e:1:…`), so each
+ * type comes in flavours:
+ *  - `SealedX` — what the client receives (z.output): sealed fields typed `Sealed<T>`.
+ *  - `X` — what the UI works with after the client's codec opened every
+ *    field (`Opened<SealedX>`). It's deliberately not assignable back to a
+ *    sealed input.
+ *  - `GroupStatusRow` — what the server returns before `.output()`
+ *    validation (z.input): sealed fields as plain strings.
  */
 export const personSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  anatomy: z.string().nullable(),
+  name: sealedOutput<string>(),
+  anatomy: sealedOutput<Anatomy>().nullable(),
   isAdmin: z.boolean(),
   isCompleted: z.boolean(),
 });
-export type Person = z.infer<typeof personSchema>;
+export type SealedPerson = z.infer<typeof personSchema>;
+export type Person = Opened<SealedPerson>;
 
 export const memberSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  anatomy: z.string().nullable(),
+  name: sealedOutput<string>(),
+  anatomy: sealedOutput<Anatomy>().nullable(),
   isAdmin: z.boolean(),
   isCompleted: z.boolean(),
-  progress: z.string().nullable(),
+  progress: sealedOutput<Progress>().nullable(),
 });
-export type Member = z.infer<typeof memberSchema>;
+export type SealedMember = z.infer<typeof memberSchema>;
+export type Member = Opened<SealedMember>;
 
 /** Wire shape returned by `sync.journal` (group-wide, gated on all-complete). */
 export const GroupJournalResponse = z.object({
@@ -187,17 +220,23 @@ export type GroupJournalResponse = z.infer<typeof GroupJournalResponse>;
 export const groupSchema = z.object({
   id: z.string(),
   encrypted: z.boolean(),
+  /** Encrypted groups: `KEY_CHECK` sealed under the group key. Null in plaintext groups and encrypted ones created before it. */
+  keyCheck: sealedOutput<KeyCheck>().nullable(),
   isReady: z.boolean(),
   isAdminReady: z.boolean(),
   questionMode: QuestionMode,
   anatomyLabels: AnatomyLabels.nullable(),
   anatomyPicker: AnatomyPicker.nullable(),
 });
-export type Group = z.infer<typeof groupSchema>;
+export type SealedGroup = z.infer<typeof groupSchema>;
+/** The group as the UI sees it: opening the status consumes the key check. */
+export type Group = Omit<SealedGroup, "keyCheck">;
 
 export const groupStatusSchema = z.object({
   person: personSchema.nullable(),
   group: groupSchema,
   members: z.array(memberSchema),
 });
-export type GroupStatus = z.infer<typeof groupStatusSchema>;
+export type SealedGroupStatus = z.infer<typeof groupStatusSchema>;
+export type GroupStatusRow = z.input<typeof groupStatusSchema>;
+export type GroupStatus = Opened<Omit<SealedGroupStatus, "group">> & { group: Group };

@@ -21,7 +21,7 @@ import {
  * no cookies — after the original tab has answered + synced.
  *
  * Parameterized over `encrypted ∈ {false, true}` so the decrypt path
- * (replayJournal + unwrapSensitive inside useSelfJournal) is exercised in
+ * (replayJournal + the group codec inside useSelfJournal) is exercised in
  * encrypted mode. In encrypted mode the fragment-borne `#key=...` must be
  * preserved when building the summary URL — Playwright's page.url() does
  * include the fragment, but `personBase()` strips it, so we re-attach.
@@ -35,8 +35,8 @@ test.describe("cross-device hydration from server journal", () => {
       // Original device: create group. After setupAdmin, the "You're all
       // set" screen exposes the admin's invite link — capture it BEFORE
       // any further navigation, because TanStack Router's pushState
-      // navigations drop the URL fragment (same pattern as the wouter
-      // note in design/ui.md). The admin link's input value is the
+      // navigations drop the URL fragment (see design/ui.md § Encryption
+      // Key Lifecycle). The admin link's input value is the
       // canonical URL including `#key=` when encrypted.
       await createGroupAndSetup(page, { encrypted });
       const adminUrl = await page.getByLabel("Your invite link").inputValue();

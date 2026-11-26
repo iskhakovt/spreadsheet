@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { buildCategoryAnswerStats, buildScreens, filterQuestionScreens } from "../lib/build-screens.js";
-import { encodeValue } from "../lib/crypto.js";
 import { usePersonApp } from "../lib/person-app-context.js";
 import { useScrollReset } from "../lib/route-reset.js";
 import { useAnswers } from "../lib/self-journal.js";
@@ -64,8 +63,8 @@ export function Question({
   // Mark-complete is the unified hook — it always flushes pending ops
   // before calling sync.markComplete and then navigates to /waiting.
   // Do not roll your own; see lib/use-mark-complete.ts.
-  const { token } = usePersonApp();
-  const markComplete = useMarkComplete(token);
+  const { token, codec } = usePersonApp();
+  const markComplete = useMarkComplete(token, codec);
 
   // Selected categories are React state (not a plain localStorage read) so
   // the first-mount default propagates through a re-render. Prior pattern
@@ -134,7 +133,7 @@ export function Question({
   const categoryAnswerStats = useMemo(() => buildCategoryAnswerStats(screens, answers), [screens, answers]);
 
   // Debounced sync queue — owns the 3s timer, conflict retry, and sync indicator
-  const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length);
+  const { syncing, showSyncIndicator, handleSync, scheduleSync } = useSyncQueue(qScreens.length, codec);
 
   // Flush any leftover pendingOps from a previous session after a short
   // delay so the sync machinery is ready. (Category default-selection is
@@ -283,7 +282,7 @@ export function Question({
     // loudly on malformed shapes instead of silently persisting them.
     const canonical = Answer.parse(answer);
     setAnswer(current.key, canonical);
-    const op = await encodeValue({ key: current.key, data: canonical } satisfies OperationPayload);
+    const op = await codec.seal<OperationPayload>({ key: current.key, data: canonical });
     addPendingOpForKey(op, current.key);
   }
 

@@ -15,8 +15,7 @@ function SummaryRoute() {
     () =>
       authedStatus.members
         .filter((m) => m.id !== authedStatus.person.id)
-        .map((m) => m.anatomy)
-        .filter((a): a is string => a !== null),
+        .flatMap((m) => (m.anatomy === null ? [] : [m.anatomy])),
     [authedStatus.members, authedStatus.person.id],
   );
 

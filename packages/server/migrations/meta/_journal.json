@@ -43,6 +43,20 @@
       "when": 1780392194889,
       "tag": "0005_add_question_compare",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795393277120,
+      "tag": "0006_seal_profile_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795648562242,
+      "tag": "0007_group_key_check",
+      "breakpoints": true
     }
   ]
 }

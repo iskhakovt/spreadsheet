@@ -1,10 +1,11 @@
-import type { Answer, GroupJournalResponse, JournalEntryId } from "@spreadsheet/shared";
+import { Anatomy, type Answer, type GroupJournalResponse, type JournalEntryId, PersonName } from "@spreadsheet/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCClient } from "@trpc/client";
 import type { AppRouter } from "../../../server/src/trpc/router.js";
-import { unwrapSensitive } from "./crypto.js";
+import type { GroupCodec } from "./codec.js";
 import { replayJournal } from "./journal.js";
 import { type JournalEntry, mergeJournal } from "./merge-journal.js";
+import { UI } from "./strings.js";
 
 type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
@@ -19,7 +20,7 @@ type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 export interface MemberAnswers {
   id: string;
   name: string;
-  anatomy: string | null;
+  anatomy: Anatomy | null;
   answers: Record<string, Answer>;
 }
 
@@ -32,22 +33,23 @@ export interface CachedJournal {
 /**
  * Decrypt + replay raw server members + entries into MemberAnswers[].
  *
- * Used by the initial fetch path — takes raw (encrypted in encrypted mode)
- * name/anatomy strings and returns the decrypted MemberAnswers shape with
- * `answers` built by replaying the journal per person.
+ * Used by the initial fetch path — opens sealed name/anatomy and replays
+ * the journal per person. A value that doesn't open is dropped, as in
+ * `decryptStatus`: unreadable name, null anatomy, skipped entry.
  */
 export async function replayMembers(
   members: GroupJournalResponse["members"],
   entries: JournalEntry[],
+  codec: GroupCodec,
 ): Promise<MemberAnswers[]> {
   return Promise.all(
     members.map(async (m) => {
       const memberEntries = entries.filter((e) => e.personId === m.id);
       return {
         id: m.id,
-        name: await unwrapSensitive(m.name),
-        anatomy: m.anatomy ? await unwrapSensitive(m.anatomy) : null,
-        answers: await replayJournal(memberEntries),
+        name: (await codec.openOrDrop(m.name, PersonName)) ?? UI.unreadableName,
+        anatomy: m.anatomy === null ? null : await codec.openOrDrop(m.anatomy, Anatomy),
+        answers: await replayJournal(memberEntries, codec),
       };
     }),
   );
@@ -58,13 +60,13 @@ export async function replayMembers(
  * already-decrypted name/anatomy from the previous state. Used on the
  * subscription merge path where we receive new journal entries but the
  * member metadata (name/anatomy) hasn't changed — re-running full
- * `replayMembers` would pass already-decrypted strings back through
- * `unwrapSensitive`, which is idempotent but wasteful and obscures the
- * contract.
+ * `replayMembers` would try to open already-opened strings, which the
+ * codec rightly rejects.
  */
 export async function rebuildMemberAnswers(
   members: MemberAnswers[],
   mergedEntries: JournalEntry[],
+  codec: GroupCodec,
 ): Promise<MemberAnswers[]> {
   return Promise.all(
     members.map(async (m) => {
@@ -73,7 +75,7 @@ export async function rebuildMemberAnswers(
         id: m.id,
         name: m.name,
         anatomy: m.anatomy,
-        answers: await replayJournal(memberEntries),
+        answers: await replayJournal(memberEntries, codec),
       };
     }),
   );
@@ -91,10 +93,10 @@ export const JOURNAL_QUERY_KEY = ["sync", "journal", "derived"] as const;
  * the prefetch path. Factored out so both code paths go through the same
  * decrypt + replay logic.
  */
-export function makeJournalQueryFn(trpcClient: TrpcClient) {
+export function makeJournalQueryFn(trpcClient: TrpcClient, codec: GroupCodec) {
   return async ({ signal }: { signal?: AbortSignal }): Promise<CachedJournal> => {
     const raw = await trpcClient.sync.journal.query(undefined, { signal });
-    const members = await replayMembers(raw.members, raw.entries);
+    const members = await replayMembers(raw.members, raw.entries, codec);
     return { members, entries: raw.entries, cursor: raw.cursor };
   };
 }
@@ -107,10 +109,10 @@ export function makeJournalQueryFn(trpcClient: TrpcClient) {
  * *after* `Comparison` mounts. Shaves the HTTP round-trip off the
  * critical render path for the receiving side.
  */
-export function prefetchJournal(queryClient: QueryClient, trpcClient: TrpcClient): Promise<void> {
+export function prefetchJournal(queryClient: QueryClient, trpcClient: TrpcClient, codec: GroupCodec): Promise<void> {
   return queryClient.prefetchQuery({
     queryKey: JOURNAL_QUERY_KEY,
-    queryFn: makeJournalQueryFn(trpcClient),
+    queryFn: makeJournalQueryFn(trpcClient, codec),
   });
 }
 
@@ -137,7 +139,11 @@ export function prefetchJournal(queryClient: QueryClient, trpcClient: TrpcClient
  * lets a later delta's write omit an earlier delta's entries, and since
  * the server cursor has moved past them, nothing ever re-delivers them.
  */
-export async function applyJournalDelta(queryClient: QueryClient, entries: JournalEntry[]): Promise<void> {
+export async function applyJournalDelta(
+  queryClient: QueryClient,
+  entries: JournalEntry[],
+  codec: GroupCodec,
+): Promise<void> {
   if (entries.length === 0) return;
 
   // `setQueryData` returns the data as stored. Use that, not the object
@@ -151,7 +157,7 @@ export async function applyJournalDelta(queryClient: QueryClient, entries: Journ
   if (!merged) return;
 
   const rebuiltFrom = merged.entries;
-  const members = await rebuildMemberAnswers(merged.members, rebuiltFrom);
+  const members = await rebuildMemberAnswers(merged.members, rebuiltFrom, codec);
   queryClient.setQueryData<CachedJournal>(JOURNAL_QUERY_KEY, (prev) =>
     prev?.entries === rebuiltFrom ? { ...prev, members } : prev,
   );

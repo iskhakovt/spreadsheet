@@ -19,7 +19,7 @@ test.describe("RouteReset — scroll + focus on SPA navigation", () => {
     await page.getByRole("radio", { name: "Yes", exact: true }).click();
     await page.getByRole("radio", { name: "No", exact: true }).click();
 
-    // Navigate to Summary via the in-app Progress button (wouter
+    // Navigate to Summary via the in-app Progress button (client-side
     // navigate, not a goto). Summary is the canonical "long page" — 16
     // category rows push "Review answers" below the 664px fold.
     await page.getByRole("button", { name: "Progress", exact: true }).click();
@@ -30,7 +30,7 @@ test.describe("RouteReset — scroll + focus on SPA navigation", () => {
     await page.evaluate(() => window.scrollTo(0, 400));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
-    // Wouter SPA nav → RouteReset should fire on the location change.
+    // SPA nav → RouteReset should fire on the location change.
     await page.getByRole("button", { name: "Review answers", exact: true }).click();
     await expect(page.getByText("Review your answers")).toBeVisible();
 

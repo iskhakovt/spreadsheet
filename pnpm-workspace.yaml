@@ -13,3 +13,39 @@ allowBuilds:
   esbuild: false
   protobufjs: false
   ssh2: false
+
+# @trpc/server declares `typescript` as a required peer, so pnpm
+# auto-installed it into `pnpm deploy --prod` and the runtime image
+# shipped the TypeScript 7 native compiler — a Go binary that Trivy then
+# flagged for every Go stdlib CVE. tRPC only needs TypeScript for
+# type-checking, never at runtime. Marking the peer optional keeps it
+# resolved against the workspace's own typescript in dev and out of the
+# image.
+packageExtensions:
+  "@trpc/server":
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+# Pull dev-only transitive deps up to patched releases where the direct
+# dependent has no fixed version yet. Each target keeps the API its
+# consumer uses. Drop an entry once the parent's own range allows a fixed
+# version.
+overrides:
+  # drizzle-kit 0.31 pins esbuild ~0.18 (via @esbuild-kit) and ^0.25:
+  # GHSA-67mh-4wv8-2f99, plus Go 1.20/1.23 stdlib in the binaries.
+  # `drizzle-kit generate` and `drizzle-kit/api` (PGlite tests) work on
+  # 0.28; @esbuild-kit only calls `transform`/`transformSync`.
+  "@esbuild-kit/core-utils>esbuild": ^0.28.2
+  "drizzle-kit>esbuild": ^0.28.2
+  # glob <14.0.2 (GHSA-3g3m-2fjr-6pw4) and minimatch <11.0.1
+  # (GHSA-g3hv-75wg-m249) under testcontainers' archiver and
+  # workbox-build. Both call `glob.sync` / `globSync`, which glob 14 keeps.
+  "archiver-utils>glob": ^14.0.6
+  "workbox-build>glob": ^14.0.6
+  # @hono/vite-dev-server 0.26.1 (latest) still depends on
+  # @hono/node-server 1.x (GHSA-rmxm-3fg6-px4f, fixed only in 2.1.3+) and
+  # minimatch 9. It imports only `getRequestListener`, `getConnInfo` and
+  # `minimatch()`, all present in @hono/node-server 2 and minimatch 11.
+  "@hono/vite-dev-server>@hono/node-server": ^2.1.9
+  "@hono/vite-dev-server>minimatch": ^11.0.9

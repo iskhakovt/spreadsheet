@@ -95,6 +95,20 @@ The IV is not secret — it's stored alongside the ciphertext (prepended). The s
 
 The random IV also acts as a salt — encrypting the same value (e.g. `"amab"`) twice with different IVs produces completely different ciphertext. No pattern leakage from repeated values. This is inherent to GCM mode, no extra salting step needed.
 
+### Length padding
+
+GCM ciphertext is as long as its plaintext, so an unpadded value's length leaks its content: the five ratings serialize to five different lengths (`no` 2, `yes` 3, `maybe` 5, `fantasy` 7, `if-partner-wants` 16), set and clear differ, and answer order gives away the question. Names and progress leak the same way.
+
+So the group codec pads the UTF-8 JSON with trailing spaces to a size bucket before encrypting: **256 bytes, then the next power of two** (`padJson` in `packages/web/src/lib/crypto.ts`).
+
+- 256 bytes holds every note-less op (the longest, `watching-partner-masturbate:receive` + `if-partner-wants`, is 94 bytes), notes up to about 160 bytes, names, anatomy and progress, so rating, question, set/clear and note presence all look alike.
+- Above that, only the power-of-two bucket of the **whole serialized value** shows. A note just under a boundary can be pushed over it by a longer rating (`if-partner-wants` vs `no` is 14 bytes), which narrows the rating only for someone who already knows the note's length to within those bytes. Names over about 250 bytes leave the first bucket too.
+- Buckets count UTF-8 bytes, not UTF-16 code units, so multibyte text can't spill past its bucket.
+
+Trailing whitespace is insignificant to `JSON.parse`, so padding stays inside the `e:1:` format: opening needs no unpadding step, and unpadded values open the same way. Those keep their exact length: values written by clients that don't pad, and outbox ops queued before such a client updated (`pendingOps` are sent as stored).
+
+Plaintext (`p:1:`) values aren't padded: the server can read them anyway.
+
 ### Key lifecycle
 
 | Step | How |
@@ -123,14 +137,37 @@ p:1:{"key":"oral-give:give","data":{"rating":"yes","note":null}}
 e:1:dGhpcyBpcyBlbmNyeXB0ZWQ...
 ```
 
-The client parses by locating the first two colons — the payload after the second colon is preserved verbatim (it may itself contain `:`). Old format versions remain supported — a `p:1:` entry still works after `p:2:` is introduced.
-
-The server stores and returns the full prefixed string as-is. It may optionally validate that the prefix matches the group's `encrypted` flag.
+The client parses by locating the first two colons — the payload after the second colon is preserved verbatim (it may itself contain `:`). The codec rejects versions it doesn't know, so a new version needs readers that understand it before anyone writes it.
 
 | Mode | `group.encrypted` | Prefix | Key management |
 |-|-|-|-|
 | Plaintext | false | `p:1:` | None |
 | Encrypted | true | `e:1:` | Group key in URL fragment `#key=...` |
+
+### Sealed values
+
+Every sensitive field (name, anatomy, progress, journal ops) is a **sealed value** in this format, in both modes. The group's config decides whether to encrypt, never a call site, and both ends enforce it.
+
+- **Type.** `Sealed<T>` (`packages/shared/src/sealed.ts`) is a branded string carrying its payload type. Sensitive tRPC inputs use `sealed<T>()`, built with `z.custom` so the client's input type is `Sealed<T>` and a raw string doesn't compile (`.brand()` brands outputs only). Outputs use `sealedOutput<T>()`, which only checks for a string, so one bad row can't fail a response.
+- **Writes.** The group codec (`packages/web/src/lib/codec.ts`) is the only producer of `Sealed<T>`. Its mode comes from `group.encrypted`, its key from the link, and the two must agree: an encrypted group without a key throws `MissingKeyError`; a plaintext group with one throws `UnexpectedKeyError` rather than follow the server into a downgrade. Encrypted values are padded ([Length padding](#length-padding)).
+- **Server check.** `setupAdmin`, `addPerson`, `setProfile` and `sync.push` (ops and progress) reject a value whose mode doesn't match `group.encrypted` (`encryption_mismatch` → BAD_REQUEST) before writing anything.
+- **Reads.** `codec.open` rejects the other mode, an unknown version, ciphertext that doesn't open under the key (GCM authenticates it), and a payload that fails the field's Zod schema. Rejecting `p:` values in an encrypted group matters most: anyone with database access can write one, so accepting it would let the server forge answers or names.
+- **Drop, don't fail.** A rejected value drops just that field (`openOrDrop`), or one bad write could blank everyone's screen: another member's name shows "Unknown", anatomy and progress become null, a journal entry is skipped. Your own name that doesn't open becomes empty and your anatomy null, which route you to `/setup` / `/anatomy`; those win over free routes and completion (`lib/resolve-route.ts`).
+- **Legacy data.** Migration 0006 rewrites every `persons.name` / `persons.anatomy` value not already `p:1:` / `e:1:` (raw names, and raw text that only looks sealed, like `p:12:"x"`) to `p:1:<json>`. Your own name and anatomy may also be plaintext in an encrypted group, written by older clients: your client reads those (`openLegacyPlaintext`, your own fields only), flags them (`profileHasLegacyPlaintext`), and once the key is proven seals them and writes them back (`useResealLegacyProfile`, not on `/setup` / `/anatomy`, which save the profile themselves). Accepted trade-offs of doing that without asking:
+  - A leaked `p:` value can't be told apart from one a malicious server planted; re-sealing publishes it to partners as genuine.
+  - The re-seal writes the values from the status it read, so it can overwrite a newer save from another tab or device (no compare-and-swap).
+
+#### Key verification
+
+A wrong key in a link must fail closed: dropping fields instead would send you to re-enter them under that key, overwriting what the right key can read.
+
+- **The group's key check decides first.** An encrypted group stores `KEY_CHECK` sealed under its key (`groups.keyCheck`), written by the creator's client at `groups.create`: the creator generated the key, so the check is authoritative. The server accepts only an `e:1:` check for an encrypted group and none for a plaintext one. `decryptStatus` opens it before any field: decrypting (even to another payload) proves the key, failing to decrypt throws `WrongKeyError` from the status query, so every page proves or refutes its key on load, including one with no data of its own yet (an admin link before setup). A refetch or live status whose check refutes the key reaches the boundary too, even over cached data. A check that isn't ciphertext proves nothing and is ignored (anyone with database access could write one); the rules below then apply.
+- **Without a check** (groups created before it), **only your own server-side ciphertext proves the key**: profile fields, progress, journal entries. One decrypting (even if its payload then fails the schema) marks the codec proven (`markKeyProven` / `keyProven`). Another member's value or the local outbox opening proves nothing; it only shows the key matches whoever wrote it.
+- **One decision point.** `decryptStatus` flags own ciphertext that didn't open (`ownCiphertextUnproven`); `assertKeyNotRefuted` throws `WrongKeyError` in the layout's `AuthedShell` after journal hydration and on every render, so your journal can prove the key first and refetched or live statuses are covered. The boundary shows the key-mismatch screen before any screen can write.
+- **Journal.** `assertKeyOpens` checks your own entries before the self-journal cursor is saved (skipped once proven, so one corrupt entry can't pass for a wrong key). While unproven, hydration fetches the whole journal, not the delta, since entries behind the cursor may be your only evidence. A live delta that fails stops the stream; a rejected `sync.push` checks the entries it returns before saving its stoken or merging, and while unproven a push sends no stoken (another tab's would get it accepted unchecked), so existing entries always come back to be checked. Each surfaces `WrongKeyError` to the error boundary.
+- **Others can't lock you out.** Other members' ciphertext that doesn't open only drops their fields.
+- **One page = one person, one key.** A page keeps the person and key it started with: another person's link (`isPersonSwitch`), a different `#key=` (`isKeySwitch`), or a key arriving on a keyless page (`isKeyArrival`) reloads it, and the fresh page verifies from scratch. The session-scoped status cache and `useSaveProfile`'s session check are backstops.
+- **Residual edge, groups without a check.** There's no backfill: nothing short of the creator's own key can safely vouch for a check, and one under a wrong key would lock every member out. So without a check, someone with no ciphertext of their own anywhere (legacy plaintext profile, no answers or progress) can't prove any key, so their first write under a wrong key becomes their own ciphertext, and their correct link then fails closed. The same gap lets answers queued under a wrong key reach the journal, unreadable, once the right link is opened, and a wrong-key error from a sync whose screen has unmounted shows only at the next sync. Groups with a check don't have it: a wrong key never reaches a screen that writes.
 
 ### Encrypted mode URL
 
@@ -146,14 +183,14 @@ https://example.com/p/abc123#key=base64urlEncodedGroupKey
 | Field | Plaintext mode | Encrypted mode |
 |-|-|-|
 | `person.token` | Plaintext | Plaintext (server needs for auth) |
-| `person.name` | Plaintext | Encrypted with group key |
-| `person.anatomy` | Plaintext | Encrypted with group key |
+| `person.name` | `p:1:"Alice"` | `e:1:...` (encrypted with group key) |
+| `person.anatomy` | `p:1:"afab"` | `e:1:...` (encrypted with group key) |
 | `person.is_admin` | Plaintext | Plaintext (server needs for authorization) |
 | `person.is_completed` | Plaintext | Plaintext (server needs to gate compare endpoint) |
 | `person.progress` | `p:1:{"answered":47,"total":120}` | `e:1:...` (encrypted with group key) |
 | `journal_entries.operation` | `p:1:{...}` | `e:1:...` (encrypted with group key) |
 
-All opaque fields use the same `p:1:` / `e:1:` prefixed format.
+All sensitive fields are sealed values ([Sealed values](#sealed-values)).
 
 ### Progress tracking
 
@@ -176,6 +213,7 @@ This ensures:
 
 - Person tokens, admin flags, completion status
 - How many journal entries each person has (it stores them), when they synced
+- Each value's padded size bucket ([Length padding](#length-padding)): one bucket for everything up to 256 B; above that, the power-of-two bucket of the whole value (in practice a long note, or a name over ~250 B). Unpadded values show their exact length.
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
 
 ## Sync Protocol
@@ -220,9 +258,10 @@ Note: entries in the response don't contain internal ids — just the opaque ope
 1. Receive (stoken, operations)
 2. Decrypt and verify stoken (reject if forged)
 3. Resolve stoken to internal id
-4. Check: is id == current head for this person?
-   YES → append operations, assign sequential ids, return new entries + signed stoken
-   NO  → reject push, return entries since client's id + signed stoken of current head
+4. Lock the person's row (FOR UPDATE), so concurrent pushes take turns
+5. Check: is id == current head for this person?
+   YES → append operations (and progress), assign sequential ids, return new entries + signed stoken
+   NO  → reject push, change nothing, return entries since client's id + signed stoken of current head
 ```
 
 The server is the **sequencer**. It assigns order. Clients never see or guess internal ids.
@@ -298,7 +337,7 @@ When the debounce fires (or user taps sync manually):
      - Clear pending queue
      - Store new stoken
   3. If pushRejected:
-     - Apply returned entries to local state
+     - Apply returned entries to local state, against the current queue
      - Keep pending queue (these ops weren't applied)
      - Retry push with new stoken (automatic via conflict-merge retry)
 ```

@@ -1,4 +1,4 @@
-import { plainOp } from "@spreadsheet/shared";
+import { plainOp, plainSealed } from "@spreadsheet/shared";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../../db/index.js";
@@ -54,9 +54,9 @@ async function setupPair() {
   const { adminToken } = await caller.groups.create(defaultCreate());
   const { partnerTokens } = await caller.groups.setupAdmin({
     adminToken,
-    name: "Alice",
+    name: plainSealed("Alice"),
     anatomy: null,
-    partners: [{ name: "Bob", anatomy: null }],
+    partners: [{ name: plainSealed("Bob"), anatomy: null }],
   });
   const bobToken = partnerTokens[0];
 

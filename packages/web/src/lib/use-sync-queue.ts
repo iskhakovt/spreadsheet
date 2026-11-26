@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { encodeValue } from "./crypto.js";
+import { type GroupCodec, WrongKeyError } from "./codec.js";
 import { getAnswers } from "./storage.js";
 import { flushPendingOps } from "./sync-flush.js";
 import { useTRPC } from "./trpc.js";
@@ -13,7 +13,7 @@ import { useTRPC } from "./trpc.js";
  * `sync-flush.ts#flushPendingOps`, shared with `useMarkComplete` so
  * there is exactly one code path that clears the pending-ops queue.
  */
-export function useSyncQueue(totalQuestions: number) {
+export function useSyncQueue(totalQuestions: number, codec: GroupCodec) {
   const trpc = useTRPC();
   const pushMutation = useMutation(trpc.sync.push.mutationOptions());
 
@@ -24,6 +24,11 @@ export function useSyncQueue(totalQuestions: number) {
   // Re-entrancy guard. Lifetime-stable ref — write only inside the callback.
   const inFlightRef = useRef(false);
 
+  // A push that reveals a wrong key (see flushPendingOps) is rethrown on the
+  // next render, so the boundary shows the key-mismatch screen instead of
+  // letting the person keep answering under that key.
+  const [keyError, setKeyError] = useState<WrongKeyError | null>(null);
+
   const handleSync = useCallback(async (): Promise<void> => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -31,17 +36,22 @@ export function useSyncQueue(totalQuestions: number) {
       await flushPendingOps(
         (input) => pushMutation.mutateAsync(input),
         async () =>
-          encodeValue({
+          codec.seal({
             answered: Object.keys(getAnswers()).length,
             total: totalQuestions,
           }),
+        codec,
       );
       inFlightRef.current = false;
     } catch (err) {
       inFlightRef.current = false;
+      if (err instanceof WrongKeyError) {
+        setKeyError(err);
+        return;
+      }
       throw err;
     }
-  }, [pushMutation, totalQuestions]);
+  }, [pushMutation, totalQuestions, codec]);
 
   /**
    * Schedule or cancel a debounced sync. Call this whenever the pending
@@ -73,6 +83,8 @@ export function useSyncQueue(totalQuestions: number) {
       clearTimeout(syncIndicatorTimerRef.current);
     };
   }, []);
+
+  if (keyError) throw keyError;
 
   return {
     syncing: pushMutation.isPending,

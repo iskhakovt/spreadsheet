@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { type Logger, type LoggerOptions, pino } from "pino";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -83,7 +84,12 @@ export const logger: Logger = isProduction
   : pino({
       ...baseOptions,
       transport: {
-        target: "pino-pretty",
+        // Absolute path, resolved from this module. Given a bare name, pino
+        // resolves it relative to the file names in its caller's stack, and
+        // Vite's SSR module runner (`pnpm dev`) evaluates this module with an
+        // empty file name, so pino finds nothing and throws "unable to
+        // determine transport target".
+        target: createRequire(import.meta.url).resolve("pino-pretty"),
         options: {
           colorize: true,
           translateTime: "HH:MM:ss.l",

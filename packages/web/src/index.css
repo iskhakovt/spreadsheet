@@ -108,10 +108,45 @@ body::before {
   animation: fade-slide-in 0.4s var(--ease-spring) both;
 }
 
-/* Staggered entrance — each sibling animates in sequence with a spring
-   ease. Set --stagger-index via inline style for per-element delay. */
+/* Staggered entrance: one 120ms step per sibling position. sibling-index()
+   counts every element sibling, so a sequence's .stagger items must be the
+   leading children of one container; wrap items that share a beat in a
+   single .stagger element.
+
+   Without sibling-index() (Chrome < 138, Safari < 26.2, Firefox < 154) the
+   :nth-child() rules take over: same counting, first five positions only,
+   so add a rule for a longer sequence. They're gated by `@supports not`
+   because .stagger:nth-child() outranks .stagger. The @supports guard is
+   what keeps var() safe in the native rule (or folding it into the
+   animation shorthand): var() skips parse-time validation, so unguarded,
+   old browsers would keep the declaration and break the entrance. */
 .stagger {
-  animation: fade-slide-in 0.5s calc(var(--stagger-index, 0) * 120ms + 80ms) var(--ease-spring) both;
+  animation: fade-slide-in 0.5s 80ms var(--ease-spring) both;
+}
+
+@supports (animation-delay: calc(sibling-index() * 1ms)) {
+  .stagger {
+    animation-delay: calc((sibling-index() - 1) * 120ms + 80ms);
+  }
+}
+
+/* Keep in sync with the rule above: (n - 1) * 120ms + 80ms. */
+@supports not (animation-delay: calc(sibling-index() * 1ms)) {
+  .stagger:nth-child(2) {
+    animation-delay: 200ms;
+  }
+
+  .stagger:nth-child(3) {
+    animation-delay: 320ms;
+  }
+
+  .stagger:nth-child(4) {
+    animation-delay: 440ms;
+  }
+
+  .stagger:nth-child(5) {
+    animation-delay: 560ms;
+  }
 }
 
 /* Gentle drift for decorative background blobs. Two variants with

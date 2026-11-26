@@ -6,7 +6,8 @@ import { AnatomyPicker } from "../components/AnatomyPicker.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { CopyLinkField } from "../components/copy-link-field.js";
-import { buildPersonLink, wrapSensitive } from "../lib/crypto.js";
+import { getGroupCodec } from "../lib/codec.js";
+import { buildPersonLink } from "../lib/crypto.js";
 import { useScrollReset } from "../lib/route-reset.js";
 import { useTRPC } from "../lib/trpc.js";
 import { useCopy } from "../lib/use-copy.js";
@@ -68,18 +69,16 @@ export function GroupSetup({ adminToken, group }: Readonly<GroupSetupProps>) {
   async function handleSubmit() {
     if (!canSubmit) return;
 
-    const encName = await wrapSensitive(myName);
-    const rawAnatomy = adminPicksAnatomy ? (myAnatomy as string) : null;
-    const encAnatomy = rawAnatomy ? await wrapSensitive(rawAnatomy) : null;
+    // The codec picks the mode from the group's config: `p:1:` for plaintext
+    // groups, padded `e:1:` for encrypted ones.
+    const codec = getGroupCodec(group.encrypted);
+    const sealAnatomy = async (anatomy: Anatomy | "") =>
+      adminPicksAnatomy && anatomy ? codec.seal<Anatomy>(anatomy) : null;
 
+    const encName = await codec.seal(myName);
+    const encAnatomy = await sealAnatomy(myAnatomy);
     const encPartners = await Promise.all(
-      partners.map(async (p) => {
-        const pRawAnatomy = adminPicksAnatomy ? (p.anatomy as string) : null;
-        return {
-          name: await wrapSensitive(p.name),
-          anatomy: pRawAnatomy ? await wrapSensitive(pRawAnatomy) : null,
-        };
-      }),
+      partners.map(async (p) => ({ name: await codec.seal(p.name), anatomy: await sealAnatomy(p.anatomy) })),
     );
 
     const result = await setupMutation.mutateAsync({
