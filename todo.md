@@ -4,6 +4,7 @@
 
 - [ ] `p3` E2E for the SIGTERM → reconnect path: kill the server mid-stream, restart, assert the next `tracked()` cursor is honored and the client receives the catch-up backfill. Currently asserted only by reasoning.
 - [ ] `p2` Investigate local `pnpm test:e2e` flakiness — different runs produce different sets of failures (3, 10, 12 across runs on the same code), with characteristic "Target page, context or browser has been closed" timeouts. Affects both `main` and feature branches; CI Docker image runs are clean. Likely resource contention on the local Chromium pool or fixture lifecycle. Fix so local pre-push e2e is a usable signal.
+- [ ] `p3` `SyncStore.journalSince` can skip a newly added member's entry for good. It reads the member list and then the entries in two statements, each with its own READ COMMITTED snapshot. Say an admin adds member X between them, X pushes entry N, and an existing member then commits N+1. The scan filters on the old member list, so it returns N+1 without N, and the cursor passes N. Once X completes, every read resumes past N. Needs a member added while the group is on `/results`. Fix: run `journalSince` in one REPEATABLE READ transaction, so the all-complete gate and the scan see the same members. Since #248, a group's ids commit in order: if N+1 is in the snapshot, N and X's row are too, so the gate fails instead of skipping. Found in review of #248.
 
 ## Later
 
