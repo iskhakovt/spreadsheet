@@ -50,6 +50,7 @@ The name is a pun: "Have you filled out the spreadsheet?" is an impeccable text 
 |-|-|
 | [schema.md](schema.md) | Database tables, entity relationships, question structure, rating scale |
 | [sync.md](sync.md) | Sync protocol, journal, encryption, offline mode, conflict resolution |
+| [outbox.md](outbox.md) | Proposed race-free outbox: per-op queue entries, one flusher per tab, acknowledgement by id |
 | [ui.md](ui.md) | User journey, screens, routing, design system |
 | [server.md](server.md) | Server patterns: stores, event buses, logging, error handling, CLI |
 
