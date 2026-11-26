@@ -218,6 +218,25 @@ This ensures:
 - Each value's padded size bucket ([Length padding](#length-padding)): one bucket for everything up to 256 B; above that, the power-of-two bucket of the whole value (in practice a long note, or a name over ~250 B). Unpadded values show their exact length.
 - **NOT**: names, anatomy, progress details, which questions were answered, what the ratings are
 
+### Threat model
+
+Encryption keeps answers, names, anatomy and progress unreadable to the server. It doesn't make the server trustworthy. What each kind of attacker can do in an encrypted group:
+
+| Attacker | Can | Can't |
+|-|-|-|
+| Reads the database or traffic (a leaked dump, a backup, logs) | See the metadata listed above | Read any sealed field |
+| Edits database rows or API responses, but not the JavaScript the browser runs | Reassign entries or names to a different member; drop or reorder a member's entries so an older answer wins; release the journal before everyone completes; remove a group's key check (members fall back to the checks for groups without one) or replace it (every member gets the key-mismatch screen) | Read anything; create new `e:` ciphertext; move an answer to a different question (the `questionId:role` key is inside the ciphertext); pass off a `p:` value as a member's answer or name ([Sealed values](#sealed-values)) |
+| Controls the JavaScript the browser runs | Everything: read `#key=` from the URL and send itself every decrypted answer | — |
+
+The last row is the ceiling for any browser app with end-to-end encryption: whoever serves the code can remove every client-side check. The same Hono process serves the SPA and the API, and the PWA auto-updates (`registerType: "autoUpdate"`), so compromising the server process compromises the code. The client-side checks target the middle row: values sealed in the wrong mode are rejected on read ([Sealed values](#sealed-values)), a wrong key fails closed ([Key verification](#key-verification)), and lengths are padded ([Length padding](#length-padding)).
+
+Known gaps, not addressed:
+
+- **Owner binding.** Neither a journal entry's `personId` nor the member id next to a sealed name is bound to the ciphertext, so the middle-row attacker can swap whose answers are whose. AES-GCM `additionalData` (`groupId|personId|field`, as a new `e:2:` format) would bind them. That only helps if the id comes from something the client knows independently, like its own link: person ids are server-assigned, so a lying server could tell Alice that Bob's id is hers. And at setup the admin seals partner names before any ids exist, so doing it properly changes the setup API.
+- **Rollback and omission.** Replay is last-write-wins in server order. Fixing it means hash-chaining each member's operations and recording the head at `markComplete`, which interacts with [editing after completion](#edit-after-completion).
+- **Member + server collusion.** All members share one group key, so any member can create valid ciphertext attributed to anyone. Preventing that needs a signing key per person and a trusted member list.
+- **Blind matching** is enforced only by the server ([Blind matching](#blind-matching)).
+
 ## Sync Protocol
 
 ### Combined push + pull (single round-trip)
