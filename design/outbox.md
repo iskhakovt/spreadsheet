@@ -87,6 +87,8 @@ markComplete():
 
 Done doesn't wait for autosync; it pushes on its own, bounded by the 30 s timeout per request. A target counts as gone when it was acknowledged by anyone or replaced by a newer edit, which then belongs to whichever tab made it.
 
+When the flush fails, times out, or leaves a target queued, Done shows an explicit state: "Couldn't sync — your answers are saved on this device. Tap to retry". It also retries by itself on the browser's `online` event. Today a failed Done gives no feedback (`useMarkComplete` rethrows and the `onClick` in `Question.tsx` doesn't catch it), so someone who closes the tab is never marked complete and their last answers stay only on that device.
+
 ## Server: idempotency keys
 
 An API and schema change, which `CLAUDE.md` asks to discuss first. The owner has approved the direction.
@@ -111,9 +113,15 @@ The legacy reader stays for about six months, logging each adoption so its use c
 
 **Mixed versions.** The service worker doesn't reload open tabs (`vite.config.ts`: `registerType: "autoUpdate"`, no reload hook), so an old tab can keep writing `pendingOps` while new tabs run. A new tab adopts those ops on its next load or flush and pushes them. To the old tab that is another tab flushing the queue, which it already lives with on `main` (race 3), so the window is no worse than two old tabs. The server accepts both input shapes.
 
-**Rollback.** Expand, then contract: first ship a release whose only change is a reader that drains any `outbox:*` entries back into `pendingOps`. Then ship the outbox. Reverting to the first release is safe; reverting past it strands queued ops.
-
 **`CLAUDE.md`.** The implementing change amends § Storage and § Graceful local data migrations: the outbox is `outbox:{key}` entries, and the "pending ops are opaque strings" rule now covers the `op` field inside an entry.
+
+## Rollout
+
+Three releases, in this order:
+
+1. **Drain-back reader.** Its only change is a reader that moves any `outbox:*` entries back into `pendingOps`. It exists so release 2 can be reverted: reverting to it is safe, reverting past it strands queued ops.
+2. **The per-answer outbox.** Fixes races 1 to 4, the frozen-batch retry and the stoken timing. It sends bare strings and has no journal acknowledgement yet, so a lost response still resends as on `main`.
+3. **Server idempotency keys.** The server change deploys with the client that sends `{ id, op }` and acknowledges from the journal. Adds the lost-response safety. If it is reverted, bundles already cached keep sending the new shape and their pushes fail until they update; the ops stay queued.
 
 ## Rejected alternatives
 
@@ -156,9 +164,5 @@ Revisit if the client grows into a real local-first data layer, or once it reach
 | store | Same `(person_id, op_id)` twice inserts once; bare strings store a null `op_id` | lost response |
 | integration | Push commits, response dropped, another device writes the key, client resends: one journal entry, the newer value stands | lost response |
 | e2e | Hold `sync.push`, edit the same note, release; and the same with Done tapped mid-push. For `encrypted` in `[false, true]` | races 1 and 2 |
+| e2e | `sync.push` fails with Done tapped: the retry state shows, nothing is marked complete; tapping it, or an `online` event, completes | Done failure |
 | e2e | Two pages in one context answer and sync while one push is held: a fresh context has every answer | races 3 and 4 |
-
-## Open questions
-
-1. **Done when its push fails or times out.** Today the tap gives no feedback: `useMarkComplete` rethrows and the `onClick` in `Question.tsx` doesn't catch it. Keep that, or show an explicit "couldn't sync, tap to retry" state? Recommended: the explicit state.
-2. **One change or two.** The outbox alone fixes races 1 to 4 and can ship first, sending bare strings. The server op ids add the lost-response safety and journal acknowledgement. Two changes are easier to review and revert; one avoids an interim state where a rejection can't acknowledge by id.
