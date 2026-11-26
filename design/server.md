@@ -3,7 +3,9 @@
 ```
 packages/server/src/
   main.ts     ← CLI dispatcher (serve|migrate|seed|setup). Docker entrypoint.
-  index.ts    ← Hono app setup (serve-only). Used directly by `tsx watch` in dev.
+  index.ts    ← Prod serve entry: opens the DB, builds stores + the SPA shell, calls createApp + serve.
+  app.ts      ← createApp(...): the Hono app, shared by prod and dev.
+  dev/        ← Dev only: entry.ts, state.ts, shell.ts, which Vite loads to host the Hono app in-process.
   events.ts   ← Three EventEmitter instances: groupEvents, journalEvents, selfJournalEvents
   logger.ts   ← Pino instance + redact paths + error serializer
   request-logger.ts ← Per-request child logger with reqId + HTTP duration histogram
@@ -88,7 +90,7 @@ Unexpected exceptions surface as 5xx responses, logged at `error` level by the r
 
 Operations runs `setup` once before `serve` — see [../deploy.md](../deploy.md). Migrations are not run on server start so multi-replica deploys don't race.
 
-`index.ts` (the serve path) is imported directly by `tsx watch` in dev, bypassing the CLI dispatcher — dev never touches migrate/seed.
+In dev, `pnpm dev` (`scripts/dev.ts`) starts Postgres, runs `main.ts setup`, then starts Vite, which hosts the Hono app in-process through `@hono/vite-dev-server` (`dev/entry.ts`, wired in `packages/web/vite.config.ts`). That path never loads `index.ts`. `pnpm dev:server` still runs `index.ts` alone under `tsx watch`, with `DATABASE_URL` and `STOKEN_SECRET` taken from the environment.
 
 ## Metrics
 
